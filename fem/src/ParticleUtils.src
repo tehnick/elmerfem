@@ -56,35 +56,35 @@ MODULE ParticleUtils
     INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0, &
                NumberOfMovingParticles = 0, &
                TimeOrder = 0, FirstGhost = 0
-    TYPE(Variable_t), POINTER :: Variables => Null()	
+    TYPE(Variable_t), POINTER :: Variables => NULL()	
     
     REAL(KIND=dp) :: time, dtime
     LOGICAL :: DtConstant = .TRUE., RK2 = .FALSE.  
     INTEGER :: DtSign = 1    
 
-    REAL(KIND=dp), POINTER :: Coordinate(:,:) => Null()
-    REAL(KIND=dp), POINTER :: PrevCoordinate(:,:) => Null()
-    REAL(KIND=dp), POINTER :: Velocity(:,:) => Null()
-    REAL(KIND=dp), POINTER :: PrevVelocity(:,:) => Null()
-    REAL(KIND=dp), POINTER :: Force(:,:) => Null()
+    REAL(KIND=dp), POINTER :: Coordinate(:,:) => NULL()
+    REAL(KIND=dp), POINTER :: PrevCoordinate(:,:) => NULL()
+    REAL(KIND=dp), POINTER :: Velocity(:,:) => NULL()
+    REAL(KIND=dp), POINTER :: PrevVelocity(:,:) => NULL()
+    REAL(KIND=dp), POINTER :: Force(:,:) => NULL()
 !    REAL(KIND=dp), POINTER :: Dt(:) => Null()     
-    REAL(KIND=dp), POINTER :: uvw(:,:) => Null()
+    REAL(KIND=dp), POINTER :: uvw(:,:) => NULL()
     
-    INTEGER, POINTER :: FaceIndex(:) => Null()
-    INTEGER, POINTER :: Status(:) => Null()
-    INTEGER, POINTER :: ElementIndex(:) => Null()
+    INTEGER, POINTER :: FaceIndex(:) => NULL()
+    INTEGER, POINTER :: Status(:) => NULL()
+    INTEGER, POINTER :: ElementIndex(:) => NULL()
     INTEGER, POINTER :: NodeIndex(:) => NULL()
     
     ! Data structure for the particle-particle interaction 
     INTEGER :: MaxClosestParticles
     LOGICAL :: NeighbourTable = .FALSE.   
-    INTEGER, POINTER :: ClosestNode(:) => Null()
-    INTEGER, POINTER :: ClosestParticle(:) => Null()
-    INTEGER, POINTER :: NoClosestParticle(:) => Null()
-    INTEGER, POINTER :: CumClosestParticle(:) => Null()
+    INTEGER, POINTER :: ClosestNode(:) => NULL()
+    INTEGER, POINTER :: ClosestParticle(:) => NULL()
+    INTEGER, POINTER :: NoClosestParticle(:) => NULL()
+    INTEGER, POINTER :: CumClosestParticle(:) => NULL()
     
     ! Mark the internal elements without any interface nodes
-    LOGICAL, POINTER :: InternalElements(:) => Null()
+    LOGICAL, POINTER :: InternalElements(:) => NULL()
     
     ! Local and global bounding boxes
     REAL(KIND=dp) :: LocalMinCoord(3), LocalMaxCoord(3)
@@ -2223,28 +2223,25 @@ RETURN
 
     IF( ElemDim == 3 ) THEN
       NoFaces = BulkElement % TYPE % NumberOfFaces 
-      DO i=1, NoFaces  
+    ELSE 
+      NoFaces = BulkElement % TYPE % NumberOfEdges 
+    END IF
+
+    DO i=1, NoFaces  
+      IF( ElemDim == 3 ) THEN
         j = BulkElement % FaceIndexes(i)
         BoundaryElement => Mesh % Faces( j )
-        CALL GetElementNodes(BoundaryNodes,BoundaryElement)
-        
-        Lambda(i) = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
-            Rinit,Rfin) 
-	FaceIndex(i) = j
-      END DO	    
-    ELSE
-      NoFaces = BulkElement % TYPE % NumberOfEdges 
-      DO i=1, NoFaces
+      ELSE
         j = BulkElement % EdgeIndexes(i)
         BoundaryElement => Mesh % Edges(j)
+      END IF
 
-        CALL GetElementNodes(BoundaryNodes,BoundaryElement)
-
-        Lambda(i) = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
-            Rinit,Rfin) 
-	FaceIndex(i) = j
-      END DO
-    END IF
+      CALL GetElementNodes(BoundaryNodes,BoundaryElement)
+        
+      Lambda(i) = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
+          Rinit,Rfin) 
+      FaceIndex(i) = j
+    END DO
 
     ! Sort the lambdas so that the best intersection is easily found
     !-----------------------------------------------------------------------
@@ -2277,15 +2274,186 @@ RETURN
       END IF
     ELSE 
       MinLambda = HUGE( MinLambda ) 
-      FaceElement => Null()
+      FaceElement => NULL()
 
       CALL Warn('SegmentElementIntersection','Could not find any intersection')
-      print *,'Lambda: ',NoFaces,Lambda(1:NoFaces)
+      PRINT *,'Lambda: ',NoFaces,Lambda(1:NoFaces)
     END IF
 
+!PRINT *,'Lambda:',Lambda(1:NoFaces)
+!PRINT *,'MinLambda',MinLambda
     
   END SUBROUTINE SegmentElementIntersection
   
+
+  !---------------------------------------------------------------------------
+  !> This subroutine finds the possible intersection between elementfaces 
+  !> and a line segment defined by two coordinates.
+  !---------------------------------------------------------------------------
+  SUBROUTINE SegmentElementIntersection2(Mesh,BulkElement,&
+      Rinit,Rfin,MinLambda,FaceElement)
+    !---------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Element_t), POINTER   :: BulkElement
+    REAL(KIND=dp) :: Rinit(3), Rfin(3), MinLambda
+    TYPE(Element_t), POINTER :: FaceElement
+    
+    TYPE(Element_t), POINTER :: FaceElement2
+    TYPE(Element_t), POINTER   :: BoundaryElement
+    TYPE(Nodes_t), SAVE :: BoundaryNodes
+    REAL(KIND=dp) :: Lambda, PosEps, NegEps, Dist
+    INTEGER :: ElemDim, NoFaces, i,j,n
+    INTEGER, POINTER :: NodeIndexes(:)
+    LOGICAL :: Success, AtBoundary, AtFace, Visited = .FALSE.
+        
+   
+    PosEps = 1.0e-10
+    NegEps = -1.0e-7
+    
+
+    ElemDim = BulkElement % TYPE % DIMENSION
+    MinLambda = -HUGE( MinLambda ) 
+
+    IF( ElemDim == 3 ) THEN
+      NoFaces = BulkElement % TYPE % NumberOfFaces 
+    ELSE
+      NoFaces = BulkElement % TYPE % NumberOfEdges 
+    END IF
+
+    DO i=1, NoFaces          
+     IF( ElemDim == 3 ) THEN
+        j = BulkElement % FaceIndexes(i)
+        BoundaryElement => Mesh % Faces( j )
+      ELSE
+        j = BulkElement % EdgeIndexes(i)
+        BoundaryElement => Mesh % Edges(j)
+      END IF
+      
+      CALL GetElementNodes(BoundaryNodes,BoundaryElement)
+      
+      Lambda = LineFaceIntersection2(BoundaryElement,BoundaryNodes,&
+          Rinit,Rfin,Success)
+      IF(.NOT. Success ) CYCLE 
+
+      IF( Lambda > MinLambda ) THEN
+        MinLambda = Lambda 
+        FaceElement => BoundaryElement 
+        IF( MinLambda > PosEps ) EXIT
+      END IF
+    END DO
+
+    IF( MinLambda < NegEps ) THEN
+      FaceElement => NULL()
+!      CALL Warn('SegmentElementIntersection','Could not find any intersection')
+!      PRINT *,'Lambda: ',NoFaces,MinLambda
+    ELSE 
+      MinLambda = MAX( MinLambda, 0.0_dp )
+    END IF
+    
+  END SUBROUTINE SegmentElementIntersection2
+  
+  !---------------------------------------------------------------------------
+  !> This subroutine tests whether a particle is within element using the 
+  !> same strategy as the above algorithm,
+  !---------------------------------------------------------------------------
+  FUNCTION SegmentElementInside(Mesh,BulkElement,Rfin) RESULT ( Inside )
+    !---------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Element_t), POINTER   :: BulkElement
+    REAL(KIND=dp) :: Rfin(3)
+    LOGICAL :: Inside
+    !---------------------------------------------------------------------------
+    REAL(KIND=dp) :: Rinit(3), MaxLambda
+    TYPE(Element_t), POINTER   :: BoundaryElement
+    TYPE(Nodes_t), SAVE :: Nodes
+    REAL(KIND=dp) :: Lambda, Eps, Lambdas(6)
+    INTEGER :: ElemDim, NoFaces, i,j,n,Hits
+    INTEGER, POINTER :: NodeIndexes(:)
+    LOGICAL :: Success, AtBoundary, AtFace, Visited = .FALSE.
+    REAL(KIND=dp) :: minx,maxx,dx,mindist,dist
+   
+    Eps = 1.0e-12
+
+    n = GetElementNOFNOdes(BulkElement)
+    CALL GetElementNodes(Nodes,BulkElement)
+  
+    ! First make a quick and dirty test to save time
+    !--------------------------------------------------------------------------
+    DO i=1,3
+      IF( i == 1 ) THEN
+        maxx = MAXVAL( Nodes % x(1:n) )
+        minx = MINVAL( Nodes % x(1:n) )
+      ELSE IF( i == 2 ) THEN
+        maxx = MAXVAL( Nodes % y(1:n) )
+        minx = MINVAL( Nodes % y(1:n) )
+      ELSE
+        maxx = MAXVAL( Nodes % z(1:n) )
+        minx = MINVAL( Nodes % z(1:n) )
+      END IF
+      
+      dx = Eps * (maxx-minx) 
+      IF( Rfin(i) < minx - dx ) RETURN
+      IF( Rfin(i) > maxx + dx ) RETURN
+    END DO
+
+    ! Then the more laborious test where intersections with the faces are determined
+    !-------------------------------------------------------------------------------
+    Rinit(1) = SUM( Nodes % x(1:n) ) / n
+    Rinit(2) = SUM( Nodes % y(1:n) ) / n
+    Rinit(3) = SUM( Nodes % z(1:n) ) / n
+
+    ElemDim = BulkElement % TYPE % DIMENSION
+    Hits = 0
+    
+    IF( ElemDim == 3 ) THEN
+      NoFaces = BulkElement % TYPE % NumberOfFaces 
+    ELSE
+      NoFaces = BulkElement % TYPE % NumberOfEdges 
+    END IF
+
+    DO i=1, NoFaces          
+     IF( ElemDim == 3 ) THEN
+        j = BulkElement % FaceIndexes(i)
+        BoundaryElement => Mesh % Faces( j )
+      ELSE
+        j = BulkElement % EdgeIndexes(i)
+        BoundaryElement => Mesh % Edges(j)
+      END IF
+      
+      CALL GetElementNodes(Nodes,BoundaryElement)
+      
+      Lambda = LineFaceIntersection2(BoundaryElement,Nodes,&
+          Rinit,Rfin,Success)
+      IF(.NOT. Success ) CYCLE 
+
+      Hits = Hits + 1
+      Lambdas(Hits) = Lambda
+    END DO
+
+    IF( Hits == 0 ) THEN
+      Inside = .FALSE.
+    ELSE 
+      MaxLambda = MAXVAL( Lambdas(1:Hits) )
+      Inside = MaxLambda < 1.0 + Eps .AND. MaxLambda > -Eps 
+
+! I don't really get it how there can be other than 0 or 2 hits 
+      IF( .FALSE. .AND. Hits /= 2 ) THEN
+        MinDist = HUGE(MinDist)
+        DO i=1,n
+          Dist = SQRT( (Rfin(1)-Nodes % x(i))**2 + &
+              (Rfin(2)-Nodes % y(i))**2 + &
+              (Rfin(3)-Nodes % z(i))**2 )
+          MinDist = MIN( Dist, MinDist )
+        END DO
+
+        PRINT *,'SegmentElementInside: number of hits: ', Hits,Inside,MinDist
+        PRINT *,'Lambdas:',Lambdas(1:Hits)
+      END IF
+    END IF
+
+  END FUNCTION SegmentElementInside
+  
+
   
   !------------------------------------------------------------------------
   !> Find the particle in the mesh using actree based search. 
@@ -2309,7 +2477,7 @@ RETURN
     TYPE(Nodes_t), SAVE :: ElementNodes
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: Element
-    TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
+    TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>NULL(), LeafQuadrant
     REAL(kind=dp) :: BoundingBox(6), eps2, eps1, uvw(3)
     
     
@@ -2347,7 +2515,7 @@ RETURN
     END IF
     RootQuadrant => Mesh % RootQuadrant
     
-    Element => Null()
+    Element => NULL()
     ElementIndex = 0
     CALL FindLeafElements(GlobalCoords, Mesh % MeshDim, RootQuadrant, LeafQuadrant)
     IF ( ASSOCIATED(LeafQuadrant) ) THEN
@@ -2405,14 +2573,13 @@ RETURN
       END SUBROUTINE ParticleWallKernel
     END INTERFACE
 
-
   !-------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: Params, BC
     TYPE(Mesh_t), POINTER :: Mesh
     REAL(KIND=dp) :: Rtmp(3), Normal(3), MinLambda, eps, UnitVector(3), ds2, &
 	LocalCoord(3),Velo0(3)
     LOGICAL :: Hit, DoInit, Stat, StopAtFace, AtWall, Visited = .FALSE.,&
-        Debug,UseCenter,GotBC,GotBC2,ParticleBounce
+        Debug,UseCenter,GotBC,GotBC2,ParticleBounce, Robust, Inside
     INTEGER :: i,j,k,n,FaceIndex,MaxTrials,bc_id,cons_id,ElementIndex0,ParticleStatus0
     INTEGER :: Problems(3), PrevNo 
     TYPE(Nodes_t), SAVE :: ElementNodes
@@ -2424,7 +2591,7 @@ RETURN
     INTEGER :: NextPartition, Counter = 0
     LOGICAL, POINTER :: FaceInterface(:)
     
-    SAVE :: Mesh, StopAtFace, Debug, MaxTrials, Counter, Problems, PrevNo, Eps
+    SAVE :: Mesh, StopAtFace, Debug, MaxTrials, Counter, PrevNo, Eps, Robust, Problems
     
     Mesh => GetMesh()
     Counter = Counter + 1
@@ -2432,6 +2599,8 @@ RETURN
 
     IF( .NOT. Visited ) THEN
       Params => GetSolverParams()
+      Robust = ListGetLogical( Params,'Particle Locate Robust',stat)
+      IF(.NOT. Stat) Robust = .TRUE.
       StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
       MaxTrials = ListGetInteger( Params,'Max Particle Search Trials',Stat)
       IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements      
@@ -2439,7 +2608,7 @@ RETURN
       Eps = ListGetConstReal( Params,'Particle Hit Tolerance',Stat)
       IF(.NOT. Stat) Eps = 1.0e-10
       Problems = 0
-      Visited = .TRUE.
+      Visited = .TRUE.     
     END IF
 
     !--------------------------------------------------------------------
@@ -2459,7 +2628,7 @@ RETURN
 
     IF(.NOT. UseCenter ) THEN
       ds2 = SUM( (Rinit - Rfin)**2 )
-      IF( ds2 < EPSILON( ds2 ) ) GOTO 100
+      IF( ds2 < EPSILON( ds2 ) ) RETURN
     END IF
 
     IF( Debug ) THEN
@@ -2496,24 +2665,31 @@ RETURN
         END IF
       END IF
       
-      CALL SegmentElementIntersection(Mesh,Element,&
-          Rtmp,Rfin,MinLambda,FaceElement )
+      IF( Robust ) THEN
+        CALL SegmentElementIntersection2(Mesh,Element,&
+            Rtmp,Rfin,MinLambda,FaceElement )
+      ELSE
+        CALL SegmentElementIntersection(Mesh,Element,&
+            Rtmp,Rfin,MinLambda,FaceElement )
+      END IF
+
       ParticleBounce = .FALSE.
 
 
       IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
         ! One likely cause for unsuccessful operation is that the 
         ! initial node and target node are the same
+        
         ds2 = SUM ( ( Rtmp - Rfin )**2 )
         IF( ds2 < EPSILON( ds2 ) ) THEN
           ParticleStatus = PARTICLE_HIT
           EXIT
         ELSE
-          IF( .NOT. AccurateAtFace ) THEN
-            CALL Warn('LocateParticleInMesh','No intersection found?')
-            PRINT *,'Rinit:',Rtmp
-            PRINT *,'Rfin: ',Rfin
-          END IF
+!          IF( .NOT. AccurateAtFace ) THEN
+!            CALL Warn('LocateParticleInMesh','No intersection found?')
+!            PRINT *,'Rinit:',Rtmp
+!            PRINT *,'Rfin: ',Rfin
+!          END IF
           EXIT
         END IF
       ELSE IF( MinLambda > 1.0_dp - eps ) THEN
@@ -2624,31 +2800,45 @@ RETURN
 
       IF( ASSOCIATED( NextElement, PrevElement ) ) THEN
         CALL GetElementNodes(ElementNodes,NextElement)
-        IF ( PointInElement( NextElement, ElementNodes, Rfin, LocalCoord ) ) THEN
+        IF( Robust ) THEN
+          Inside =  SegmentElementInside(Mesh,NextElement,Rfin) 
+        ELSE
+          Inside = PointInElement( NextElement, ElementNodes, Rfin, LocalCoord )
+        END IF
+        IF( Inside ) THEN
 	  Problems(1) = Problems(1) + 1
 !          CALL Warn('LocateParticleInMeshMarch','Elements are same, found in NextElement!')          
-	  Element => NextElement
+          Element => NextElement
           ParticleStatus = PARTICLE_HIT	  
           EXIT
+        END IF 
+
+        CALL GetElementNodes(ElementNodes,Element)
+        IF( Robust ) THEN
+          Inside =  SegmentElementInside(Mesh,Element,Rfin) 
         ELSE
-          CALL GetElementNodes(ElementNodes,Element)
-          IF( PointInElement( Element, ElementNodes, Rfin, LocalCoord ) ) THEN
-	    Problems(2) = Problems(2) + 1
-!            CALL Warn('LocateParticleInMeshMarch','Elements are same, found in Element!')          
-            ParticleStatus = PARTICLE_HIT
-	    EXIT
-          ELSE 
-            Problems(3) = Problems(3) + 1
-!            CALL Warn('LocateParticleInMeshMarch','Elements are same, this is going nowhere!')          
-	    ParticleStatus = PARTICLE_LOST
-            EXIT
-          END IF
+          Inside = PointInElement( Element, ElementNodes, Rfin, LocalCoord )
         END IF
+        IF( Inside ) THEN
+	  Problems(2) = Problems(2) + 1
+!          CALL Warn('LocateParticleInMeshMarch','Elements are same, found in Element!')          
+          ParticleStatus = PARTICLE_HIT	  
+          EXIT
+        END IF 
+
+        Problems(3) = Problems(3) + 1
+!            CALL Warn('LocateParticleInMeshMarch','Elements are same, this is going nowhere!')          
+        ParticleStatus = PARTICLE_LOST
+        EXIT
       END IF
 
       PrevElement => Element
       Element => NextElement
     END DO
+
+    IF( i >= MaxTrials ) THEN
+      PRINT *,'Used maximum number of trials',MaxTrials,No
+    END IF
 
     IF( ParticleStatus == PARTICLE_LOST ) THEN
       ElementIndex = 0
@@ -2659,13 +2849,12 @@ RETURN
 100 CONTINUE
 
     ! This is just for debugging 
-    IF( No < PrevNo ) THEN
-      IF( Problems(3) >  0 ) print *,'Problems:',Problems
-      problems = 0
+    IF( No < PrevNo .AND. Problems(3) > 0 ) THEN
+      PRINT *,'Problems in locating particles:',Problems
+      Problems = 0
     END IF
     PrevNo = No
      
-
   END SUBROUTINE LocateParticleInMeshMarch
 
 
@@ -2702,11 +2891,10 @@ RETURN
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: Params
 
-
 ! print *,'Locating Particles'
-
     
     Params => GetSolverParams()
+    Mesh => GetMesh()
     dim = Particles % dim      
     PartitionChangesOnly = .FALSE.
     Velo = 0.0_dp
@@ -2717,7 +2905,6 @@ RETURN
     !---------------------------------------------------------------------------
     AccurateAlways = ListGetLogical( Params,'Particle Accurate Always',Stat)
     AccurateAtFace = ListGetLogical( Params,'Particle Accurate At Face',Stat)
-
 
 100 NoParticles = Particles % NumberOfParticles
 
@@ -2791,19 +2978,9 @@ RETURN
       Particles % FaceIndex(No) = FaceIndex
 
       CALL SetParticleCoord( Particles, No, Rfin  )                
-      IF( ElementIndex == 0 ) CYCLE
+      IF( ElementIndex == 0 ) Velo = 0.0_dp
 
       CALL SetParticleVelo( Particles, No, Velo  )                
-
-!      IF( GotTimeVar ) THEN
-!        IF( RK2 ) THEN
-!          TimeVar % Values(No) = TimeVar % Values(No) + 0.5_dp * dtime
-!        ELSE
-!          TimeVar % Values(No) = TimeVar % Values(No) + dtime
-!        END IF
-!      END IF 
-!
-!     print *,'Status:',InitStatus,Status
 
     END DO
 
@@ -2835,7 +3012,11 @@ RETURN
     REAL(KIND=dp) :: Basis(:)
     REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:)
     LOGICAL :: Stat, Debug
-    
+    INTEGER :: Misses(2) = 0
+  
+    SAVE Misses    
+
+
     TYPE(Nodes_t) :: ElementNodes
     REAL(KIND=dp) :: LocalCoord(3),u,v,w
     INTEGER :: n
@@ -2846,10 +3027,14 @@ RETURN
     CALL GetElementNodes(ElementNodes,CurrentElement)
     
     Stat = PointInElement( CurrentElement, ElementNodes, &
-        GlobalCoord, LocalCoord, GlobalEps = -1.0_dp, LocalEps = 1.0d-1, &
+        GlobalCoord, LocalCoord, GlobalEps = -1.0_dp, LocalEps = 1.0e3_dp, &
 	LocalDistance = LocalDistance ) 
 
     IF( .NOT. Stat ) THEN
+      Misses(1) = Misses(1) + 1
+
+      IF( MODULO( SUM( Misses ), 101 ) == 100 ) PRINT *,'Misses:',Misses
+
       IF( .FALSE.) THEN
         IF( .NOT. Stat ) THEN
           CALL Warn('ParticleElementInfo','Should have found the node!')
@@ -2870,6 +3055,7 @@ RETURN
     
     stat = ElementInfo( CurrentElement, ElementNodes, U, V, W, SqrtElementMetric, &
         Basis, dBasisdx )
+    IF(.NOT. Stat) Misses(2) = Misses(2) + 1
     
   END FUNCTION ParticleElementInfo
   
@@ -4654,7 +4840,7 @@ PRINT *,'NoPeriodic',NoPeriodic
       INTEGER, POINTER :: Perm(:), Perm2(:), Indexes(:)
       REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:),Values(:),Values2(:),&
           Values3(:),Basis(:)
-      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,value
+      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,VALUE
       TYPE(Nodes_t) :: Nodes      
       TYPE(Element_t), POINTER :: Element
       TYPE(Variable_t), POINTER :: ParticleVar
@@ -4810,16 +4996,16 @@ PRINT *,'NoPeriodic',NoPeriodic
 
             stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
             
-            value = 0.0_dp
+            VALUE = 0.0_dp
             IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-              value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+              VALUE = SUM( Basis(1:n) * Values(Perm(Indexes)) )
             ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-              value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+              VALUE = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
             END IF
           END IF
           
-          IF( ABS( value ) > TINY( value ) ) THEN
-            WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Value             
+          IF( ABS( VALUE ) > TINY( VALUE ) ) THEN
+            WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE             
           ELSE
             WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
           END IF
@@ -4958,31 +5144,31 @@ PRINT *,'NoPeriodic',NoPeriodic
             stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
 
             DO k=1,sdofs                  
-              value = 0.0_dp
+              VALUE = 0.0_dp
               IF( k <= dofs ) THEN
                 IF( ComponentVector ) THEN
                   IF( ALL( Perm( Indexes ) > 0 ) ) THEN
                     IF( k == 1 ) THEN
-                      value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                      VALUE = SUM( Basis(1:n) * Values(Perm(Indexes)) )
                     ELSE IF( k == 2 ) THEN
-                      value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+                      VALUE = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
                     ELSE
-                      value = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
+                      VALUE = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
                     END IF
                   END IF
                 ELSE 
                   IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-                    value = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+k) )
+                    VALUE = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+k) )
                   ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-                    value = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+k) )
+                    VALUE = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+k) )
                   END IF
                 END IF
               END IF
               
-              IF( ABS( value ) < TINY( value ) ) THEN
+              IF( ABS( VALUE ) < TINY( VALUE ) ) THEN
                 WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
               ELSE 
-                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
               END IF
               
             END DO
@@ -5033,15 +5219,15 @@ PRINT *,'NoPeriodic',NoPeriodic
             
           stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
 
-          value = SUM( Basis(1:n) * Nodes % x(1:n) )
-          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+          VALUE = SUM( Basis(1:n) * Nodes % x(1:n) )
+          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
 
-          value = SUM( Basis(1:n) * Nodes % y(1:n) )
-          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+          VALUE = SUM( Basis(1:n) * Nodes % y(1:n) )
+          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
 
 	  IF( dim == 3 ) THEN
-            value = SUM( Basis(1:n) * Nodes % z(1:n) )
-            WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+            VALUE = SUM( Basis(1:n) * Nodes % z(1:n) )
+            WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
           END IF
         END IF
 
@@ -5348,7 +5534,7 @@ PRINT *,'NoPeriodic',NoPeriodic
       INTEGER, POINTER :: Perm(:), Perm2(:), Indexes(:)
       REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:),Values(:),Values2(:),&
           Values3(:),Basis(:)
-      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,value
+      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,VALUE
       REAL :: fvalue
       TYPE(Nodes_t) :: Nodes      
       TYPE(Element_t), POINTER :: Element
@@ -5544,7 +5730,7 @@ PRINT *,'NoPeriodic',NoPeriodic
             IF( SinglePrec ) THEN
               k = GridPoints * KIND( fvalue ) * sdofs
             ELSE
-              k = GridPoints * KIND( value ) * sdofs
+              k = GridPoints * KIND( VALUE ) * sdofs
             END IF
             Offset = Offset + KIND(i) + k
             IF( WriteData ) WRITE( VtiUnit ) k
@@ -5567,8 +5753,8 @@ PRINT *,'NoPeriodic',NoPeriodic
                         fvalue = 0.0
                         WRITE( VtiUnit ) fvalue                          
                       ELSE
-                        value = 0.0_dp
-                        WRITE( VtiUnit ) value                          
+                        VALUE = 0.0_dp
+                        WRITE( VtiUnit ) VALUE                          
                       END IF
                     END DO
                   ELSE
@@ -5591,39 +5777,39 @@ PRINT *,'NoPeriodic',NoPeriodic
                     stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
                     
                     DO l=1,sdofs                  
-                      value = 0.0_dp
+                      VALUE = 0.0_dp
                       IF( l <= dofs ) THEN
                         IF( ComponentVector ) THEN
                           IF( ALL( Perm( Indexes ) > 0 ) ) THEN
                             IF( l == 1 ) THEN
-                              value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                              VALUE = SUM( Basis(1:n) * Values(Perm(Indexes)) )
                             ELSE IF( l == 2 ) THEN
-                              value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+                              VALUE = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
                             ELSE
-                              value = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
+                              VALUE = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
                             END IF
                           END IF
                         ELSE 
                           IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-                            value = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+l) )
+                            VALUE = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+l) )
                           ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-                            value = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+l) )
+                            VALUE = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+l) )
                           END IF
                         END IF
                       END IF
                       
                       IF( AsciiOutput ) THEN
-                        IF( ABS( value ) < TINY( value ) ) THEN
+                        IF( ABS( VALUE ) < TINY( VALUE ) ) THEN
                           WRITE( OutStr,'(A)') ' 0.0'  
                         ELSE 
-                          WRITE( OutStr,'(ES16.7E3)') value
+                          WRITE( OutStr,'(ES16.7E3)') VALUE
                         END IF
                         CALL StrWrite( OutStr )
                       ELSE IF( SinglePrec ) THEN
-                        fvalue = value
+                        fvalue = VALUE
                         WRITE( VtiUnit ) fvalue
                       ELSE
-                        WRITE( VtiUnit ) value
+                        WRITE( VtiUnit ) VALUE
                       END IF
 
                     END DO
