@@ -997,7 +997,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          IF( GotPot ) THEN
            CALL GetScalarFieldInMesh(PotVar, BulkElement, Basis, PotAtPoint, &
                dBasisdx, GradPotAtPoint )
-           Force = Force + charge * GradPotAtPoint 
+           Force = Force - charge * GradPotAtPoint 
          END IF
          
          IF( GotBuoyancy ) THEN
@@ -1054,6 +1054,10 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
            CASE( 'electrostatic energy' ) 
              ! electrostatic potential energy at point (for testing)
              val = Charge * PotAtPoint
+
+           CASE( 'charge' ) 
+             ! electrostatic charge energy at point (for testing)
+             val = Charge 
              
            CASE( 'speed' )               
              ! external speed at point (for testing)
