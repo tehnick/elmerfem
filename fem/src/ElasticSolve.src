@@ -81,7 +81,8 @@
 
      INTEGER :: StressType
      LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE.
-     LOGICAL :: LinearModel = .FALSE., MeshDisplacementActive
+     LOGICAL :: LinearModel = .FALSE., MeshDisplacementActive, &
+          NeoHookeanMaterial = .FALSE.
 
      INTEGER :: body_id,bf_id,eq_id,CoordinateSystem
      LOGICAL :: PlaneStress
@@ -272,6 +273,9 @@
      LinearModel = ListGetLogical( SolverParams, &
           'Elasticity Solver Linear', GotIt )
 
+     NeoHookeanMaterial = ListGetLogical( SolverParams, &
+          'Neo-Hookean Material', GotIt )
+
      IF( ListGetLogical( SolverParams, 'Eigen Analysis',GotIt) ) &
           LinearModel = .TRUE.
 
@@ -422,10 +426,20 @@
          IF( LinearModel ) LocalDisplacement = 0.0d0
 
          IF ( CoordinateSystem == Cartesian ) THEN
-            CALL StressCompose( LocalMassMatrix, LocalDampMatrix, &
-              LocalStiffMatrix,LocalForce, LoadVector, InertialLoad, ElasticModulus, &
-                PoissonRatio,Density,Damping,PlaneStress,HeatExpansionCoeff, &
-                LocalTemperature,CurrentElement,n,ElementNodes,LocalDisplacement )
+
+            IF (NeoHookeanMaterial) THEN            
+
+               CALL NeoHookeanStressCompose( LocalMassMatrix, LocalDampMatrix, &
+                    LocalStiffMatrix, LocalForce, LoadVector, InertialLoad, ElasticModulus, &
+                    PoissonRatio,Density,Damping,PlaneStress,HeatExpansionCoeff, &
+                    LocalTemperature,CurrentElement,n,ElementNodes,LocalDisplacement )
+
+            ELSE
+               CALL StressCompose( LocalMassMatrix, LocalDampMatrix, &
+                    LocalStiffMatrix,LocalForce, LoadVector, InertialLoad, ElasticModulus, &
+                    PoissonRatio,Density,Damping,PlaneStress,HeatExpansionCoeff, &
+                    LocalTemperature,CurrentElement,n,ElementNodes,LocalDisplacement )
+            END IF
          ELSE
             CALL StressGeneralCompose( LocalMassMatrix, LocalDampMatrix, &
               LocalStiffMatrix,LocalForce, LoadVector, ElasticModulus, &
@@ -1034,8 +1048,252 @@
 
 !------------------------------------------------------------------------------
 
- END SUBROUTINE StressCompose
+  END SUBROUTINE StressCompose
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE NeoHookeanStressCompose( MassMatrix,DampMatrix,StiffMatrix,ForceVector, &
+       LoadVector, InertialLoad, NodalYoung, NodalPoisson, NodalDensity, NodalDamping, &
+       PlaneStress,NodalHeatExpansion, NodalTemperature, Element,n,Nodes, &
+       NodalDisplacement )
+!------------------------------------------------------------------------------
+    
+    REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:),DampMatrix(:,:), &
+         NodalHeatExpansion(:,:,:)
+    REAL(KIND=dp) :: NodalTemperature(:),NodalDensity(:), &
+         NodalDamping(:),LoadVector(:,:), InertialLoad(:,:)
+    REAL(KIND=dp) :: NodalDisplacement(:,:)
+    REAL(KIND=dp), DIMENSION(:) :: ForceVector,NodalPoisson,NodalYoung
+
+    LOGICAL :: PlaneStress
+
+    TYPE(Element_t) :: Element
+    TYPE(Nodes_t) :: Nodes
+
+    INTEGER :: n, N_gauss
+    !------------------------------------------------------------------------------
+    !
+    REAL(KIND=dp) :: Basis(n)
+    REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+
+    REAL(KIND=dp) :: Force(3), InertialForce(3), NodalLame1(n),NodalLame2(n),Density, &
+         Damping,Lame1,Lame2
+    REAL(KIND=dp) :: Grad(3,3),InvC(3,3),Identity(3,3),DetDefG,CofG(3,3),TrueForce(3)
+    REAL(KIND=dp) ::  DefG(3,3), InvDefG(3,3),Strain(3,3), Stress2(3,3), Stress1(3,3)
+    REAL(KIND=dp) :: dDefG(3,3),dStrain(3,3),dStress2(3,3),dStress1(3,3)
+    REAL(KIND=dp) :: dDefGU(3,3),dStrainU(3,3),dStress2U(3,3),dStress1U(3,3)
+
+    REAL(KIND=dp) :: Load(3),Temperature, GradBasis(3,3)
+    REAL(KIND=dp), DIMENSION(3,3) :: HeatExpansion
+
+    INTEGER :: i,j,k,l,p,q,t,dim
+
+    REAL(KIND=dp) :: s,u,v,w
+
+    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+
+    INTEGER :: N_Integ
+
+    REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
+
+    LOGICAL :: stat
+    !------------------------------------------------------------------------------
+
+    dim = CoordinateSystemDimension()
+
+    IF ( PlaneStress ) THEN
+       NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) /  &
+            ( (1.0d0 - NodalPoisson(1:n)**2) )
+    ELSE
+       NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) /  &
+            (  (1.0d0 + NodalPoisson(1:n)) * (1.0d0 - 2.0d0*NodalPoisson(1:n)) )
+    END IF
+
+    NodalLame2(1:n) = NodalYoung(1:n)  / ( 2* (1.0d0 + NodalPoisson(1:n)) )
+
+    ForceVector = 0.0D0
+    StiffMatrix = 0.0D0
+    MassMatrix  = 0.0D0
+    DampMatrix  = 0.0d0
+
+    Identity = 0.0D0
+    DO i = 1,dim
+       Identity(i,i) = 1.0D0
+    END DO
+    !    
+    !    Integration stuff
+    !    
+
+    N_gauss = ElasticityGaussPoints( Element )      
+    IntegStuff = GaussPoints( element,N_gauss )
+
+
+    U_Integ => IntegStuff % u
+    V_Integ => IntegStuff % v
+    W_Integ => IntegStuff % w
+    S_Integ => IntegStuff % s
+    N_Integ =  IntegStuff % n
+    !
+    !   Now we start integrating
+    !
+    DO t=1,N_Integ
+
+       u = U_Integ(t)
+       v = V_Integ(t)
+       w = W_Integ(t)
+
+       !------------------------------------------------------------------------------
+       !     Basis function values & derivatives at the integration point
+       !------------------------------------------------------------------------------
+       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
+            Basis,dBasisdx )
+
+       s = SqrtElementMetric * S_Integ(t)
+
+       !------------------------------------------------------------------------------
+       !  
+       !     Force at integration point
+       !   
+       Force = 0.0D0
+       DO i=1,dim
+          Force(i) = SUM( LoadVector(i,1:n)*Basis )
+          InertialForce(i) = SUM( InertialLoad(i,1:n)*Basis )
+       END DO
+       !
+       !     Lame parameters at the integration point
+       !
+       Lame1 = SUM( NodalLame1(1:n)*Basis )
+       Lame2 = SUM( NodalLame2(1:n)*Basis )
+       Density = SUM( NodalDensity(1:n)*Basis )
+       Damping = SUM( NodalDamping(1:n)*Basis )
+       
+      
+       !--------------------------------------------------------------------
+       ! Compute the formulation variables for the current solution iterate
+       !--------------------------------------------------------------------
+       Grad = MATMUL(NodalDisplacement(:,1:n),dBasisdx)
+       DefG = Identity + Grad
+
+       SELECT CASE( dim )
+       CASE( 1 )
+          DetDefG = DefG(1,1)
+       CASE( 2 )
+          DetDefG = DefG(1,1)*DefG(2,2) - DefG(1,2)*DefG(2,1)
+       CASE( 3 )
+          DetDefG = DefG(1,1) * ( DefG(2,2)*DefG(3,3) - DefG(2,3)*DefG(3,2) ) + &
+               DefG(1,2) * ( DefG(2,3)*DefG(3,1) - DefG(2,1)*DefG(3,3) ) + &
+               DefG(1,3) * ( DefG(2,1)*DefG(3,2) - DefG(2,2)*DefG(3,1) )
+       END SELECT
+
+       InvC = MATMUL( TRANSPOSE(DefG), DefG )
+       InvDefG = DefG
+       !-------------------------------------------------------------
+       !  InvC will now be the inverse of the right Cauchy-Green tensor
+       !-------------------------------------------------------------
+       CALL InvertMatrix( InvC, dim )
+       CALL InvertMatrix( InvDefG, dim )       
+       !-------------------------------------------------------------
+       ! The second Piola-Kirchhoff stress for the current iterate
+       !--------------------------------------------------------------
+       Stress2 = Lame1/2.0d0 * (DetDefG - 1.0d0) * (DetDefG + 1.0d0) * InvC + &
+            Lame2 * (Identity - InvC)
+       !--------------------------------------------------
+       ! The first Piola-Kirchhoff stress
+       !--------------------------------------------------
+       Stress1 = MATMUL(DefG,Stress2)
+
+       !-----------------------------------------------------------------
+       ! dStress2U gives the derivative term DG(F_k)[grad u_k] with
+       ! G the response function giving the second Piola-Kirchhoff stress
+       ! in terms of the deformation gradient F
+       !------------------------------------------------------------------
+       dStress2U =  Lame1 * DetDefG**2 * TRACE( MATMUL(Grad,InvDefG), dim ) * InvC - &
+            Lame1/2.0d0 * (DetDefG - 1.0d0) * (DetDefG + 1.0d0) * &
+            MATMUL( InvC, & 
+            MATMUL( MATMUL(TRANSPOSE(DefG),Grad) + MATMUL(TRANSPOSE(Grad),DefG), InvC) ) + & 
+            Lame2 * MATMUL( InvC, & 
+            MATMUL( MATMUL(TRANSPOSE(DefG),Grad) + MATMUL(TRANSPOSE(Grad),DefG), InvC) )   
+
+       !-------------------------------------------------------------
+       ! dStress1U presents the derivative term DS(F_k)[grad u_k] with
+       ! S the first  Piola-Kirchhoff stress
+       !-------------------------------------------------------------
+       dStress1U = MATMUL(Grad,Stress2) + MATMUL(DefG,dStress2U)
+
+       !---------------------------------------------------------
+       ! Newton iteration:
+       !------------------------------------------------
+       DO p = 1,N
+          DO i = 1,dim
+             !------------------------------------------------------------------------
+             ! Grad will now be the velocity gradient corresponding to the velocity
+             ! test function
+             ! -----------------------------------------------------------------------
+             Grad = 0.0d0
+             Grad(i,:) = dBasisdx(p,:)
+
+             !-----------------------------------------------------------------
+             ! dStress2 gives the derivative term DG(F_k)[grad v] with
+             ! G the response function giving the second Piola-Kirchhoff stress
+             ! in terms of the deformation gradient F and v the test function
+             !------------------------------------------------------------------
+             dStress2 = Lame1 * DetDefG**2 * TRACE( MATMUL(Grad,InvDefG), dim ) * InvC - &
+                  Lame1/2.0d0 * (DetDefG - 1.0d0) * (DetDefG + 1.0d0) * &
+                  MATMUL( InvC, & 
+                  MATMUL( MATMUL(TRANSPOSE(DefG),Grad) + MATMUL(TRANSPOSE(Grad),DefG), InvC) ) + & 
+                  Lame2 * MATMUL( InvC, & 
+                  MATMUL( MATMUL(TRANSPOSE(DefG),Grad) + MATMUL(TRANSPOSE(Grad),DefG), InvC) )  
+
+             !-------------------------------------------------------------
+             ! dStress1 is the derivative DS(F_k)[grad v] with
+             ! S the first  Piola-Kirchhoff stress      
+             !-------------------------------------------------------------
+             dStress1 = MATMUL(Grad,Stress2) + MATMUL(DefG,dStress2)
+ 
+             ForceVector(dim*(p-1)+i) = ForceVector(dim*(p-1)+i) &
+                  +(Basis(p)*Force(i)*DetDefG &
+                  +Basis(p)*InertialForce(i)*Density &
+                  -DOT_PRODUCT(dBasisdx(p,:),Stress1(i,:)) &
+                  +DOT_PRODUCT(dBasisdx(p,:),dStress1U(i,:)))*s
+
+             DO q = 1,N
+                DO j = 1,dim
+                   StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
+                        = StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
+                        + DOT_PRODUCT(dBasisdx(q,:),dStress1(j,:))*s
+                END DO
+             END DO
+          END DO
+       END DO
+
+
+       !      Integrate mass matrix:
+       !      ----------------------
+       DO p = 1,N
+          DO q = 1,N
+             DO i = 1,dim
+
+                MassMatrix(dim*(p-1)+i,dim*(q-1)+i) &
+                     = MassMatrix(dim*(p-1)+i,dim*(q-1)+i) &
+                     + Basis(p)*Basis(q)*Density*s
+
+             END DO
+          END DO
+       END DO
+
+       !      Utilize the Rayleigh damping:
+       !      -----------------------------
+       DampMatrix = Damping * MassMatrix
+
+    END DO
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE NeoHookeanStressCompose
+!------------------------------------------------------------------------------
+
+
+
 
 
 !------------------------------------------------------------------------------
@@ -1819,21 +2077,21 @@
       Force = Force + SUM( NodalBeta(1:n)*Basis ) * Normal
 
       DO p=1,N
-        DO q=1,N
-          DO i=1,dim
-            BoundaryMatrix((p-1)*dim+i,(q-1)*dim+i) =  &
-              BoundaryMatrix((p-1)*dim+i,(q-1)*dim+i) + &
-                 s * Alpha(i) * Basis(q) * Basis(p)
+         DO q=1,N
+            DO i=1,dim
+               BoundaryMatrix((p-1)*dim+i,(q-1)*dim+i) =  &
+                    BoundaryMatrix((p-1)*dim+i,(q-1)*dim+i) + &
+                    s * Alpha(i) * Basis(q) * Basis(p)
             END DO
          END DO
-     END DO
+      END DO
      
-     DO q=1,N
-        DO i=1,dim
-          BoundaryVector((q-1)*dim+i) = BoundaryVector((q-1)*dim+i) + &
-               s * Basis(q) * Force(i)
-        END DO
-     END DO
+      DO q=1,N
+         DO i=1,dim
+            BoundaryVector((q-1)*dim+i) = BoundaryVector((q-1)*dim+i) + &
+                 s * Basis(q) * Force(i)
+         END DO
+      END DO
      
   END DO
 
