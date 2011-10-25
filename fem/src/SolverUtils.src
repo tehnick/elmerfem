@@ -900,7 +900,7 @@ CONTAINS
 
      Element => CurrentModel % CurrentElement
      dim = CoordinateSystemDimension()	
-     IF ( Rotate .AND. NormalTangentialNOFNodes > 0 .and. ndofs>=dim) THEN
+     IF ( Rotate .AND. NormalTangentialNOFNodes > 0 .AND. ndofs>=dim) THEN
        Indexes = 0
        Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
@@ -4601,6 +4601,115 @@ END FUNCTION SearchNodeL
   END SUBROUTINE ScaleLinearSystem
 
 
+!-----------------------------------------------------------------------------
+!>   Equilibrate the rows of the coefficient matrix A to
+!>   minimize the condition number. The associated rhs vector f is also scaled.
+!------------------------------------------------------------------------------
+  SUBROUTINE RowEquilibration( A, f, Parallel )
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+    REAL(KIND=dp) :: f(:)
+    LOGICAL :: Parallel
+!-----------------------------------------------------------------------------
+    LOGICAL :: ComplexMatrix
+    INTEGER :: i, j, n 
+    REAL(kind=dp) :: norm, tmp
+    INTEGER, POINTER :: Cols(:), Rows(:)
+    REAL(KIND=dp), POINTER :: Values(:), Diag(:)
+!-------------------------------------------------------------------------
+    n = A % NumberOfRows
+    ComplexMatrix = A % COMPLEX
+
+    Rows   => A % Rows
+    Cols   => A % Cols
+    Values => A % Values
+
+    IF( .NOT. ASSOCIATED(A % DiagScaling) ) THEN
+      ALLOCATE( A % DiagScaling(n) ) 
+    END IF
+    Diag => A % DiagScaling    
+    
+    Diag = 0.0d0
+    norm = 0.0d0
+
+    !---------------------------------------------
+    ! Compute 1-norm of each row
+    !---------------------------------------------
+    IF (ComplexMatrix) THEN
+      DO i=1,n,2
+        tmp = 0.0d0
+        DO j=Rows(i),Rows(i+1)-1,2
+          tmp = tmp + ABS( CMPLX( Values(j), -Values(j+1), kind=dp ) )
+        END DO
+
+        IF ( .NOT. Parallel ) THEN
+          IF (tmp > norm) norm = tmp        
+        END IF
+
+        IF (tmp > 0.0d0) THEN
+          Diag(i) = tmp
+          Diag(i+1) = tmp
+        END IF
+      END DO
+    ELSE
+      DO i=1,n
+        tmp = 0.0d0
+        DO j=Rows(i),Rows(i+1)-1        
+          tmp = tmp + ABS(Values(j))          
+        END DO
+
+        IF ( .NOT. Parallel ) THEN
+          IF (tmp > norm) norm = tmp        
+        END IF
+
+        IF (tmp > 0.0d0) Diag(i) = tmp       
+      END DO
+    END IF
+
+    IF (Parallel) THEN
+      CALL ParallelSumVector(A, Diag)
+      norm = ParallelReduction(MAXVAL(Diag(1:n)),2)
+    END IF
+
+    !--------------------------------------------------
+    ! Now, define the scaling matrix by inversion and 
+    ! perform the actual scaling of the linear system
+    !--------------------------------------------------
+    IF (ComplexMatrix) THEN    
+      DO i=1,n,2
+        IF (Diag(i) > 0.0d0) THEN
+          Diag(i) = 1.0d0/Diag(i)
+          Diag(i+1) = 1.0d0/Diag(i+1)
+        ELSE
+          Diag(i) = 1.0d0
+          Diag(i+1) = 1.0d0
+        END IF
+      END DO
+    ELSE
+      DO i=1,n      
+        IF (Diag(i) > 0.0d0) THEN
+          Diag(i) = 1.0d0/Diag(i)
+        ELSE
+          Diag(i) = 1.0d0
+        END IF
+      END DO
+    END IF
+
+    DO i=1,n    
+      DO j=Rows(i),Rows(i+1)-1
+        Values(j) = Values(j) * Diag(i)
+      END DO
+      f(i) = Diag(i) * f(i)
+    END DO
+    
+    WRITE( Message, * ) 'Unscaled matrix norm: ', norm    
+    CALL Info( 'OptimalMatrixScaling', Message, Level=5 )
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE RowEquilibration
+!------------------------------------------------------------------------------
+
+
   
   !>  Scale the system back to original.
   !--------------------------------------------------------------
@@ -4688,6 +4797,50 @@ END FUNCTION SearchNodeL
   END SUBROUTINE BackScaleLinearSystem
 
 
+!------------------------------------------------------------------------------
+!> Scale the linear system back to original when the linear
+!> system scaling has been done by row equilibration.
+!------------------------------------------------------------------------------
+  SUBROUTINE ReverseRowEquilibration( A, f )
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+    REAL(KIND=dp) :: f(:)
+!-----------------------------------------------------------------------------
+    INTEGER :: i, j, n
+    INTEGER, POINTER :: Rows(:)
+    REAL(KIND=dp), POINTER :: Values(:), Diag(:)
+!-----------------------------------------------------------------------------
+    n = A % NumberOfRows
+    Diag => A % DiagScaling   
+    Values => A % Values
+    Rows => A % Rows
+
+    IF(.NOT. ASSOCIATED( Diag ) ) THEN
+      CALL Fatal('ReverseRowEquilibration','Diag not associated!')
+    END IF
+    IF( SIZE( Diag ) /= n ) THEN
+      CALL Fatal('ReverseRowEquilibration','Diag of wrong size!')
+    END IF 
+
+    f(1:n) = f(1:n) / Diag(1:n)
+    DO i=1,n    
+      DO j = Rows(i), Rows(i+1)-1
+        Values(j) = Values(j) / Diag(i)
+      END DO
+    END DO
+
+    DEALLOCATE(A % DiagScaling)
+    A % DiagScaling => Null()
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE ReverseRowEquilibration
+!------------------------------------------------------------------------------
+
+
+
+
+
+
 
 !> Solves a linear system and also calls the necessary preconditioning routines.
 !------------------------------------------------------------------------------
@@ -4704,7 +4857,7 @@ END FUNCTION SearchNodeL
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis,&
-               BackRotation
+               BackRotation, ApplyRowEquilibration, Parallel
     INTEGER :: n,i,j,k,l,ii,m,DOF,istat,this
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
@@ -4817,9 +4970,14 @@ END FUNCTION SearchNodeL
 !   Convert rhs & initial value to the scaled system:
 !   -------------------------------------------------
 
-
     IF ( ScaleSystem ) THEN
-      CALL ScaleLinearSystem(Solver, A, b, x )
+      ApplyRowEquilibration = ListGetLogical(Params,'Linear System Row Equilibration',GotIt)
+      IF ( ApplyRowEquilibration ) THEN
+        Parallel = ParEnv % PEs > 1
+        CALL RowEquilibration(A, b, Parallel)
+      ELSE
+        CALL ScaleLinearSystem(Solver, A, b, x )
+      END IF
     END IF
 
     Method = ListGetString(Params,'Linear System Solver',GotIt)
@@ -4858,7 +5016,11 @@ END FUNCTION SearchNodeL
 
 
     IF ( ScaleSystem ) THEN
-      CALL BackScaleLinearSystem( Solver, A, b, x ) 
+      IF ( ApplyRowEquilibration ) THEN
+        CALL ReverseRowEquilibration( A, b )
+      ELSE
+        CALL BackScaleLinearSystem( Solver, A, b, x )
+      END IF
     END IF
 
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
