@@ -150,7 +150,7 @@
      REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
        DAMP(:,:), LOAD(:,:),LOAD_im(:,:),FORCE(:),FORCE_im(:), &
        LocalTemperature(:),ElasticModulus(:,:,:),PoissonRatio(:), &
-       HeatExpansionCoeff(:,:,:),DampCoeff(:),SpringCoeff(:,:),Beta(:), &
+       HeatExpansionCoeff(:,:,:),DampCoeff(:),SpringCoeff(:,:,:),Beta(:), &
        ReferenceTemperature(:), Density(:), Damping(:), Beta_im(:), &
        NodalDisplacement(:,:), ContactLimit(:), LocalNormalDisplacement(:), &
        LocalContactPressure(:), PreStress(:,:), PreStrain(:,:), &
@@ -268,7 +268,7 @@
                  PreStrain( 6,N ),          &
                  StressLoad( 6,N ),         &
                  StrainLoad( 6,N ),         &
-                 SpringCoeff( N,3 ),        &
+                 SpringCoeff( N,3,3 ),        &
                  ReferenceTemperature( N ), &
                  HeatExpansionCoeff( 3,3,N ), &
                  LocalTemperature( N ),       &
@@ -1154,10 +1154,17 @@ CONTAINS
           END IF
 
           DampCoeff(1:n) =  GetReal( BC, 'Damping', Found )
-          SpringCoeff(1:n,1) =  GetReal( BC, 'Spring', NormalSpring )
+          SpringCoeff(1:n,1,1) =  GetReal( BC, 'Spring', NormalSpring )
           IF ( .NOT. NormalSpring ) THEN
             DO i=1,dim
-              SpringCoeff(1:n,i) = GetReal( BC, ComponentName('Spring',i), Found)
+              SpringCoeff(1:n,i,i) = GetReal( BC, ComponentName('Spring',i), Found)
+            END DO
+
+            DO i=1,dim
+              DO j=1,dim
+                IF (ListCheckPresent(BC,'Spring '//TRIM(i2s(i))//i2s(j) )) &
+                  SpringCoeff(1:n,i,j)=GetReal( BC, 'Spring '//TRIM(i2s(i))//i2s(j), Found)
+              END DO
             END DO
           END IF
           ContactLimit(1:n) =  GetReal( BC, 'Contact Limit', Found )
@@ -1184,7 +1191,7 @@ CONTAINS
                    NormalTangential, Element,n,ntot,ElementNodes )
           CASE DEFAULT
              DAMP = 0.0d0
-             CALL StressGeneralBoundary( STIFF,FORCE, LOAD, SpringCoeff(1:n,1),Beta, &
+             CALL StressGeneralBoundary( STIFF,FORCE, LOAD, SpringCoeff(1:n,1,1),Beta, &
                               Element,n,ElementNodes )
           END SELECT
 
