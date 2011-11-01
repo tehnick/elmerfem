@@ -3051,11 +3051,11 @@ CONTAINS
 
     CHARACTER(LEN=*) :: VariableName
 !------------------------------------------------------------------------------
-    TYPE(Element_t), POINTER :: CurrentElement
+    TYPE(Element_t), POINTER :: Element
     TYPE(Nodes_t) :: ElementNodes
     INTEGER :: i,j,k,l,m,n,t, iBC, ierr, proc
     LOGICAL :: GotIt, Found, PeriodicNormals, Conditional
-    REAL(KIND=dp) :: s,Bu,Bv
+    REAL(KIND=dp) :: s,Bu,Bv,Nrm(3),Basis(32),DetJ
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Matrix_t), POINTER :: Projector
     REAL(KIND=dp), ALLOCATABLE :: Condition(:)
@@ -3079,6 +3079,8 @@ CONTAINS
     TYPE(Buff_t), ALLOCATABLE :: n_index(:)
     REAL(KIND=dp), ALLOCATABLE :: nbuff(:)
     INTEGER, ALLOCATABLE :: n_count(:), gbuff(:), n_comp(:)
+
+    LOGICAL :: MassConsistent
 
     TYPE(Mesh_t), POINTER :: Mesh
 !------------------------------------------------------------------------------
@@ -3119,11 +3121,11 @@ CONTAINS
 
         DO t=Model % NumberOfBulkElements + 1, Model % NumberOfBulkElements + &
                       Model % NumberOfBoundaryElements
-          CurrentElement => Model % Elements(t)
-          IF ( CurrentElement % TYPE  % ElementCode < 200 ) CYCLE
+          Element => Model % Elements(t)
+          IF ( Element % TYPE  % ElementCode < 200 ) CYCLE
 
-          n = CurrentElement % TYPE % NumberOfNodes
-          NodeIndexes => CurrentElement % NodeIndexes
+          n = Element % TYPE % NumberOfNodes
+          NodeIndexes => Element % NodeIndexes
 
           ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
           ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
@@ -3132,28 +3134,32 @@ CONTAINS
           ALLOCATE(Condition(n))
 
           DO i=1,Model % NumberOfBCs
-            IF ( CurrentElement % BoundaryInfo % Constraint == Model % BCs(i) % Tag ) THEN
+            IF ( Element % BoundaryInfo % Constraint == Model % BCs(i) % Tag ) THEN
               IF ( ListGetLogical( Model % BCs(i) % Values,VariableName, gotIt) ) THEN
                 Found = ListGetLogical( Model % BCs(i) % Values, &
                     TRIM(VariableName) // ' Rotate',gotIt)
                 IF ( Found .OR. .NOT. Gotit ) THEN
+                  MassConsistent=ListGetLogical(Model % BCs(i) % Values, &
+                          'Mass Consistent Normals',gotIt)
+
                   Condition(1:n) = ListGetReal( Model % BCs(i) % Values, &
                        TRIM(VariableName) // ' Condition', n, NodeIndexes, Conditional )
-  
-                  DO j=1,CurrentElement % TYPE % NumberOfNodes
+
+                  DO j=1,n
                     IF ( Conditional .AND. Condition(j) < 0._dp ) CYCLE
 
                     k = BoundaryReorder( NodeIndexes(j) )
-                      IF (k>0) THEN
-                      Bu = CurrentElement % TYPE % NodeU(j)
-                      IF ( CurrentElement % TYPE % DIMENSION > 1 ) THEN
-                        Bv = CurrentElement % TYPE % NodeV(j)
+                    IF (k>0) THEN
+                      nrm = 0._dp
+                      IF (MassConsistent) THEN
+                        CALL IntegMassConsistent(j,n,nrm)
                       ELSE
-                        Bv = 0.0D0
+                        Bu = Element % Type % NodeU(j)
+                        Bv = Element % Type % NodeV(j)
+                        nrm = NormalVector(Element,ElementNodes,Bu,Bv,.TRUE.)
                       END IF
                       n_comp(NodeIndexes(j)) = 1
-                      BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
-                          NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
+                      BoundaryNormals(k,:) = BoundaryNormals(k,:) + nrm
                     END IF
                   END DO
                 END IF
@@ -3342,6 +3348,29 @@ CONTAINS
         END IF
       END DO
     END IF
+
+ CONTAINS
+
+    SUBROUTINE IntegMassConsistent(j,n,nrm)
+      INTEGER :: t,j,n
+      LOGICAL :: stat
+      REAL(KIND=dp) :: detJ,Basis(n),nrm(:),lnrm(3)
+
+      TYPE(GaussIntegrationPoints_t) :: IP
+
+      !----------------------
+      IP = GaussPoints( Element )
+      DO t=1,IP % n
+        stat = ElementInfo( Element, ElementNodes, IP % U(t), &
+               IP % v(t), IP % W(t), detJ, Basis )
+
+        lnrm = NormalVector(Element,ElementNodes, &
+              IP % U(t),IP % v(t),.TRUE.)
+
+        nrm = nrm + lnrm * detJ * Basis(j)
+      END DO
+    END SUBROUTINE IntegMassConsistent
+
 !------------------------------------------------------------------------------
   END SUBROUTINE AverageBoundaryNormals
 !------------------------------------------------------------------------------
