@@ -3359,15 +3359,15 @@ CONTAINS
       TYPE(GaussIntegrationPoints_t) :: IP
 
       !----------------------
-      IP = GaussPoints( Element )
+      IP = GaussPoints(Element)
       DO t=1,IP % n
-        stat = ElementInfo( Element, ElementNodes, IP % U(t), &
-               IP % v(t), IP % W(t), detJ, Basis )
+        stat = ElementInfo(Element, ElementNodes, IP % U(t), &
+               IP % v(t), IP % W(t), detJ, Basis)
 
         lnrm = NormalVector(Element,ElementNodes, &
               IP % U(t),IP % v(t),.TRUE.)
 
-        nrm = nrm + lnrm * detJ * Basis(j)
+        nrm = nrm + IP % s(t) * lnrm * detJ * Basis(j)
       END DO
     END SUBROUTINE IntegMassConsistent
 
