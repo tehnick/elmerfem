@@ -3175,6 +3175,8 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
   TYPE(ValueList_t), POINTER :: SolverParams
   TYPE(Solver_t), POINTER :: Solvers(:), PSolver
 
+  IF (GetLogical(GetSolverParams(),'Discontinuous Galerkin',Found)) RETURN
+
   PSolver => Solver
   DO mysolver=1,Model % NumberOfSolvers
     IF ( ASSOCIATED(PSolver,Model % Solvers(mysolver)) ) EXIT
@@ -3484,7 +3486,9 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    END DO
    vDOFs = pSolver % Variable % DOFs
 
-   EF => Null(); CD => Null(); JH => Null()
+   EF => Null(); EL_EF => Null(); 
+   CD => Null(); EL_CD => Null();
+   JH => Null(); EL_JH => Null();
    IF ( Transient .OR. vDOFs==2 ) THEN
      JH => VariableGet( Mesh % Variables, 'Joule Field' )
      EF => VariableGet( Mesh % Variables, 'Electric Field' )
@@ -3507,7 +3511,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    IF ( ASSOCIATED(JH) ) DOFs=DOFs+1
    ALLOCATE(GForce(SIZE(Solver % Matrix % RHS),DOFs)); Gforce=0._dp
 
-   n = Mesh % MaxElementNodes
+   n = Mesh % MaxElementDOFs
    ALLOCATE( MASS(n,n), FORCE(n,DOFs) ) 
    SOL = 0._dp; PSOL=0._dp
 
@@ -3591,12 +3595,14 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        C_ip  = SUM( Basis(1:n)*C(1:n) )
        PR_ip = SUM( Basis(1:n)*PR(1:n) )
 
-       DO l=1,vDOFs
-         DO k=1,dim
-           EL_MFD % Values( EL_MFD % DOFs*(EL_MFD % Perm( &
-                 Element % DGIndexes(j))-1)+dim*(l-1)+k) = B(l,k)
+       IF(ASSOCIATED(EL_MFD)) THEN
+         DO l=1,vDOFs
+           DO k=1,dim
+             EL_MFD % Values( EL_MFD % DOFs*(EL_MFD % Perm( &
+                   Element % DGIndexes(j))-1)+dim*(l-1)+k) = B(l,k)
+           END DO
          END DO
-       END DO
+       END IF
 
        IF ( ASSOCIATED(MFS) ) THEN
          DO k=l,dim
@@ -3610,20 +3616,22 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
            R_ip = SUM( Basis(1:n)*R(1:n) )
          END IF
 
-         DO k=1,dim
-           EL_MFS % Values( EL_MFS % DOFs*(EL_MFS % Perm( &
-                 Element % DGIndexes(j))-1)+k) = R_ip*B(1,k)-MG_ip(k)
-         END DO
-
-         IF ( Vdofs>1 ) THEN
+         IF (ASSOCIATED(EL_MFS)) THEN
            DO k=1,dim
              EL_MFS % Values( EL_MFS % DOFs*(EL_MFS % Perm( &
-                   Element % DGIndexes(j))-1)+dim+k) = R_ip*B(2,k)-AIMAG(MG_ip(k))
+                   Element % DGIndexes(j))-1)+k) = R_ip*B(1,k)-MG_ip(k)
            END DO
+
+           IF ( Vdofs>1 ) THEN
+             DO k=1,dim
+               EL_MFS % Values( EL_MFS % DOFs*(EL_MFS % Perm( &
+                     Element % DGIndexes(j))-1)+dim+k) = R_ip*B(2,k)-AIMAG(MG_ip(k))
+             END DO
+           END IF
          END IF
        END IF
 
-       IF ( ASSOCIATED(EF)) THEN
+       IF (ASSOCIATED(EL_EF)) THEN
          DO l=1,Vdofs
            DO k=1,dim
              EL_EF % Values( EL_EF % DOFs*(EL_EF % Perm( &
@@ -3632,7 +3640,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          END DO
        END IF
 
-       IF ( ASSOCIATED(CD)) THEN
+       IF ( ASSOCIATED(EL_CD)) THEN
          DO l=1,Vdofs
            DO k=1,dim
              EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
@@ -3641,7 +3649,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          END DO
        END IF
 
-       IF ( ASSOCIATED(JH) ) THEN
+       IF ( ASSOCIATED(EL_JH) ) THEN
          DO k=1,EL_JH % DOFs
            EL_JH % Values( EL_JH % DOFs*(EL_JH % Perm( &
                  Element % DGIndexes(j))-1)+k) = SUM(E(1,:)**2)
@@ -3656,10 +3664,12 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
              END DO
              ST(l,l)=ST(l,l)-(PR_ip*SUM(E(1,:)**2)+R_ip*SUM(B(1,:)**2))/2
            END DO
-           DO k=1,EL_MST % DOFs
-             EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
-                   Element % DGIndexes(j))-1)+k) = ST(ind1(l),ind2(l))
-           END DO
+           IF (ASSOCIATED(EL_MST)) THEN
+             DO k=1,EL_MST % DOFs
+               EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
+                     Element % DGIndexes(j))-1)+k) = ST(ind1(l),ind2(l))
+             END DO
+           END IF
          ELSE
            DO l=1,3
              DO m=l,3
@@ -3673,14 +3683,16 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
                     (PR_ip*SUM(ABS(CMPLX(E(1,:),E(2,:)))**2)+ &
                       R_ip*SUM(ABS(CMPLX(B(1,:),B(2,:)))**2))/2
            END DO
-           DO l=1,6
-             EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
-                   Element % DGIndexes(j))-1)+l) = REAL(CST(ind1(l),ind2(l)))
-           END DO
-           DO l=1,6
-             EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
-                   Element % DGIndexes(j))-1)+l+6) = AIMAG(CST(ind1(l),ind2(l)))
-           END DO
+           IF (ASSOCIATED(EL_MST)) THEN
+             DO l=1,6
+               EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
+                     Element % DGIndexes(j))-1)+l) = REAL(CST(ind1(l),ind2(l)))
+             END DO
+             DO l=1,6
+               EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
+                     Element % DGIndexes(j))-1)+l+6) = AIMAG(CST(ind1(l),ind2(l)))
+             END DO
+           END IF
          END IF
        END IF
      END DO
@@ -3812,6 +3824,18 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      Solver % Matrix % RHS => Fsave
    END DO
 
+
+    ! Assembly of the face terms:
+    !----------------------------
+
+    IF (GetLogical(GetSolverParams(),'Discontinuous Galerkin',Found)) THEN
+      IF (GetLogical(GetSolverParams(),'Average Within Materials',Found)) THEN
+        FORCE = 0.0_dp
+        CALL AddLocalFaceTerms( MASS, FORCE(:,1) )
+      END IF
+    END IF
+
+
    Fsave => Solver % Matrix % RHS
    DOFs = 0
    DO i=1,3*vDOFs
@@ -3881,6 +3905,140 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    CALL ListAddConstReal( Model % Simulation, &
         'res: Magnetic Field Energy', Energy )
    DEALLOCATE( Gforce,MASS,FORCE )
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+  SUBROUTINE AddLocalFaceTerms(STIFF,FORCE)
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
+
+     TYPE(Element_t),POINTER :: P1,P2,Face,Faces(:)
+     INTEGER ::t,n,n1,n2,NumberOfFaces,dim
+
+     dim = CoordinateSystemDimension()
+
+     IF (dim==2) THEN
+       Faces => Solver % Mesh % Edges
+       NumberOfFaces = Solver % Mesh % NumberOfEdges
+     ELSE
+       Faces => Solver % Mesh % Faces
+       NumberOfFaces = Solver % Mesh % NumberOfFaces
+     END IF
+
+     DO t=1,NumberOfFaces
+       Face => Faces(t)
+       IF ( .NOT. ActiveBoundaryElement(Face) ) CYCLE
+
+       P1 => Face % BoundaryInfo % Left
+       P2 => Face % BoundaryInfo % Right
+       IF ( ASSOCIATED(P2) .AND. ASSOCIATED(P1) ) THEN
+          IF(.NOT.ASSOCIATED(GetMaterial(P1),GetMaterial(P2))) CYCLE
+
+          n  = GetElementNOFNodes(Face)
+          n1 = GetElementNOFNodes(P1)
+          n2 = GetElementNOFNodes(P2)
+
+          CALL LocalJumps( STIFF,Face,n,P1,n1,P2,n2)
+          CALL DefaultUpdateEquations( STIFF, FORCE, Face )
+       END IF
+     END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE AddLocalFaceTerms
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE FindParentUVW(Face, nFace, Parent, nParent, U, V, W, Basis)
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+      TYPE(Element_t) :: Face, Parent
+      INTEGER :: nFace, nParent
+      REAL( KIND=dp ) :: U, V, W, Basis(:)
+!------------------------------------------------------------------------------
+      INTEGER :: i,j
+      REAL(KIND=dp) :: ParentU(nFace), ParentV(nFace), ParentW(nFace)
+!------------------------------------------------------------------------------
+      DO i = 1,nFace
+        DO j = 1,nParent
+          IF ( Face % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
+            ParentU(i) = Parent % Type % NodeU(j)
+            ParentV(i) = Parent % Type % NodeV(j)
+            ParentW(i) = Parent % Type % NodeW(j)
+            EXIT
+          END IF
+        END DO
+      END DO
+      U = SUM( Basis(1:nFace) * ParentU(1:nFace) )
+      V = SUM( Basis(1:nFace) * ParentV(1:nFace) )
+      W = SUM( Basis(1:nFace) * ParentW(1:nFace) )
+!------------------------------------------------------------------------------      
+    END SUBROUTINE FindParentUVW
+!------------------------------------------------------------------------------      
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE LocalJumps( STIFF,Face,n,P1,n1,P2,n2)
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+      REAL(KIND=dp) :: STIFF(:,:)
+      INTEGER :: n,n1,n2
+      TYPE(Element_t), POINTER :: Face, P1, P2
+!------------------------------------------------------------------------------
+      REAL(KIND=dp) :: FaceBasis(n), P1Basis(n1), P2Basis(n2)
+      REAL(KIND=dp) :: Jump(n1+n2), detJ, U, V, W, S
+      LOGICAL :: Stat
+      INTEGER :: i, j, p, q, t, nFace, nParent
+      TYPE(GaussIntegrationPoints_t) :: IntegStuff
+
+      TYPE(Nodes_t) :: FaceNodes, P1Nodes, P2Nodes
+      SAVE FaceNodes, P1Nodes, P2Nodes
+!------------------------------------------------------------------------------
+      STIFF = 0._dp
+
+      CALL GetElementNodes(FaceNodes, Face)
+      CALL GetElementNodes(P1Nodes, P1)
+      CALL GetElementNodes(P2Nodes, P2)
+!------------------------------------------------------------------------------
+!     Numerical integration over the edge
+!------------------------------------------------------------------------------
+      IntegStuff = GaussPoints( Face )
+
+      DO t=1,IntegStuff % n
+        U = IntegStuff % u(t)
+        V = IntegStuff % v(t)
+        W = IntegStuff % w(t)
+        S = IntegStuff % s(t)
+
+        ! Basis function values & derivatives at the integration point:
+        !--------------------------------------------------------------
+        stat = ElementInfo(Face, FaceNodes, U, V, W, detJ, FaceBasis)
+
+        S = S * detJ
+
+        ! Find basis functions for the parent elements:
+        ! ---------------------------------------------
+        CALL FindParentUVW(Face, n, P1, n1, U, V, W, FaceBasis)
+        stat = ElementInfo(P1, P1Nodes, U, V, W, detJ, P1Basis)
+
+        CALL FindParentUVW(Face, n, P2, n2, U, V, W, FaceBasis)
+        stat = ElementInfo(P2, P2Nodes, U, V, W, detJ, P2Basis)
+
+        ! Integrate jump terms:
+        ! ---------------------
+        Jump(1:n1) = P1Basis(1:n1)
+        Jump(n1+1:n1+n2) = -P2Basis(1:n2)
+
+        DO p=1,n1+n2
+          DO q=1,n1+n2
+            STIFF(p,q) = STIFF(p,q) + s * Jump(q)*Jump(p)
+          END DO
+        END DO
+      END DO
+!------------------------------------------------------------------------------
+    END SUBROUTINE LocalJumps
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------
 END SUBROUTINE MagnetoDynamicsCalcFields
