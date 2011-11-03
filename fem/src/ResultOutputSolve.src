@@ -246,7 +246,7 @@ END SUBROUTINE ResultOutputSolver
 !------------------------------------------------------------------------------
     INTEGER :: TimeCount
     CHARACTER(LEN=512) :: PostFile, FilePrefix
-    TYPE(Element_t), POINTER :: CurrentElement, Parent
+    TYPE(Element_t), POINTER :: Element, Parent
     TYPE(Variable_t), POINTER :: Var,Var1,Displacement=>Null(),MeshUpdate=>Null(),MaskVar
     
     CHARACTER(LEN=512) :: Row
@@ -388,12 +388,12 @@ END SUBROUTINE ResultOutputSolver
       NumberOfElements = 0
       IF ( PRESENT(ONOEfound) ) NumberOfNodes=0
       DO i=1,Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-        CurrentElement => Model % Elements(i)
-        IF( ALL(MaskPerm(CurrentElement % NodeIndexes)>0)) THEN
+        Element => Model % Elements(i)
+        IF( ALL(MaskPerm(Element % NodeIndexes)>0)) THEN
           NumberOfElements = NumberOfElements + 1
         END IF
         IF ( PRESENT(ONOEfound) ) &
-          NumberOfNodes=NumberOfNodes+CurrentElement % TYPE % NumberOfNodes
+          NumberOfNodes=NumberOfNodes+Element % TYPE % NumberOfNodes
       END DO
     ELSE
       NumberOfNodes = Model % NumberOfNodes
@@ -401,8 +401,8 @@ END SUBROUTINE ResultOutputSolver
       IF ( PRESENT(ONOEfound) ) THEN
         NumberOfNodes=0
         DO i=1,Model % NumberOfBulkElements+Model % NumberOfBoundaryElements
-          CurrentElement => Model % Elements(i)
-          NumberOfNodes=NumberOfNodes+CurrentElement % TYPE % NumberOfNodes
+          Element => Model % Elements(i)
+          NumberOfNodes=NumberOfNodes+Element % TYPE % NumberOfNodes
         END DO
       END IF
     END IF
@@ -520,15 +520,15 @@ END SUBROUTINE ResultOutputSolver
       
       IF ( PRESENT(ONOEfound) ) THEN
         DO i=1,Model % NumberOfBulkElements+Model % NumberOfBoundaryElements
-          CurrentElement => Model % Elements(i)
+          Element => Model % Elements(i)
           IF(MaskExists) THEN
-            IF( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0)) CYCLE
+            IF( ANY(MaskPerm(Element % NodeIndexes)<=0)) CYCLE
           END IF
 
-          DO j=1,CurrentElement % TYPE % NumberOfNodes
-            NodeCoords(1) = Model % Nodes % x(CurrentElement % NodeIndexes(j))
-            NodeCoords(2) = Model % Nodes % y(CurrentElement % NodeIndexes(j))
-            NodeCoords(3) = Model % Nodes % z(CurrentElement % NodeIndexes(j))
+          DO j=1,Element % TYPE % NumberOfNodes
+            NodeCoords(1) = Model % Nodes % x(Element % NodeIndexes(j))
+            NodeCoords(2) = Model % Nodes % y(Element % NodeIndexes(j))
+            NodeCoords(3) = Model % Nodes % z(Element % NodeIndexes(j))
 
             IF( MeshDim <= 2 ) THEN           
               WRITE(PostFileUnit,'(2ES16.7E3,A)') NodeCoords(1:2), ' 0.0'
@@ -586,13 +586,13 @@ END SUBROUTINE ResultOutputSolver
       WRITE(PostFileUnit,'(a)') '#group all'
       ONOECount=0
       DO i=1,Model % NumberOfBulkElements
-        CurrentElement => Model % Elements(i)
+        Element => Model % Elements(i)
         
         IF(MaskExists) THEN
-          IF( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0)) CYCLE
+          IF( ANY(MaskPerm(Element % NodeIndexes)<=0)) CYCLE
         END IF
         
-        k = CurrentElement % BodyId
+        k = Element % BodyId
         gotIt = .FALSE.
         IF ( k >= 1 .AND. k <= Model % NumberOfBodies ) THEN
           Str = ListGetString( Model % Bodies(k) % Values,'Name',gotIt )
@@ -615,12 +615,12 @@ END SUBROUTINE ResultOutputSolver
           END IF
         END IF
         
-        WRITE(PostFileUnit,'(i5)', ADVANCE='NO') CurrentElement % TYPE % ElementCode
+        WRITE(PostFileUnit,'(i5)', ADVANCE='NO') Element % TYPE % ElementCode
         n = 0
-        DO j=1,CurrentElement % TYPE % NumberOfNodes,4
-          DO k=1,MIN(4,CurrentElement % TYPE % NumberOfNodes-n)
+        DO j=1,Element % TYPE % NumberOfNodes,4
+          DO k=1,MIN(4,Element % TYPE % NumberOfNodes-n)
             n = n + 1
-            ind = CurrentElement % NodeIndexes(n)
+            ind = Element % NodeIndexes(n)
             IF(PRESENT(ONOEfound)) THEN
               ONOECount = ONOECount+1
               ind = ONOECount
@@ -632,17 +632,17 @@ END SUBROUTINE ResultOutputSolver
           WRITE( PostFileUnit,'(a)' ) ''
         END DO
       END DO
-      
+
       DO i=Model % NumberOfBulkElements + 1,Model % NumberOfBulkElements + &
           Model % NumberOfBoundaryElements
         
-        CurrentElement => Model % Elements(i)
+        Element => Model % Elements(i)
         
         IF(MaskExists) THEN
-          IF( ANY(MaskPerm(CurrentElement % NodeIndexes) <= 0)) CYCLE
+          IF( ANY(MaskPerm(Element % NodeIndexes) <= 0)) CYCLE
         END IF
         
-        k = CurrentElement % BoundaryInfo % Constraint
+        k = Element % BoundaryInfo % Constraint
         
         gotIt = .FALSE.
         IF ( k >= 1 .AND. k <= Model % NumberOfBCs ) THEN
@@ -666,9 +666,9 @@ END SUBROUTINE ResultOutputSolver
           END IF
         END IF
         
-        WRITE(PostFileUnit,'(i5)', ADVANCE='NO') CurrentElement % TYPE % ElementCode
-        DO k=1,CurrentElement % TYPE % NumberOfNodes
-          ind = CurrentElement % NodeIndexes(k)
+        WRITE(PostFileUnit,'(i5)', ADVANCE='NO') Element % TYPE % ElementCode
+        DO k=1,Element % TYPE % NumberOfNodes
+          ind = Element % NodeIndexes(k)
           IF(PRESENT(ONOEfound)) THEN
             ONOECount=ONOECount+1
             ind = ONOECount
@@ -700,145 +700,145 @@ END SUBROUTINE ResultOutputSolver
        n1=1
        n2=NumberOfNodes
     END IF
+
     DO jj=1,n1
-    IF( PRESENT(ONOEfound) ) THEN
-      CurrentElement => Model % Elements(jj)
-      IF(MaskExists) THEN
-        IF ( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0) ) CYCLE
-      END IF
-      n2=CurrentElement % TYPE % NumberOfNodes
 
-      Parent => Null()
-      IF ( ASSOCIATED(CurrentElement % BoundaryInfo) ) THEN
-        n = 0
-        Parent => CurrentElement % BoundaryInfo % Left
-        DO l=1,Parent % TYPE % NumberOfNodes
-          DO m=1,n2
-            IF ( CurrentElement % NodeIndexes(m)==Parent % NodeIndexes(l)) n=n+1
-          END DO
-        END DO
-        IF ( n/=n2 ) &
-          Parent => CurrentElement % BoundaryInfo % Right
-      END IF
-    END IF
+      IF( PRESENT(ONOEfound) ) THEN
+        Element => Model % Elements(jj)
+        IF(MaskExists) THEN
+          IF ( ANY(MaskPerm(Element % NodeIndexes)<=0) ) CYCLE
+        END IF
+        n2=Element % TYPE % NumberOfNodes
 
-    DO ii=1,n2
-      
-      IF ( PRESENT(ONOEfound) ) THEN
-        IF ( ASSOCIATED(Parent) ) THEN
-          DO l=1,Parent % TYPE % NumberOfNodes
-            DO m=1,n2
-              IF ( CurrentElement % NodeIndexes(m)==Parent % NodeIndexes(l)) EXIT
+        Parent => Null()
+        IF (ASSOCIATED(Element % BoundaryInfo) ) THEN
+          Parent => Element % BoundaryInfo % Left
+          n = 0
+          IF(ASSOCIATED(Parent)) THEN
+            DO l=1,GetElementNOFNodes(Parent)
+              DO m=1,n2
+                IF (Element % NodeIndexes(m)==Parent % NodeIndexes(l)) n=n+1
+              END DO
             END DO
-            IF ( m<=n2 ) EXIT
-          END DO
-          i = Parent % DGIndexes(l)
-        ELSE
-          i = CurrentElement % DGIndexes(ii)
+          END IF
+          IF (n/=n2) Parent => Element % BoundaryInfo % Right
         END IF
-      ELSE
-        i = ii
-        IF(MaskExists) i = MaskOrder(i)
       END IF
+
+      DO ii=1,n2
       
-      DO Vari = 1, ScalarFields
-        WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
-        VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
-        Var => VariableGet( Model % Variables, TRIM(VarName) ) 
-        IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
-          CYCLE
-        ELSE IF ( PRESENT(ONOEfound) ) THEN
-          CYCLE
-        END IF
-        Values => Var % Values
-
-        k = i
-        IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-        IF ( k > 0 ) THEN
-          WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Values(k)
+        IF ( PRESENT(ONOEfound) ) THEN
+          IF ( ASSOCIATED(Parent) ) THEN
+            DO l=1,GetElementNOFNOdes(Parent)
+              IF (Element % NodeIndexes(ii)==Parent % NodeIndexes(l)) EXIT
+            END DO
+            i = Parent % DGIndexes(l)
+          ELSE
+            i = Element % DGIndexes(ii)
+          END IF
         ELSE
-          WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0'
+          i = ii
+          IF(MaskExists) i = MaskOrder(i)
         END IF
-      END DO
-
-      DO Vari = 1, VectorFields
-
-        WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
-        VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
-        Var => VariableGet( Model % Variables, VarName ) 
-
-        IF( ASSOCIATED(Var) ) THEN
+      
+        DO Vari = 1, ScalarFields
+          WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+          VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
+          Var => VariableGet( Model % Variables, TRIM(VarName) ) 
           IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
-            IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+            CYCLE
           ELSE IF ( PRESENT(ONOEfound) ) THEN
             CYCLE
           END IF
+          Values => Var % Values
+
           k = i
-          Dofs = Var% Dofs
           IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-          
-          IF( k == 0 ) THEN
-            ! Check for the presence of secondary variable (in practice 'mesh update')
-            WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
-            VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
-            IF( GotIt ) THEN
-              Var => VariableGet( Model % Variables, VarName ) 
-              k = Var % Perm(i)
-            END IF
+          IF ( k > 0 ) THEN
+            WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Values(k)
+          ELSE
+            WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0'
           END IF
-          
-          IF( k > 0 ) THEN
-            DO j=1,dofs
-              WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Var % Values(dofs*(k-1)+j)
-            END DO
-            IF( dofs < 3 ) THEN
-              WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0'
-            END IF
-          ELSE 
-            WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0 0.0 0.0'
-          END IF
-          
-        ELSE
-          ! Check for the presence of component vectors given by its components i=1,2,3
-          Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
-          IF( ASSOCIATED(Var)) THEN
+        END DO
+
+        DO Vari = 1, VectorFields
+
+          WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
+          VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
+          Var => VariableGet( Model % Variables, VarName ) 
+
+          IF( ASSOCIATED(Var) ) THEN
             IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
               IF (.NOT.PRESENT(ONOEfound) ) CYCLE
             ELSE IF ( PRESENT(ONOEfound) ) THEN
               CYCLE
             END IF
-
             k = i
+            Dofs = Var% Dofs
             IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-
+          
             IF( k == 0 ) THEN
+              ! Check for the presence of secondary variable (in practice 'mesh update')
               WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
               VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
               IF( GotIt ) THEN
-                Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
+                Var => VariableGet( Model % Variables, VarName ) 
                 k = Var % Perm(i)
               END IF
             END IF
+          
             IF( k > 0 ) THEN
-              Values => Var % Values
-              Var => VariableGet( Model % Variables, TRIM(VarName)//' 2' ) 
-              Values2 => Var % Values
-              IF( MeshDim == 2 ) THEN
-                WRITE(PostFileUnit,'(2ES16.7E3,A)',ADVANCE='NO') Values(k),&
-                    Values2(k),' 0.0'               
-              ELSE
-                Var => VariableGet( Model % Variables, TRIM(VarName)//' 3' ) 
-                Values3 => Var % Values
-                WRITE(PostFileUnit,'(3ES16.7E3)',ADVANCE='NO') Values(k),&
-                    Values2(k), Values3(k)
+              DO j=1,dofs
+                WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Var % Values(dofs*(k-1)+j)
+              END DO
+              IF( dofs < 3 ) THEN
+                WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0'
               END IF
-            ELSE
-              WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0 0.0 0.0'              
+            ELSE 
+              WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0 0.0 0.0'
+            END IF
+          
+          ELSE
+            ! Check for the presence of component vectors given by its components i=1,2,3
+            Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
+            IF( ASSOCIATED(Var)) THEN
+              IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
+                IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+              ELSE IF ( PRESENT(ONOEfound) ) THEN
+                CYCLE
+              END IF
+
+              k = i
+              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+
+              IF( k == 0 ) THEN
+                WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
+                VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
+                IF( GotIt ) THEN
+                  Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
+                  k = Var % Perm(i)
+                END IF
+              END IF
+              IF( k > 0 ) THEN
+                Values => Var % Values
+                Var => VariableGet( Model % Variables, TRIM(VarName)//' 2' ) 
+                Values2 => Var % Values
+                IF( MeshDim == 2 ) THEN
+                  WRITE(PostFileUnit,'(2ES16.7E3,A)',ADVANCE='NO') Values(k),&
+                      Values2(k),' 0.0'               
+                ELSE
+                  Var => VariableGet( Model % Variables, TRIM(VarName)//' 3' ) 
+                  Values3 => Var % Values
+                  WRITE(PostFileUnit,'(3ES16.7E3)',ADVANCE='NO') Values(k),&
+                      Values2(k), Values3(k)
+                END IF
+              ELSE
+                WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0 0.0 0.0'              
+              END IF
             END IF
           END IF
-        END IF
-      END DO
-      WRITE(PostFileUnit,'()')
+        END DO
+        WRITE(PostFileUnit,'()')
       END DO
     END DO
 
