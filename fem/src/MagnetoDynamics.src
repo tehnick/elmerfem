@@ -3949,35 +3949,6 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE FindParentUVW(Face, nFace, Parent, nParent, U, V, W, Basis)
-!------------------------------------------------------------------------------
-      IMPLICIT NONE
-      TYPE(Element_t) :: Face, Parent
-      INTEGER :: nFace, nParent
-      REAL( KIND=dp ) :: U, V, W, Basis(:)
-!------------------------------------------------------------------------------
-      INTEGER :: i,j
-      REAL(KIND=dp) :: ParentU(nFace), ParentV(nFace), ParentW(nFace)
-!------------------------------------------------------------------------------
-      DO i = 1,nFace
-        DO j = 1,nParent
-          IF ( Face % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
-            ParentU(i) = Parent % Type % NodeU(j)
-            ParentV(i) = Parent % Type % NodeV(j)
-            ParentW(i) = Parent % Type % NodeW(j)
-            EXIT
-          END IF
-        END DO
-      END DO
-      U = SUM( Basis(1:nFace) * ParentU(1:nFace) )
-      V = SUM( Basis(1:nFace) * ParentV(1:nFace) )
-      W = SUM( Basis(1:nFace) * ParentW(1:nFace) )
-!------------------------------------------------------------------------------      
-    END SUBROUTINE FindParentUVW
-!------------------------------------------------------------------------------      
-
-
-!------------------------------------------------------------------------------
     SUBROUTINE LocalJumps( STIFF,Face,n,P1,n1,P2,n2)
 !------------------------------------------------------------------------------
       IMPLICIT NONE
@@ -4018,10 +3989,10 @@ CONTAINS
 
         ! Find basis functions for the parent elements:
         ! ---------------------------------------------
-        CALL FindParentUVW(Face, n, P1, n1, U, V, W, FaceBasis)
+        CALL GetParentUVW(Face, n, P1, n1, U, V, W, FaceBasis)
         stat = ElementInfo(P1, P1Nodes, U, V, W, detJ, P1Basis)
 
-        CALL FindParentUVW(Face, n, P2, n2, U, V, W, FaceBasis)
+        CALL GetParentUVW(Face, n, P2, n2, U, V, W, FaceBasis)
         stat = ElementInfo(P2, P2Nodes, U, V, W, detJ, P2Basis)
 
         ! Integrate jump terms:
