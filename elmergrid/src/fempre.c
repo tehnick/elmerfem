@@ -750,7 +750,11 @@ int main(int argc, char *argv[])
     if(eg.merge) 
       MergeElements(&data[k],boundaries[k],eg.order,eg.corder,eg.cmerge,FALSE,TRUE);
     else if(eg.order == 3) 
+#if PARTMETIS 
       ReorderElementsMetis(&data[k],TRUE);
+#else
+      printf("Cannot order nodes by Metis as it is not even compiled!\n");
+#endif    
     else if(eg.order) 
       ReorderElements(&data[k],boundaries[k],eg.order,eg.corder,TRUE);
     

@@ -4019,7 +4019,7 @@ omstart:
 
   nextline:
     if( !strncmp(line,"    -1",6)) mode = 0;
-    if(Getrow(line,in,FALSE)) goto end;
+    if( Getrow(line,in,FALSE)) goto end;
     if(!line) goto end;
 
     if( !strncmp(line,"    -1",6)) mode = 0;
@@ -4029,7 +4029,7 @@ omstart:
     else if( !strncmp(line,"  2435",6)) mode = 2435;
     else if( !strncmp(line,"   781",6)) mode = 781;
     else if( !strncmp(line,"   780",6)) mode = 780;
-    else if(1 && allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
+    else if( allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
 
 
     if(debug && mode) printf("Current mode is %d\n",mode);
