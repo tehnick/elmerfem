@@ -954,14 +954,15 @@ CONTAINS
       END IF
 
 
-      IF( ListGetLogical( Solver % Values,'Calculate Velocity',Found) ) THEN
-        IF ( Solver % TimeOrder == 1 ) THEN
-          ALLOCATE( Solution( SIZE( Solver % Variable % Values) ) )
-          Solution = 0.0_dp
+      IF( ListGetLogical( Solver % Values,'Calculate Velocity',Found) .OR. &
+        ListGetLogical( Solver % Values,'Nonlinear Calculate Velocity',Found) ) THEN
+	IF( Solver % TimeOrder < 1 ) THEN
+          CALL Warn('AddEquationSolution',&
+              'Velocity computation implemented only for time-dependent equations')
+        ELSE IF ( Solver % TimeOrder == 1 ) THEN
           str = TRIM( Solver % Variable % Name ) // ' Velocity'
           CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-              str, Solver % Variable % Dofs, Solution, Solver % Variable % Perm )
-          NULLIFY( Solution )
+              str, Solver % Variable % Dofs, Perm = Solver % Variable % Perm )
         ELSE IF ( Solver % TimeOrder >= 2 ) THEN
           Component => Solver % Variable % PrevValues(:,1)
           str = TRIM( Solver % Variable % Name ) // ' Velocity'
@@ -974,7 +975,7 @@ CONTAINS
       IF( ListGetLogical( Solver % Values,'Calculate Acceleration',Found) ) THEN
         IF ( Solver % TimeOrder == 1 ) THEN
           CALL Warn('AddEquationSolution',&
-              'No velocity computation implemented for 1st order time integration')
+              'Acceleration computation implemented only for 2nd order time equations')
         ELSE IF ( Solver % TimeOrder >= 2 ) THEN
           Component => Solver % Variable % PrevValues(:,2)
           str = TRIM( Solver % Variable % Name ) // ' Acceleration'
@@ -995,13 +996,13 @@ CONTAINS
       Solver % TimeOrder = 0
 
       IF( ListGetLogical( Solver % Values,'Calculate Derivative',Found) ) THEN
-        NULLIFY( Solution ) 
-        ALLOCATE( Solution( SIZE( Solver % Variable % Values) ) )
-        Solution = 0.0_dp
+!        NULLIFY( Solution ) 
+!        ALLOCATE( Solution( SIZE( Solver % Variable % Values) ) )
+!        Solution = 0.0_dp
         str = TRIM( Solver % Variable % Name ) // ' Derivative'
         CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-            str, Solver % Variable % Dofs, Solution, Solver % Variable % Perm )
-        NULLIFY( Solution )
+            str, Solver % Variable % Dofs, Perm = Solver % Variable % Perm )
+!        NULLIFY( Solution )
       END IF
 
       IF ( EigAnal ) THEN
@@ -1740,12 +1741,12 @@ CONTAINS
 
     CALL Info('CreateBlockVariable','Creating variable: '//TRIM(VarName), Level=6 )
 
-    NULLIFY( Values ) 
-    ALLOCATE(Values(Dofs*nsize))
-    Values = 0.0_dp
+!    NULLIFY( Values ) 
+!    ALLOCATE(Values(Dofs*nsize))
+!    Values = 0.0_dp
     
     CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
-        TRIM(VarName), Dofs, Values, VarPerm )          
+        TRIM(VarName), Dofs, Perm = VarPerm )          
 
     WRITE( Message,'(A,I0,A)') 'Creating variable '//TRIM(VarName)//' with ',Dofs,' dofs'
     CALL Info('BlockSolver',Message)
