@@ -247,7 +247,7 @@ END SUBROUTINE ResultOutputSolver
     INTEGER :: TimeCount
     CHARACTER(LEN=512) :: PostFile, FilePrefix
     TYPE(Element_t), POINTER :: Element, Parent
-    TYPE(Variable_t), POINTER :: Var,Var1,Displacement=>Null(),MeshUpdate=>Null(),MaskVar
+    TYPE(Variable_t), POINTER :: Var,Var1,Displacement=>NULL(),MeshUpdate=>NULL(),MaskVar
     
     CHARACTER(LEN=512) :: Row
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr, VarName, Txt
@@ -710,7 +710,7 @@ END SUBROUTINE ResultOutputSolver
         END IF
         n2=Element % TYPE % NumberOfNodes
 
-        Parent => Null()
+        Parent => NULL()
         IF (ASSOCIATED(Element % BoundaryInfo) ) THEN
           Parent => Element % BoundaryInfo % Left
           n = 0
@@ -1103,6 +1103,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   Nloop = 1
   IF( EigenAnalysis ) THEN
      Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
+     IF( .NOT. Found ) Nloop = GetInteger( Solver % Values, 'Number Of EigenModes', Found )
      IF( .NOT.Found ) Nloop = 1
    END IF
 
@@ -1501,6 +1502,8 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
 
 
 
+  BCOffSet = Model % NumberOfBodies
+
   WRITE(10,'(A)') '$Elements'
   WRITE(10,'(I8)') nsize
   DO i = 1, NumberOfAllElements
@@ -1524,7 +1527,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       Tag = GetBCId( Element ) + BCOffset
     END IF
 
-    WRITE(10,'(I8,I3,I3,I5)',ADVANCE='NO') i,GmshCode,1,Tag
+    WRITE(10,'(I8,I3,I3,I5,I5)',ADVANCE='NO') i,GmshCode,2,Tag,Tag
     k = MOD(ElmerCode,100)
 
     CALL ElmerToGmshIndex(ElmerCode,ElmerIndexes,GmshIndexes)
@@ -1535,8 +1538,6 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     WRITE(10,'(I8)') GmshIndexes(k)
   END DO
   WRITE(10,'(A)') '$EndElements'
-
-  BCOffSet = Model % NumberOfBodies
 
   ! With a mask the list of physical entities should be checked
   !-------------------------------------------------------------
@@ -3030,7 +3031,6 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: DoubleWrk
   REAL :: SingleWrk
 
-
   LOGICAL :: MaskExists, MaskAllocated, BinaryOutput, AsciiOutput, SinglePrec, NoFileindex
   CHARACTER(MAX_NAME_LEN) :: Str
   TYPE(Variable_t), POINTER :: MaskVar
@@ -3038,6 +3038,15 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   INTEGER :: NumberOfNodes, NumberOfElements, ParallelNodes, ParallelElements
   TYPE(Element_t), POINTER :: CurrentElement
   TYPE(ValueList_t),POINTER :: Params
+  INTEGER :: MaxModes
+  INTEGER, POINTER :: ActiveModes(:)
+  LOGICAL :: GotActiveModes
+
+! Parameters for buffered binary output
+  INTEGER :: BufferSize
+  INTEGER, ALLOCATABLE :: IVals(:)
+  REAL, ALLOCATABLE :: FVals(:)
+  REAL(KIND=dp), ALLOCATABLE :: DVals(:)
 
   Params => GetSolverParams()
 
@@ -3050,13 +3059,17 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
 
   BinaryOutput = GetLogical( Params,'Binary Output',GotIt)
-  AsciiOutput = .NOT. BinaryOutput
-  SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
-  IF( SinglePrec .AND. AsciiOutput ) THEN
-    CALL Warn('VtuOutputSolver','Single precision is associated only with binary output!')
-    SinglePrec = .FALSE.
+  IF( GotIt ) THEN
+    AsciiOutput = .NOT. BinaryOutput
+  ELSE
+    AsciiOutput = GetLogical( Params,'Ascii Output',GotIt)
+    BinaryOutput = .NOT. AsciiOutput
   END IF
 
+  SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
+  IF( SinglePrec ) THEN
+    CALL Info('VtuOutputSolver','Using single precision arithmetics in outpput!')
+  END IF
 
   IF( SinglePrec ) THEN
     PrecBits = 32
@@ -3148,6 +3161,25 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     NumberOfElements = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
   END IF
 
+  IF( BinaryOutput ) THEN
+    BufferSize = ListGetInteger( Params,'Binary Output Buffer Size',GotIt)
+    IF( .NOT. GotIt ) BufferSize = MAX( NumberOfNodes, NumberOfElements )
+    ALLOCATE( Ivals( BufferSize ) ) 
+    IF( SinglePrec ) THEN
+      ALLOCATE( FVals( BufferSize ) ) 
+    ELSE
+      ALLOCATE( Dvals( BufferSize ) ) 
+    END IF
+  END IF
+
+  ActiveModes => ListGetIntegerArray( Params,'Active EigenModes',GotActiveModes ) 
+  IF( GotActiveModes ) THEN
+    MaxModes = SIZE( ActiveModes )
+  ELSE
+    MaxModes = ListGetInteger( Params,'Number of EigenModes',GotIt)
+    IF(.NOT. GotIt) MaxModes = ListGetInteger( Params,'Eigen System Values',GotIt)
+  END IF
+
   Dir = ListGetString( Params,'Output Directory',GotIt) 
   IF(.NOT. GotIt ) THEN
     IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
@@ -3158,7 +3190,6 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF  
   CALL MakeDirectory( TRIM(Dir) // CHAR(0) )
   Dir = TRIM(Dir)// "/"
-
 
   IF(Parallel) THEN
     IF( NoFileindex ) THEN
@@ -3190,7 +3221,15 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 
   IF( MaskExists ) DEALLOCATE(MaskOrder)
   IF( MaskAllocated ) DEALLOCATE( MaskPerm ) 
-  
+  IF( BinaryOutput ) THEN
+    DEALLOCATE( IVals ) 
+    IF( SinglePrec ) THEN
+      DEALLOCATE( FVals ) 
+    ELSE
+      DEALLOCATE( DVals ) 
+    END IF
+  END IF
+
 
 CONTAINS
 
@@ -3209,7 +3248,103 @@ CONTAINS
   END SUBROUTINE StrWrite
 
 
+  SUBROUTINE RealWrite( val, EmptyBuffer )
+    
+    INTEGER, PARAMETER :: VtuUnit = 58
+    REAL(KIND=dp) :: val
+    LOGICAL, OPTIONAL :: EmptyBuffer
+    LOGICAL :: Empty
+    INTEGER :: NoVals = 0
+    CHARACTER(LEN=1024) :: Str 
+
+    SAVE NoVals
+    
+    IF( PRESENT( EmptyBuffer ) ) THEN
+      Empty = EmptyBuffer
+    ELSE
+      Empty = .FALSE.
+    END IF
+
+    ! Ascii output is not buffered
+    !------------------------------
+    IF( AsciiOutput ) THEN
+      IF( Empty ) RETURN
+      IF( ABS( val ) <= TINY ( val ) ) THEN
+        WRITE(Str,'(A)') " 0.0"
+      ELSE IF( SinglePrec ) THEN
+        WRITE( Str,'(ES12.3E3)') val       
+      ELSE
+        WRITE( Str,'(ES16.7E3)') val
+      END IF
+      WRITE( VtuUnit ) TRIM(Str)        
+      RETURN
+    END IF
+
+    ! Buffered binary output
+    !-----------------------
+    IF( Empty .OR. NoVals == BufferSize ) THEN
+      IF( NoVals == 0 ) THEN
+        RETURN
+      ELSE IF( SinglePrec ) THEN
+        WRITE( VtuUnit ) Fvals(1:NoVals)
+      ELSE
+        WRITE( VtuUnit ) DVals(1:NoVals) 
+      END IF
+      NoVals = 0
+      IF( Empty ) RETURN 
+    END IF
+    
+    NoVals = NoVals + 1
+    IF( SinglePrec ) THEN
+      Fvals(NoVals) = val
+    ELSE
+      DVals(NoVals) = val
+    END IF
+
+  END SUBROUTINE RealWrite
+
+
+  SUBROUTINE IntegerWrite( ival, EmptyBuffer )
+    
+    INTEGER, PARAMETER :: VtuUnit = 58
+    INTEGER :: ival
+    LOGICAL, OPTIONAL :: EmptyBuffer
+    LOGICAL :: Empty
+    INTEGER :: NoVals = 0
+    CHARACTER(LEN=1024) :: Str 
+
+    SAVE NoVals
+    
+    IF( PRESENT( EmptyBuffer ) ) THEN
+      Empty = EmptyBuffer
+    ELSE
+      Empty = .FALSE.
+    END IF
+
+    IF( AsciiOutput ) THEN
+      IF( Empty ) RETURN
+      WRITE( Str, '(" ",I0)') ival
+      WRITE( VtuUnit ) TRIM(Str)        
+      RETURN
+    END IF
+
+    IF( Empty .OR. NoVals == BufferSize ) THEN
+      IF( NoVals == 0 ) THEN
+        RETURN
+      ELSE 
+        WRITE( VtuUnit ) Ivals(1:NoVals)
+      END IF
+      NoVals = 0
+      IF( Empty ) RETURN 
+    END IF
+    
+    NoVals = NoVals + 1
+    Ivals(NoVals) = ival
+
+  END SUBROUTINE IntegerWrite
   
+
+
   SUBROUTINE WriteVtuFile( VtuFile, Model, RemoveDisp )
     CHARACTER(LEN=*), INTENT(IN) :: VtuFile
     TYPE(Model_t) :: Model 
@@ -3217,32 +3352,33 @@ CONTAINS
     INTEGER, PARAMETER :: VtuUnit = 58
     TYPE(Variable_t), POINTER :: Var,Var1
     CHARACTER(LEN=512) :: str
-    INTEGER :: i,ii,j,k,dofs,Rank,cumn,n,dim,vari,sdofs,dispdofs, disp2dofs, Offset
+    INTEGER :: i,ii,j,k,dofs,Rank,cumn,n,dim,vari,sdofs,dispdofs, disp2dofs, Offset, &
+        NoFields, IndField, iField, NoModes
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, &
         FieldName, FieldName2, OutStr
     CHARACTER :: lf
     LOGICAL :: ElementalSolutionsExist, ScalarsExist, VectorsExist, Found,&
               ComponentVector, ComplementExists, Use2
-    LOGICAL :: WriteData, WriteXML, L
+    LOGICAL :: WriteData, WriteXML, L, Buffered
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:), Perm2(:), DispPerm(:), Disp2Perm(:)
     REAL(KIND=dp), POINTER :: Values(:), DispValues(:), Disp2Values(:), Values2(:), Values3(:)
-    REAL(KIND=dp) :: x,y,z, ElemVectVal(3),value
+    REAL(KIND=dp) :: x,y,z, ElemVectVal(3),val
+    COMPLEX(KIND=dp), POINTER :: EigenVectors(:,:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(ValueList_t), POINTER :: Params
-
-    ! single prec value
-    REAL :: fvalue, xf, yf, zf
 
     ! Linefeed character
     !-----------------------------------
     lf = CHAR(10)
 
+
     Offset = 0
     WriteXML = .TRUE.
     WriteData = AsciiOutput
     Params => GetSolverParams()
+    Buffered = .TRUE.
 
     
     ! This is a hack to ensure that the streamed saving will cover the whole file
@@ -3344,7 +3480,7 @@ CONTAINS
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
-            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            WRITE(Txt, '(A,A)') 'Nonexistent variable 1: ',TRIM(FieldName)
             CALL Warn('WriteVtuXMLFile', Txt)
             CYCLE
           END IF
@@ -3352,7 +3488,17 @@ CONTAINS
         IF ( Solution % TYPE == Variable_on_nodes_on_elements ) CYCLE
         
         IF( ASSOCIATED(Solution % EigenVectors)) THEN
-          CALL Warn('WriteVtuXMLFile','Do the eigen values')
+          IF( ComponentVector ) THEN
+            CALL Warn('WriteVtuXMLFile','Eigenmodes cannot be given componentwise!')
+            CYCLE
+          END IF
+          NoModes = SIZE( Solution % EigenValues )
+          IF( MaxModes > 0 ) NoModes = MIN( MaxModes, NoModes )
+          NoFields = NoModes
+          EigenVectors => Solution % EigenVectors
+        ELSE
+          NoModes = 0 
+          NoFields = 1
         END IF
         
         Perm => Solution % Perm
@@ -3380,19 +3526,21 @@ CONTAINS
         ! displacement & mesh update 
         !---------------------------------------------------------------------
         ComplementExists = .FALSE.
-        IF(Rank==0) WRITE(Txt,'(A,I0,A)') 'Scalar Field ',Vari,' Complement'
-        IF(Rank==1) WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
-        IF(Rank==2) WRITE(Txt,'(A,I0,A)') 'Tensor Field ',Vari,' Complement'
-
-        FieldName2 = GetString( Params, TRIM(Txt), Found )
-        IF( Found ) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName2))
-          IF( ASSOCIATED(Solution)) THEN 
-            Values2 => Solution % Values
-            Perm2 => Solution % Perm 
-            ComplementExists = .TRUE.
-          ELSE
-            CALL Warn('WriteVTUFile','Complement does not exist:'//TRIM(FieldName2))
+        IF( NoModes > 0 ) THEN
+          IF(Rank==0) WRITE(Txt,'(A,I0,A)') 'Scalar Field ',Vari,' Complement'
+          IF(Rank==1) WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
+          IF(Rank==2) WRITE(Txt,'(A,I0,A)') 'Tensor Field ',Vari,' Complement'
+          
+          FieldName2 = GetString( Params, TRIM(Txt), Found )
+          IF( Found ) THEN
+            Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName2))
+            IF( ASSOCIATED(Solution)) THEN 
+              Values2 => Solution % Values
+              Perm2 => Solution % Perm 
+              ComplementExists = .TRUE.
+            ELSE
+              CALL Warn('WriteVTUFile','Complement does not exist:'//TRIM(FieldName2))
+            END IF
           END IF
         END IF
 
@@ -3405,83 +3553,94 @@ CONTAINS
         !---------------------------------------------------------------------
         ! Finally save the field values 
         !---------------------------------------------------------------------
-        IF( WriteXML ) THEN
-          WRITE( OutStr,'(A,I0,A)') '        <DataArray type="Float',PrecBits,'" Name="'//TRIM(FieldName)
-          CALL StrWrite( OutStr )
+        DO iField = 1, NoFields          
 
-          WRITE( OutStr,'(A,I0,A)') '" NumberOfComponents="',sdofs,'"'          
-          CALL StrWrite( OutStr ) 
-          
-          IF( AsciiOutput ) THEN
-            WRITE( OutStr,'(A)') ' format="ascii">'//lf
-            CALL StrWrite( OutStr ) 
+          IF( GotActiveModes ) THEN
+            IndField = ActiveModes( iField ) 
           ELSE
-            WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
-            CALL StrWrite( OutStr ) 
+            IndField = iField
           END IF
-        END IF
 
-        IF( BinaryOutput ) THEN
-          k = NumberOfNodes * PrecSize * sdofs
-          Offset = Offset + IntSize + k
-        END IF
-         
-        !---------------------------------------------------------------------
-        ! Data may also be appended and then its saved on the second sweep
-        !---------------------------------------------------------------------
-        IF( WriteData ) THEN
-
-          IF( BinaryOutput ) WRITE( VtuUnit ) k
-          
-          DO ii = 1, NumberOfNodes
-            i = ii
-            IF( MaskExists ) i = MaskOrder(i)
-
-	    IF( ASSOCIATED( Perm ) ) THEN
-              j = Perm(i)
-            ELSE
-              j = i
+          IF( WriteXML ) THEN
+            IF( NoModes == 0 ) THEN
+              WRITE( OutStr,'(A,I0,A)') '        <DataArray type="Float',PrecBits,'" Name="'//TRIM(FieldName)
+            ELSE 
+              WRITE( OutStr,'(A,I0,A,I0)') '        <DataArray type="Float',PrecBits,'" Name="'//&
+                  TRIM(FieldName)//' mode',IndField
             END IF
-
-            Use2 = (j == 0) .AND. ComplementExists 
-            IF( Use2 ) j = Perm2(i)
+            CALL StrWrite( OutStr )
             
-            DO k=1,sdofs              
-              IF(j==0 .OR. k > dofs) THEN
-                value = 0.0_dp
-              ELSE IF( ComponentVector ) THEN
-                IF( k == 1 ) value = Values(j)
-                IF( k == 2 ) value = Values2(j)
-                IF( k == 3 ) value = Values3(j)
-              ELSE IF( Use2 ) THEN
-                value = Values2(dofs*(j-1)+k)              
+            WRITE( OutStr,'(A,I0,A)') '" NumberOfComponents="',sdofs,'"'          
+            CALL StrWrite( OutStr ) 
+            
+            IF( AsciiOutput ) THEN
+              WRITE( OutStr,'(A)') ' format="ascii">'//lf
+              CALL StrWrite( OutStr ) 
+            ELSE
+              WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+              CALL StrWrite( OutStr ) 
+            END IF
+          END IF
+          
+          IF( BinaryOutput ) THEN
+            k = NumberOfNodes * PrecSize * sdofs
+            Offset = Offset + IntSize + k
+          END IF
+         
+          !---------------------------------------------------------------------
+          ! Data may also be appended and then its saved on the second sweep
+          !---------------------------------------------------------------------
+          IF( WriteData ) THEN
+            
+            IF( BinaryOutput ) WRITE( VtuUnit ) k
+            
+            DO ii = 1, NumberOfNodes
+              i = ii
+              IF( MaskExists ) i = MaskOrder(i)
+              
+              IF( ASSOCIATED( Perm ) ) THEN
+                j = Perm(i)
               ELSE
-                value = Values(dofs*(j-1)+k)              
+                j = i
               END IF
               
-              IF( BinaryOutput ) THEN
-                IF( SinglePrec ) THEN
-                  fvalue = value
-                  WRITE( VtuUnit ) fvalue
-                ELSE
-                  WRITE( VtuUnit ) value
+              Use2 = .FALSE.
+              IF( ComplementExists ) THEN
+                IF( j == 0 ) THEN
+                  Use2 = .TRUE. 
+                  j = Perm2(i)
                 END IF
-              ELSE
-                IF( ABS( value ) <= TINY ( value ) ) THEN
-                  WRITE(OutStr,'(A)') " 0.0"
-                ELSE
-                  WRITE( OutStr,'(ES16.7E3)') value
-                END IF
-                CALL StrWrite( OutStr ) 
               END IF
+              
+              DO k=1,sdofs              
+                IF(j==0 .OR. k > dofs) THEN
+                  val = 0.0_dp
+                ELSE IF( ComponentVector ) THEN
+                  IF( k == 1 ) val = Values(j)
+                  IF( k == 2 ) val = Values2(j)
+                  IF( k == 3 ) val = Values3(j)
+                ELSE IF( Use2 ) THEN
+                  val = Values2(dofs*(j-1)+k)              
+                ELSE IF( NoModes > 0 ) THEN
+                  val = EigenVectors(IndField,dofs*(j-1)+k)                              
+                ELSE
+                  val = Values(dofs*(j-1)+k)              
+                END IF
+                
+                CALL RealWrite( val )
+
+              END DO
             END DO
-          END DO
-        END IF
+
+            CALL RealWrite( 0.0_dp, .TRUE. )
+
+          END IF
         
-        IF( AsciiOutput ) THEN
-          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
-          CALL StrWrite( OutStr ) 
-        END IF
+          IF( AsciiOutput ) THEN
+            WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+            CALL StrWrite( OutStr ) 
+          END IF
+        END DO
       END DO
     END DO
     
@@ -3508,6 +3667,7 @@ CONTAINS
         END IF
         
         FieldName = GetString( Params, TRIM(Txt), Found )
+	L = .FALSE.
         IF(.NOT. Found) THEN
           IF( Rank == 0 ) THEN
             WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
@@ -3516,20 +3676,23 @@ CONTAINS
           END IF
           FieldName = GetString( Params, TRIM(Txt), Found )
           IF(.NOT. Found) EXIT
+	  L = .TRUE.
         END IF
         
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
         Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
-        
+       
         IF(.NOT. ASSOCIATED(Solution)) THEN
-          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
-          CALL Warn('WriteVtuXMLFile', Txt)
+	  IF( L ) THEN
+            WRITE(Txt, '(A,A)') 'Nonexistent variable 2: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
+          END IF
           CYCLE
         END IF
         
-        IF (Solution % Type /= Variable_on_nodes_on_elements ) CYCLE
+        IF (Solution % TYPE /= Variable_on_nodes_on_elements ) CYCLE
 
         Perm => Solution % Perm
         Dofs = Solution % DOFs
@@ -3589,20 +3752,12 @@ CONTAINS
             END IF
             
             DO j=1,sdofs                
-              IF( BinaryOutput ) THEN
-                IF( SinglePrec ) THEN
-                  fvalue = ElemVectVal(j)
-                  WRITE( VtuUnit ) fvalue
-                ELSE
-                  WRITE( VtuUnit ) ElemVectVal(j) 	
-                END IF
-              ELSE
-                WRITE( OutStr,'(ES16.7E3)') ElemVectVal(j)
-                CALL StrWrite( OutStr ) 
-              END IF
-            END DO
-            
+              CALL RealWrite( ElemVectVal(j) )
+            END DO            
           END DO
+
+          CALL RealWrite( 0.0_dp, .TRUE. )
+
         END IF
         
         IF( AsciiOutput ) THEN
@@ -3672,32 +3827,12 @@ CONTAINS
           END IF
         END IF
         
-        IF( BinaryOutput ) THEN
-          IF( SinglePrec ) THEN
-            xf = x
-            yf = y
-	    IF( dim == 2 ) THEN
-              WRITE( VtuUnit ) xf, yf
-            ELSE
-              zf = z
-              WRITE( VtuUnit ) xf, yf, zf
-            END IF
-          ELSE
-            IF( dim == 2 ) THEN
-              WRITE( VtuUnit ) x, y 
-            ELSE
-              WRITE( VtuUnit ) x, y, z
-            END IF	      
-          END IF
-        ELSE        
-          IF(meshdim == 2) THEN
-            WRITE(OutStr,'(2ES16.7E3,A)') x, y,' 0.0'
-          ELSE
-            WRITE(OutStr,'(3ES16.7E3)') x, y, z
-          END IF
-          CALL StrWrite( OutStr ) 
-        END IF
+        CALL RealWrite( x )
+        CALL RealWrite( y )
+        IF( dim > 2 ) CALL RealWrite( z )
       END DO
+
+      CALL RealWrite( 0.0_dp, .TRUE.)
     END IF
 
     IF( AsciiOutput ) THEN   
@@ -3735,7 +3870,8 @@ CONTAINS
         IF(MaskExists) THEN
           IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
         END IF
-        k = k + CurrentElement % TYPE % NumberOfNodes * IntSize
+        n = GetElementNOFNodes(CurrentElement)
+        k = k + n * IntSize
       END DO
       Offset = Offset + k + IntSize
     END IF
@@ -3746,23 +3882,21 @@ CONTAINS
 
       DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
         CurrentElement => Model % Elements(i)
+        n = GetElementNOFNodes(CurrentElement)
+       
         IF(MaskExists) THEN
           IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-          IF( BinaryOutput ) THEN
-            WRITE( VtuUnit ) MaskPerm( CurrentElement % NodeIndexes ) - 1
-          ELSE
-            WRITE( OutStr, '(50(" ",I0))') MaskPerm( CurrentElement % NodeIndexes ) - 1
-            CALL StrWrite( OutStr ) 
-          END IF
-        ELSE
-          IF( BinaryOutput ) THEN
-            WRITE( VtuUnit ) CurrentElement % NodeIndexes - 1
-          ELSE
-            WRITE( OutStr, '(50(" ",I0))') CurrentElement % NodeIndexes - 1
-            CALL StrWrite( OutStr ) 
-          END IF
+          DO j=1,n
+            CALL IntegerWrite( MaskPerm( CurrentElement % NodeIndexes(j)) - 1 )
+          END DO
+        ELSE          
+          DO j=1,n
+            CALL IntegerWrite( CurrentElement % NodeIndexes(j) - 1 )
+          END DO
         END IF
+
       END DO
+      CALL IntegerWrite( 0, .TRUE. ) 
     END IF
 
     IF( AsciiOutput ) THEN
@@ -3803,13 +3937,12 @@ CONTAINS
         END IF
         n = CurrentElement % TYPE % NumberOfNodes
         cumn = cumn + n
-        IF( BinaryOutput ) THEN
-          WRITE( VtuUnit ) cumn
-        ELSE
-          WRITE( OutStr, '(" ",I0)') cumn
-          CALL StrWrite( OutStr ) 
-        END IF
+
+        CALL IntegerWrite( cumn )
       END DO
+        
+      CALL IntegerWrite( 0, .TRUE.)
+      
     END IF
 
     IF( AsciiOutput ) THEN   
@@ -3844,13 +3977,11 @@ CONTAINS
           IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
         END IF
         n = Elmer2VTKElement(CurrentElement % TYPE % ElementCode)
-        IF( BinaryOutput ) THEN
-          WRITE( VtuUnit ) n          
-        ELSE
-          WRITE( OutStr, '(" ",I0)') n
-          CALL StrWrite( OutStr ) 
-        END IF
+
+        CALL IntegerWrite( n )
       END DO
+
+      CALL IntegerWrite( 0, .TRUE. )     
     END IF
 
     IF( AsciiOutput ) THEN
@@ -3900,14 +4031,15 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Var,Var1
     CHARACTER(LEN=512) :: str
     INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs
-    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName
+    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName, FullName
     LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector, &
                AllActive, ThisActive
     LOGICAL, POINTER :: ActivePartition(:)
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:)
-    INTEGER :: Active, NoActive, ierr
+    INTEGER :: Active, NoActive, ierr, NoFields, NoModes, IndField, iField
     REAL(KIND=dp), POINTER :: Values(:)
+    COMPLEX(KIND=dp), POINTER :: EigenVectors(:,:)
     TYPE(Element_t), POINTER :: CurrentElement
 
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
@@ -3996,16 +4128,26 @@ CONTAINS
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
-            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            WRITE(Txt, '(A,A)') 'Nonexistent variable 3: ',TRIM(FieldName)
             CALL Warn('WriteVtuXMLFile', Txt)
             CYCLE
           END IF
         END IF
 
         IF( ASSOCIATED(Solution % EigenVectors)) THEN
-          CALL Warn('WritePvtuFile','Do the eigen values')
+          IF( ComponentVector ) THEN
+            CALL Warn('WritePvtuXMLFile','Eigenmodes cannot be given componentwise!')
+            CYCLE
+          END IF
+          NoModes = SIZE( Solution % EigenValues )
+          IF( MaxModes > 0 ) NoModes = MIN( MaxModes, NoModes )
+          NoFields = NoModes
+          EigenVectors => Solution % EigenVectors
+        ELSE
+          NoModes = 0 
+          NoFields = 1
         END IF
-
+  
         dofs = Solution % DOFs
         IF( ComponentVector ) THEN
           Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2')
@@ -4017,16 +4159,32 @@ CONTAINS
         IF( dofs > 1 ) THEN
           sdofs = MAX(dofs,3)
         ELSE
-          sdofs = dofs
+          sdofs = 1
         END IF
 
-        IF( AsciiOutput ) THEN
-          WRITE( VtuUnit,'(A,A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName), &
-              '" NumberOfComponents="',sdofs,'" format="ascii"/>'  
-        ELSE IF( SinglePrec ) THEN
-          WRITE( VtuUnit,'(A,I0,A,A,I0,A)') '      <PDataArray type="Float',PrecBits,'" Name="'//TRIM(FieldName), &
-              '" NumberOfComponents="',sdofs,'" format="appended"/>'  
-        END IF
+        DO iField = 1, NoFields
+
+          IF( GotActiveModes ) THEN
+            IndField = ActiveModes( iField ) 
+          ELSE
+            IndField = iField
+          END IF
+
+          IF( NoModes == 0 ) THEN
+            FullName = TRIM( FieldName ) 
+          ELSE          
+            WRITE( FullName,'(A,I0)') TRIM( FieldName )//' mode',IndField
+          END IF
+
+          IF( AsciiOutput ) THEN
+            WRITE( VtuUnit,'(A,A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FullName), &
+                '" NumberOfComponents="',sdofs,'" format="ascii"/>'  
+          ELSE 
+            WRITE( VtuUnit,'(A,I0,A,A,I0,A)') '      <PDataArray type="Float',PrecBits,'" Name="'//TRIM(FullName), &
+                '" NumberOfComponents="',sdofs,'" format="appended"/>'  
+          END IF
+        END DO
+
       END DO
     END DO
     WRITE( VtuUnit,'(A)') '    </PPointData>'
