@@ -96,7 +96,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., gotIt, FluxBC
   LOGICAL :: CalculateField, CalculateFlux, CalculateEnergy
   LOGICAL :: CalculateCapMatrix, ConstantWeights
-  LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
+  LOGICAL :: PiezoMaterial, CalculateSurfCharge
+  LOGICAL :: ConstantBulk = .FALSE., AssemblyDone = .FALSE.
+
 
   TYPE(Matrix_t), POINTER :: CM
   LOGICAL, ALLOCATABLE :: Done(:)
@@ -110,7 +112,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       CapBodies, CalculateCapMatrix, CapBodyIndex, &
       CapMatrix, CalculateField, CapMatrixFile, ConstantWeights, &
       PiezoCoeff, PiezoMaterial, Displacement, Pz_w, CalculateSurfCharge, &
-      ConstantBulk, SaveBulk
+      ConstantBulk, AssemblyDone
   
   
   INTERFACE
@@ -198,8 +200,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     CalculateSurfCharge = GetLogical( Params, &
         'Calculate Surface Charge', GotIt )
 
-    ConstantBulk = ListGetLogical( Params,'Save Bulk System',GotIt)
-    SaveBulk = ConstantBulk .OR. ListGetLogical( Params,'Save Bulk System',GotIt)
+    ConstantBulk = ListGetLogical( Params,'Constant Bulk System',GotIt)
+    ConstantBulk = ConstantBulk .OR. ListGetLogical( Params,'Save Bulk System',GotIt)
 
     ConstantWeights = ListGetLogical( Params,'Constant Weights', GotIt )
 
@@ -212,7 +214,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
         'Calculate Capacitance Matrix', GotIt )
         
     IF(CalculateCapMatrix) THEN
-      SaveBulk = .TRUE.
       ConstantBulk = .TRUE.
       CapBodies = ListGetInteger( Params, 'Capacitance Bodies',GotIt)
       IF(.NOT. GotIt) THEN
@@ -331,11 +332,12 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !    Do the assembly
 !------------------------------------------------------------------------------
 
-    IF ( ConstantBulk .AND. ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
+    IF ( ConstantBulk .AND. AssemblyDone ) THEN
       Solver % Matrix % RHS = Solver % Matrix % BulkRHS
       Solver % Matrix % Values = Solver % Matrix % BulkValues
       GOTO 1000
     END IF
+    AssemblyDone = .TRUE.
     
     DO t = 1, Solver % NumberOfActiveElements
       
@@ -452,7 +454,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-      CALL DefaultUpdateEquations( LocalStiffMatrix,LocalForce, BulkUpdate = SaveBulk )
+      CALL DefaultUpdateEquations( LocalStiffMatrix,LocalForce, BulkUpdate = ConstantBulk )
 
 !------------------------------------------------------------------------------
     END DO
@@ -730,9 +732,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
         CapMatrix(Permi, Permj) = -CapMatrix(Permi, Permj)
       END DO
     END IF
-   
-
-     
+        
      IF (.NOT. CalculateCapMatrix) THEN
        WRITE( Message, * ) 'Result Norm   : ',Norm
        CALL Info( 'StatElecSolve', Message, Level=4 )
