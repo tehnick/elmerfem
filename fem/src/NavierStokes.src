@@ -188,7 +188,7 @@ MODULE NavierStokes
 
      LOGICAL :: Found, Transient, stat, Bubbles, PBubbles, Stabilize, &
                 VMS, P2P1, Isotropic, drhodp_found, Compressible, ViscNewtonLin, &
-                ViscNonnewtonian
+                ViscNonnewtonian, LaplaceDiscretization
 
 !------------------------------------------------------------------------------
 
@@ -243,6 +243,8 @@ MODULE NavierStokes
        ViscConstantCondition = GetCReal( Params, 'Newtonian Viscosity Condition',Found)
        IF( Found .AND. ViscConstantCondition > 0.0_dp ) ViscNonnewtonian = .FALSE.
      END IF
+
+     LaplaceDiscretization = GetLogical( Params,'Laplace Discretization', Found)
 
 
      Transient = GetString(GetSimulation(),'Simulation Type',Found)=='transient'
@@ -758,7 +760,7 @@ MODULE NavierStokes
              A(i,i) = A(i,i) + s * mu * dBasisdx(q,j) * dBasisdx(p,j)
              IF ( divDiscretization ) THEN
                 A(i,j) = A(i,j) + s * mu * dBasisdx(q,j) * dBasisdx(p,i)
-             ELSE
+             ELSE IF (.NOT.LaplaceDiscretization) THEN
                 A(i,j) = A(i,j) + s * mu * dBasisdx(q,i) * dBasisdx(p,j)
              END IF
 
