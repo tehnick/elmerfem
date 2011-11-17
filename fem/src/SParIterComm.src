@@ -242,7 +242,6 @@ CONTAINS
     ! Count the number of real neighbours for this partition
     !------------------------------------------------------------------
     DO i=1,SourceMatrix % NumberOfRows
-       k = SourceMatrix % INVPerm(i)
        IF ( ASSOCIATED(ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
          DO j=1,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
             proc = ParallelInfo % NeighbourList(i) % Neighbours(j)
@@ -3206,7 +3205,6 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
 
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
-    k = SourceMatrix % INVPerm(i)
     DO j=1,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
       owner = ParallelInfo % NeighbourList(i) % Neighbours(j)
       IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
@@ -3223,7 +3221,6 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
 
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
-    k = SourceMatrix % INVPerm(i)
     DO j=1,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
       owner = ParallelInfo % NeighbourList(i) % Neighbours(j)
       IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
@@ -3387,7 +3384,6 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
 
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
-    k = SourceMatrix % INVPerm(i)
     owner = ParallelInfo % NeighbourList(i) % Neighbours(1)
     IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
        owner = perm(owner)
@@ -3402,7 +3398,6 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
 
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
-    k = SourceMatrix % INVPerm(i)
     owner = ParallelInfo % NeighbourList(i) % Neighbours(1)
     IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
        owner = perm(owner)
@@ -3505,7 +3500,6 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   ! copy source to target
   j = 0
   DO i = 1, SourceMatrix % NumberOfRows
-     k = SourceMatrix % INVPerm(i)
      IF (ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE) THEN
         j = j + 1
         TargetRHS(j) = SourceRHS(i)

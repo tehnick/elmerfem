@@ -372,7 +372,6 @@ CONTAINS
       sndLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        p = A % InvPerm(i)
         IF (ig(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
@@ -405,7 +404,6 @@ CONTAINS
       toSend(:) % n=0
       DO i=1,ninterface
         l = lint(i)
-        p = A % InvPerm(l)
         proc = nb(l) % Neighbours(1)
         IF (proc == ParEnv % myPE ) THEN
           sz = SIZE(nb(l) % Neighbours)
@@ -607,7 +605,6 @@ CONTAINS
       nLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        p = A % InvPerm(i)
         IF (ig(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
@@ -645,7 +642,6 @@ CONTAINS
       toSend(:) % n=0
       DO i=1,ninterface
         l = lint(i)
-        p = A % InvPerm(l)
         proc  = nb(l) % Neighbours(1)
         IF (proc == ParEnv % myPE) THEN
           sz = SIZE(nb(l) % Neighbours)
@@ -705,7 +701,6 @@ CONTAINS
     toSend(:) % n=0
     DO i=1,ninterface
       l = lint(i)
-      p = A % InvPerm(l)
       proc = nb(l) % Neighbours(1)
       IF (proc /= ParEnv % myPE ) THEN
         lproc=lpnum(proc)
@@ -754,7 +749,6 @@ CONTAINS
       nLC=0
       DO i=1,ninterface
         l = lint(i)
-        p = A % InvPerm(l)
         proc = nb(l) % Neighbours(1)
         IF (proc == ParEnv % myPE ) THEN
           q=nLC

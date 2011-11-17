@@ -5079,7 +5079,6 @@ END FUNCTION SearchNodeL
         Energy = 0._dp
         DO i=1,Aaid % NumberOfRows
           IF ( ParEnv % Pes>1 ) THEN
-            j = AAid % Invperm(i)
             IF ( Aaid % ParMatrix % ParallelInfo % &
                   NeighbourList(i) % Neighbours(1) /= Parenv % MyPE ) CYCLE
           END IF
@@ -5098,7 +5097,6 @@ END FUNCTION SearchNodeL
       Aaid % Values => SaveValues
       IF ( ParEnv % PEs>1 ) THEN
         DO i=1,Aaid % NumberOfRows
-          j = AAid % Invperm(i)
           IF ( AAid % ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % Mype ) THEN
             TempVector(i) = TempVector(i)-TempRHS(i)
           ELSE

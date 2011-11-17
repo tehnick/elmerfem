@@ -983,7 +983,6 @@ END SUBROUTINE ZeroSplittedMatrix
 
     j = 0
     DO i = 1, SourceMatrix % NumberOfRows
-       k = SourceMatrix % INVPerm(i)
        IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
           j = j + 1
           TmpXVec(j) = x(i)
@@ -1022,7 +1021,6 @@ END SUBROUTINE ZeroSplittedMatrix
 
     j = 0
     DO i = 1, SourceMatrix % NumberOfRows
-       k = SourceMatrix % INVPerm(i)
        IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
           j = j + 1
           XVec(i) = TmpXVec(j)
@@ -1037,7 +1035,6 @@ END SUBROUTINE ZeroSplittedMatrix
     ALLOCATE( VecEPerNB( ParEnv % PEs ) )
     VecEPerNB = 0
     DO i = 1, SourceMatrix % NumberOfRows
-       k = SourceMatrix % INVPerm(i)
        IF ( SIZE(ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) THEN
           IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
              DO j = 1, SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
@@ -1432,7 +1429,6 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       ALLOCATE( VecEPerNB( ParEnv % PEs ) )
       VecEPerNB = 0
       DO i = 1, SourceMatrix % NumberOfRows
-         k = SourceMatrix % INVPerm(i)
          IF ( SIZE(ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) THEN
             IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
                DO j = 1, SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
@@ -1635,7 +1631,6 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   ALLOCATE( TmpXVec(SplittedMatrix % InsideMatrix % NumberOfRows) )
   j = 0
   DO i = 1, SourceMatrix % NumberOfRows
-    k = SourceMatrix % INVPerm(i)
     IF ( ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE ) THEN
       j = j + 1
       TmpXVec(j) = XVec(i)
@@ -1706,7 +1701,6 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
 
   j = 0
   DO i = 1, SourceMatrix % NumberOfRows
-     k = SourceMatrix % INVPerm(i)
      IF ( ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE ) THEN
         j = j + 1
         XVec(i) = TmpXVec(j)
@@ -1714,7 +1708,6 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   END DO
 
   DO i = 1, SourceMatrix % NumberOfRows
-     k = SourceMatrix % INVPerm(i)
      IF ( SIZE(ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) THEN
         IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
            DO j = 1, SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
@@ -2046,7 +2039,6 @@ SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo )
   ResEPerNB = 0; RHSEPerNB = 0
 
   DO i = 1, SourceMatrix % NumberOfRows
-     k =  SourceMatrix % INVPerm(i)
      IF ( ParallelInfo % Interface(i) ) THEN
         IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
            DO j = 1, SIZE( ParallelInfo % NeighbourList(i) % Neighbours )
@@ -2358,7 +2350,6 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
   RevDOFList = 0
   j = 0
   DO i = 1, SourceMatrix % NumberOfRows
-     k = SourceMatrix % INVPerm(i)
      IF (ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE) THEN
        j = j + 1
        RevDofList(i) = j
@@ -2592,7 +2583,6 @@ SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo )
 
   Inside = 0
   DO i = 1, SourceMatrix % NumberOfRows
-     k = SourceMatrix % INVPerm(i)
      IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
         Inside = Inside + 1
         RevDofList(i) = Inside
