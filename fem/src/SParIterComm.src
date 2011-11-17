@@ -222,9 +222,9 @@ CONTAINS
     ! Local variables
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     
-    INTEGER :: i, j, k, n, sz, ierr, proc, MinActive
+    INTEGER :: i, j, k, ii, n, sz, ierr, proc, MinActive
     INTEGER, ALLOCATABLE :: Active(:), buf(:)
-    LOGICAL :: L
+    LOGICAL :: L, Interf
     REAL(KIND=dp) :: RealTime, tstart, tend,s
     LOGICAL(KIND=1), ALLOCATABLE :: NeighAll(:,:)
     !******************************************************************
@@ -243,9 +243,9 @@ CONTAINS
     !------------------------------------------------------------------
     DO i=1,SourceMatrix % NumberOfRows
        k = SourceMatrix % INVPerm(i)
-       IF ( ASSOCIATED(ParallelInfo % NeighbourList(k) % Neighbours) ) THEN
-         DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
-            proc = ParallelInfo % NeighbourList(k) % Neighbours(j)
+       IF ( ASSOCIATED(ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
+         DO j=1,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+            proc = ParallelInfo % NeighbourList(i) % Neighbours(j)
             IF ( ParEnv % Active(proc+1).AND.proc/=ParEnv % MYpe) &
                ParEnv % IsNeighbour(proc+1) = .TRUE.
          END DO
@@ -350,16 +350,21 @@ CONTAINS
     ALLOCATE( Active(SIZE(ParallelInfo % Interface)) )
 
     IF ( .NOT. SourceMatrix % DGMatrix ) THEN
-      DO i=1,MIN( SIZE(ParallelInfo % Interface), SIZE(SourceMatrix % Perm) )
-        Active(i) = HUGE(i)
-        IF ( ParallelInfo % Interface(i) ) THEN
-          sz = SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+      DO i=1,SIZE(SourceMatrix % Perm)
+        ii = SourceMatrix % Perm(i)
+        Interf=.FALSE.
+        IF(ii>0) THEN
+          Active(ii) = HUGE(i)
+          Interf=ParallelInfo % Interface(ii)
+        END IF
+        IF ( Interf) THEN
+          sz = SIZE(ParallelInfo % NeighbourList(ii) % Neighbours)
           DO j=1,sz
-            k = ParallelInfo % NeighbourList(i) % Neighbours(j)
+            k = ParallelInfo % NeighbourList(ii) % Neighbours(j)
             IF ( k == ParEnv % Mype ) THEN
-              IF ( SourceMatrix % Perm(i)/=0 ) Active(i)=j
+              IF ( SourceMatrix % Perm(i)/=0 ) Active(ii)=j
             ELSE IF ( ParEnv % Active(k+1) ) THEN
-              CALL AddtoNlist( Neighlist(k+1), ParallelInfo % GlobalDOFs(i), &
+              CALL AddtoNlist( Neighlist(k+1), ParallelInfo % GlobalDOFs(ii), &
                          SourceMatrix % Perm(i) )
             END IF
           END DO
@@ -409,7 +414,7 @@ CONTAINS
           CALL MPI_RECV( buf,sz,MPI_INTEGER,proc,20001,MPI_COMM_WORLD,status,ierr)
           DO j=1,sz,2
             IF ( buf(j+1)>0 ) THEN
-              k = SearchNode( ParallelInfo, buf(j) )
+              k = SearchNode( ParallelInfo, buf(j),Order=SourceMatrix % Perm )
               IF ( k>0  ) THEN
                 sz = SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
                 DO n=1,sz
@@ -425,14 +430,17 @@ CONTAINS
         END IF
       END DO
 
-      DO i=1,MIN( SIZE(ParallelInfo % Interface), SIZE(SourceMatrix % Perm) )
-        IF ( ParallelInfo % Interface(i) ) THEN
-          sz = SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
-          IF ( Active(i)>1 .AND. Active(i)<=sz ) THEN
-            n = ParallelInfo % NeighbourList(i) % Neighbours(Active(i))
-            ParallelInfo % NeighbourList(i) % Neighbours(Active(i)) = &
-               ParallelInfo % NeighbourList(j) % Neighbours(1)
-            ParallelInfo % NeighbourList(i) % Neighbours(1) = n
+      DO i=1,SIZE(SourceMatrix % Perm)
+        ii = SourceMatrix % Perm(i)
+        Interf = .FALSE.
+        IF(ii>0) Interf=ParallelInfo % Interface(ii)
+        IF ( Interf ) THEN
+          sz = SIZE(ParallelInfo % NeighbourList(ii) % Neighbours)
+          IF ( Active(ii)>1 .AND. Active(ii)<=sz ) THEN
+            n = ParallelInfo % NeighbourList(ii) % Neighbours(Active(ii))
+            ParallelInfo % NeighbourList(ii) % Neighbours(Active(ii)) = &
+               ParallelInfo % NeighbourList(ii) % Neighbours(1)
+            ParallelInfo % NeighbourList(ii) % Neighbours(1) = n
           END IF
         END IF
       END DO
@@ -3199,8 +3207,8 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
     k = SourceMatrix % INVPerm(i)
-    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
-      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
+    DO j=1,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+      owner = ParallelInfo % NeighbourList(i) % Neighbours(j)
       IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
          owner = perm(owner)
          send_size(owner) = send_size(owner) + 1
@@ -3216,13 +3224,13 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
     k = SourceMatrix % INVPerm(i)
-    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
-      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
+    DO j=1,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+      owner = ParallelInfo % NeighbourList(i) % Neighbours(j)
       IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
          owner = perm(owner)
          send_size(owner) = send_size(owner) + 1
          send_buf(owner) % vec(send_size(owner)) = SourceVec(i)
-         send_buf(owner) % ind(send_size(owner)) = ParallelInfo % GlobalDOFs(k)
+         send_buf(owner) % ind(send_size(owner)) = ParallelInfo % GlobalDOFs(i)
       END IF
     END DO
   END DO
@@ -3301,9 +3309,9 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
   DO i=1,n
      datalen = recv_size(i)
      DO j = 1, datalen
-       Ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j) )
+       Ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j),Order=SourceMatrix % Perm )
        IF ( Ind /= -1 ) THEN
-          Ind = SourceMatrix % Perm(Ind)
+!         Ind = SourceMatrix % Perm(Ind)
           IF ( Ind > 0 ) THEN
              SELECT CASE(oper)
              CASE(0)
@@ -3380,7 +3388,7 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
     k = SourceMatrix % INVPerm(i)
-    owner = ParallelInfo % NeighbourList(k) % Neighbours(1)
+    owner = ParallelInfo % NeighbourList(i) % Neighbours(1)
     IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
        owner = perm(owner)
        send_size(owner) = send_size(owner) + 1
@@ -3395,12 +3403,12 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
     k = SourceMatrix % INVPerm(i)
-    owner = ParallelInfo % NeighbourList(k) % Neighbours(1)
+    owner = ParallelInfo % NeighbourList(i) % Neighbours(1)
     IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
        owner = perm(owner)
        send_size(owner) = send_size(owner) + 1
        send_buf(owner) % vec(send_size(owner)) = SourceRHS(i)
-       send_buf(owner) % ind(send_size(owner)) = ParallelInfo % GlobalDOFs(k)
+       send_buf(owner) % ind(send_size(owner)) = ParallelInfo % GlobalDOFs(i)
     END IF
   END DO
 
@@ -3478,9 +3486,10 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   DO i=1,n
      datalen = recv_size(i)
      DO j = 1, datalen
-       Ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j) )
+       Ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j), &
+                 Order=SourceMatrix % Perm )
        IF ( Ind /= -1 ) THEN
-          Ind = SourceMatrix % Perm(Ind)
+!         Ind = SourceMatrix % Perm(Ind)
           IF ( Ind > 0 ) &
              SourceRHS(Ind) = SourceRHS(Ind) + recv_buf(i) % vec(j)
        END IF
@@ -3497,7 +3506,7 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   j = 0
   DO i = 1, SourceMatrix % NumberOfRows
      k = SourceMatrix % INVPerm(i)
-     IF (ParallelInfo % NeighbourList(k) % Neighbours(1)==ParEnv % MyPE) THEN
+     IF (ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE) THEN
         j = j + 1
         TargetRHS(j) = SourceRHS(i)
      END IF
@@ -3645,9 +3654,10 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
   DO i=1,n
      datalen = recv_size(i)
      DO j = 1, datalen
-       ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j) )
+       ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j), &
+                  Order=SourceMatrix % Perm )
        IF ( ind /= -1 ) THEN
-          ind = SourceMatrix % Perm(ind)
+!         ind = SourceMatrix % Perm(ind)
           IF ( ind > 0 ) &
              xvec(ind) = recv_buf(i) % vec(j)
        END IF
@@ -4429,23 +4439,27 @@ END SUBROUTINE ParEnvFinalize
 ! Index to Nodes structure. Return value -1 means QueriedNode was
 ! not found.
 !
-FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Indx )
+FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last,Order ) RESULT ( Indx )
 
   USE Types
   IMPLICIT NONE
 
   TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: QueriedNode, Indx
-  INTEGER, OPTIONAL :: First,Last
+  INTEGER, OPTIONAL :: First,Last, Order(:)
 
   ! Local variables
 
-  INTEGER :: Lower, Upper, Lou, i
+  INTEGER :: Lower, Upper, Lou, i, U, L
 
   !*********************************************************************
 
   Indx = -1
-  Upper = SIZE(ParallelInfo % GlobalDOFs)
+  IF(PRESENT(Order)) THEN
+    Upper = SIZE(Order)
+  ELSE
+    Upper = SIZE(ParallelInfo % GlobalDOFs)
+  END IF
   Lower = 1
   IF ( PRESENT( Last  ) ) Upper = Last
   IF ( PRESENT( First ) ) Lower = First
@@ -4454,26 +4468,57 @@ FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Indx )
 
   IF ( Upper == 0 ) RETURN
 
+  IF (PRESENT(Order)) THEN
+    DO WHILE(Order(Lower)==0)
+      Lower=Lower+1
+    END DO
+    DO WHILE(Order(Upper)==0)
+      Upper=Upper-1
+    END DO
+  END IF
+
 10 CONTINUE
-  IF ( ParallelInfo % GlobalDOFs(Lower) == QueriedNode ) THEN
-     Indx = Lower
-     RETURN
-  ELSE IF ( ParallelInfo % GlobalDOFs(Upper) == QueriedNode ) THEN
-     Indx = Upper
-     RETURN
+  L = Lower
+  IF (PRESENT(Order)) L=Order(L)
+  U = Upper
+  IF (PRESENT(Order)) U=Order(U)
+
+  IF (ParallelInfo % GlobalDOFs(L)==QueriedNode) THEN
+     Indx = L; RETURN
   END IF
 
-  IF ( (Upper - Lower) > 1 ) THEN
-     Lou = ISHFT((Upper + Lower), -1)
-     IF ( ParallelInfo % GlobalDOFs(Lou) < QueriedNode ) THEN
-        Lower = Lou
-        GOTO 10
-     ELSE
-        Upper = Lou
-        GOTO 10
+  IF (ParallelInfo % GlobalDOFs(U)==QueriedNode) THEN
+     Indx = U; RETURN
+  END IF
+
+  IF ((Upper-Lower)>1) THEN
+     L = ISHFT((Upper+Lower),-1)
+     U = L
+
+     IF(PRESENT(Order)) THEN
+       DO WHILE(Order(L)==0)
+         L=L-1
+         IF(L<=Lower) EXIT
+       END DO
+       IF(L<=Lower) THEN
+         DO WHILE(Order(U)==0)
+           U=U+1
+           IF(U>=Upper) RETURN
+         END DO
+         L=U
+       END IF
+       U=Order(L)
      END IF
-  END IF
 
+     IF(U==0) RETURN
+
+     IF (ParallelInfo % GlobalDOFs(U)<QueriedNode) THEN
+        Lower = L
+     ELSE
+        Upper = L
+     END IF
+     GOTO 10
+  END IF
   RETURN
 !*********************************************************************
 END FUNCTION SearchNode

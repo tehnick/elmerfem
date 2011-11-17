@@ -98,12 +98,14 @@ st  = realtime_();
            rcols = (int *)realloc( rcols, nnz*sizeof(int) );
            csize = nnz;
          }
-         irow = invperm[i];
-         irow = globaldofs[irow-1];
+//         irow = invperm[i];
+//         irow = globaldofs[irow-1];
+         irow=globaldofs[i];
          for( k=0,j=rows[i]; j<rows[i+1]; j++,k++)
          {
-           rcols[k] = invperm[cols[j-1]-1];
-           rcols[k] = globaldofs[rcols[k]-1];
+//           rcols[k] = invperm[cols[j-1]-1];
+//           rcols[k] = globaldofs[rcols[k]-1];
+           rcols[k] = globaldofs[cols[j-1]-1];
          }
          HYPRE_IJMatrixAddToValues(A, 1, &nnz, &irow, rcols, &vals[rows[i]-1]);
       }
@@ -124,13 +126,15 @@ st  = realtime_();
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
-   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = rhsvec[i];
+//   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = rhsvec[i];
+   for( i=0; i<local_size; i++ ) txvec[i] = rhsvec[i];
    HYPRE_IJVectorAddToValues(b, local_size, rcols, txvec );
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
    HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(x);
-   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = xvec[i];
+//   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = xvec[i];
+   for( i=0; i<local_size; i++ ) txvec[i] = xvec[i];
    HYPRE_IJVectorSetValues(x, local_size, rcols, txvec );
 
    HYPRE_IJVectorAssemble(b);
@@ -298,7 +302,7 @@ st  = realtime_();
    HYPRE_IJVectorGetValues(x, k, rcols, txvec );
 
    for( i=0,k=0; i<local_size; i++ )
-     if ( owner[i] ) xvec[perm[i]-1] = txvec[k++];
+     if ( owner[i] ) xvec[i] = txvec[k++];
 
    fprintf( stderr, "ID no. %i: solve time: %g\n", myid, realtime_()-st );
    free( txvec );

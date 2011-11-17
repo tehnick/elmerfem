@@ -122,7 +122,7 @@ CONTAINS
        END DO
 
        IF ( .NOT. Matrix % DGMatrix ) THEN
-         n = SIZE(Matrix % Perm)
+         n = Matrix % NumberOfRows
          ALLOCATE( Matrix % ParallelInfo )
          ALLOCATE( Matrix % ParallelInfo % NeighbourList(n) )
          CALL AllocateVector( Matrix % ParallelInfo % Interface, n)
@@ -136,7 +136,8 @@ CONTAINS
 
          DO i=1,Solver % Mesh % NumberOfNodes
            DO j=1,DOFs
-              k = (i-1)*DOFs+j
+              k = Matrix % Perm((i-1)*DOFs+j)
+              IF(k==0) CYCLE
               Matrix % ParallelInfo % GlobalDOFs(k) = &
                 DOFs*(Solver % Mesh % ParallelInfo % GlobalDOFs(i)-1)+j
               Matrix % ParallelInfo % Interface(k) = &
@@ -176,7 +177,8 @@ CONTAINS
              Element => Solver % Mesh % Edges(i)
              DO j=1,Element % BDOFs
                DO m=1,DOFs
-                 l = DOFs*(l_beg + edofs*(i-1)+j-1)+m
+                 l = Matrix % Perm(DOFs*(l_beg + edofs*(i-1)+j-1)+m)
+                 IF(l==0) CYCLE
                  Matrix % ParallelInfo % GlobalDOFs(l) = &
                      DOFs*(g_beg+maxedofs*(Element % GelementIndex-1)+j-1)+m
                  Matrix % ParallelInfo % Interface(l) = Mesh % ParallelInfo % EdgeInterface(i)
@@ -207,7 +209,8 @@ CONTAINS
              Element => Solver % Mesh % Faces(i)
              DO j=1,Element % BDOFs
                DO m=1,DOFs
-                 l = DOFs*(l_beg + fdofs*(i-1)+j-1)+m
+                 l = Matrix % Perm(DOFs*(l_beg + fdofs*(i-1)+j-1)+m)
+                 IF(l==0) CYCLE
                  Matrix % ParallelInfo % GlobalDOFs(l) = &
                      DOFs*(g_beg+maxfdofs*(Element % GelementIndex-1)+j-1)+m
                  Matrix % ParallelInfo % Interface(l) = Mesh % ParallelInfo % FaceInterface(i)
@@ -230,7 +233,8 @@ CONTAINS
              Element=>Solver % Mesh % Elements(i)
              DO l=1,Element % BDOFs
                DO j=1,DOFs 
-                 k = DOFs*(l_beg+Element % BubbleIndexes(l)-1)+j
+                 k = Matrix % Perm(DOFs*(l_beg+Element % BubbleIndexes(l)-1)+j)
+                 IF(k==0) CYCLE
                  Matrix % ParallelInfo % GlobalDOFs(k) = &
                    DOFs*(g_beg+maxbdofs*(Element % GElementIndex-1)+l-1)+j
                  Matrix % ParallelInfo % Interface(k) = .FALSE.
@@ -261,7 +265,7 @@ CONTAINS
            Element => Mesh % Elements(i)
            IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
            DO j=1,SIZE(Element % DGIndexes)
-             k = Element % DGIndexes(j)
+             k = Matrix % Perm(Element % DGIndexes(j))
              MatrixPI % GlobalDOFs(k) = 8*(Element % GElementIndex-1)+j
            END DO
          END DO
@@ -278,7 +282,8 @@ CONTAINS
            IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
            IF ( ALL(MeshPI % Interface(Element % NodeIndexes)) ) THEN
              DO j=1,Element % Type % NumberOfNodes
-                K = Element % DGIndexes(j)
+                K = Matrix % Perm(Element % DGIndexes(j))
+                IF(K==0) CYCLE
                 L = Element % Nodeindexes(j)
 
                 MeshN => MeshPI % NeighbourList(L)
@@ -519,8 +524,7 @@ CONTAINS
 !-------------------------------------------------------------------------------
       j = 0
       DO i=1,A % NumberOfRows
-        k = A  % INVPerm(i)
-        IF ( A % ParallelInfo % Neighbourlist(k) % &
+        IF ( A % ParallelInfo % Neighbourlist(i) % &
                    Neighbours(1)==Parenv % Mype ) THEN
           j=j+1
           vec(j) = vec(i)

@@ -610,6 +610,7 @@ CONTAINS
     CALL DMumps(A % MumpsID)
 
     n = SIZE(A % ParallelInfo % GlobalDOFs)
+!XXXXXXXXXXXXXXXXx
     ALLOCATE( A % Gorder(n), Owner(n) )
     CALL ContinuousNumbering( A % ParallelInfo, &
         A % Perm, A % Gorder, Owner )
@@ -621,7 +622,7 @@ CONTAINS
     A % MumpsID % nz_loc = A % Rows(A % NumberOfRows+1)-1
     ALLOCATE( A % MumpsID % irn_loc(A % MumpsID % nz_loc) )
     DO i=1,A % NumberOfRows
-      ip = A % Gorder(A % InvPerm(i))
+      ip = A % Gorder(i)
       DO j=A % Rows(i),A % Rows(i+1)-1
         A % MumpsID % irn_loc(j) = ip
       END DO
@@ -629,7 +630,7 @@ CONTAINS
 
     ALLOCATE( A % MumpsID % jcn_loc(A % MumpsId % nz_loc) )
     DO i=1,A % MumpsID % nz_loc
-      A % MumpsID % jcn_loc(i) = A % Gorder(A % Invperm(A % Cols(i)))
+      A % MumpsID % jcn_loc(i) = A % Gorder(A % Cols(i))
     END DO
     A % MumpsID % a_loc   => A % values
 
@@ -667,7 +668,7 @@ CONTAINS
  ! ------------------------------------------
   A % MumpsID % RHS = 0
   DO i=1,A % NumberOfRows
-    ip = A % Gorder(A % InvPerm(i))
+    ip = A % Gorder(i)
     A % MumpsId % RHS(ip) = b(i)
   END DO
   ALLOCATE( dbuf(A % MumpsID % n) )
@@ -696,7 +697,7 @@ CONTAINS
  ! Select the values which belong to us:
  ! -------------------------------------
   DO i=1,A % NumberOfRows
-    ip = A % Gorder(A % Invperm(i))
+    ip = A % Gorder(i)
     x(i) = A % MumpsId % RHS(ip)
   END DO
 

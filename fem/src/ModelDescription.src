@@ -1616,12 +1616,12 @@ TYPE(valuelist_t), POINTER :: lst
     CALL LoadInputFile( Model,InFileUnit,ModelName,MeshDir,MeshName, .TRUE., .FALSE. )
     IF ( .NOT. OpenFile ) CLOSE( InFileUnit )
 
-    DO j=1,Model % NumberOfEquations
-      IF (ListCheckPresent(Model % Equations(j) % Values, 'Element') ) THEN
-        CALL Error('LM:', 'Depreciated: "Element" keyword  ' // &
-          'in the "Equation" section, move to "Solver" section(s)' )
-      END IF
-    END DO
+!   DO j=1,Model % NumberOfEquations
+!     IF (ListCheckPresent(Model % Equations(j) % Values, 'Element') ) THEN
+!       CALL Error('LM:', 'Depreciated: "Element" keyword  ' // &
+!         'in the "Equation" section, move to "Solver" section(s)' )
+!     END IF
+!   END DO
 
     Transient=ListGetString(Model % Simulation, &
                      'Simulation Type',Found)=='transient'
@@ -1648,35 +1648,38 @@ TYPE(valuelist_t), POINTER :: lst
 
       GotMesh = ListCheckPresent(Solver % Values, 'Mesh')
 
-      ALLOCATE(Solver % Def_Dofs(Model % NumberOfBodies,6))
-      Solver % Def_Dofs = -1; Solver % Def_Dofs(:,1)=1
+      IF(.NOT.ALLOCATED(Solver % Def_Dofs)) THEN
+        ALLOCATE(Solver % Def_Dofs(Model % NumberOfBodies,6))
+        Solver % Def_Dofs = -1; Solver % Def_Dofs(:,1)=1
+      END IF
       ElementDef = ListGetString( Solver % Values, 'Element', stat )
    
-      IF (.NOT.stat) THEN
-        Name = ListGetString(Solver % Values, 'Equation', stat)
-        DO j=1,Model % NumberOfEquations
-          IF (ListCheckPresent(Model % Equations(j) % Values, 'Element') ) THEN
-            IF (ListGetLogical(Model % Equations(j) % Values,Name,Found) ) THEN
-              ElementDef=ListGetString(Model % Equations(J) % Values, 'Element',stat)
-              EXIT
-            END IF
-            ActiveSolvers => ListGetIntegerArray(Model % Equations(j) % Values, &
-                    'Active Solvers', Found )
-            IF ( Found ) THEN
-              IF ( ANY(ActiveSolvers==i) ) THEN
-                ElementDef=ListGetString(Model % Equations(J) % Values,'Element',stat)
-                EXIT
-              END IF
-            END IF
-          END IF
-        END DO
-      END IF
+!     IF (.NOT.stat) THEN
+!       Name = ListGetString(Solver % Values, 'Equation', stat)
+!       DO j=1,Model % NumberOfEquations
+!         IF (ListCheckPresent(Model % Equations(j) % Values, 'Element') ) THEN
+!           IF (ListGetLogical(Model % Equations(j) % Values,Name,Found) ) THEN
+!             ElementDef=ListGetString(Model % Equations(J) % Values, 'Element',stat)
+!             EXIT
+!           END IF
+!           ActiveSolvers => ListGetIntegerArray(Model % Equations(j) % Values, &
+!                   'Active Solvers', Found )
+!           IF ( Found ) THEN
+!             IF ( ANY(ActiveSolvers==i) ) THEN
+!               ElementDef=ListGetString(Model % Equations(J) % Values,'Element',stat)
+!               EXIT
+!             END IF
+!           END IF
+!         END IF
+!       END DO
+!     END IF
 
       IF ( .NOT. stat ) THEN
         IF ( ListGetLogical( Solver % Values, &
              'Discontinuous Galerkin', stat ) ) THEN
            Solver % Def_Dofs(:,4) = 0
            IF ( .NOT. GotMesh ) Def_Dofs(4) = MAX(Def_Dofs(4),0 )
+           i=i+1
            CYCLE
         ELSE
            ElementDef = "n:1"

@@ -373,14 +373,14 @@ CONTAINS
       toSend(:) % n=0
       DO i=1,nrows
         p = A % InvPerm(i)
-        IF (ig(p)) THEN
+        IF (ig(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
-          sz = SIZE(nb(p) % Neighbours)
-          proc=nb(p) % Neighbours(1)
+          sz = SIZE(nb(i) % Neighbours)
+          proc=nb(i) % Neighbours(1)
           IF (proc == ParEnv % myPE ) THEN
             DO j=2,sz
-              lproc=lpnum(nb(p) % Neighbours(j))
+              lproc=lpnum(nb(i) % Neighbours(j))
               toSend(lproc) % n = toSend(lproc) % n+1
             END DO
           ELSE
@@ -406,21 +406,21 @@ CONTAINS
       DO i=1,ninterface
         l = lint(i)
         p = A % InvPerm(l)
-        proc = nb(p) % Neighbours(1)
+        proc = nb(l) % Neighbours(1)
         IF (proc == ParEnv % myPE ) THEN
-          sz = SIZE(nb(p) % Neighbours)
+          sz = SIZE(nb(l) % Neighbours)
           DO j=2,sz
-            lproc=lpnum(nb(p) % Neighbours(j))
+            lproc=lpnum(nb(l) % Neighbours(j))
             k = toSend(lproc) % n+1
             toSend(lproc) % perm(i) = k
             toSend(lproc) % n = k
-            toSend(lproc) % ifg(k) = gtags(p)
+            toSend(lproc) % ifg(k) = gtags(l)
           END DO
         ELSE
           sndLC = sndLC+1
           ldofs(sndLC) = l
           procs(sndLC) = proc
-          gdofs(sndLC) = gtags(p)
+          gdofs(sndLC) = gtags(l)
         END IF
       END DO
 
@@ -608,13 +608,13 @@ CONTAINS
       toSend(:) % n=0
       DO i=1,nrows
         p = A % InvPerm(i)
-        IF (ig(p)) THEN
+        IF (ig(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
 
-          proc=nb(p) % Neighbours(1)
+          proc=nb(i) % Neighbours(1)
           IF (proc == ParEnv % myPE ) THEN
-            nLC=nLC+SIZE(nb(p) % Neighbours)-1
+            nLC=nLC+SIZE(nb(i) % Neighbours)-1
           ELSE
             lproc=lpnum(proc)
             toSend(lproc) % n = toSend(lproc) % n+1
@@ -646,13 +646,13 @@ CONTAINS
       DO i=1,ninterface
         l = lint(i)
         p = A % InvPerm(l)
-        proc  = nb(p) % Neighbours(1)
+        proc  = nb(l) % Neighbours(1)
         IF (proc == ParEnv % myPE) THEN
-          sz = SIZE(nb(p) % Neighbours)
+          sz = SIZE(nb(l) % Neighbours)
           DO j=1,sz-1
             nLC = nLC+1
-            gdofs(nLC) = gtags(p)
-            procs(nLC) = nb(p) % Neighbours(j+1)
+            gdofs(nLC) = gtags(l)
+            procs(nLC) = nb(l) % Neighbours(j+1)
 
             ! Assemble the 'B' matrix, orthogonal connectivity for
             ! multiple sharings:
@@ -665,17 +665,17 @@ CONTAINS
             Bmat % Perm(nLC) = i
             val = 1._dp/(j*SQRT(1+(1._dp/j)**2))
             DO m=1,j
-              proc = nb(p) % Neighbours(m)
+              proc = nb(l) % Neighbours(m)
               CALL SetMatrixElement(Bmat,nLC,proc,val)
             END DO
-            proc = nb(p) % Neighbours(j+1)
+            proc = nb(l) % Neighbours(j+1)
             CALL SetMatrixElement(Bmat,nLC,proc,-j*val)
           END DO
         ELSE
           lproc = lpnum(proc)
           k = toSend(lproc) % n+1
           toSend(lproc) % n = k
-          toSend(lproc) % ifg(k) = gtags(p)
+          toSend(lproc) % ifg(k) = gtags(l)
         END IF
       END DO
 
@@ -706,7 +706,7 @@ CONTAINS
     DO i=1,ninterface
       l = lint(i)
       p = A % InvPerm(l)
-      proc = nb(p) % Neighbours(1)
+      proc = nb(l) % Neighbours(1)
       IF (proc /= ParEnv % myPE ) THEN
         lproc=lpnum(proc)
         k = toSend(lproc) % n+1
@@ -755,10 +755,10 @@ CONTAINS
       DO i=1,ninterface
         l = lint(i)
         p = A % InvPerm(l)
-        proc = nb(p) % Neighbours(1)
+        proc = nb(l) % Neighbours(1)
         IF (proc == ParEnv % myPE ) THEN
           q=nLC
-          sz=SIZE(nb(p) % Neighbours)
+          sz=SIZE(nb(l) % Neighbours)
           DO j=1,sz-1
             nLC = nLC+1
             IF (Fn(nLC)==0) CYCLE

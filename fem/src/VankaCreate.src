@@ -95,9 +95,9 @@
        DO i=1,A % NumberOfRows
          DO j=Rows(i),Rows(i+1)-1
            k = A % INVPerm(Cols(j))
-           IF ( A % ParallelInfo % Interface(k) ) THEN
-             DO l=1,SIZE(A % ParallelInfo % NeighbourList(k) % Neighbours)
-               m = A % ParallelInfo % NeighbourList(k) % Neighbours(l)
+           IF ( A % ParallelInfo % Interface(Cols(j)) ) THEN
+             DO l=1,SIZE(A % ParallelInfo % NeighbourList(Cols(j)) % Neighbours)
+               m = A % ParallelInfo % NeighbourList(Cols(j)) % Neighbours(l)
                IF ( m==ParEnv % myPE ) CYCLE
                cnt(m) = cnt(m)+1
              END DO
@@ -115,13 +115,13 @@
        DO i=1,A % NumberOfRows
          DO j=Rows(i),Rows(i+1)-1
            k = A % INVPerm(Cols(j))
-           DO l=1,SIZE(A % ParallelInfo % NeighbourList(k) % Neighbours)
-             m = A % ParallelInfo % NeighbourList(k) % Neighbours(l)
+           DO l=1,SIZE(A % ParallelInfo % NeighbourList(Cols(j)) % Neighbours)
+             m = A % ParallelInfo % NeighbourList(Cols(j)) % Neighbours(l)
              IF ( m==ParEnv % myPE ) CYCLE
              cnt(m) = cnt(m)+1
-             Buf(m) % gcol(cnt(m)) = A % ParallelInfo % GlobalDOFs(k)
+             Buf(m) % gcol(cnt(m)) = A % ParallelInfo % GlobalDOFs(Cols(j))
              Buf(m) % gval(cnt(m)) = A % Values(j)
-             Buf(m) % grow(cnt(m)) = A % ParallelInfo % GlobalDOFs(A % INVPerm(i))
+             Buf(m) % grow(cnt(m)) = A % ParallelInfo % GlobalDOFs(i)
            END DO
          END DO
        END DO
@@ -168,12 +168,12 @@
               proc, 7004, MPI_COMM_WORLD, status, ierr )
 
            DO j=1,rcnt
-             l = SearchNode(A % ParallelInfo,rcol(j))
+             l = SearchNode(A % ParallelInfo,rcol(j),Order=A % Perm)
              IF ( l>0 ) THEN
-               k = SearchNode(A % ParallelInfo,rrow(j))
+               k = SearchNode(A % ParallelInfo,rrow(j),Order=A % Perm)
                IF ( k>0 ) THEN
-                 k = A % Perm(k)
-                 l = A % Perm(l)
+!                k = A % Perm(k)
+!                l = A % Perm(l)
                  IF ( l>=k ) THEN
                    DO m=Diag(k),Rows(k+1)-1
                      IF ( Cols(m)==l ) THEN
