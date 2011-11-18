@@ -113,6 +113,7 @@ CONTAINS
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
+    IF ( (.NOT. Converged) .AND. (.NOT. Diverged) ) HUTI_INFO = HUTI_MAXITER
     
   CONTAINS 
  
@@ -225,7 +226,7 @@ CONTAINS
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
-   
+    IF ( (.NOT. Converged) .AND. (.NOT. Diverged) ) HUTI_INFO = HUTI_MAXITER   
 
   CONTAINS 
     
@@ -331,7 +332,7 @@ CONTAINS
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
-
+    IF ( (.NOT. Converged) .AND. (.NOT. Diverged) ) HUTI_INFO = HUTI_MAXITER
 
   CONTAINS
 
@@ -630,7 +631,7 @@ CONTAINS
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
-   
+    IF ( (.NOT. Converged) .AND. (.NOT. Diverged) ) HUTI_INFO = HUTI_MAXITER   
 
   CONTAINS 
     
@@ -658,11 +659,11 @@ CONTAINS
       Diverged = .FALSE.
       
       ALLOCATE( R(n), T1(n), T2(n) )
-      if ( m > 1 ) then
+      IF ( m > 1 ) THEN
          ALLOCATE( S(n,m-1), V(n,m-1) )
          V(1:n,1:m-1) = 0.0d0	
          S(1:n,1:m-1) = 0.0d0
-      end if	
+      END IF	
       
       CALL matvecsubr( x, r, ipar )
       r(1:n) = b(1:n) - r(1:n)
@@ -679,11 +680,11 @@ CONTAINS
 	 !----------------------------------------------
 	 ! Check for restarting
          !--------------------------------------------- 
-	 if ( mod(k,m)==0 ) then
+	 IF ( MOD(k,m)==0 ) THEN
 	    j = m
-	 else
-	    j = mod(k,m)
-	 end if
+	 ELSE
+	    j = MOD(k,m)
+	 END IF
          !----------------------------------------------------------
          ! Perform the preconditioning...
          !---------------------------------------------------------------
@@ -708,13 +709,13 @@ CONTAINS
          beta = dotprodfun(n, T2(1:n), 1, r(1:n), 1 )
          x(1:n) = x(1:n) + beta * T1(1:n)      
          r(1:n) = r(1:n) - beta * T2(1:n)
-	 if ( j /= m ) then
+	 IF ( j /= m ) THEN
             S(1:n,j) = T1(1:n)
             V(1:n,j) = T2(1:n)
 	 ! else
 	 !    CALL matvecsubr( x, r, ipar )
          !    r(1:n) = b(1:n) - r(1:n)
-	 end if       
+	 END IF       
 
          !--------------------------------------------------------------
          ! Check whether the convergence criterion is met 
@@ -733,7 +734,7 @@ CONTAINS
       END DO
       
       DEALLOCATE( R, T1, T2 )
-      if ( m > 1 ) DEALLOCATE( S, V)
+      IF ( m > 1 ) DEALLOCATE( S, V)
       
     END SUBROUTINE GCR
     
@@ -795,6 +796,7 @@ CONTAINS
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
+    IF ( (.NOT. Converged) .AND. (.NOT. Diverged) ) HUTI_INFO = HUTI_MAXITER
    
     !----------------------------------------------
     ! Return the solution as a real vector...
@@ -833,11 +835,11 @@ CONTAINS
       Diverged = .FALSE.
       
       ALLOCATE( R(n), T1(n), T2(n) )
-      if ( m > 1 ) then
+      IF ( m > 1 ) THEN
          ALLOCATE( S(n,m-1), V(n,m-1) )
          V(1:n,1:m-1) = CMPLX( 0.0d0, 0.0d0, kind=dp)
          S(1:n,1:m-1) = CMPLX( 0.0d0, 0.0d0, kind=dp)
-      end if	
+      END IF	
       
       CALL matvecsubr( x, r, ipar )
       r(1:n) = b(1:n) - r(1:n)
@@ -854,11 +856,11 @@ CONTAINS
 	 !----------------------------------------------
 	 ! Check for restarting
          !--------------------------------------------- 
-	 if ( mod(k,m)==0 ) then
+	 IF ( MOD(k,m)==0 ) THEN
 	    j = m
-	 else
-	    j = mod(k,m)
-	 end if
+	 ELSE
+	    j = MOD(k,m)
+	 END IF
          !----------------------------------------------------------
          ! Perform the preconditioning...
          !---------------------------------------------------------------
@@ -883,13 +885,13 @@ CONTAINS
          beta = dotprodfun(n, T2(1:n), 1, r(1:n), 1 )
          x(1:n) = x(1:n) + beta * T1(1:n)      
          r(1:n) = r(1:n) - beta * T2(1:n)
-	 if ( j /= m ) then
+	 IF ( j /= m ) THEN
             S(1:n,j) = T1(1:n)
             V(1:n,j) = T2(1:n)
 	 ! else
 	 !    CALL matvecsubr( x, r, ipar )
          !    r(1:n) = b(1:n) - r(1:n)
-	 end if       
+	 END IF       
 
          !--------------------------------------------------------------
          ! Check whether the convergence criterion is met 
@@ -908,7 +910,7 @@ CONTAINS
       END DO
       
       DEALLOCATE( R, T1, T2 )
-      if ( m > 1 ) DEALLOCATE( S, V)
+      IF ( m > 1 ) DEALLOCATE( S, V)
       
     END SUBROUTINE GCR_Z
     
@@ -967,6 +969,7 @@ CONTAINS
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
+    IF ( (.NOT. Converged) .AND. (.NOT. Diverged) ) HUTI_INFO = HUTI_MAXITER
 
     !----------------------------------------------
     ! Return the solution as a real vector...
@@ -1013,10 +1016,10 @@ CONTAINS
 
       IF ( ALL(x == CMPLX(0.0d0,0.0d0,kind=dp)) ) x = b
 
-      zzero = cmplx( 0.0d0,0.0d0, KIND=dp)
-      zone =  cmplx( 1.0d0,0.0d0, KIND=dp)
-      work = cmplx( 0.0d0, 0.0d0, KIND=dp )
-      rwork = cmplx( 0.0d0, 0.0d0, KIND=dp )
+      zzero = CMPLX( 0.0d0,0.0d0, KIND=dp)
+      zone =  CMPLX( 1.0d0,0.0d0, KIND=dp)
+      work = CMPLX( 0.0d0, 0.0d0, KIND=dp )
+      rwork = CMPLX( 0.0d0, 0.0d0, KIND=dp )
 
       rr = 1
       r = rr+1
@@ -1227,7 +1230,7 @@ CONTAINS
     !----------------------------------------------------------
 
 !--------------------------------------------------------------
-  end SUBROUTINE itermethod_z_bicgstabl
+  END SUBROUTINE itermethod_z_bicgstabl
 !--------------------------------------------------------------
 
 END MODULE IterativeMethods
