@@ -110,14 +110,15 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
   CALL ReleaseWaitingParticles(Particles) 
   Particles % Status = PARTICLE_LOCATED
 
-  IF( GetLogical( Params,'Particle Time',Found) ) THEN
-    CALL ParticleVariableCreate( Particles,'particle time')
+  IF( VisitedTimes == 1 ) THEN
+    IF( GetLogical( Params,'Particle Time',Found) ) THEN
+      CALL ParticleVariableCreate( Particles,'particle time')
+    END IF 
+    CALL ParticleVariableCreate( Particles,'particle distance')
   END IF
 
-  CALL ParticleVariableCreate( Particles,'particle distance')
-
-  ! Freeze particles that are on no-slip walls 
-  !---------------------------------------------
+  ! Freeze particles that are known not to move (e.g. no-slip wall)
+  !----------------------------------------------------------------
   CALL SetFixedParticles( )
 
   ! We are advecting backwards in time!
@@ -207,45 +208,97 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE SetFixedParticles( )
 
-    INTEGER :: i
-    TYPE( ValueList_t), POINTER :: BC
+    INTEGER :: i,j,k
+    TYPE( ValueList_t), POINTER :: BC, BodyForce
     TYPE( Element_t ), POINTER :: Element
-    REAL(KIND=dp), ALLOCATABLE :: PTime(:)
+    REAL(KIND=dp), ALLOCATABLE :: PTime(:), PCond(:)
     TYPE(Variable_t), POINTER :: PTimeVar
     REAL(KIND=dp) :: PTimeConst
-    LOGICAL :: Found, GotTime
+    LOGICAL :: Found, GotTime, SomeBodyForce, SomeBC
+    TYPE(ValueList_t), POINTER :: Params
+
+
+    Params => GetSolverParams()
+
+    SomeBC = ListCheckPresentAnyBC( Model,'Particle Fixed Condition') 
+    SomeBodyForce = ListCheckPresentAnyBodyForce( Model,'Particle Fixed Condition') 
+
+    IF( .NOT. (SomeBC .OR. SomeBodyForce ) ) RETURN		  
 
     i = Model % MaxElementNodes 
-    ALLOCATE( PTime( i ) )
+    ALLOCATE( PTime(i), PCond(i) )
 
     PtimeVar => ParticleVariableGet( Particles, 'particle time' )
     GotTime = ASSOCIATED( PTimeVar ) 
- 
-    PTimeConst = ListGetCReal( GetSolverParams(),'Fixed Particle Time',Found)
+    PTimeConst = ListGetCReal( Params,'Fixed Particle Time',Found)
 
-    DO i=Mesh % NumberOfBulkElements+1,&
-	Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-      Element => Mesh % Elements(i)
-      Model % CurrentElement => Element
-      BC => GetBC( Element )
-      IF( GetLogical( BC,'Particle Fixed',Found) ) THEN
-        Particles % Status( Element % NodeIndexes ) = PARTICLE_FIXEDCOORD
-	IF(.NOT. GotTime ) CYCLE
-        n = GetElementNOFNodes()
-	PTime(1:n) = GetReal( BC,'Particle Time',Found ) 
-	IF( Found ) THEN
-          PTimeVar % Values( Element % NodeIndexes(1:n) ) = PTime(1:n)
-        ELSE
-          PTimeVar % Values( Element % NodeIndexes(1:n) ) = PTimeConst
-        END IF 
-      END IF
-    END DO
+    IF( SomeBC ) THEN
+      DO j=Mesh % NumberOfBulkElements+1,&
+  	Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+        Element => Mesh % Elements(j)
+        Model % CurrentElement => Element
+        BC => GetBC( Element )
+	n = GetElementNOFNodes()
 
-   i = COUNT( Particles % Status == PARTICLE_FIXEDCOORD )
-   WRITE( Message,'(A,I0)') 'Number of fixed particles: ',i 
-   CALL Info('SetFixedParticles',Message)
+        PCond(1:n) = GetReal( BC,'Particle Fixed Condition',Found)
+        IF(.NOT. Found ) CYCLE
+	
+        PTime(1:n) = GetReal( BC,'Particle Time',Found)
+    
+        DO i=1,n
+          IF( PCond(i) < 0.0_dp ) CYCLE
 
-   DEALLOCATE( PTime )
+	  k = Element % NodeIndexes(i)
+          Particles % Status( k ) = PARTICLE_FIXEDCOORD
+	  IF(.NOT. GotTime ) CYCLE
+
+	  IF( Found ) THEN
+            PTimeVar % Values( k ) = PTime(i)
+          ELSE
+            PTimeVar % Values( k ) = PTimeConst
+          END IF 
+        END DO
+      END DO
+
+      i = COUNT( Particles % Status == PARTICLE_FIXEDCOORD )
+      WRITE( Message,'(A,I0)') 'Number of fixed boundary particles: ',i 
+      CALL Info('SetFixedParticles',Message)
+    END IF 
+
+
+    IF( SomeBodyForce ) THEN
+      DO j=1, Mesh % NumberOfBulkElements 
+        Element => Mesh % Elements(j)
+        Model % CurrentElement => Element
+        BodyForce => GetBodyForce( Element )
+	n = GetElementNOFNodes()
+
+        PCond(1:n) = GetReal( BodyForce,'Particle Fixed Condition',Found)
+        IF(.NOT. Found ) CYCLE
+	
+        PTime(1:n) = GetReal( BodyForce,'Particle Time',Found)
+    
+        DO i=1,n
+          IF( PCond(i) < 0.0_dp ) CYCLE
+
+	  k = Element % NodeIndexes(i)
+          Particles % Status( k ) = PARTICLE_FIXEDCOORD
+	  IF(.NOT. GotTime ) CYCLE
+
+	  IF( Found ) THEN
+            PTimeVar % Values( k ) = PTime(i)
+          ELSE
+            PTimeVar % Values( k ) = PTimeConst
+          END IF 
+        END DO
+      END DO
+
+      i = COUNT( Particles % Status == PARTICLE_FIXEDCOORD )
+      WRITE( Message,'(A,I0)') 'Number of fixed bulk particles: ',i 
+      CALL Info('SetFixedParticles',Message)
+    END IF 
+
+   DEALLOCATE( PTime, PCond )
 
   END SUBROUTINE SetFixedParticles 
 
