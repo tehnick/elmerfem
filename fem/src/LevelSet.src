@@ -1188,6 +1188,7 @@ CONTAINS
      REAL(KIND=dp) :: TotVolume, TotArea, Alpha, Relax, InitVolume, dSurface, dt, &
          Moment(3)
      CHARACTER(LEN=MAX_NAME_LEN) :: LevelSetVariableName
+     TYPE(ValueList_t), POINTER :: Params
 
      SAVE ElementNodes, Visited, NodalSurf, InitVolume
 
@@ -1195,8 +1196,10 @@ CONTAINS
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
 
+     Params => Solver % Values
+
      ! The variable that should be renormalized
-     LevelSetVariableName = ListGetString(Solver % Values,'Level Set Variable',GotIt) 
+     LevelSetVariableName = ListGetString(Params,'Level Set Variable',GotIt) 
      IF(GotIt) THEN
        SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(LevelSetVariableName) )
      ELSE  
@@ -1241,7 +1244,7 @@ CONTAINS
      Moment = 0.0d0
      
      Alpha = ListGetConstReal(Model % Simulation,'Levelset Bandwidth',GotIt) 
-     IF(.NOT. GotIt) Alpha = ListGetConstReal(Solver % Values,'Levelset Bandwidth')      
+     IF(.NOT. GotIt) Alpha = ListGetConstReal(Params,'Levelset Bandwidth')      
        
      CALL Info( 'LevelSetIntegrate','-------------------------------------', Level=4 )
      CALL Info( 'LevelSetIntegrate', 'Integrating over levelset function', Level=4 )
@@ -1307,13 +1310,13 @@ CONTAINS
      CALL ListAddConstReal(Model % Simulation,'res: LevelSet Center 2',Moment(2))
      CALL ListAddConstReal(Model % Simulation,'res: LevelSet Center 1',Moment(1))
 
-     IF ( ListGetLogical(Solver % Values,'Conserve Volume',GotIt) ) THEN
+     IF ( ListGetLogical(Params,'Conserve Volume',GotIt) ) THEN
        IF(.NOT. Visited) THEN
-         InitVolume = ListGetConstReal(Solver % Values,'Initial Volume',GotIt)
+         InitVolume = ListGetConstReal(Params,'Initial Volume',GotIt)
          IF(.NOT. GotIt) InitVolume = TotVolume
        END IF
 
-       Relax = ListGetConstReal(Solver % Values,'Conserve Volume Relaxation',GotIt)
+       Relax = ListGetConstReal(Params,'Conserve Volume Relaxation',GotIt)
        IF(.NOT. GotIt) Relax = 1.0d0
       
        dSurface = Relax * (InitVolume - TotVolume) / TotArea
