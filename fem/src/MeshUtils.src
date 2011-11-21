@@ -5589,14 +5589,15 @@ CONTAINS
 
 
 !--------------------------------------------------------------------------
-!>  This subroutine finds the structure of an extruded mesh even though it is 
+!> This subroutine finds the structure of an extruded mesh even though it is 
 !> given in an unstructured format. The routine may be used by some special
 !> solvers that employ the special character of the mesh.
 !> The extrusion is found for a given direction and for each node the corresponding 
 !> up and down, and thereafter top and bottom node is computed.
 !-----------------------------------------------------------------------------
   SUBROUTINE DetectExtrudedStructure( Mesh, Solver, ExtVar, &
-      TopNodePointer, BotNodePointer, UpNodePointer, DownNodePointer )
+      TopNodePointer, BotNodePointer, UpNodePointer, DownNodePointer, &
+      NumberOfLayers )
     
     USE CoordinateSystems
 
@@ -5605,6 +5606,7 @@ CONTAINS
     TYPE(Variable_t), POINTER :: ExtVar
     INTEGER, POINTER, OPTIONAL :: TopNodePointer(:), BotNodePointer(:), &
         UpNodePointer(:), DownNodePointer(:)
+    INTEGER, OPTIONAL :: NumberOfLayers
 !-----------------------------------------------------------------------------
     REAL(KIND=dp) :: Direction(3)
     TYPE(ValueList_t), POINTER :: Params
@@ -5819,6 +5821,9 @@ CONTAINS
       IF( UpHit == 0 .AND. DownHit == 0 ) EXIT
     END DO
     PRINT *,'Extruded Structure Layers:',Rounds-1	
+    IF( PRESENT( NumberOfLayers ) ) THEN
+      NumberOfLayers = Rounds - 1
+    END IF
 
     ! Count the number of top and bottom nodes, for information only
     !---------------------------------------------------------------
