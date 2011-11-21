@@ -746,22 +746,24 @@ CONTAINS
     TYPE(ValueList_t),POINTER :: Material
     CHARACTER(LEN=MAX_NAME_LEN) :: Filename, Filename2
     INTEGER :: VisitedTimes = 0, NumberOfFields=0
+    TYPE(ValueList_t), POINTER :: Params
 
-    SAVE VisitedTimes, NumberOfFields
+    SAVE VisitedTimes, FileAppend, NumberOfFields
 !------------------------------------------------------------------------------
 
     VisitedTimes = VisitedTimes + 1
-    Filename = ListGetString(Solver % Values,'Filename',FileSave )
-    
+    Params => Solver % Values
+    Filename = ListGetString(Params,'Filename',FileSave )
+
     IF(FileSave) THEN         
-      FileNumber = ListGetLogical(Solver % Values,'Filename Numbering',GotIt)     
-      FileAppend = ListGetLogical(Solver % Values,'File Append',GotIt)
+      FileNumber = ListGetLogical(Params,'Filename Numbering',GotIt)     
+      FileAppend = ListGetLogical(Params,'File Append',GotIt)
 
       IF( FileNumber ) THEN
         WRITE( Filename,'(A,I0)') TRIM(Filename),VisitedTimes
         OPEN (10,FILE=Filename)
-      ELSE IF(FileAppend .AND. VisitedTimes == 1) THEN 
-        OPEN (10, FILE=Filename,POSITION='APPEND')
+      ELSE IF(FileAppend .AND. VisitedTimes > 1) THEN 
+        OPEN (10, FILE=Filename, POSITION='APPEND')
       ELSE 
         OPEN (10,FILE=Filename)
       END IF      
