@@ -567,13 +567,13 @@ CONTAINS
      TYPE(Edgen_t), ALLOCATABLE :: edgen(:), cccc(:)
 
      INTEGER, ALLOCATABLE :: owned_edges(:), owned_edges2(:), parentnodes(:,:), &
-             tosend(:), toreceive(:), gorder(:), grevorder(:)
+             tosend(:), toreceive(:), gorder(:), grevorder(:),buf(:)
 
      INTEGER  :: p,q,datasize, ierr,status(MPI_STATUS_SIZE)
      INTEGER, ALLOCATABLE ::  gindices(:)
      INTEGER, POINTER :: list1(:),list2(:), commonlist(:), gdofs(:)
 
-     INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs,retry
+     INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs,retry,bd,gi,ind
 
      LOGICAL, POINTER :: ig(:)
      TYPE(NeighbourList_t), POINTER :: nb(:)
@@ -1035,7 +1035,7 @@ real(kind=dp) :: realtime,tt
     !------------------------
 
     DEALLOCATE( owned_edges, owned_edges2, &
-      parentnodes, tosend, toreceive )
+      parentnodes, toreceive )
     !-------------------------------------------------------------------
     ! Now, the numbering should be unique. It remains to sort the edges.
     !-------------------------------------------------------------------
@@ -1103,7 +1103,72 @@ real(kind=dp) :: realtime,tt
       Mesh % Edges(i) % ElementIndex = i
     END DO
 
-    DEALLOCATE( gorder, grevorder, gdofs, edgen )
+    ! Max the dofs for the shared edges:
+    ! ----------------------------------
+    tosend=0
+    DO i=1,n
+      IF(Edgen(i) % Interface) THEN
+        DO j=1,SIZE(Edgen(i) % Neighbours)
+          k = Edgen(i) % Neighbours(j)
+          IF(k/=ParEnv % MyPE) &
+            tosend(k+1)=tosend(k+1)+1
+        END DO
+      END IF
+    END DO
+
+    ALLOCATE(buf(MAXVAL(tosend)*2))
+
+    DO i = 1, ParEnv % PEs
+      IF( i-1 == ParEnv % MyPE ) CYCLE
+      IF( .NOT. IsNeighbour(i) ) CYCLE
+
+      mm=0
+      DO l=1,n
+        IF(Edgen(l) % Interface) THEN
+          DO j=1,SIZE(Edgen(l) % Neighbours)
+            k = Edgen(l) % Neighbours(j)
+            IF(k==i-1) THEN
+              mm=mm+1
+              buf(2*mm-1) = gdofs(l)
+              buf(2*mm) = Mesh % Edges(l) % BDOFs
+            END IF
+          END DO
+        END IF
+      END DO
+
+      CALL MPI_BSEND( mm, 1, MPI_INTEGER, &
+           i-1, 400, MPI_COMM_WORLD, ierr )
+
+      IF (mm<=0 ) CYCLE
+
+      CALL MPI_BSEND( buf, mm*2, MPI_INTEGER, &
+           i-1, 401, MPI_COMM_WORLD, ierr )
+    END DO
+
+    DEALLOCATE(buf)
+
+    DO i = 1, ParEnv % PEs
+      IF( i-1 == ParEnv % MyPE ) CYCLE
+      IF( .NOT. IsNeighbour(i) ) CYCLE
+
+      CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
+       i-1, 400, MPI_COMM_WORLD, status, ierr )
+      IF( DataSize > 0 ) THEN
+        ALLOCATE( buf(DataSize*2) )
+        CALL MPI_RECV( buf, DataSize*2, MPI_INTEGER, &
+           i-1, 401, MPI_COMM_WORLD, status, ierr )
+
+        DO j=1,Datasize
+          gi = buf(2*j-1)
+          bd = buf(2*j)
+          k = SearchIAItem(n,gdofs,gi)
+          Mesh % Edges(k) % BDOFs=MAX(Mesh % Edges(k) % BDOFs,bd)
+        END DO
+        DEALLOCATE(buf)
+      END IF
+    END DO
+
+    DEALLOCATE( gorder, grevorder, gdofs, edgen, tosend )
     IF ( AllM ) DEALLOCATE(IsNeighbour)
     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 !--------------------------------------------------------------------  
@@ -1134,11 +1199,11 @@ real(kind=dp) :: realtime,tt
      TYPE(flist_t) :: list(4)
 
      INTEGER, ALLOCATABLE :: owned_faces(:), owned_faces2(:), &
-      parentnodes(:,:), tosend(:), toreceive(:), gorder(:), grevorder(:)
+      parentnodes(:,:), tosend(:), toreceive(:), gorder(:), grevorder(:),buf(:)
 
      INTEGER, POINTER :: commonlist(:), gindices(:), gdofs(:)
 
-     INTEGER :: i,j,k,l,m,n,mm,nd,edofs,maxedofs, &
+     INTEGER :: i,j,k,l,m,n,mm,nd,edofs,maxedofs,ind,gi,bd, &
                 p,q,r,datasize, ierr,status(MPI_STATUS_SIZE)
 
      LOGICAL, POINTER :: ig(:)
@@ -1473,7 +1538,7 @@ real(kind=dp) :: realtime,tt
     ! Deallocate temp arrays:
     !------------------------
     DEALLOCATE( owned_faces, owned_faces2, &
-       parentnodes, tosend, toreceive )
+       parentnodes, toreceive )
 
     !-------------------------------------------------------------------
     ! Now, the numbering should be unique. It remains to sort the faces.
@@ -1551,6 +1616,71 @@ real(kind=dp) :: realtime,tt
       Mesh % ParallelInfo % FaceNeighbourList(i) % Neighbours => &
              Facen(i) % Neighbours
     END DO
+
+
+    tosend=0
+    DO i=1,n
+      IF(Facen(i) % Interface) THEN
+        DO j=1,SIZE(Facen(i) % Neighbours)
+          k = Facen(i) % Neighbours(j)
+          IF(k/=ParEnv % MyPE) &
+            tosend(k+1)=tosend(k+1)+1
+        END DO
+      END IF
+    END DO
+
+    ALLOCATE(buf(MAXVAL(tosend)*2))
+
+    DO i = 1, ParEnv % PEs
+      IF( i-1 == ParEnv % MyPE ) CYCLE
+      IF( .NOT. IsNeighbour(i) ) CYCLE
+
+      mm=0
+      DO l=1,n
+        IF(Facen(l) % Interface) THEN
+          DO j=1,SIZE(Facen(l) % Neighbours)
+            k = Facen(l) % Neighbours(j)
+            IF(k==i-1) THEN
+              mm=mm+1
+              buf(2*mm-1) = gdofs(l)
+              buf(2*mm) = Mesh % Faces(l) % BDOFs
+            END IF
+          END DO
+        END IF
+      END DO
+
+      CALL MPI_BSEND( mm, 1, MPI_INTEGER, &
+           i-1, 400, MPI_COMM_WORLD, ierr )
+
+      IF (mm<=0 ) CYCLE
+
+      CALL MPI_BSEND( buf, mm*2, MPI_INTEGER, &
+           i-1, 401, MPI_COMM_WORLD, ierr )
+    END DO
+
+    DEALLOCATE(buf)
+
+    DO i = 1, ParEnv % PEs
+      IF( i-1 == ParEnv % MyPE ) CYCLE
+      IF( .NOT. IsNeighbour(i) ) CYCLE
+
+      CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
+       i-1, 400, MPI_COMM_WORLD, status, ierr )
+      IF( datasize > 0 ) THEN
+        ALLOCATE( buf(DataSize*2) )
+        CALL MPI_RECV( buf, DataSize*2, MPI_INTEGER, &
+           i-1, 401, MPI_COMM_WORLD, status, ierr )
+
+        DO j=1,Datasize
+          gi = buf(2*j-1)
+          bd = buf(2*j)
+          k = SearchIAItem(n,gdofs,gi)
+          Mesh % Faces(k) % BDOFs = MAX(Mesh % Faces(k) % BDOFs,bd)
+        END DO
+        DEALLOCATE(buf)
+      END IF
+    END DO
+
 
     DEALLOCATE( gorder, grevorder, gdofs, facen )
     IF ( ALLM ) DEALLOCATE(IsNeighbour)

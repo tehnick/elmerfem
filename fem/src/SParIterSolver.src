@@ -1903,7 +1903,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
 
   ! Local parameters
 
-  INTEGER :: i, j, k, l, colind, rowind
+  INTEGER :: i, j, k, l, n, colind, rowind
   TYPE (BasicMatrix_t), POINTER :: CurrIf
   TYPE (Matrix_t), POINTER :: InsideMatrix
   TYPE( IfVecT), POINTER :: IfV
@@ -1918,6 +1918,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   !*******************************************************************
 
   InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
+  n = InsideMatrix % NumberOfRows/2
 
   !----------------------------------------------------------------------
   !
@@ -1925,7 +1926,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   !
   !----------------------------------------------------------------------
 
-  v(1:HUTI_NDIM) = 0.0
+  v(1:n) = 0.0
   DO i = 1, ParEnv % PEs
      CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
 
@@ -1940,13 +1941,15 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
              rowind = (IfO % IfVec(2*j-1)+1)/2
              DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1,2
                Colind = (IfL % IfVec(k)+1)/2
-               A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
-               v(rowind) = v(rowind) + A * u(ColInd)
+               IF ( ColInd > 0 ) THEN
+                 A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
+                 v(rowind) = v(rowind) + A * u(ColInd)
+               END IF
              END DO
           ELSE
             DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
                IF ( IfL % IfVec(k) > 0 ) THEN
-                 ColInd = (IfL % IfVec(k) + 1) / 2
+                 ColInd = (IfL % IfVec(k)+1)/2
                  A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
                  A = A * u(ColInd)
                  IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + REAL(A)
@@ -1970,7 +1973,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   Cols => InsideMatrix % Cols
   Vals => InsideMatrix % Values
 
-  DO i = 1, HUTI_NDIM
+  DO i = 1, n
      DO j = Rows(2*i-1), Rows(2*i)-1, 2
         A = CMPLX( Vals(j), -Vals(j+1), KIND=dp )
         v(i) = v(i) + A * u(Cols(j+1)/2)
@@ -1981,12 +1984,12 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   ! Receive interface parts of the vector and sum them to vector v
   !
   !----------------------------------------------------------------------
-  ALLOCATE( buf( 2*HUTI_NDIM ) )
+  ALLOCATE( buf(2*n) )
   buf = 0.0d0
-  CALL Recv_LocIf_Old( GlobalData % SplittedMatrix, 2*HUTI_NDIM, buf )
+  CALL Recv_LocIf_Old( GlobalData % SplittedMatrix, 2*n, buf )
 
-  DO i=1,HUTI_NDIM
-     v(i) = v(i) + CMPLX( buf(2*i-1), buf(2*i), KIND=dp )
+  DO i=1,n
+    v(i) = v(i) + CMPLX( buf(2*i-1), buf(2*i), KIND=dp )
   END DO
   DEALLOCATE( buf )
 !*********************************************************************

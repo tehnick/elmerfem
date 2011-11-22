@@ -923,7 +923,7 @@ END SUBROUTINE GetMaxDefs
      Mesh % Nodes % y = 0.0d0
      Mesh % Nodes % y(1:Mesh % NumberOFNodes) = cCoord
      DEALLOCATE( cCoord )
-
+ 
      cCoord => Mesh % Nodes % z
      ALLOCATE( Mesh % Nodes % z(n) )
      Mesh % Nodes % z = 0.0d0
@@ -976,8 +976,60 @@ END SUBROUTINE GetMaxDefs
      END DO
  
      CALL SParFaceNumbering(Mesh)
+
+     DO i=1,Mesh % NumberOfFaces
+       Mesh % MaxFaceDOFs = MAX(Mesh % MaxFaceDOFs,Mesh % Faces(i) % BDOFs)
+     END DO
+
      CALL SParEdgeNumbering(Mesh)
+     DO i=1,Mesh % NumberOfEdges
+       Mesh % MaxEdgeDOFs = MAX(Mesh % MaxEdgeDOFs,Mesh % Edges(i) % BDOFs)
+     END DO
+
+     DO i=1,Mesh % NumberOfBulkElements
+       Element => Mesh % Elements(i)
+
+       ! Set max element dofs here (because element size may have changed
+       ! when edges and faces have been set). This is the absolute worst case.
+       ! Element which has MaxElementDOFs may not even be present as a 
+       ! real element
+       Mesh % MaxElementDOFs = MAX( Mesh % MaxElementDOFs, &
+            Element % TYPE % NumberOfNodes + &
+            Element % TYPE % NumberOfEdges * Mesh % MaxEdgeDOFs + &
+            Element % TYPE % NumberOfFaces * Mesh % MaxFaceDOFs + &
+            Element % BDOFs, &
+            Element % DGDOFs )
+     END DO
    END IF
+
+   ! Reallocate coordinate arrays for iso-parametric p-elements:
+   ! -----------------------------------------------------------
+   n = Mesh % NumberOfNodes + &
+       Mesh % MaxEdgeDOFs * Mesh % NumberOFEdges + &
+       Mesh % MaxFaceDOFs * Mesh % NumberOFFaces + &
+       Mesh % MaxBDOFs    * Mesh % NumberOFBulkElements
+
+
+   IF ( n>Mesh % NumberOfNodes ) THEN
+     cCoord => Mesh % Nodes % x
+     ALLOCATE( Mesh % Nodes % x(n) )
+     Mesh % Nodes % x = 0.0d0
+     Mesh % Nodes % x(1:Mesh % NumberOFNodes) = cCoord
+     DEALLOCATE( cCoord )
+
+     cCoord => Mesh % Nodes % y
+     ALLOCATE( Mesh % Nodes % y(n) )
+     Mesh % Nodes % y = 0.0d0
+     Mesh % Nodes % y(1:Mesh % NumberOFNodes) = cCoord
+     DEALLOCATE( cCoord )
+
+     cCoord => Mesh % Nodes % z
+     ALLOCATE( Mesh % Nodes % z(n) )
+     Mesh % Nodes % z = 0.0d0
+     Mesh % Nodes % z(1:Mesh % NumberOFNodes) = cCoord
+     DEALLOCATE( cCoord )
+   END IF
+
    DEALLOCATE( LocalPerm, ElementTags )
    CALL eio_close_mesh( eio_info )
    
