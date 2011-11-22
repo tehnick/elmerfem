@@ -62,8 +62,7 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Solver_t), POINTER :: PSolver
-  TYPE(Variable_t), POINTER :: Var
-  TYPE(Variable_t), POINTER :: AgeVar
+  TYPE(Variable_t), POINTER :: Var, PTimeVar
   LOGICAL :: GotIt, Debug, Hit, InitLocation, InitTimestep, Found, ParticleInfo
   INTEGER :: i,j,k,n,dim,No,nodims,&
       ElementIndex, VisitedTimes = 0, nstep, &
@@ -115,6 +114,9 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
       CALL ParticleVariableCreate( Particles,'particle time')
     END IF 
     CALL ParticleVariableCreate( Particles,'particle distance')
+  ELSE	 
+    PtimeVar => ParticleVariableGet( Particles, 'particle time' )
+    PTimeVar % Values = 0.0_dp
   END IF
 
   ! Freeze particles that are known not to move (e.g. no-slip wall)
@@ -141,7 +143,11 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
 
     ! If size of timestep goes to zero then no more steps are needed
     !---------------------------------------------------------------
-    IF( ABS( maxdt )  < TINY( maxdt ) ) EXIT	
+    IF( ABS( maxdt ) < TINY( maxdt ) ) THEN
+      WRITE (Message,'(A,I0)') 'Number of steps used: ',i-1
+      CALL Info('ParticleAdvector',Message,Level=6)
+      EXIT	
+    END IF
 
     dertime = dertime + maxdt
     tottime = tottime + maxdt
@@ -212,7 +218,6 @@ CONTAINS
     TYPE( ValueList_t), POINTER :: BC, BodyForce
     TYPE( Element_t ), POINTER :: Element
     REAL(KIND=dp), ALLOCATABLE :: PTime(:), PCond(:)
-    TYPE(Variable_t), POINTER :: PTimeVar
     REAL(KIND=dp) :: PTimeConst
     LOGICAL :: Found, GotTime, SomeBodyForce, SomeBC
     TYPE(ValueList_t), POINTER :: Params
@@ -469,7 +474,7 @@ CONTAINS
     INTEGER, POINTER :: NodeIndexes(:)
     REAL(KIND=dp) :: SqrtElementMetric, Norm
     REAL(KIND=dp), POINTER :: Basis(:)
-    LOGICAL :: GotIt, Difference,Cumulative,Derivative,GotVar,GotRes,Debug,&
+    LOGICAL :: GotIt, Difference,Cumulative,Derivative,Age,GotVar,GotRes,Debug,&
         UsePerm,InternalVariable
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, ResultName, OperName, Name
     TYPE(Variable_t), POINTER :: TargetVar, ResultVar, Var
@@ -531,13 +536,40 @@ CONTAINS
 
       ! For internal variables the target name is the field name
       !---------------------------------------------------------      
-      WRITE (Name,'(A,I0)') 'Result Variable ',NoVar
-      ResultName = GetString( Params,Name,GotRes)
-      IF( .NOT. GotRes ) THEN
-        IF( InternalVariable ) THEN
-          ResultName = VariableName
-        ELSE
-          ResultName = 'Adv '//TRIM(VariableName)
+      IF( InternalVariable ) THEN
+        ResultName = VariableName
+      ELSE
+        WRITE (Name,'(A,I0)') 'Operator ',NoVar
+        OperName = GetString( Params,Name,GotIt)
+        Difference = .FALSE.
+        Derivative = .FALSE.
+        Cumulative = .FALSE.
+        Age = .FALSE.
+        IF( GotIt ) THEN
+          IF( OperName == 'difference' ) THEN
+            Difference = .TRUE.
+          ELSE IF( OperName == 'derivative') THEN
+            Derivative = .TRUE.
+          ELSE IF( OperName == 'cumulative') THEN
+            Cumulative = .TRUE.
+          ELSE IF( OperName == 'age') THEN
+            Age = .TRUE.
+          END IF
+        END IF
+
+        PTimeVar => ParticleVariableGet( Particles,'particle time')
+	IF( .NOT. ASSOCIATED( PTimeVar ) ) THEN
+          CALL Fatal('ParticleAdvector','Operator > Age < requires > Particle Time < !')
+	END IF
+
+        WRITE (Name,'(A,I0)') 'Result Variable ',NoVar
+        ResultName = GetString( Params,Name,GotRes)
+        IF( .NOT. GotRes ) THEN
+	  IF( Age .OR. Cumulative ) THEN
+            ResultName = VariableName
+          ELSE
+            ResultName = 'Adv '//TRIM(VariableName)
+          END IF
         END IF
       END IF
 
@@ -567,22 +599,6 @@ CONTAINS
         IF(.NOT. ASSOCIATED(ResultVar)) CALL Fatal('ParticleAdvector','Problems in VariableAdd')
       END IF
       
-      IF( .NOT. InternalVariable ) THEN
-        WRITE (Name,'(A,I0)') 'Operator ',NoVar
-        OperName = GetString( Params,Name,GotIt)
-        Difference = .FALSE.
-        Derivative = .FALSE.
-        Cumulative = .FALSE.
-        IF( GotIt ) THEN
-          IF( OperName == 'difference' ) THEN
-            Difference = .TRUE.
-          ELSE IF( OperName == 'derivative') THEN
-            Derivative = .TRUE.
-          ELSE IF( OperName == 'cumulative') THEN
-            Cumulative = .TRUE.
-          END IF
-        END IF
-      END IF
 
       ! Finally, set the values
       !---------------------------------------------------------      
@@ -602,11 +618,11 @@ CONTAINS
           END DO
         ELSE IF( VariableName == 'particle coordinate_abs') THEN
           DO i=1,NoParticles
-            ResultVar % Values(i) = 0.0_dp
+            val = 0.0_dp
             DO j=1,dim
-              ResultVar % Values(i) = ResultVar % Values(i) + Particles % Coordinate(i,j)**2
+              val = val + Particles % Coordinate(i,j)**2
             END DO
-            ResultVar % Values(i) = SQRT( ResultVar % Values(i) )
+            ResultVar % Values(i) = SQRT( val )
           END DO
         ELSE IF( VariableName == 'particle velocity') THEN
           IF( ResultVar % Dofs /= dim ) THEN
@@ -620,11 +636,11 @@ CONTAINS
 
         ELSE IF( VariableName == 'particle velocity_abs') THEN
           DO i=1,NoParticles
-            ResultVar % Values(i) = 0.0_dp
+            val = 0.0_dp
             DO j=1,dim
-              ResultVar % Values(i) = ResultVar % Values(i) + Particles % Velocity(i,j)**2
+              val = val + Particles % Velocity(i,j)**2
             END DO
-            ResultVar % Values(i) = SQRT( ResultVar % Values(i) )
+            ResultVar % Values(i) = SQRT( val )
           END DO
         ELSE IF( VariableName == 'particle time' .OR. &
                  VariableName == 'particle dt'   .OR. &
@@ -640,7 +656,7 @@ CONTAINS
         END IF
       ELSE 
 
-        IF( Cumulative .AND. Visited ) TargetVar => ResultVar 
+        IF( ( Cumulative .OR. Age ) .AND. Visited ) TargetVar => ResultVar 
         
         n = SIZE( TargetVar % Values ) 
         IF( ALLOCATED( NewValues ) ) THEN
@@ -679,6 +695,8 @@ CONTAINS
               k = i
               IF( ASSOCIATED( TargetVar % Perm ) ) k = TargetVar % Perm( k )
               NewValues( j ) =  val - TargetVar % Values( k ) 
+	    ELSE IF( Age ) THEN
+              NewValues( j ) = val + PTimeVar % Values( No )
             ELSE
               NewValues( j ) = val     
             END IF

@@ -1830,8 +1830,8 @@ RETURN
     IF( TotParticles == 0 ) THEN
       CALL Fatal('InitializeParticles','No Particles to Initialize')
     ELSE
-      WRITE( Message,'(A,I8)') 'Total Number of Particles:',TotParticles
-      CALL Info('InitializeParticles',Message)
+      WRITE( Message,'(A,I0)') 'Number of Particles:',TotParticles
+      CALL Info('InitializeParticles',Message,Level=6)
     END IF
 
     !------------------------------------------------------------------------
@@ -1866,7 +1866,7 @@ RETURN
       
     CASE ('nodal ordered')
       Particles % NumberOfParticles = NewParticles
-      PRINT *,'Initializing particles in nodes:',NewParticles,nonodes
+!      PRINT *,'Initializing particles in nodes:',NewParticles,nonodes
       DO i=1,NewParticles
         k = Offset + i
         j = (nonodes-1)*(i-1)/(NewParticles-1)+1
@@ -4022,7 +4022,7 @@ RETURN
     DO No=1, NoParticles
 
       Status = Particles % Status(No)
-      
+
       IF ( Status >= PARTICLE_LOST ) CYCLE
       IF ( Status <= PARTICLE_INITIATED ) CYCLE
       IF ( Status == PARTICLE_WALLBOUNDARY ) CYCLE
@@ -4033,7 +4033,6 @@ RETURN
         dtime = Particles % DtSign * DtVar % Values(No)
         TimeVar % Values(No) = TimeVar % Values(No) + DtVar % Values(No)
       END IF
-
 
       IF ( Status == PARTICLE_FIXEDCOORD ) THEN
         Particles % Velocity(No,:) = 0.0_dp
@@ -4312,9 +4311,9 @@ PRINT *,'NoPeriodic',NoPeriodic
 
     INTEGER :: No, Status    
     REAL(KIND=dp) :: dt,dt0,tfin,tprev,dsgoal,hgoal,dtmax,dtmin,dtup,dtlow, &
-        CharSpeed, CharTime, dtprev
+        CharSpeed, CharTime
     LOGICAL :: GotIt,TfinIs,NStepIs,DsGoalIs,HgoalIs,DtIs,DtConstant
-    INTEGER :: nstep, TimeStep, PrevTimeStep = -1
+    INTEGER :: nstep, TimeStep, PrevTimeStep = -1, flag
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Variable_t), POINTER :: TimeVar, DtVar
     
@@ -4322,6 +4321,8 @@ PRINT *,'NoPeriodic',NoPeriodic
         tprev,Tfin,TfinIs,DsGoalIs,HgoalIs,PrevTimeStep, &
 	DtConstant,DtVar,TimeVar
     
+    dtout = 0.0_dp
+
     IF( InitInterval ) THEN
       Params => GetSolverParams()
       
@@ -4401,7 +4402,6 @@ PRINT *,'NoPeriodic',NoPeriodic
       dtout = dt
     ELSE 
       DtVar % Values = 0.0_dp
-      dtout = 0.0_dp
 
       DO No = 1, Particles % NumberOfParticles
 
@@ -4411,17 +4411,24 @@ PRINT *,'NoPeriodic',NoPeriodic
         IF ( Status == PARTICLE_WALLBOUNDARY ) CYCLE
         IF ( Status == PARTICLE_FIXEDCOORD ) CYCLE
 
-	dtprev = TimeVar % Values(No)        
+	tprev = TimeVar % Values(No)        
+
+	flag = 1
+
         IF( DtIs ) THEN
           dt = dt0 
+	  flag = 2
         ELSE IF( DsGoalIs ) THEN
           CharSpeed = CharacteristicSpeed( Particles, No )     
           dt = dsgoal / CharSpeed
+	  flag = 3
         ELSE IF( HgoalIs ) THEN
           CharTime = CharacteristicElementTime( Particles, No )     
           dt = Hgoal * CharTime ! ElementH / Speed
+	  flag = 4
         ELSE IF( tfinIs ) THEN
           dt = tfin / Nstep
+	  flag = 5
         ELSE
           CALL Fatal('GetParticlesTimeStep','Cannot determine timestep size!')
         END IF
@@ -4433,6 +4440,7 @@ PRINT *,'NoPeriodic',NoPeriodic
         ! Do not exceed the total integration time
         !-------------------------------------------
         IF( PRESENT( tinit ) ) tprev = tinit
+
         IF( TfinIs .AND. dt + tprev > tfin ) THEN
           dt = tfin - tprev
         END IF
