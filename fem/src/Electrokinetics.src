@@ -222,6 +222,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
 ! remember this
 ! -------------
   SAVE Nodes, DIM, FirstTime, vacuumPerm, SkipThisTime
+
 ! provide arrays to let the ListGetReal/Integer function 
 ! work with just a nodal value to be read in
 ! -------------------------------------------------------
@@ -246,6 +247,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
        CALL Fatal('electrokinetics (helmholtz_smoluchowski_comp)',&
            'The electrokinetic BCs do not make sense in 1D')
      END IF
+
      IF( direction == 0 .AND. Dim > 2) THEN
        CALL Fatal('electrokinetics (helmholtz_smoluchowski_comp)',&
            'The tangential velocity may only be defined in 2D')
@@ -267,6 +269,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
      END IF
      FirstTime = .FALSE.
   END IF
+
   !-------------------------------------------------------------------------
   ! get some information upon active boundary element and its parent element
   !-------------------------------------------------------------------------
@@ -286,6 +289,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   IF ( .NOT. ASSOCIATED(ParentElement) ) THEN
      CALL FATAL('electrokinetics (helmholtz_smoluchowski_comp)','No parent element found for boudnary element')
   END IF
+
   body_id = ParentElement % BodyId
   material_id = ListGetInteger(Model % Bodies(body_id) % Values, 'Material', GotIt)
   ParentMaterial => Model % Materials(material_id) % Values
@@ -294,6 +298,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   END IF
   eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
        minv=1,maxv=Model % NumberOfEquations )
+
   bc_id = GetBCId(BoundaryElement)
   BC => GetBC(BoundaryElement)
   !-------------------------------------------
@@ -332,8 +337,8 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
     IF (.NOT. GotIt) THEN
       WRITE(Message,'(a,i0)' )&
           'No keyword >Relative Permittivity< found in material section no. ', material_id
-      CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
-      CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting to 1', Level=4)
+      CALL Info('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
+      CALL Info('electrokinetics (helmholtz_smoluchowski)','setting to 1', Level=4)
       dielectricConstant = 1.0d00
     ELSE
       dielectricConstant = dummyArray(1)
@@ -346,8 +351,8 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
     dummyArray = ListGetReal( BC, 'EO Mobility', 1, NodeNumberArray, GotIt )
     IF (.NOT.GotIt) THEN
       WRITE(Message,'(a,i0)' )'Neither zeta potential nor EO mobility found in boundary condition no. ', bc_id
-      CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
-      CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting EO mobility to 0', Level=4)
+      CALL Info('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
+      CALL Info('electrokinetics (helmholtz_smoluchowski)','setting EO mobility to 0', Level=4)
       eoMobility = 0.0d00
     ELSE
       eoMobility = dummyArray(1)
@@ -358,7 +363,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   ! get electric field
   !-----------------------------------------------------------------
   ElectricFieldMethod = ListGetString( Model % Equations(eq_id) % &
-       Values, 'Electric Field', GotIt )
+         Values, 'Electric Field', GotIt )
   IF ( .NOT.GotIt ) THEN 
     WRITE(Message,'(a,i0)' )'No external electric field defined for Equation no. ', eq_id
     CALL Info('electrokinetics (helmholtz_smoluchowski)',Message, level=4)
@@ -451,6 +456,9 @@ FUNCTION getJouleHeat( Model, NodeNumber, realDummy ) RESULT(jouleHeat)
   TYPE(Element_t), POINTER :: Parent
   TYPE(ValueList_t), POINTER :: Material
   TYPE(Variable_t), POINTER :: EFieldComp
+
+
+  CALL Warn('GetJouleHeat','Deprecated function!')
 
   DIM = CoordinateSystemDimension()
   jouleHeat = 0.0_dp

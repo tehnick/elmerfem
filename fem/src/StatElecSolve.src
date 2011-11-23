@@ -776,6 +776,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        ElectricInsideResidual, ElectricEdgeResidual, ElectricBoundaryResidual )
    
    CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Potential')
+
    IF ( CalculateField ) THEN
      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field')
    END IF
@@ -874,21 +875,22 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
 
 !------------------------------------------------------------------------------
+    IF(CalculateEnergy) Energy = 0.0_dp
+    IF(CalculateFlux) Flux = 0.0_dp
+    IF(CalculateField) Field = 0.0_dp
 
-    ALLOCATE( Nodes % x( Model % MaxElementNodes ) )
-    ALLOCATE( Nodes % y( Model % MaxElementNodes ) )
-    ALLOCATE( Nodes % z( Model % MaxElementNodes ) )
+    n = Model % MaxElementNodes
+    ALLOCATE( Nodes % x( n ), Nodes % y( n ), Nodes % z( n ) )
     ALLOCATE( SumOfWeights( Model % NumberOfNodes ) )
 
     SumOfWeights = 0.0d0
-
     Wetot = 0.0d0
 
     PermittivityOfVacuum = ListGetConstReal( Model % Constants, &
         'Permittivity Of Vacuum',gotIt )
     IF ( .NOT.gotIt ) PermittivityOfVacuum = 1
 
-     DIM = CoordinateSystemDimension()
+    DIM = CoordinateSystemDimension()
 
 !------------------------------------------------------------------------------
 !   Go through model elements, we will compute on average of elementwise
@@ -1051,13 +1053,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
 
     IF ( CalculateSurfCharge ) THEN
-
-       ALLOCATE( BoundaryNodes % x( Model % MaxElementNodes ) )
-       ALLOCATE( BoundaryNodes % y( Model % MaxElementNodes ) )
-       ALLOCATE( BoundaryNodes % z( Model % MaxElementNodes ) )
-       ALLOCATE( x( Model % MaxElementNodes ) )
-       ALLOCATE( y( Model % MaxElementNodes ) )
-       ALLOCATE( z( Model % MaxElementNodes ) )
+       n = Model % MaxElementNodes
+       ALLOCATE( BoundaryNodes % x( n ), BoundaryNodes % y( n ), BoundaryNodes % z( n ), &
+                 x( n ), y( n ), z( n ) ) 
        ALLOCATE( SurfWeights( Model % NumberOfNodes ) )
 
        SurfWeights = 0.0d0
@@ -1254,6 +1252,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
      IF( j == 0 ) CYCLE
      IF ( ABS( SumOfWeights(j) ) > 0.0d0 ) THEN
        IF ( CalculateEnergy )  Energy(j) = Energy(j) / SumOfWeights( j )
+
        IF ( CalculateField ) THEN
          DO k=1,DIM
            Field( DIM*(j-1)+k ) = Field( DIM*(j-1)+k) / SumOfWeights( j )
@@ -1277,14 +1276,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
    Wetot = PermittivityOfVacuum * Wetot / 2.0d0
    IF(CalculateEnergy) Energy = PermittivityOfVacuum * Energy / 2.0d0
    
-   DEALLOCATE( Nodes % x, &
-       Nodes % y, &
-       Nodes % z, &
-       SumOfWeights)
+   DEALLOCATE( Nodes % x, Nodes % y, Nodes % z, SumOfWeights)
 
    IF ( CalculateSurfCharge )  THEN
-     DEALLOCATE( BoundaryNodes % x, &
-         BoundaryNodes % y, BoundaryNodes % z, &
+     DEALLOCATE( BoundaryNodes % x, BoundaryNodes % y, BoundaryNodes % z, &
          SurfWeights, x, y, z )
      SurfaceCharge = SurfaceCharge * PermittivityOfVacuum
    END IF
