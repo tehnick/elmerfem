@@ -540,9 +540,9 @@ MODULE Types
 !------------------------------------------------------------------------------
 
     TYPE Solver_t
-      TYPE(ValueList_t), POINTER :: Values
+      TYPE(ValueList_t), POINTER :: Values => Null()
 
-      INTEGER :: TimeOrder,DoneTime,Order,NOFEigenValues
+      INTEGER :: TimeOrder,DoneTime,Order,NOFEigenValues=0
       INTEGER(KIND=AddrInt) :: PROCEDURE, LinBeforeProc, LinAfterProc
 
       REAL(KIND=dp) :: Alpha,Beta,dt
@@ -552,14 +552,14 @@ MODULE Types
 
       INTEGER :: MultiGridLevel,  MultiGridTotal, MultiGridSweep
       LOGICAL :: MultiGridSolver, MultiGridEqualSplit
-      TYPE(Mesh_t), POINTER :: Mesh
+      TYPE(Mesh_t), POINTER :: Mesh => Null()
 
-      INTEGER, POINTER :: ActiveElements(:)
+      INTEGER, POINTER :: ActiveElements(:) => Null()
       INTEGER :: NumberOfActiveElements
       INTEGER, ALLOCATABLE ::  Def_Dofs(:,:)
 
-      TYPE(Matrix_t),   POINTER :: Matrix
-      TYPE(Variable_t), POINTER :: Variable
+      TYPE(Matrix_t),   POINTER :: Matrix => Null()
+      TYPE(Variable_t), POINTER :: Variable => Null()
     END TYPE Solver_t
 
 !------------------------------------------------------------------------------
