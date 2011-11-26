@@ -67,12 +67,12 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   INTEGER, POINTER :: MaskPerm(:),TopPerm(:),BotPerm(:),TopPointer(:),&
       BotPointer(:),NodeIndexes(:)
   LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
-      DisplacementMode, MaskExists
+      DisplacementMode, MaskExists, GotVeloVar
   REAL(KIND=dp) :: UnitVector(3),x0loc,x0bot,x0top,xloc,wtop,BotVal,TopVal,&
       ElemVector(3),DotPro,Eps,Length
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: Coord(:),BotField(:),TopField(:),Field(:),Surface(:)
-  TYPE(Variable_t), POINTER :: Var
+  TYPE(Variable_t), POINTER :: Var, VeloVar
   TYPE(Element_t), POINTER :: Element
   TYPE(Nodes_t), SAVE :: Nodes
   TYPE(ValueList_t),POINTER :: BC
@@ -118,7 +118,7 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   ELSE
     VarName = GetString(SolverParams,'Top Surface Variable Name',GotIt )
     IF(GotIt) THEN
-      Var => VariableGet( Solver % Mesh % Variables,  VarName )
+      Var => VariableGet( Mesh % Variables,  VarName )
       IF(ASSOCIATED(Var)) THEN
         IF(Var % DOFs /= 1) THEN
           CALL Fatal('StructuredMeshMapper','Top surface variable should have only 1 dof')
@@ -137,11 +137,11 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   IF(TopMode == 0) THEN
     TopMode = 3
     IF(.NOT. ASSOCIATED(Field)) THEN
-      N = Solver % Mesh % MaxElementNodes
+      N = Mesh % MaxElementNodes
       ALLOCATE(Field(nsize),Surface(n))
       Field = 0.0_dp
     END IF
-    DO elem = 1, Solver % Mesh % NumberOfBoundaryElements
+    DO elem = 1, Mesh % NumberOfBoundaryElements
       Element => GetBoundaryElement(elem)
       BC => GetBC()
       IF ( ASSOCIATED( BC ) ) THEN
@@ -163,7 +163,7 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   ELSE
     VarName = GetString(SolverParams,'Bottom Surface Variable Name',GotIt )
     IF(GotIt) THEN
-      Var => VariableGet( Solver % Mesh % Variables,  VarName )
+      Var => VariableGet( Mesh % Variables,  VarName )
       IF(ASSOCIATED(Var)) THEN
         IF( Var % DOFs /= 1) THEN
           CALL Fatal('StructuredMeshMapper','Bottom surface variable should have only 1 dof')
@@ -180,11 +180,11 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   IF( BotMode == 0) THEN
     BotMode = 3
     IF(.NOT. ASSOCIATED(Field)) THEN
-      N = Solver % Mesh % MaxElementNodes
+      N = Mesh % MaxElementNodes
       ALLOCATE(Field(nsize),Surface(n))
       Field = 0.0_dp
     END IF
-    DO elem = 1, Solver % Mesh % NumberOfBoundaryElements
+    DO elem = 1, Mesh % NumberOfBoundaryElements
       Element => GetBoundaryElement(elem)
       BC => GetBC()
       IF ( ASSOCIATED( BC ) ) THEN
@@ -196,6 +196,22 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     END DO
   END IF
 
+  ! Get the velocity variable component. 
+  !-------------------------------------------------------------------
+  GotVeloVar = .FALSE.
+  VarName = GetString( SolverParams,'Mesh Velocity Variable',Found)
+  IF( Found ) THEN
+    VeloVar => VariableGet( Mesh % Variables, VarName ) 
+    IF( ASSOCIATED( VeloVar ) ) THEN
+      IF( VeloVar % Dofs == 1 ) THEN
+        GotVeloVar = .TRUE.
+      ELSE  
+        CALL Fatal('StructuredMeshMapper','The size of mesh velocity must be one')
+      END IF
+    ELSE
+      CALL Fatal('StructuredMeshMapper','The variable does not exist: '//TRIM(VarName))
+    END IF
+  END IF
 
   DisplacementMode = GetLogical(SolverParams,'Displacement Mode',Found)
   
@@ -233,8 +249,10 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     xloc = wtop * TopVal + (1.0_dp - wtop) * BotVal
 
     IF(DisplacementMode) THEN
+      IF( GotVeloVar ) VeloVar % Values( VeloVar % Perm(i) ) = xloc / dt
       Coord(i) = Coord(i) + xloc
     ELSE
+      IF( GotVeloVar ) VeloVar % Values( VeloVar % Perm(i) ) = ( xloc - Coord(i) ) / dt
       Coord(i) = xloc
     END IF
   END DO
@@ -248,29 +266,39 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     END IF
     IF( i == TopPointer(i) ) THEN
       IF(TopMode == 2) THEN
-        TopVal = TopField(TopPerm(i))
+        xloc = TopField(TopPerm(i))
       ELSE IF(TopMode == 3) THEN
-        TopVal = Field(i)
-      END IF
-      IF(DisplacementMode) THEN
-        Coord(i) = Coord(i) + TopVal
+        xloc = Field(i)
       ELSE
-        Coord(i) = TopVal
+        CYCLE
       END IF
-    END IF
-    IF( i == BotPointer(i) ) THEN
+    ELSE IF( i == BotPointer(i) ) THEN
       IF(BotMode == 2) THEN
-        BotVal = BotField(BotPerm(i))
+        xloc = BotField(BotPerm(i))
       ELSE IF(BotMode == 3) THEN
-        BotVal = Field(i)
-      END IF
-      IF(DisplacementMode) THEN
-        Coord(i) = Coord(i) + BotVal
+        xloc = Field(i)
       ELSE
-        Coord(i) = BotVal
+        CYCLE
       END IF
+    ELSE
+      CYCLE
     END IF
+
+    IF(DisplacementMode) THEN
+      IF( GotVeloVar ) VeloVar % Values( VeloVar % Perm(i) ) = xloc / dt
+      Coord(i) = Coord(i) + xloc
+    ELSE
+      IF( GotVeloVar ) VeloVar % Values( VeloVar % Perm(i) ) = ( xloc - Coord(i) ) / dt
+      Coord(i) = xloc
+    END IF
+
   END DO
+
+  IF( GotVeloVar .AND. .NOT. Visited ) THEN
+    IF( GetLogical(SolverParams,'Mesh Velocity First Zero',Found ) ) THEN
+      VeloVar % Values = 0.0_dp
+    END IF
+  END IF
 
  
   at1 = CPUTime()
@@ -278,6 +306,8 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
 
   WRITE(Message,* ) 'Active coordinate mapping time: ',at1-at0
   CALL Info('StructuredMeshMapper',Message)
+
+  Visited = .TRUE.
 
 !------------------------------------------------------------------------------
 END SUBROUTINE StructuredMeshMapper
