@@ -265,20 +265,20 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
       IF( MaskPerm(i) == 0) CYCLE
     END IF
     IF( i == TopPointer(i) ) THEN
-      IF(TopMode == 2) THEN
+      IF( TopMode == 1 ) THEN
+        xloc = TopVal
+      ELSE IF(TopMode == 2) THEN
         xloc = TopField(TopPerm(i))
       ELSE IF(TopMode == 3) THEN
         xloc = Field(i)
-      ELSE
-        CYCLE
       END IF
     ELSE IF( i == BotPointer(i) ) THEN
-      IF(BotMode == 2) THEN
+      IF( BotMode == 1 ) THEN
+        xloc = BotVal
+      ELSE IF(BotMode == 2) THEN
         xloc = BotField(BotPerm(i))
       ELSE IF(BotMode == 3) THEN
         xloc = Field(i)
-      ELSE
-        CYCLE
       END IF
     ELSE
       CYCLE
