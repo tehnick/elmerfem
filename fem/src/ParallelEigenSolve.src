@@ -128,7 +128,7 @@ INCLUDE "mpif.h"
       LOGICAL   ::     First, Stat, Direct = .FALSE., &
                        Iterative = .FALSE., NewSystem
       LOGICAL :: Factorize, FreeFactorize,FoundFactorize,FoundFreeFactorize
-      REAL(KIND=dp) :: SigmaR, SigmaI, TOL, s, Residual(n), Solution(n), ForceVector(n), LinConv, ILUTOL
+      REAL(KIND=dp) :: SigmaR, SigmaI, TOL, s, Residual(n), Solution(n), Solution_im(n),ForceVector(n), LinConv, ILUTOL
 !
       REAL(KIND=dp), POINTER :: SaveValues(:)
       CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -619,22 +619,31 @@ INCLUDE "mpif.h"
            END IF
         END DO
 
-        Solution = 0.0d0
         Residual = 0.0d0
+        Solution = 0.0d0; Solution_im = 0.0d0
+
         DO j=1,PN
           IF ( D(p,2) /= 0.0d0 ) THEN
             Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = V(j,k)
-            Matrix % ParMatrix % SplittedMatrix % TmpRVec(j) = V(j,k+1)
           ELSE
             Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = V(j,k)
-            Matrix % ParMatrix % SplittedMatrix % TmpRVec(j) = 0.0d0
           END IF
         END DO
 
         CALL ParallelUpdateResult( Matrix, Solution, Residual )
 
+        DO j=1,PN
+          IF ( D(p,2) /= 0.0d0 ) THEN
+            Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = V(j,k+1)
+          ELSE
+            Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = 0.0d0
+          END IF
+        END DO
+        CALL ParallelUpdateResult( Matrix, Solution_im, Residual )
+
+
         DO j=1,N
-          EigVectors(i,j) = CMPLX( Solution(j), Residual(j), KIND=dp )
+          EigVectors(i,j) = CMPLX( Solution(j), Solution_im(j), KIND=dp )
         END DO
 
       END DO
