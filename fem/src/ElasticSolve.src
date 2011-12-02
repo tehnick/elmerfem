@@ -62,7 +62,7 @@
 
      TYPE(Solver_t), POINTER :: PSolver
 
-     TYPE(ValueList_t),POINTER :: Material
+     TYPE(ValueList_t), POINTER :: Material
      TYPE(Nodes_t) :: ElementNodes,ParentNodes,FlowNodes
      TYPE(Element_t),POINTER :: CurrentElement, ParentElement, FlowElement
 
@@ -71,10 +71,11 @@
 
      INTEGER :: NewtonIter,NonlinearIter, FlowNOFNodes
 
-     TYPE(Variable_t), POINTER :: StressSol, TempSol, FlowSol
+     TYPE(Variable_t), POINTER :: StressSol, TempSol, FlowSol, Var
 
      REAL(KIND=dp), POINTER :: Temperature(:),Pressure(:),Displacement(:), &
-          Work(:,:),ForceVector(:),Velocity(:,:),FlowSolution(:),SaveValues(:)
+          Work(:,:), ForceVector(:), Velocity(:,:), FlowSolution(:), SaveValues(:), &
+          NodalStrain(:), NodalStress(:)          
 
      INTEGER,POINTER :: TempPerm(:),StressPerm(:),PressPerm(:),NodeIndexes(:), &
           FlowPerm(:),AdjacentNodes(:)
@@ -85,7 +86,7 @@
           NeoHookeanMaterial = .FALSE.
 
      INTEGER :: body_id,bf_id,eq_id,CoordinateSystem
-     LOGICAL :: PlaneStress
+     LOGICAL :: PlaneStress, CalculateStrains, CalcStressAll
 !
      LOGICAL :: AllocationsDone = .FALSE.
 
@@ -104,11 +105,12 @@
           ReferenceTemperature(:),BoundaryDispl(:),LocalDisplacement(:,:), PrevSOL(:)
 
      SAVE LocalMassMatrix,LocalStiffMatrix,LocalDampMatrix,LoadVector,InertialLoad, Viscosity, &
-       LocalForce,ElementNodes,ParentNodes,FlowNodes,Alpha,Beta, &
-         LocalTemperature,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
-           ElasticModulus, PoissonRatio,Density,Damping,HeatExpansionCoeff, &
-           LocalDisplacement, Velocity, Pressure, PrevSOL
-!------------------------------------------------------------------------------
+          LocalForce,ElementNodes,ParentNodes,FlowNodes,Alpha,Beta, &
+          LocalTemperature,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
+          ElasticModulus, PoissonRatio,Density,Damping,HeatExpansionCoeff, &
+          LocalDisplacement, Velocity, Pressure, PrevSOL, CalculateStrains, CalcStressAll, &
+          NodalStrain, NodalStress
+!-----------------------------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
      INTEGER :: TotalSteps,LoadStep, dim
@@ -188,7 +190,6 @@
      StiffMatrix => Solver % Matrix
      ForceVector => StiffMatrix % RHS
      UNorm = Solver % Variable % Norm
-!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 !     Allocate some permanent storage, this is done first time only
@@ -232,12 +233,44 @@
          CALL Fatal( 'ElasticSolve',  'Memory allocation error.' )
        END IF
 
+       !----------------------------------------------------------------
+       ! Check whether strains and stresses are computed...
+       !----------------------------------------------------------------
+       IF ( .NOT. AllocationsDone ) THEN       
+          CalculateStrains = GetLogical(SolverParams, 'Calculate Strains', GotIt )         
+          CalcStressAll = GetLogical( SolverParams, 'Calculate Stresses', GotIt )          
+       END IF
 
-!      Add the stress tensor components to the variable list ???????????????????
-!       PSolver => Solver
-!       call VariableAdd( PSolver % Mesh % Variables, PSolver % Mesh, PSolver, &
-!            'Stress 11', 1, Displacement)
+       IF( CalculateStrains) THEN
+          n = SIZE( Displacement ) / STDOFs
+          Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
+          IF ( .NOT. ASSOCIATED( Var ) ) THEN
+             ALLOCATE( NodalStrain( 6*n ) )
+             NodalStrain = 0.0d0
+             CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                  'Strain', 6, NodalStrain, StressPerm )
+          END IF
+          !IF (CalcPrincipalAll) THEN
+          !   Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
+          !   IF ( .NOT. ASSOCIATED( Var ) ) THEN
+          !      ALLOCATE( PrincipalStrain ( 3*n ) )
+          !      PrincipalStrain = 0.0d0
+          !      CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+          !           'Principal Strain', 3, PrincipalStrain, DisplPerm )
+          !   END IF
+          !END IF
+       END IF
 
+       IF( CalcStressAll) THEN
+          n = SIZE( Displacement ) / STDOFs
+          Var => VariableGet( Solver % Mesh % Variables, 'Stress' )
+          IF ( .NOT. ASSOCIATED( Var ) ) THEN
+             ALLOCATE( NodalStress( 6*n ) )
+             NodalStress = 0.0d0
+             CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                  'Stress', 6, NodalStress, StressPerm )
+          END IF
+       END IF
 
 !------------------------------------------------------------------------------
        AllocationsDone = .TRUE.
@@ -258,7 +291,7 @@
 !    END IF
 !------------------------------------------------------------------------------
 
-! Newton linearization not implemented, it seems
+
 !     NewtonTol = ListGetConstReal( SolverParams, &
 !        'Nonlinear System Newton After Tolerance' )
 
@@ -282,6 +315,19 @@
      EquationName = ListGetString( SolverParams, 'Equation' )
 !------------------------------------------------------------------------------
 
+     IF (CalculateStrains) THEN
+        Var => VariableGet( Solver % Mesh % Variables, 'Strain', .TRUE. )
+        NodalStrain => Var % Values
+        !IF(CalcPrincipalAll) THEN
+        !   Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
+        !   PrincipalStrain => Var % Values
+        !END IF
+     END IF
+
+     IF (CalcStressAll) THEN
+        Var => VariableGet( Solver % Mesh % Variables, 'Stress', .TRUE. )
+        NodalStress => Var % Values
+     END IF
 !------------------------------------------------------------------------------
 
      DO iter=1,NonlinearIter
@@ -319,7 +365,7 @@
 !        Check if this element belongs to a body where displacements
 !        should be calculated
 !------------------------------------------------------------------------------
-          CurrentElement => GetActiveElement(t)
+         CurrentElement => GetActiveElement(t)
 !
 !        Ok, we´ve got one for stress computations
 !------------------------------------------------------------------------------
@@ -705,6 +751,33 @@
 !------------------------------------------------------------------------------
     END DO ! of nonlinear iter
 !------------------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------------
+!   Perform strain and stress computation...
+!-----------------------------------------------------------------------------
+    IF (CalculateStrains .OR. CalcStressAll) THEN
+       IF (CalculateStrains) THEN
+          Var => VariableGet( Solver % Mesh % Variables, 'Strain', .TRUE. )
+          NodalStrain => Var % Values
+          !IF(CalcPrincipalAll) THEN
+          !   Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
+          !   PrincipalStrain => Var % Values
+          !END IF
+       END IF
+
+       IF (CalcStressAll) THEN
+          Var => VariableGet( Solver % Mesh % Variables, 'Stress', .TRUE. )
+          NodalStress => Var % Values
+       END IF       
+      
+       CALL ComputeStressAndStrain( Displacement, NodalStrain, NodalStress, StressPerm, &
+            CalculateStrains, CalcStressAll, NeoHookeanMaterial)
+
+    END IF
+
+
+
 
     IF ( ListGetLogical(SolverParams, 'Adaptive Mesh Refinement', GotIt) ) THEN
        CALL RefineMesh( Model, Solver, Displacement, StressPerm, &
@@ -2288,6 +2361,314 @@
 !------------------------------------------------------------------------------
  END SUBROUTINE StressGeneralBoundary
 !------------------------------------------------------------------------------
+
+
+
+!--------------------------------------------------------------------------------
+ SUBROUTINE ComputeStressAndStrain( Displacement, NodalStrain, NodalStress, Perm , &
+      CalculateStrains, CalcStressAll, NeoHookeanMaterial)
+!--------------------------------------------------------------------------------
+   REAL(KIND=dp) :: Displacement(:), NodalStrain(:), NodalStress(:)  
+   INTEGER, POINTER :: Perm(:)
+   LOGICAL :: CalculateStrains, CalcStressAll, NeoHookeanMaterial
+!--------------------------------------------------------------------------------
+   TYPE(Solver_t), POINTER :: StSolver
+   TYPE(Nodes_t) :: Nodes
+   TYPE(Element_t), POINTER :: Element
+   TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+   TYPE(ValueList_t), POINTER :: Equation
+   
+   INTEGER, POINTER :: Permutation(:), Indeces(:)
+   REAL(KIND=dp), POINTER :: StressTemp(:)
+   REAL(KIND=dp), ALLOCATABLE :: ForceG(:), SForceG(:), LocalDisplacement(:,:), &
+        Mass(:,:), Force(:), SForce(:), Basis(:), dBasisdx(:,:), &
+        NodalLame1(:), NodalLame2(:)
+
+   LOGICAL :: FirstTime = .TRUE., Found, OptimizeBW, GlobalBubbles, Stat, &
+        Factorize,  FoundFactorize, FreeFactorize, FoundFreeFactorize, PlaneStress
+   INTEGER :: dim, n, nd, elem, i, j, k, l, p, q, t, Ind(9)
+   REAL(KIND=dp) :: Strain(3,3), Stress(3,3), Stress2(3,3), Grad(3,3), DefG(3,3), Identity(3,3), &
+        InvC(3,3), InvDefG(3,3), u, v, w, Weight, detJ, res, Lame1, Lame2, DetDefG
+
+   SAVE StSolver, Permutation, FirstTime, ForceG, SForceG, Nodes, StressTemp
+!--------------------------------------------------------------------------------
+   dim = CoordinateSystemDimension()   
+ 
+   Identity = 0.0D0
+   DO i = 1,dim
+      Identity(i,i) = 1.0D0
+   END DO
+
+   n = Solver % Mesh % MaxElementDOFs
+   ALLOCATE( Indeces(n), &
+        LocalDisplacement(3,n), &
+        Mass(n,n), &
+        Force(6*n), &
+        SForce(6*n), &
+        Basis(n), &
+        dBasisdx(n,3), &
+        NodalLame1(n), &
+        NodalLame2(n) )   
+
+   IF (FirstTime) THEN
+      ALLOCATE( StSolver )
+      StSolver = Solver
+
+      ALLOCATE( Permutation( SIZE(Solver % Variable % Perm) ) )
+      ! Permutation = Perm
+
+      OptimizeBW = GetLogical( StSolver % Values, 'Optimize Bandwidth', Found )
+      IF ( .NOT. Found ) OptimizeBW = .TRUE.
+      GlobalBubbles = GetLogical( StSolver % Values, 'Bubbles in Global System', Found )
+      IF ( .NOT. Found ) GlobalBubbles = .TRUE.
+
+      StSolver % Matrix => CreateMatrix( Model, Solver, Solver % Mesh, Permutation, &
+           1, MATRIX_CRS, OptimizeBW, GlobalBubbles=GlobalBubbles ) 
+      !StSolver % Matrix => CreateMatrix( Model, Solver, Solver % Mesh, Permutation, &
+      !     1, MATRIX_CRS, OptimizeBW, 'Calculate Stresses', GlobalBubbles=GlobalBubbles )
+      
+      ALLOCATE( StSolver % Matrix % RHS(StSolver % Matrix % NumberOfRows) )
+      StSolver % Matrix % Comm = Solver % Matrix % Comm      
+
+      IF (CalculateStrains) ALLOCATE( ForceG(StSolver % Matrix % NumberOfRows*6) )
+      IF (CalcStressAll) ALLOCATE( SForceG(StSolver % Matrix % NumberOfRows*6) )
+
+      ALLOCATE( StressTemp(StSolver % Matrix % NumberOfRows) )
+      StressTemp   = 0.0d0
+
+      CALL VariableAdd( StSolver % Mesh % Variables, StSolver % Mesh, StSolver, &
+           'StressTemp', 1, StressTemp, Perm, Output=.FALSE. )
+      StSolver % Variable => VariableGet( StSolver % Mesh % Variables, 'StressTemp' )
+
+      FirstTime = .FALSE.
+   END IF
+
+   Model % Solver => StSolver
+   Ind = (/ 1, 4, 6, 4, 2, 5, 6, 5, 3 /)
+
+   IF (CalculateStrains) THEN
+      NodalStrain = 0.0d0
+      ForceG      = 0.0d0
+   END IF
+   IF (CalcStressAll) THEN
+      NodalStress = 0.0d0
+      SForceG      = 0.0d0
+   END IF
+   CALL DefaultInitialize()
+
+   !------------------------------------------------------------------------
+   ! Assembly loop 
+   !------------------------------------------------------------------------
+   DO elem = 1, Solver % NumberOfActiveElements
+      Element => GetActiveElement(elem, Solver)
+      n  = GetElementNOFNodes()
+      nd = GetElementDOFs( Indeces )
+
+      CALL GetElementNodes( Nodes )
+      CALL GetVectorLocalSolution( LocalDisplacement, USolver=Solver )
+      
+      !-------------------------------------------------------------------
+      ! Find material parameters
+      !--------------------------------------------------------------------
+      Equation => GetEquation()
+      Material => GetMaterial()
+      PlaneStress = GetLogical( Equation, 'Plane Stress', Found )
+      PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio' )
+      ElasticModulus(1:n) = GetReal( Material, 'Youngs Modulus' )
+
+      IF ( PlaneStress ) THEN
+         NodalLame1(1:n) = ElasticModulus(1:n) * PoissonRatio(1:n) /  &
+              ( (1.0d0 - PoissonRatio(1:n)**2) )
+      ELSE
+         NodalLame1(1:n) = ElasticModulus(1:n) * PoissonRatio(1:n) /  &
+              (  (1.0d0 + PoissonRatio(1:n)) * (1.0d0 - 2.0d0*PoissonRatio(1:n)) )
+      END IF
+      NodalLame2(1:n) = ElasticModulus(1:n)  / ( 2* (1.0d0 + PoissonRatio(1:n)) )
+
+
+      IntegStuff = GaussPoints( Element )      
+      Strain = 0.0d0
+      Stress = 0.0d0
+      Mass = 0.0d0
+      Force = 0.0d0      
+      SForce = 0.0d0        
+
+      DO t=1,IntegStuff % n
+         u = IntegStuff % u(t)
+         v = IntegStuff % v(t)
+         w = IntegStuff % w(t)
+         Weight = IntegStuff % s(t)
+
+         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
+              Basis, dBasisdx ) 
+         Weight = Weight * detJ
+ 
+         Lame1 = SUM( NodalLame1(1:n)*Basis(1:n) )
+         Lame2 = SUM( NodalLame2(1:n)*Basis(1:n) )
+        
+         Grad = 0.0d0
+         Grad = MATMUL( LocalDisplacement(1:dim,1:nd), dBasisdx(1:nd,1:dim) )
+         DefG = Identity + Grad
+
+         SELECT CASE( dim )
+         CASE( 1 )
+            DetDefG = DefG(1,1)
+         CASE( 2 )
+            DetDefG = DefG(1,1)*DefG(2,2) - DefG(1,2)*DefG(2,1)
+         CASE( 3 )
+            DetDefG = DefG(1,1) * ( DefG(2,2)*DefG(3,3) - DefG(2,3)*DefG(3,2) ) + &
+                 DefG(1,2) * ( DefG(2,3)*DefG(3,1) - DefG(2,1)*DefG(3,3) ) + &
+                 DefG(1,3) * ( DefG(2,1)*DefG(3,2) - DefG(2,2)*DefG(3,1) )
+         END SELECT
+
+         Strain = (TRANSPOSE(Grad)+Grad+MATMUL(TRANSPOSE(Grad),Grad))/2.0D0
+
+         IF (NeoHookeanMaterial) THEN
+            InvC = MATMUL( TRANSPOSE(DefG), DefG )
+            InvDefG = DefG
+            !-------------------------------------------------------------
+            !  InvC will now be the inverse of the right Cauchy-Green tensor
+            !-------------------------------------------------------------
+            CALL InvertMatrix( InvC, dim )
+            CALL InvertMatrix( InvDefG, dim )       
+            !-------------------------------------------------------------
+            ! The second Piola-Kirchhoff stress for the current iterate
+            !--------------------------------------------------------------
+            Stress2 = Lame1/2.0d0 * (DetDefG - 1.0d0) * (DetDefG + 1.0d0) * InvC + &
+                 Lame2 * (Identity - InvC)
+         ELSE
+            Stress2 = 2.0D0*Lame2*Strain + Lame1*TRACE(Strain,dim)*Identity        
+         END IF
+         Stress =  1.0d0/DetDefG * MATMUL( MATMUL(DefG,Stress2), TRANSPOSE(DefG) )
+
+         DO p=1,nd
+            DO q=1,nd
+               Mass(p,q) = Mass(p,q) + Weight * Basis(q) * Basis(p)
+            END DO  
+      
+            IF (CalculateStrains) THEN
+               DO i=1,3
+                  DO j=i,3
+                     k = Ind( 3*(i-1)+j )
+                     Force(6*(p-1)+k) = Force(6*(p-1)+k) + Weight * Strain(i,j) * Basis(p)
+                  END DO
+               END DO
+            END IF
+            IF (CalcStressAll) THEN
+               DO i=1,3
+                  DO j=i,3
+                     k = Ind( 3*(i-1)+j )
+                     SForce(6*(p-1)+k) = SForce(6*(p-1)+k) + Weight * Stress(i,j) * Basis(p)
+                  END DO
+               END DO
+            END IF
+         END DO
+      END DO
+      
+      CALL DefaultUpdateEquations( Mass, Force )
+      
+      IF (CalculateStrains) THEN
+         DO p=1,nd
+            l = Permutation(Indeces(p))
+            DO i=1,3
+               DO j=i,3
+                  k = Ind(3*(i-1)+j)
+                  ForceG(6*(l-1)+k) = ForceG(6*(l-1)+k) + FORCE(6*(p-1)+k)
+               END DO
+            END DO
+         END DO
+      END IF
+
+      IF (CalcStressAll) THEN
+         DO p=1,nd
+            l = Permutation(Indeces(p))
+            DO i=1,3
+               DO j=i,3
+                  k = Ind(3*(i-1)+j)
+                  SForceG(6*(l-1)+k) = SForceG(6*(l-1)+k) + SFORCE(6*(p-1)+k)
+               END DO
+            END DO
+         END DO
+      END IF
+
+   END DO
+
+   Factorize = GetLogical( SolverParams, 'Linear System Refactorize', FoundFactorize )
+   FreeFactorize = GetLogical( SolverParams, &
+        'Linear System Free Factorization', FoundFreeFactorize )
+
+   CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .FALSE. )
+   CALL ListAddLogical( SolverParams, 'Linear System Free Factorization', .FALSE. )   
+
+   !----------------------------------------------------------------------
+   ! Linear solves componentwise...
+   !-----------------------------------------------------------------------
+   IF (CalculateStrains) THEN
+      DO i=1,3
+         DO j=i,3
+            k = IND(3*(i-1)+j)
+
+            StSolver % Matrix % RHS = ForceG(k::6)
+            DO l=1,SIZE( Permutation )
+               IF ( Permutation(l) <= 0 ) CYCLE
+               StSolver % Variable % Values(Permutation(l)) = NodalStrain(6*(Perm(l)-1)+k)            
+            END DO
+            res = DefaultSolve()
+            DO l=1,SIZE( Permutation )
+               IF ( Permutation(l) <= 0 ) CYCLE
+               NodalStrain(6*(Perm(l)-1)+k) = StSolver % Variable % Values(Permutation(l))
+            END DO
+
+         END DO
+      END DO
+   END IF
+
+   IF (CalcStressAll) THEN
+      DO i=1,3
+         DO j=i,3
+            k = IND(3*(i-1)+j)
+
+            StSolver % Matrix % RHS = SForceG(k::6)
+            DO l=1,SIZE( Permutation )
+               IF ( Permutation(l) <= 0 ) CYCLE
+               StSolver % Variable % Values(Permutation(l)) = NodalStress(6*(Perm(l)-1)+k)            
+            END DO
+            res = DefaultSolve()
+            DO l=1,SIZE( Permutation )
+               IF ( Permutation(l) <= 0 ) CYCLE
+               NodalStress(6*(Perm(l)-1)+k) = StSolver % Variable % Values(Permutation(l))
+            END DO
+
+         END DO
+      END DO
+   END IF
+   
+   IF ( FoundFactorize ) THEN
+      CALL ListAddLogical( SolverParams, 'Linear System Refactorize', Factorize )
+   ELSE
+      CALL ListRemove( SolverParams, 'Linear System Refactorize' )
+   END IF
+
+   IF ( .NOT. FoundFreeFactorize ) THEN
+      CALL ListRemove( SolverParams, 'Linear System Free Factorization' )
+   ELSE
+      CALL ListAddLogical( SolverParams, 'Linear System Free Factorization', FreeFactorize )
+   END IF
+
+   DEALLOCATE( Indeces, &
+        LocalDisplacement, &
+        MASS, &
+        FORCE, &
+        SForce, &
+        Basis, &
+        dBasisdx,&
+        NodalLame1, &
+        NodalLame2 )  
+
+   Model % Solver => Solver
+!--------------------------------------------------------------------------------
+ END SUBROUTINE ComputeStressAndStrain
+!--------------------------------------------------------------------------------
 
 
 
