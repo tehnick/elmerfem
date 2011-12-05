@@ -403,9 +403,11 @@ CONTAINS
 !               END DO
 
                 Lptr => List_GetMatrixIndex( List,k,m )
-                CList => List( k ) % Head
+                Lptr => List_GetMatrixIndex( List,m,k ) ! keep structure symm.
+                CList => List(k) % Head
                 DO WHILE( ASSOCIATED( CList ) )
                   Lptr => List_GetMatrixIndex( List,m,CList % Index )
+                  Lptr => List_GetMatrixIndex( List,CList % Index,m ) ! keep structure symm.
                   CList => CList % Next
                 END DO
               END IF
