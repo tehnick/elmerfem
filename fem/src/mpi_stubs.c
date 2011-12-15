@@ -1,6 +1,32 @@
 #include "../config.h"
 
 #ifndef HAVE_MPI_STUBS
+void mpi_file_open_(){};
+void mpi_file_sync_(){};
+void mpi_file_close_(){};
+void MPI_File_sync(){};
+void MPI_Comm_dup(){};
+void MPI_Type_extent(){};
+void MPI_Initialized(){};
+void MPI_File_write_at_all(){};
+void MPI_File_open(){};
+void MPI_File_close(){};
+void MPI_Type_hindexed(){};
+void MPI_Type_contiguous(){};
+void MPI_File_read_at(){};
+void MPI_Type_hvector(){};
+void MPI_Error_string(){};
+void MPI_Info_dup(){};
+void MPI_Type_size(){};
+void MPI_File_read_at_all(){};
+void MPI_File_set_size(){};
+void MPI_File_set_view(){};
+void MPI_File_write_at(){};
+void MPI_Get_elements(){};
+void MPI_Info_free(){};
+void MPI_Comm_free(){};
+
+
 void STDCALLBULL FC_FUNC_(mpi_init,MPI_INIT) 
      (int *p) { *p = 0; }
 void STDCALLBULL FC_FUNC_(mpi_comm_size,MPI_COMM_SIZE) 
@@ -105,6 +131,41 @@ void MPI_Send() {}
 void MPI_Get_count() {}
 void MPI_Type_vector() {}
 void MPI_Irsend() {}
+
+void STDCALLBULL FC_FUNC_(mpi_reduce_scatter,MPI_REDUCE_SCATTER)() {}
+void STDCALLBULL FC_FUNC_(mpi_gather,MPI_GATHER)(){}
+void STDCALLBULL FC_FUNC_(mpi_iprobe,MPI_IPROBE)(){}
+void STDCALLBULL FC_FUNC_(mpi_reduce,MPI_REDUCE)(){}
+void STDCALLBULL FC_FUNC_(mpi_op_create,MPI_OP_CREATE)(){}
+void STDCALLBULL FC_FUNC_(mpi_request_free,MPI_REQUEST_FREE)(){}
+void STDCALLBULL FC_FUNC_(mpi_unpack,MPI_UNPACK)(){}
+void STDCALLBULL FC_FUNC_(mpi_pack_size,MPI_PACK_SIZE)(){}
+void STDCALLBULL FC_FUNC_(mpi_ssend,MPI_SSEND)(){}
+void STDCALLBULL FC_FUNC_(mpi_op_free,MPI_OP_FREE)(){}
+void STDCALLBULL FC_FUNC_(mpi_alltoall,MPI_ALLTOALL)(){}
+void STDCALLBULL FC_FUNC_(mpi_get_processor_name,MPI_GET_PROCESSOR_NAME)(){}
+void STDCALLBULL FC_FUNC_(mpi_comm_dup,MPI_COMM_DUP)(){}
+void STDCALLBULL FC_FUNC_(mpi_abort,MPI_ABORT)(){}
+void STDCALLBULL FC_FUNC_(mpi_pack,MPI_PACK)(){}
+void STDCALLBULL FC_FUNC_(mpi_get_count,MPI_GET_COUNT)(){}
+void STDCALLBULL FC_FUNC_(mpi_comm_split,MPI_COMM_SPLIT)(){}
+void STDCALLBULL FC_FUNC_(mpi_probe,MPI_PROBE)(){}
+void STDCALLBULL FC_FUNC_(mpi_gatherv,MPI_GATHERV)(){}
+void STDCALLBULL FC_FUNC_(mpi_initialized,MPI_INITIALIZED)(){}
+void MPI_Group_free(){}
+void MPI_Error_class(){}
+void MPI_Attr_get() {}
+void MPI_Comm_create(){}
+void MPI_Op_free(){}
+void MPI_Rsend(){}
+void MPI_Sendrecv(){}
+void MPI_Op_create(){}
+void MPI_Comm_group(){}
+void MPI_Comm_split(){}
+void MPI_Pack_size(){}
+void MPI_Group_incl(){}
+void MPI_Pack(){}
+
 #endif
 
 void hpmp_flinteroperate() {}
