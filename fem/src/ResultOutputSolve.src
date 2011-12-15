@@ -3025,7 +3025,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Variable_t), POINTER :: Var
   INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
-             PrecSize, IntSize
+             PrecSize, IntSize, FileIndex
   CHARACTER(MAX_NAME_LEN) :: Dir
   LOGICAL :: Visited = .FALSE.
   REAL(KIND=dp) :: DoubleWrk
@@ -3040,7 +3040,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t),POINTER :: Params
   INTEGER :: MaxModes
   INTEGER, POINTER :: ActiveModes(:)
-  LOGICAL :: GotActiveModes
+  LOGICAL :: GotActiveModes, EigenAnalysis
 
 ! Parameters for buffered binary output
   INTEGER :: BufferSize
@@ -3057,6 +3057,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     nTime = nTime + 1
   END IF
   FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
+  FileIndex = nTime + FileIndexOffset
 
   BinaryOutput = GetLogical( Params,'Binary Output',GotIt)
   IF( GotIt ) THEN
@@ -3095,6 +3096,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   FixedMesh = ListGetLogical(Params,'Fixed Mesh',GotIt)
   Mesh => Model % Mesh
   MeshDim = Mesh % MeshDim
+
 
   !------------------------------------------------------------------------------
   ! Initialize stuff for masked saving
@@ -3172,14 +3174,6 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
-  ActiveModes => ListGetIntegerArray( Params,'Active EigenModes',GotActiveModes ) 
-  IF( GotActiveModes ) THEN
-    MaxModes = SIZE( ActiveModes )
-  ELSE
-    MaxModes = ListGetInteger( Params,'Number of EigenModes',GotIt)
-    IF(.NOT. GotIt) MaxModes = ListGetInteger( Params,'Eigen System Values',GotIt)
-  END IF
-
   Dir = ListGetString( Params,'Output Directory',GotIt) 
   IF(.NOT. GotIt ) THEN
     IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
@@ -3191,11 +3185,33 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   CALL MakeDirectory( TRIM(Dir) // CHAR(0) )
   Dir = TRIM(Dir)// "/"
 
+  ActiveModes => ListGetIntegerArray( Params,'Active EigenModes',GotActiveModes ) 
+  IF( GotActiveModes ) THEN
+    MaxModes = SIZE( ActiveModes )
+  ELSE
+    MaxModes = ListGetInteger( Params,'Number of EigenModes',GotIt)
+    IF(.NOT. GotIt) MaxModes = ListGetInteger( Params,'Eigen System Values',GotIt)
+  END IF
+
+  EigenAnalysis = ListGetLogical( Params,'Eigen Analysis',GotIt)
+  IF( EigenAnalysis ) THEN
+    IF( MaxModes == 0 ) THEN
+      CALL Fatal('VtuOutputSolver','Give > Number of EigenModes < or > Active EigenModes < !')
+    ELSE
+      CALL Info('VtuOutputSolver','Saving each eigenmode to different file')
+    END IF
+    FileIndex = 1
+  END IF
+
+ 100   CONTINUE
+
   IF(Parallel) THEN
     IF( NoFileindex ) THEN
       WRITE( PvtuFile,'(A,A,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix)
-    ELSE
-      WRITE( PvtuFile,'(A,A,I4.4,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset      
+    ELSE IF( FileIndex < 10000 ) THEN
+      WRITE( PvtuFile,'(A,A,I4.4,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
+    ELSE   
+      WRITE( PvtuFile,'(A,A,I0,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
     END IF
     CALL WritePvtuFile( PvtuFile, Model )
   END IF
@@ -3204,19 +3220,29 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     IF ( Parallel ) THEN
       IF( NoFileindex ) THEN
         WRITE( VtuFile,'(A,A,I4.4,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par"
-      ELSE
+      ELSE IF( FileIndex < 10000 ) THEN
         WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
-            nTime+FileIndexOffset
+            FileIndex
+      ELSE
+        WRITE( VtuFile,'(A,A,I4.4,A,I0,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
+            FileIndex
       END IF
     ELSE
       IF( NoFileindex ) THEN
         WRITE( VtuFile,'(A,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix)
+      ELSE IF( FileIndex < 10000 ) THEN
+        WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
       ELSE
-        WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+        WRITE( VtuFile,'(A,A,I0,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
       END IF
     END IF
     CALL Info('VtuOutputSolver','Saving to file: '//TRIM(VtuFile))
     CALL WriteVtuFile( VtuFile, Model, FixedMesh )
+  END IF
+
+  IF( EigenAnalysis ) THEN
+    FileIndex = FileIndex + 1
+    IF( FileIndex <= MaxModes ) GOTO 100
   END IF
 
   IF( MaskExists ) DEALLOCATE(MaskOrder)
@@ -3487,14 +3513,27 @@ CONTAINS
         END IF
         IF ( Solution % TYPE == Variable_on_nodes_on_elements ) CYCLE
         
-        IF( ASSOCIATED(Solution % EigenVectors)) THEN
+	IF( ASSOCIATED(Solution % EigenVectors) ) THEN
+          NoModes = SIZE( Solution % EigenValues )
           IF( ComponentVector ) THEN
             CALL Warn('WriteVtuXMLFile','Eigenmodes cannot be given componentwise!')
             CYCLE
+          ELSE IF( EigenAnalysis ) THEN
+            IF( GotActiveModes ) THEN
+              IndField = ActiveModes( FileIndex ) 
+            ELSE
+              IndField = FileIndex
+            END IF
+            IF( IndField > NoModes ) THEN
+              CALL Warn('WriteVtuXMLFile','Too few eigenmodes!')
+              CYCLE
+            END IF
+            NoModes = 1
+            NoFields = 1
+          ELSE	  
+            IF( MaxModes > 0 ) NoModes = MIN( MaxModes, NoModes )
+            NoFields = NoModes
           END IF
-          NoModes = SIZE( Solution % EigenValues )
-          IF( MaxModes > 0 ) NoModes = MIN( MaxModes, NoModes )
-          NoFields = NoModes
           EigenVectors => Solution % EigenVectors
         ELSE
           NoModes = 0 
@@ -3555,14 +3594,16 @@ CONTAINS
         !---------------------------------------------------------------------
         DO iField = 1, NoFields          
 
-          IF( GotActiveModes ) THEN
-            IndField = ActiveModes( iField ) 
-          ELSE
-            IndField = iField
+          IF( Nomodes > 0 .AND. .NOT. EigenAnalysis ) THEN
+            IF( GotActiveModes ) THEN
+              IndField = ActiveModes( iField ) 
+            ELSE
+              IndField = iField
+            END IF
           END IF
 
           IF( WriteXML ) THEN
-            IF( NoModes == 0 ) THEN
+            IF( NoModes == 0 .OR. EigenAnalysis ) THEN
               WRITE( OutStr,'(A,I0,A)') '        <DataArray type="Float',PrecBits,'" Name="'//TRIM(FieldName)
             ELSE 
               WRITE( OutStr,'(A,I0,A,I0)') '        <DataArray type="Float',PrecBits,'" Name="'//&
@@ -4135,14 +4176,26 @@ CONTAINS
         END IF
 
         IF( ASSOCIATED(Solution % EigenVectors)) THEN
-          IF( ComponentVector ) THEN
-            CALL Warn('WritePvtuXMLFile','Eigenmodes cannot be given componentwise!')
-            CYCLE
-          END IF
-          NoModes = SIZE( Solution % EigenValues )
-          IF( MaxModes > 0 ) NoModes = MIN( MaxModes, NoModes )
-          NoFields = NoModes
-          EigenVectors => Solution % EigenVectors
+           NoModes = SIZE( Solution % EigenValues )
+           IF( ComponentVector ) THEN
+             CALL Warn('WritePvtuXMLFile','Eigenmodes cannot be given componentwise!')
+             CYCLE
+           ELSE IF( EigenAnalysis ) THEN
+             IF( GotActiveModes ) THEN
+               IndField = ActiveModes( FileIndex ) 
+             ELSE
+               IndField = FileIndex
+             END IF
+             IF( IndField > NoModes ) THEN
+               CALL Warn('WriteVtuXMLFile','Too few eigenmodes!')
+               CYCLE
+             END IF
+             NoModes = 1
+             NoFields = 1
+           ELSE	  
+             IF( MaxModes > 0 ) NoModes = MIN( MaxModes, NoModes )
+             NoFields = NoModes
+           END IF
         ELSE
           NoModes = 0 
           NoFields = 1
@@ -4164,15 +4217,14 @@ CONTAINS
 
         DO iField = 1, NoFields
 
-          IF( GotActiveModes ) THEN
-            IndField = ActiveModes( iField ) 
-          ELSE
-            IndField = iField
-          END IF
-
-          IF( NoModes == 0 ) THEN
+          IF( NoModes == 0 .OR. EigenAnalysis ) THEN
             FullName = TRIM( FieldName ) 
           ELSE          
+            IF( GotActiveModes ) THEN
+              IndField = ActiveModes( iField ) 
+            ELSE
+              IndField = iField
+            END IF
             WRITE( FullName,'(A,I0)') TRIM( FieldName )//' mode',IndField
           END IF
 
@@ -4219,9 +4271,12 @@ CONTAINS
       IF( NoFileindex ) THEN
         WRITE( VtuUnit,'(A,I4.4,A,A)' ) '    <Piece Source="'//&
             TRIM(FilePrefix),i,"par",'.vtu"/>'
-      ELSE
+      ELSE IF( FileIndex < 10000 ) THEN
         WRITE( VtuUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
-            TRIM(FilePrefix),i,"par",nTime+FileindexOffset,'.vtu"/>'        
+            TRIM(FilePrefix),i,"par",FileIndex,'.vtu"/>'        
+      ELSE
+        WRITE( VtuUnit,'(A,I4.4,A,I0,A)' ) '    <Piece Source="'//&
+            TRIM(FilePrefix),i,"par",FileIndex,'.vtu"/>'        
       END IF
     END DO
 
