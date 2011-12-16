@@ -1507,7 +1507,10 @@ CONTAINS
           n = Element % TYPE % NumberOfNodes
           DO j=1,n
             k = BoundaryReorder(Element % NodeIndexes(j))
-            IF (k>0) NTzeroing_done(k,:) = .FALSE.
+            IF (k>0) THEN
+              NTelement(k,:)=0
+              NTzeroing_done(k,:) = .FALSE.
+            END IF
           END DO
         END DO
       END IF
