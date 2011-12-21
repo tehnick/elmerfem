@@ -165,6 +165,7 @@ void MPI_Comm_split(){}
 void MPI_Pack_size(){}
 void MPI_Group_incl(){}
 void MPI_Pack(){}
+void MPI_Init(){}
 
 #endif
 
