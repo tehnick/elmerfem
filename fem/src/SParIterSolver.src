@@ -1769,6 +1769,7 @@ END SUBROUTINE Solve
 
   TYPE(Buff_t), POINTER ::  buffer(:)
 
+  REAL(KIND=dp) :: rsum
 
   REAL(KIND=dp), POINTER CONTIG :: Vals(:)
 ! REAL(KIND=dp), POINTER :: Vals(:)
@@ -1861,11 +1862,15 @@ real(kind=dp) :: s, RealTime
     CALL MatVecSubr(GlobalMatrix % MatVecSubr, &
             GlobalMatrix % SpMV, n,Rows,Cols,Vals,u,v,0)
   ELSE
+!$omp parallel do private(j,rsum)
     DO i = 1, n
+      rsum = 0._dp
       DO j = Rows(i), Rows(i+1) - 1
-        v(i) = v(i) + Vals(j) * u(Cols(j))
+        rsum = rsum + Vals(j) * u(Cols(j))
       END DO
+      v(i)=rsum
     END DO
+!omp end parallel do
   END IF
 
   CALL Recv_LocIf_Wait( GlobalData % SplittedMatrix, n, v,  &
@@ -1909,7 +1914,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   TYPE( IfVecT), POINTER :: IfV
   TYPE( IfLColsT), POINTER :: IfL, IfO
 
-  COMPLEX(KIND=dp) :: A
+  COMPLEX(KIND=dp) :: A, rsum
 
   REAL(KIND=dp), POINTER :: Vals(:)
   INTEGER, POINTER :: Cols(:),Rows(:)
@@ -1973,12 +1978,16 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   Cols => InsideMatrix % Cols
   Vals => InsideMatrix % Values
 
+!$omp parallel do private(j,A,rsum)
   DO i = 1, n
+     rsum=0._dp
      DO j = Rows(2*i-1), Rows(2*i)-1, 2
         A = CMPLX( Vals(j), -Vals(j+1), KIND=dp )
-        v(i) = v(i) + A * u(Cols(j+1)/2)
+        rsum = rsum + A * u(Cols(j+1)/2)
      END DO
+     v(i)=rsum
   END DO
+!$omp end parallel do
   !----------------------------------------------------------------------
   !
   ! Receive interface parts of the vector and sum them to vector v
