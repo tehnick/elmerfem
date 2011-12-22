@@ -94,14 +94,14 @@ CONTAINS
   FUNCTION GetIndexStore() RESULT(ind)
     INTEGER, POINTER :: Ind(:)
     INTEGER :: thread, nthreads, istat
-    INTEGER :: omp_get_num_threads, omp_get_thread_num
+    INTEGER :: omp_get_max_threads, omp_get_thread_num
 
     IF ( .NOT.ALLOCATED(IndexStore) ) THEN
 !$omp barrier
 !$omp critical(get_index)
       IF ( .NOT.ALLOCATED(IndexStore) ) THEN
         nthreads = 1
-!$      nthreads = omp_get_num_threads()
+!$      nthreads = omp_get_max_threads()
         ALLOCATE( IndexStore(nthreads,512), STAT=istat )
         IF ( Istat /= 0 ) &
            CALL Fatal( 'GetIndexStore', 'Memory allocation error.' )
@@ -118,14 +118,14 @@ CONTAINS
   FUNCTION GetStore(n) RESULT(val)
     REAL(KIND=dp), POINTER :: val(:)
     INTEGER :: n,thread, nthreads, istat
-    INTEGER :: omp_get_num_threads, omp_get_thread_num
+    INTEGER :: omp_get_max_threads, omp_get_thread_num
 
     IF ( .NOT.ALLOCATED(Store) ) THEN
 !$omp barrier
 !$omp critical(get_store)
       IF ( .NOT.ALLOCATED(Store) ) THEN
         nthreads = 1
-!$      nthreads = omp_get_num_threads()
+!$      nthreads = omp_get_max_threads()
         ALLOCATE( Store(nthreads*MAX_ELEMENT_NODES), STAT=istat )
         IF ( Istat /= 0 ) &
            CALL Fatal( 'GetStore', 'Memory allocation error.' )

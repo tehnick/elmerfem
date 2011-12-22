@@ -573,7 +573,7 @@ CONTAINS
    SUBROUTINE GaussPointsInit
 !------------------------------------------------------------------------------
      INTEGER :: i,n,istat
-     INTEGER :: nthreads, thread, omp_get_num_threads, omp_get_thread_num
+     INTEGER :: nthreads, thread, omp_get_max_threads, omp_get_thread_num
 
      IF ( .NOT. ALLOCATED(IntegStuff) ) THEN
 !$omp barrier
@@ -581,7 +581,7 @@ CONTAINS
        IF ( .NOT. GInit ) THEN
          GInit = .TRUE.
          nthreads = 1
-!$       nthreads = omp_get_num_threads()
+!$       nthreads = omp_get_max_threads()
          ALLOCATE( IntegStuff(nthreads) )
          DO i=1,nthreads
            IntegStuff(i) % u => NULL()
