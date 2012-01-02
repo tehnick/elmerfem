@@ -255,17 +255,17 @@ CONTAINS
           ! displacement current
           ! --------------------
           M(2,2) = M(2,2) + &
-           s*SUM(MATMUL(epsil,dBasisdx(q,:))*dBasisdx(p,:))
+             s*SUM(MATMUL(epsil,dBasisdx(q,:))*dBasisdx(p,:))
 
           ! Seebeck
           ! -------
           A(2,1) = A(2,1) + &
-              s*SUM(MATMUL(SB,dBasisdx(q,:))*dBasisdx(p,:))
+                s*SUM(MATMUL(SB,dBasisdx(q,:))*dBasisdx(p,:))
 
           ! electric diffusion
           ! ------------------
           A(2,2) = A(2,2) + &
-           s*SUM(MATMUL(sigma,dBasisdx(q,:))*dBasisdx(p,:))
+             s*SUM(MATMUL(sigma,dBasisdx(q,:))*dBasisdx(p,:))
         END DO
 
         ! heat load
@@ -273,7 +273,7 @@ CONTAINS
         FORCE(i+1) = FORCE(i+1) + s * (HS+JH)*Basis(p)
 
         ! div(pelt_0*J_0)
-        ! ------------------------------
+        ! ---------------
         FORCE(i+1) = FORCE(i+1) + &
                   s*SUM(MATMUL(Pelt,CD)*dBasisdx(p,:))
 
@@ -283,18 +283,6 @@ CONTAINS
         FORCE(i+2) = FORCE(i+2) + s * IC * Basis(p)
       END DO
     END DO
-
-    IF(GetLogical(GetSolverParams(),'Stabilized Solution',Found)) THEN
-      DO i=n+1,nd
-        p = 2*(i-1)+2
-        MASS(p,:)  = 0._dp
-        MASS(:,p)  = 0._dp
-        STIFF(p,:) = 0._dp
-        STIFF(:,p) = 0._dp
-        STIFF(p,p) = 1._dp
-        FORCE(p) = 0._dp
-      END DO
-    END IF
 
     IF(Transient) THEN
       CALL Default1stOrderTime(MASS,STIFF,FORCE,UElement=Element)
@@ -330,7 +318,7 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t) :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), TARGET :: MASS(2*nd,2*nd), STIFF(2*nd,2*nd), FORCE(2*nd), LOAD(2,nd)
+    REAL(KIND=dp), TARGET :: MASS(2*nd,2*nd), STIFF(2*nd,2*nd), FORCE(2*nd)
     REAL(KIND=dp), POINTER :: A(:,:),M(:,:)
 
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3), s, DetJ
@@ -351,11 +339,11 @@ CONTAINS
 
     CALL GetElementNodes( Nodes,Element )
 
-    HF_n = GetReal( BC, 'Heat Flux', Found )
-    ET_n = GetReal( BC, 'External Temperature', Found)
-    HT_n = GetReal( BC, 'Heat Transfer Coefficient', Found)
+    HF_n = GetReal(BC, 'Heat Flux', Found, Element)
+    ET_n = GetReal(BC, 'External Temperature', Found, Element)
+    HT_n = GetReal(BC, 'Heat Transfer Coefficient', Found, Element)
 
-    EF_n = GetReal( BC, 'Electric Flux', Found )
+    EF_n = GetReal(BC, 'Electric Flux', Found, Element)
 
     MASS  = 0.0_dp
     STIFF = 0.0_dp
