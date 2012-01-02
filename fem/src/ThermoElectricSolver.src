@@ -192,7 +192,7 @@ CONTAINS
       SB = MATMUL(sigma,alpha)
 
       Temp = SUM(Basis(1:nd)*SOL(1,1:nd)) ! temperature from previous iteration
-      Pelt = Temp*alpha
+      Pelt = Temp*alpha                   ! Peltier coefficient
       PeltSB = MATMUL(Pelt,SB)
       PeltSi = MATMUL(Pelt,Sigma)
 
@@ -213,15 +213,20 @@ CONTAINS
           ! -----------------
           A(1,1) = A(1,1) + s*SUM(MATMUL(hcond,dBasisdx(q,:))*dBasisdx(p,:))
 
+          ! div(pelt*J) (= div(T*alpha*J))
+          ! ------------------------------
+          A(1,1) = A(1,1) - 0.5_dp * &
+                   s*Basis(q)*SUM(MATMUL(alpha,CD)*dBasisdx(p,:))
+
           ! temperature gradient part of div(pelt*J)
           ! ----------------------------------------
-          A(1,1) = A(1,1) + &
+          A(1,1) = A(1,1) + 0.5_dp * &
                 s*SUM(MATMUL(PeltSB,dBasisdx(q,:))*dBasisdx(p,:))
 
           ! electric field part of div(pelt*J)
           ! ----------------------------------
-          A(1,2) = A(1,2) + &
-             s*SUM(MATMUL(PeltSi,dBasisdx(q,:))*dBasisdx(p,:))
+          A(1,2) = A(1,2) + 0.5_dp * &
+                s*SUM(MATMUL(PeltSi,dBasisdx(q,:))*dBasisdx(p,:))
 
           ! newton linarization of Joule heating=-(J,E) ~
           ! -(J_0,E) + (J,E_0) - (J_0,E_0) (<-- to rhs)
