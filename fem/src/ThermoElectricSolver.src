@@ -213,25 +213,29 @@ CONTAINS
           ! -----------------
           A(1,1) = A(1,1) + s*SUM(MATMUL(hcond,dBasisdx(q,:))*dBasisdx(p,:))
 
-          ! div(pelt*J) (= div(T*alpha*J))
-          ! ------------------------------
-          A(1,1) = A(1,1) - 0.5_dp * &
-                   s*Basis(q)*SUM(MATMUL(alpha,CD)*dBasisdx(p,:))
-
-          ! temperature gradient part of div(pelt*J)
-          ! ----------------------------------------
-          A(1,1) = A(1,1) + 0.5_dp * &
-                s*SUM(MATMUL(PeltSB,dBasisdx(q,:))*dBasisdx(p,:))
-
-          ! electric field part of div(pelt*J)
-          ! ----------------------------------
-          A(1,2) = A(1,2) + 0.5_dp * &
-                s*SUM(MATMUL(PeltSi,dBasisdx(q,:))*dBasisdx(p,:))
-
-          ! newton linarization of Joule heating=-(J,E) ~
-          ! -(J_0,E) + (J,E_0) - (J_0,E_0) (<-- to rhs)
-          ! --------------------------------------------
           IF (NewtonLinearization) THEN
+
+            ! Newton linarization of: div(pelt*J) (= div(T*alpha*J))
+            ! ======================================================
+
+            ! Peltier coefficient implicitely
+            ! -------------------------------
+            A(1,1) = A(1,1) - &
+                     s*Basis(q)*SUM(MATMUL(alpha,CD)*dBasisdx(p,:))
+
+            ! temperature gradient part of div(pelt_0*J)
+            ! ------------------------------------------
+            A(1,1) = A(1,1) - &
+                  s*SUM(MATMUL(PeltSB,dBasisdx(q,:))*dBasisdx(p,:))
+
+            ! electric field part of div(pelt_0*J)
+            ! ------------------------------------
+            A(1,2) = A(1,2) - &
+                  s*SUM(MATMUL(PeltSi,dBasisdx(q,:))*dBasisdx(p,:))
+
+            ! Newton linarization of Joule heating=-(J,E) ~
+            ! -(J_0,E) + (J,E_0) - (J_0,E_0) (<-- to rhs)
+            ! =============================================
             ! -(J_0,E)
             ! --------
             A(1,2) = A(1,2) + s*SUM(CD*dBasisdx(q,:))*Basis(p)
@@ -267,6 +271,12 @@ CONTAINS
         ! heat load
         ! ---------
         FORCE(i+1) = FORCE(i+1) + s * (HS+JH)*Basis(p)
+
+        ! div(pelt_0*J_0)
+        ! ------------------------------
+        FORCE(i+1) = FORCE(i+1) + &
+                  s*SUM(MATMUL(Pelt,CD)*dBasisdx(p,:))
+
 
         ! electric load
         ! -------------
