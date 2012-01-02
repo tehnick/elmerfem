@@ -330,6 +330,7 @@ EXTRA_DIST = \
 	StressSolve.src \
 	StucturedFlowLine.src \
 	StructuredMeshMapper.src \
+	ThermoElectricSolver.src \
 	TimeIntegrate.src \
 	TransportEquation.src \
 	TransientPhaseChange.src \

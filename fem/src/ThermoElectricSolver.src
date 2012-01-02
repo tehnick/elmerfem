@@ -51,33 +51,67 @@ SUBROUTINE ThermoElectricSolver( Model,Solver,dt,Transient)
 ! Local variables
 !------------------------------------------------------------------------------
   TYPE(Element_t),POINTER :: Element
-
   REAL(KIND=dp) :: Norm
-  INTEGER :: n, nb, nd, t, istat, active
+  INTEGER :: iter,  n, nb, nd, t, istat, active
+
+  LOGICAL :: Found, NewtonLinearization=.FALSE.
+
+  TYPE(ValueList_t), POINTER :: Params
+
+  INTEGER :: NewtonIter,  NonlinIter
+  REAL(KIND=dp):: NewtonTol, NonlinTol, RelativeChange
 !------------------------------------------------------------------------------
+  Params => GetSolverParams()
 
-  ! System assembly:
-  !------------------
-  Active = GetNOFActive()
-  CALL DefaultInitialize()
+  NewtonIter = GetInteger(Params,'Nonlinear System Newton After Iterations',Found)
+  NewtonTol  = GetConstReal(Params,'Nonlinear System Newton After Tolerance',Found)
 
-!$omp parallel do private(Element,n,nd)
-  DO t=1,Active
-    Element => GetActiveElement(t)
-    n  = GetElementNOFNodes(Element)
-    nd = GetElementNOFDOFs(Element)
-    CALL LocalMatrix( Element, n, nd )
+  NonlinIter = GetInteger(Params,'Nonlinear System Max Iterations',Found)
+  IF(.NOT.Found) NonlinIter=1
+
+  NonlinTol = GetConstReal(Params,'Nonlinear System Convergence Tolerance',Found)
+
+
+  DO iter=1,NonlinIter
+     CALL DefaultInitialize()
+     CALL BulkAssembly()
+     CALL DefaultFinishAssembly()
+     CALL DefaultDirichletBCs()
+
+     Norm = DefaultSolve()
+
+     RelativeChange = Solver % Variable % NonlinChange
+
+     WRITE( Message, * ) 'Result Norm   : ',Norm
+     CALL Info( 'ThermoElectricSolver', Message, Level=4 )
+     WRITE( Message, * ) 'Relative Change : ',RelativeChange
+     CALL Info( 'ThermoElectricSolver', Message, Level=4 )
+
+     IF ( RelativeChange < NewtonTol .OR. iter >= NewtonIter ) &
+              NewtonLinearization = .TRUE.
+     IF ( RelativeChange < NonlinTol ) EXIT
    END DO
-!$omp end parallel do
 
-   CALL DefaultFinishAssembly()
-   CALL DefaultDirichletBCs()
-
-   ! And finally, solve:
-   !--------------------
-   Norm = DefaultSolve()
 
 CONTAINS
+
+!------------------------------------------------------------------------------
+  SUBROUTINE BulkAssembly()
+!------------------------------------------------------------------------------
+    INTEGER :: t,n,nd
+
+!$omp parallel do private(Element,n,nd)
+    DO t=1,GetNOFActive()
+      Element => GetActiveElement(t)
+      n  = GetElementNOFNodes(Element)
+      nd = GetElementNOFDOFs(Element)
+      CALL LocalMatrix( Element, n, nd )
+     END DO
+!$omp end parallel do
+!------------------------------------------------------------------------------
+  END SUBROUTINE BulkAssembly
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrix( Element, n, nd )
@@ -89,11 +123,11 @@ CONTAINS
     REAL(KIND=dp), POINTER :: A(:,:),M(:,:)
 
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3), DetJ, SOL(2,nd)
-    LOGICAL :: Stat,isScalar,Found,Newton=.TRUE.
+    LOGICAL :: Stat,isScalar,Found
     INTEGER :: i,j,p,q,t
     TYPE(GaussIntegrationPoints_t) :: IP
 
-    REAL(KIND=dp) :: EF(3),TG(3),CD(3),JH,HS,IC,SB(3,3),s, &
+    REAL(KIND=dp) :: EF(3),TG(3),CD(3),JH,HS,IC,SB(3,3),s, PeltSB(3,3), PeltSi(3,3), &
        sigma(3,3),alpha(3,3), pelt(3,3), hcond(3,3), epsil(3,3),rho,c_p
 
     REAL(KIND=dp) :: sigma_n(3,3,n),alpha_n(3,3,n), pelt_n(3,3,n), &
@@ -159,6 +193,9 @@ CONTAINS
 
       SB = MATMUL(sigma,alpha)
 
+      PeltSB = MATMUL(Pelt,SB)
+      PeltSi = MATMUL(Pelt,Sigma)
+
       s = IP % s(t) * DetJ
 
       DO p=1,nd
@@ -179,17 +216,17 @@ CONTAINS
           ! temperature gradient part of div(pelt*J)
           ! ----------------------------------------
           A(1,1) = A(1,1) + &
-                s*SUM(MATMUL(pelt,MATMUL(SB,dBasisdx(q,:)))*dBasisdx(p,:))
+                s*SUM(MATMUL(PeltSB,dBasisdx(q,:))*dBasisdx(p,:))
 
           ! electric field part of div(pelt*J)
           ! ----------------------------------
           A(1,2) = A(1,2) + &
-             s*SUM(MATMUL(pelt,MATMUL(sigma,dBasisdx(q,:)))*dBasisdx(p,:))
+             s*SUM(MATMUL(PeltSi,dBasisdx(q,:))*dBasisdx(p,:))
 
           ! newton linarization of Joule heating=-(J,E) ~
           ! -(J_0,E) + (J,E_0) - (J_0,E_0) (<-- to rhs)
           ! --------------------------------------------
-          IF (Newton) THEN
+          IF (NewtonLinearization) THEN
             ! -(J_0,E)
             ! --------
             A(1,2) = A(1,2) + s*SUM(CD*dBasisdx(q,:))*Basis(p)
