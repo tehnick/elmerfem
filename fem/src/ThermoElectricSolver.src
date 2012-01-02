@@ -112,6 +112,7 @@ CONTAINS
   END SUBROUTINE BulkAssembly
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrix( Element, n, nd )
 !------------------------------------------------------------------------------
@@ -127,7 +128,7 @@ CONTAINS
     TYPE(GaussIntegrationPoints_t) :: IP
 
     REAL(KIND=dp) :: EF(3),TG(3),CD(3),JH,HS,IC,SB(3,3),s, PeltSB(3,3), PeltSi(3,3), &
-       sigma(3,3),alpha(3,3), pelt(3,3), hcond(3,3), epsil(3,3),rho,c_p
+       sigma(3,3),alpha(3,3), pelt(3,3), hcond(3,3), epsil(3,3),rho,c_p,Temp
 
     REAL(KIND=dp) :: sigma_n(3,3,n),alpha_n(3,3,n), pelt_n(3,3,n), &
             hcond_n(3,3,n), epsil_n(3,3,n),rho_n(n),c_p_n(n)
@@ -143,7 +144,6 @@ CONTAINS
 
     CALL InputTensor(Material, hcond_n, isScalar,'Heat Conductivity', Element)
     CALL InputTensor(Material, alpha_n, isScalar,'Seebeck Coefficient', Element)
-    CALL InputTensor(Material, pelt_n,  isScalar, 'Peltier Coefficient', Element)
     CALL InputTensor(Material, sigma_n, isScalar,'Electric Conductivity', Element)
     CALL InputTensor(Material, epsil_n, isScalar,'Electric Permittivity', Element)
 
@@ -173,7 +173,6 @@ CONTAINS
         DO j=1,3
           hcond(i,j) = SUM(hcond_n(i,j,:)*Basis(1:n))
           alpha(i,j) = SUM(alpha_n(i,j,:)*Basis(1:n))
-          pelt(i,j) = SUM(pelt_n(i,j,:)*Basis(1:n))
           sigma(i,j) = SUM(sigma_n(i,j,:)*Basis(1:n))
           epsil(i,j) = SUM(epsil_n(i,j,:)*Basis(1:n))
         END DO
@@ -192,6 +191,8 @@ CONTAINS
 
       SB = MATMUL(sigma,alpha)
 
+      Temp = SUM(Basis(1:nd)*SOL(1,1:nd)) ! temperature from previous iteration
+      Pelt = Temp*alpha
       PeltSB = MATMUL(Pelt,SB)
       PeltSi = MATMUL(Pelt,Sigma)
 
@@ -433,4 +434,3 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE ThermoElectricSolver
 !------------------------------------------------------------------------------
-
