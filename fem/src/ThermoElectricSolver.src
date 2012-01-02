@@ -73,25 +73,25 @@ SUBROUTINE ThermoElectricSolver( Model,Solver,dt,Transient)
 
 
   DO iter=1,NonlinIter
-     CALL DefaultInitialize()
-     CALL BulkAssembly()
-     CALL DefaultFinishAssembly()
-     CALL DefaultDirichletBCs()
+    CALL DefaultInitialize()
+    CALL BulkAssembly()
+    CALL BoundaryAssembly()
+    CALL DefaultFinishAssembly()
+    CALL DefaultDirichletBCs()
 
-     Norm = DefaultSolve()
+    Norm = DefaultSolve()
 
-     RelativeChange = Solver % Variable % NonlinChange
+    RelativeChange = Solver % Variable % NonlinChange
 
-     WRITE( Message, * ) 'Result Norm   : ',Norm
-     CALL Info( 'ThermoElectricSolver', Message, Level=4 )
-     WRITE( Message, * ) 'Relative Change : ',RelativeChange
-     CALL Info( 'ThermoElectricSolver', Message, Level=4 )
+    WRITE( Message, * ) 'Result Norm   : ',Norm
+    CALL Info( 'ThermoElectricSolver', Message, Level=4 )
+    WRITE( Message, * ) 'Relative Change : ',RelativeChange
+    CALL Info( 'ThermoElectricSolver', Message, Level=4 )
 
-     IF ( RelativeChange < NewtonTol .OR. iter >= NewtonIter ) &
-              NewtonLinearization = .TRUE.
-     IF ( RelativeChange < NonlinTol ) EXIT
-   END DO
-
+    IF ( RelativeChange < NewtonTol .OR. iter >= NewtonIter ) &
+             NewtonLinearization = .TRUE.
+    IF ( RelativeChange < NonlinTol ) EXIT
+  END DO
 
 CONTAINS
 
@@ -111,7 +111,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE BulkAssembly
 !------------------------------------------------------------------------------
-
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrix( Element, n, nd )
@@ -185,8 +184,8 @@ CONTAINS
       IC = SUM( LOAD(2,1:n)*Basis(1:n) )    ! input current
       HS = SUM( LOAD(1,1:n)*Basis(1:n) )    ! input heat source
 
-      EF  = -MATMUL(SOL(2,1:nd), dBasisdx(1:nd,:)) ! electric field from prev.sol.
-      TG =  MATMUL(SOL(1,1:nd), dBasisdx(1:nd,:))  ! temperature gradient  ""
+      EF = -MATMUL(SOL(2,1:nd), dBasisdx(1:nd,:)) ! electric field from prev.sol.
+      TG =  MATMUL(SOL(1,1:nd), dBasisdx(1:nd,:)) ! temperature gradient  ""
 
       CD = MATMUL(sigma,EF-MATMUL(alpha,TG)) ! current density from prev.sol
       JH = SUM(CD*EF)                        ! joule heating       ""
@@ -291,6 +290,98 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+  SUBROUTINE BoundaryAssembly()
+!------------------------------------------------------------------------------
+    INTEGER :: t,n,nd
+
+!$omp parallel do private(Element,n,nd)
+    DO t=1,GetNOFBoundaryElements()
+      Element => GetBoundaryElement(t)
+      IF(.NOT.ActiveBoundaryElement(Element)) CYCLE
+
+      n  = GetElementNOFNodes(Element)
+      nd = GetElementNOFDOFs(Element)
+      CALL BoundaryLocalMatrix( Element, n, nd )
+     END DO
+!$omp end parallel do
+!------------------------------------------------------------------------------
+  END SUBROUTINE BoundaryAssembly
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE BoundaryLocalMatrix( Element, n, nd )
+!------------------------------------------------------------------------------
+    INTEGER :: n, nd
+    TYPE(Element_t) :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp), TARGET :: MASS(2*nd,2*nd), STIFF(2*nd,2*nd), FORCE(2*nd), LOAD(2,nd)
+    REAL(KIND=dp), POINTER :: A(:,:),M(:,:)
+
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3), s, DetJ
+    LOGICAL :: Stat,Found
+    INTEGER :: i,j,p,q,t
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    REAL(KIND=dp) :: HF_n(n), ET_n(n), HT_n(n), EF_n(n), HF, ET, HT, EF
+
+    TYPE(ValueList_t), POINTER :: BC
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!$omp threadprivate(Nodes)
+!------------------------------------------------------------------------------
+
+    BC => GetBC(Element)
+    IF(.NOT.ASSOCIATED(BC)) RETURN
+
+    CALL GetElementNodes( Nodes,Element )
+
+    HF_n = GetReal( BC, 'Heat Flux', Found )
+    ET_n = GetReal( BC, 'External Temperature', Found)
+    HT_n = GetReal( BC, 'Heat Transfer Coefficient', Found)
+
+    EF_n = GetReal( BC, 'Electric Flux', Found )
+
+    MASS  = 0.0_dp
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints( Element )
+    DO t=1,IP % n
+      stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+       IP % W(t), detJ, Basis, dBasisdx )
+
+      s = IP % s(t) * DetJ
+
+      HF = SUM(HF_n*Basis(1:n)) ! heat flux
+      ET = SUM(ET_n*Basis(1:n)) ! external temperature
+      HT = SUM(HT_n*Basis(1:n)) ! heat transfer coeffiecient
+
+      EF = SUM(EF_n*Basis(1:n)) ! electric flux
+
+      DO p=1,nd
+        i=2*(p-1)
+        DO q=1,nd
+          j=2*(q-1)
+          A => STIFF(i+1:i+2,j+1:j+2)
+          A(1,1) = A(1,1) + s*HT*Basis(q)*Basis(p)
+        END DO
+        FORCE(i+1) = FORCE(i+1) + s*(HF+HT*ET)*Basis(p)
+        FORCE(i+2) = FORCE(i+2) + s*EF*Basis(p)
+      END DO
+    END DO
+
+    IF(Transient) THEN
+      CALL Default1stOrderTime(MASS,STIFF,FORCE,UElement=Element)
+    END IF
+    CALL DefaultUpdateEquations( STIFF, FORCE,UElement=Element )
+!------------------------------------------------------------------------------
+  END SUBROUTINE BoundaryLocalMatrix
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
    SUBROUTINE InputTensor( Material, Tensor, IsScalar, Name, Element )
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: Material
@@ -320,16 +411,16 @@ CONTAINS
         END DO
       ELSE
         IF ( SIZE(Hwrk,1) == 1 ) THEN
-           DO i=1,MIN(6,SIZE(HWrk,2) )
+           DO i=1,MIN(3,SIZE(HWrk,2) )
               Tensor( i,i,1:n ) = Hwrk( 1,1,1:n )
            END DO
         ELSE IF ( SIZE(Hwrk,2) == 1 ) THEN
-           DO i=1,MIN(6,SIZE(Hwrk,1))
+           DO i=1,MIN(3,SIZE(Hwrk,1))
               Tensor( i,i,1:n ) = Hwrk( i,1,1:n )
            END DO
         ELSE
-          DO i=1,MIN(6,SIZE(Hwrk,1))
-             DO j=1,MIN(6,SIZE(Hwrk,2))
+          DO i=1,MIN(3,SIZE(Hwrk,1))
+             DO j=1,MIN(3,SIZE(Hwrk,2))
                 Tensor( i,j,1:n ) = Hwrk( i,j,1:n )
              END DO
           END DO
@@ -342,3 +433,4 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE ThermoElectricSolver
 !------------------------------------------------------------------------------
+
