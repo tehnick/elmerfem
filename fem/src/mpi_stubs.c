@@ -26,6 +26,8 @@ void MPI_Get_elements(){};
 void MPI_Info_free(){};
 void MPI_Comm_free(){};
 
+void MPI_Comm_test_inter() {}
+
 
 void STDCALLBULL FC_FUNC_(mpi_init,MPI_INIT) 
      (int *p) { *p = 0; }
