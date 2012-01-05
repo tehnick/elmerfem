@@ -1868,7 +1868,7 @@ real(kind=dp) :: s, RealTime
       DO j = Rows(i), Rows(i+1) - 1
         rsum = rsum + Vals(j) * u(Cols(j))
       END DO
-      v(i)=rsum
+      v(i)=v(i)+rsum
     END DO
 !omp end parallel do
   END IF
@@ -1985,7 +1985,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
         A = CMPLX( Vals(j), -Vals(j+1), KIND=dp )
         rsum = rsum + A * u(Cols(j+1)/2)
      END DO
-     v(i)=rsum
+     v(i)=v(i)+rsum
   END DO
 !$omp end parallel do
   !----------------------------------------------------------------------
