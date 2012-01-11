@@ -74,6 +74,37 @@ static int Getrow(char *line1,FILE *io,int upper)
   return(0);
 }
 
+static int GetrowDouble(char *line1,FILE *io)
+{
+  int i,isend;
+  char line0[MAXLINESIZE],*charend;
+
+  for(i=0;i<MAXLINESIZE;i++) 
+    line0[i] = ' ';
+
+ newline:
+
+  charend = fgets(line0,MAXLINESIZE,io);
+  isend = (charend == NULL);
+
+  if(isend) return(1);
+
+  if(line0[0] == '#' || line0[0] == '!') goto newline;
+  if(strstr(line0,"#")) goto newline;
+
+  for(i=0;i<MAXLINESIZE;i++) { 
+
+    /* The fortran double is not recognized by C string operators */
+    if( line0[i] == 'd' || line0[i] == 'D' ) {
+      line1[i] = 'e';
+    } else {
+      line1[i] = line0[i];    
+    }
+  }
+
+  return(0);
+}
+
 
 static int Comsolrow(char *line1,FILE *io) 
 {
@@ -4001,7 +4032,7 @@ omstart:
 
   if(info) {
     if(allocated) 
-      printf("Second round for memorizing data\n");
+      printf("Second round for reading data\n");
     else 
       printf("First round for allocating data\n");
   }
@@ -4036,16 +4067,16 @@ omstart:
 
     /* node definition */
     if( mode == 2411 || mode == 781 ) {
-      if(debug) printf("Reading nodes\n");
+      if(debug) printf("Reading nodes in mode %d\n",mode);
       for(;;) {
-	Getrow(line,in,FALSE);
+	GetrowDouble(line,in);
 	if( !strncmp(line,"    -1",6)) goto nextline;
 
 	cp = line;
 	nodeind = next_int(&cp);
 	/* Three other fields omitted: two coordinate systems and color */
 	noknots += 1;
-	Getrow(line,in,FALSE);
+	GetrowDouble(line,in);
 	
 	if(allocated) {
 	  if(reordernodes) {
@@ -4055,6 +4086,7 @@ omstart:
 	    else
 	      u2eind[nodeind] = noknots;
 	  }
+
 	  cp = line;
 	  data->x[noknots] = next_real(&cp);
 	  data->y[noknots] = next_real(&cp);
@@ -4067,9 +4099,8 @@ omstart:
       }
     }
 
-
     if( mode == 2412 ) {
-      if(debug) printf("Reading elements\n");
+      if(debug) printf("Reading elements from field %d\n",mode);
       for(;;) {
 	Getrow(line,in,FALSE);
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -4089,13 +4120,19 @@ omstart:
 	  maxelem = MAX(maxelem, elid);
 	}
 	
-	if(unvtype == 11) Getrow(line,in,FALSE);
+	if(unvtype == 11 || unvtype == 21 ) Getrow(line,in,FALSE);
 	Getrow(line,in,FALSE);
 	cp = line;
 	if(allocated) {
 	  if(reorderelements) u2eelem[elid] = noelements;
 
 	  elmertype = UnvToElmerType(unvtype); 
+          if(!elmertype) {
+	    printf("Unknown elementtype %d %d %d %d %d %d\n",
+		   elid,unvtype,physind,matind,colorind,nonodes);
+	    printf("line: %s\n",line);
+	    bigerror("done");
+	  }
 
 	  if(debug && !elementtypes[elmertype]) {
 	    elementtypes[elmertype] = TRUE;
@@ -4122,7 +4159,7 @@ omstart:
     if( mode == 780 ) {
       int physind2,matind2;
 
-      if(debug) printf("Reading elements\n");
+      if(debug) printf("Reading elements from field %d\n",mode);
       for(;;) {
 	Getrow(line,in,FALSE);
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -4145,7 +4182,7 @@ omstart:
 	  maxelem = MAX(maxelem, elid);
 	}
 	
-	if(unvtype == 11) Getrow(line,in,FALSE);
+	if(unvtype == 11 || unvtype == 21) Getrow(line,in,FALSE);
 	Getrow(line,in,FALSE);
 	cp = line;
 	if(allocated) {
@@ -4176,7 +4213,7 @@ omstart:
     }  
 
     if( mode == 2467 || mode == 2435) {
-      if(debug) printf("Reading groups\n");
+      if(debug) printf("Reading groups in mode %d\n",mode);
       
       for(;;) {
 	Getrow(line,in,FALSE);
@@ -4282,8 +4319,8 @@ end:
     data->dim = dim;
     
     if(info) {
-      printf("Allocating for %d knots and %d %d-node elements.\n",
-	     noknots,noelements,maxnodes);
+      printf("Allocating for %d knots and %d %d-node elements in %d dims.\n",
+	     noknots,noelements,maxnodes,dim);
     }  
     AllocateKnots(data);
     allocated = TRUE;
