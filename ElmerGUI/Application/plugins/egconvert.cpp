@@ -73,6 +73,38 @@ static int Getrow(char *line1,FILE *io,int upper)
 }
 
 
+static int GetrowDouble(char *line1,FILE *io)
+{
+  int i,isend;
+  char line0[MAXLINESIZE],*charend;
+
+  for(i=0;i<MAXLINESIZE;i++) 
+    line0[i] = ' ';
+
+ newline:
+
+  charend = fgets(line0,MAXLINESIZE,io);
+  isend = (charend == NULL);
+
+  if(isend) return(1);
+
+  if(line0[0] == '#' || line0[0] == '!') goto newline;
+  if(strstr(line0,"#")) goto newline;
+
+  for(i=0;i<MAXLINESIZE;i++) { 
+
+    /* The fortran double is not recognized by C string operators */
+    if( line0[i] == 'd' || line0[i] == 'D' ) {
+      line1[i] = 'e';
+    } else {
+      line1[i] = line0[i];    
+    }
+  }
+
+  return(0);
+}
+
+
 static int Comsolrow(char *line1,FILE *io) 
 {
   int i,isend;
@@ -3274,7 +3306,7 @@ omstart:
     if( mode == 2411) {
       if(0 && info && allocated) printf("Reading nodes\n");
       for(;;) {
-	Getrow(line,in,FALSE);
+	GetrowDouble(line,in);
 	if( !strncmp(line,"    -1",6)) goto nextline;
 
 	cp = line;
@@ -3282,7 +3314,7 @@ omstart:
 	noknots += 1;
 	if(i != noknots) reordernodes = TRUE;
 	maxnode = MAX(maxnode,i);
-	Getrow(line,in,FALSE);
+	GetrowDouble(line,in);
 	
 	if(allocated) {
 	  if(reordernodes) {
@@ -3318,7 +3350,7 @@ omstart:
 	  maxelem = MAX(maxelem, elid);
 	}
 	
-	if(unvtype == 11) Getrow(line,in,FALSE);
+	if(unvtype == 11 || unvtype == 21) Getrow(line,in,FALSE);
 	Getrow(line,in,FALSE);
 	cp = line;
 	if(allocated) {
