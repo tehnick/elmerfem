@@ -132,7 +132,7 @@
      REAL(KIND=dp) :: xn, yn, zn, xp, yp, zp, r
 
      REAL(KIND=dp) :: Cscalar, Gscalar, Lambda, CalLambda, ArcLength, ArcLengthScale, &
-         Radius, MaximumDeflection, DisplMax, Maxcomponent
+         Radius, MaximumDeflection, Maxcomponent
      INTEGER :: ArcLengthSteps, ArcLengthStep
 
      SAVE STIFF, MASS, LoadX, LoadY, LoadZ, LoadN, &
@@ -268,16 +268,6 @@
 
       CALL SolveNonLinear()
 
-      DisplMax = 0.0d0
-      DO i = 1,Model % NumberOfNodes
-         IF( ABS( Solver % Mesh % Nodes % x(i) - 0.05d0 ) < 1.0d-6 .AND. &
-             ABS( Solver % Mesh % Nodes % y(i) - 0.10d0 ) < 1.0d-6 .AND. &
-             ABS( Solver % Mesh % nodes % z(i) - 1.00d0 ) < 1.0d-6 ) THEN
-            j = DeflectionPerm(i)
-            if(j < 1) cycle
-            DisplMax = Deflection(6*(j-1)+2)
-         END IF
-       END DO
 !------------------------------------------------------------------------------
  
    CONTAINS
@@ -286,10 +276,10 @@
     SUBROUTINE SolveNonLinear
 !------------------------------------------------------------------------------
      DO NonLinIter = 1,NonLinMaxIt
-       CALL Info('ShellSolver','********************************************************')
+       CALL Info('ShellSolver','--------------------------------------------------------')
        WRITE( Message,'(A,I4)') 'Newton iteration',nonliniter
        CALL Info('ShellSolver',Message)
-       CALL Info('ShellSolver','********************************************************')
+       CALL Info('ShellSolver','--------------------------------------------------------')
 	   
        IF ( StabilityAnalysis ) THEN
          SELECT CASE( NonLinIter )
@@ -312,7 +302,6 @@
      ForceVector = LoadScale*ForceVector
 
 !--------------------------------------------------------------------------
-
 
 !    Dirichlet boundary conditions:
 !    ------------------------------
@@ -337,7 +326,7 @@
      Unorm = 0.0d0
      DO i = 1, Solver % Mesh % NumberOfNodes
         j = DeflectionPerm(i)
-        if(j < 1) cycle
+        IF(j < 1) CYCLE
         Unorm = MAX(Unorm, SQRT( Deflection(6*j-5)**2 + &
              Deflection(6*j-4)**2 + Deflection(6*j-3)**2) )
         Maxcomponent = MAX( Unorm, MAX(MAX(Deflection(6*j-5), &
@@ -349,8 +338,8 @@
      Unorm = 0.0d0
      DO i = 1, Solver % Mesh % NumberOfNodes
         j = DeflectionPerm(i)
-        if(j < 1) cycle
-       Unorm = Unorm + Deflection(6*j-5)**2 + &
+        IF(j < 1) CYCLE
+        Unorm = Unorm + Deflection(6*j-5)**2 + &
               Deflection(6*j-4)**2 + Deflection(6*j-3)**2
      END DO
      Unorm = SQRT( Unorm )
@@ -494,26 +483,25 @@
         n = GetElementNOFNodes()
         NodeIndexes => CurrentElement % NodeIndexes
 
-        GotForceBC = .FALSE.
         LoadVector = 0.0d0
 
         LoadVector( 1, 1:n ) =  GetReal( BC, 'Force 1', GotIt )
-        GotForceBC = GotForceBC.OR.GotIt
+        GotForceBC = GotIt
 
         LoadVector( 2, 1:n ) =  GetReal( BC, 'Force 2', GotIt )
-        GotForceBC = GotForceBC.OR.GotIt
+        GotForceBC = GotForceBC .OR. GotIt
 
         LoadVector( 3, 1:n ) =  GetReal( BC, 'Force 3', GotIt )
-        GotForceBC = GotForceBC.OR.GotIt
+        GotForceBC = GotForceBC .OR. GotIt
 
         LoadVector( 4, 1:n ) =  GetReal( BC, 'Force 4', GotIt )
-        GotForceBC = GotForceBC.OR.GotIt
+        GotForceBC = GotForceBC .OR. GotIt
 
         LoadVector( 5, 1:n ) =  GetReal( BC, 'Force 5', GotIt )
-        GotForceBC = GotForceBC.OR.GotIt
+        GotForceBC = GotForceBC .OR. GotIt
 
         LoadVector( 6, 1:n ) =  GetReal( BC, 'Force 6', GotIt )
-        GotForceBC = GotForceBC.OR.GotIt
+        GotForceBC = GotForceBC .OR. GotIt
 
         IF( .NOT.GotForceBC ) CYCLE
 
@@ -537,7 +525,7 @@
      IF( .NOT.GotIt ) THEN
         nPL = 0
      ELSE
-        nPL = SIZE( PointLoad )/9
+        nPL = SIZE( PointLoad ) / 9
      END IF
 
      IF ( nPL > 0 ) THEN
@@ -597,23 +585,21 @@
 !-----------------------------------------------------------------------------
    SUBROUTINE CalculateStresses()
 !-----------------------------------------------------------------------------
-      INTEGER :: isz
-      INTEGER, POINTER :: Perm(:)
+      INTEGER :: n, isz
 
       at  = CPUTime()
       at0 = RealTime()
 
 !      Allocate memory for the local stresses:
 !      ---------------------------------------
-       ALLOCATE( Weights( Solver % Mesh % NumberOfBulkElements, NumberOfElementNodes ) )
+       n = Solver % Mesh % NumberOfBulkElements
+
+       ALLOCATE( Weights( n, NumberOfElementNodes ) )
        Weights = 0.0d0
 
-       ALLOCATE( SxxElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( SyyElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( SzzElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( SxyElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( SxzElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( SyzElement( Solver % Mesh % NumberOfBulkElements ) )
+    
+       ALLOCATE( SxxElement( n ), SyyElement( n ), SzzElement( n ), &
+                 SxyElement( n ), SxzElement( n ), SyzElement( n ) )
 
        SxxElement = 0.0d0
        SyyElement = 0.0d0
@@ -622,12 +608,8 @@
        SxzElement = 0.0d0
        SyzElement = 0.0d0
 
-       ALLOCATE( EpsxxElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( EpsyyElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( EpszzElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( EpsxyElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( EpsxzElement( Solver % Mesh % NumberOfBulkElements ) )
-       ALLOCATE( EpsyzElement( Solver % Mesh % NumberOfBulkElements ) )
+       ALLOCATE( EpsxxElement( n ), EpsyyElement( n ), EpszzElement( n ), &
+                 EpsxyElement( n ), EpsxzElement( n ), EpsyzElement( n ) )
 
        EpsxxElement = 0.0d0
        EpsyyElement = 0.0d0
@@ -640,7 +622,6 @@
 !      Then, compute the element stresses:
 !      ----------------------------------- 
 
-       OPEN( UNIT=98, file='nvec.txt' )
        DO t = 1, Solver % NumberOfActiveElements
 
           IF( RealTime() - at0 > 1.0 ) THEN
@@ -671,8 +652,6 @@
             StabParam1, StabParam2, LocalDeflection, Weight3, Weight4, &
               Eps, Kap, Nten, NtenMaterial, Mten, MtenMaterial, Young, &
                 Poisson, Thickness, LargeDeflection )
-
-!         WRITE (98,'(3(F14.3))')  NtenMaterial(1,1), NtenMaterial(2,2), NtenMaterial(1,2)
 
           IF( ListGetLogical( SolverParams, 'Compute Strains', GotIt) ) THEN
             SxxElement(t) = Nten(1,1)
@@ -714,69 +693,57 @@
           END SELECT
 
         END DO
-        CLOSE( 98 )
 
 
-        isz = Solver % Mesh % NumberOfNodes
+        isz = MAXVAL( DeflectionPerm )
         
         IF( .NOT.ASSOCIATED( VariableGet( Solver % Mesh % Variables, &
             'Stress.xx') ) ) THEN
 
-          ALLOCATE( SxxNodal( isz ) )
-          ALLOCATE( SyyNodal( isz ) )
-          ALLOCATE( SzzNodal( isz ) )
-          ALLOCATE( SxyNodal( isz ) )
-          ALLOCATE( SxzNodal( isz ) )
-          ALLOCATE( SyzNodal( isz ) )
+          ALLOCATE( SxxNodal( isz ), SyyNodal( isz ), SzzNodal( isz ), &
+                    SxyNodal( isz ), SxzNodal( isz ), SyzNodal( isz ) )
 
-          ALLOCATE( EpsxxNodal( isz ) )
-          ALLOCATE( EpsyyNodal( isz ) )
-          ALLOCATE( EpszzNodal( isz ) )
-          ALLOCATE( EpsxyNodal( isz ) )
-          ALLOCATE( EpsxzNodal( isz ) )
-          ALLOCATE( EpsyzNodal( isz ) )
+          ALLOCATE( EpsxxNodal( isz ), EpsyyNodal( isz ), EpszzNodal( isz ), &
+	            EpsxyNodal( isz ), EpsxzNodal( isz ), EpsyzNodal( isz ) )
 
-          ALLOCATE(Perm(isz))
-
-          Perm = (/ (i,i=1,isz) /)
 
           PSolver => Solver
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.xx', 1, SxxNodal,Perm )
+               Solver % Mesh, PSolver, 'Stress.xx', 1, SxxNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.yy', 1, SyyNodal,Perm )
+               Solver % Mesh, PSolver, 'Stress.yy', 1, SyyNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.zz', 1, SzzNodal,Perm )
+               Solver % Mesh, PSolver, 'Stress.zz', 1, SzzNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.xy', 1, SxyNodal,Perm )
+               Solver % Mesh, PSolver, 'Stress.xy', 1, SxyNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.xz', 1, SxzNodal,Perm )
+               Solver % Mesh, PSolver, 'Stress.xz', 1, SxzNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.yz', 1, SyzNodal,Perm )
+               Solver % Mesh, PSolver, 'Stress.yz', 1, SyzNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.xx', 1, EpsxxNodal,Perm )
+               Solver % Mesh, PSolver, 'Epsilon.tot.xx', 1, EpsxxNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.yy', 1, EpsyyNodal,Perm )
+               Solver % Mesh, PSolver, 'Epsilon.tot.yy', 1, EpsyyNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.zz', 1, EpszzNodal,Perm )
+               Solver % Mesh, PSolver, 'Epsilon.tot.zz', 1, EpszzNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.xy', 1, EpsxyNodal,Perm )
+               Solver % Mesh, PSolver, 'Epsilon.tot.xy', 1, EpsxyNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.xz', 1, EpsxzNodal,Perm )
+               Solver % Mesh, PSolver, 'Epsilon.tot.xz', 1, EpsxzNodal,DeflectionPerm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.yz', 1, EpsyzNodal,Perm )
+               Solver % Mesh, PSolver, 'Epsilon.tot.yz', 1, EpsyzNodal,DeflectionPerm )
         END IF
 
 
@@ -804,22 +771,22 @@
           NodeIndexes => CurrentElement % NodeIndexes
           CALL GetElementNodes( ElementNodes )
           DO j = 1, n
-            k = NodeIndexes(j)
-            IF( k>0 ) THEN
-              Referenced(k) = Referenced(k) + 1
-              SxxNodal(k) = SxxNodal(k) + SxxElement(i)
-              SyyNodal(k) = SyyNodal(k) + SyyElement(i)
-              SzzNodal(k) = SzzNodal(k) + SzzElement(i)
-              SxyNodal(k) = SxyNodal(k) + SxyElement(i)
-              SxzNodal(k) = SxzNodal(k) + SxzElement(i)
-              SyzNodal(k) = SyzNodal(k) + SyzElement(i)
-              EpsxxNodal(k) = EpsxxNodal(k) + EpsxxElement(i)
-              EpsyyNodal(k) = EpsyyNodal(k) + EpsyyElement(i)
-              EpszzNodal(k) = EpszzNodal(k) + EpszzElement(i)
-              EpsxyNodal(k) = EpsxyNodal(k) + EpsxyElement(i)
-              EpsxzNodal(k) = EpsxzNodal(k) + EpsxzElement(i)
-              EpsyzNodal(k) = EpsyzNodal(k) + EpsyzElement(i)
-            END IF
+            k = DeflectionPerm( NodeIndexes(j) )
+            IF( k == 0 ) CYCLE
+
+            Referenced(k) = Referenced(k) + 1
+            SxxNodal(k) = SxxNodal(k) + SxxElement(i)
+            SyyNodal(k) = SyyNodal(k) + SyyElement(i)
+            SzzNodal(k) = SzzNodal(k) + SzzElement(i)
+            SxyNodal(k) = SxyNodal(k) + SxyElement(i)
+            SxzNodal(k) = SxzNodal(k) + SxzElement(i)
+            SyzNodal(k) = SyzNodal(k) + SyzElement(i)
+            EpsxxNodal(k) = EpsxxNodal(k) + EpsxxElement(i)
+            EpsyyNodal(k) = EpsyyNodal(k) + EpsyyElement(i)
+            EpszzNodal(k) = EpszzNodal(k) + EpszzElement(i)
+            EpsxyNodal(k) = EpsxyNodal(k) + EpsxyElement(i)
+            EpsxzNodal(k) = EpsxzNodal(k) + EpsxzElement(i)
+            EpsyzNodal(k) = EpsyzNodal(k) + EpsyzElement(i)
           END DO
         END DO
 
