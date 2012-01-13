@@ -74,19 +74,21 @@ CONTAINS
        REAL(KIND=dp) CONTIG :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
        LOGICAL :: Found, Algebraic, Cluster, Geometric, Pelement
-       CHARACTER(LEN=MAX_NAME_LEN) :: MGMethod    
+       CHARACTER(LEN=MAX_NAME_LEN) :: MGMethod
+       TYPE(ValueList_t), POINTER :: Params
        
-       MGMethod = ListGetString( Solver % Values,'MG Method',Found) 
+       Params => Solver % Values
+       MGMethod = ListGetString( Params,'MG Method',Found) 
        IF( Found ) THEN
          Pelement = ( MGmethod == 'p' )  
          Cluster = ( MGmethod == 'cluster' ) 
          Algebraic = ( MGmethod == 'algebraic' ) 
          Geometric = ( MGmethod == 'geometric' )  
        ELSE
-         Algebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) 
-         Cluster = ListGetLogical( Solver % Values, 'MG Cluster', Found )
-         PElement = ListGetLogical( Solver % Values, 'MG PElement', Found )
-         Geometric = ListGetLogical( Solver % Values, 'MG Geometric', Found )
+         Algebraic = ListGetLogical( Params, 'MG Algebraic', Found ) 
+         Cluster = ListGetLogical( Params, 'MG Cluster', Found )
+         PElement = ListGetLogical( Params, 'MG PElement', Found )
+         Geometric = ListGetLogical( Params, 'MG Geometric', Found )
        END IF
 
        IF ( Algebraic ) THEN
@@ -135,6 +137,7 @@ CONTAINS
        REAL(KIND=dp), POINTER CONTIG :: Residual2(:), Solution2(:)
        REAL(KIND=dp), ALLOCATABLE, TARGET :: Residual(:)
        REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL, tmp
+       TYPE(ValueList_t), POINTER :: Params
 
        REAL(KIND=dp) :: CPUTime, tt
 
@@ -144,7 +147,8 @@ CONTAINS
 
 !------------------------------------------------------------------------------
        tt = CPUTime()
-!
+       Params => Solver % Values
+
 !      Initialize:
 !      -----------
        Parallel = ParEnv % PEs > 1
@@ -165,15 +169,12 @@ CONTAINS
              NewLinearSystem = NewLinearSystem .AND. NewSystem
           END IF
        ELSE IF ( Level <= 1 ) THEN
-          CALL ListAddLogical( Solver % Values,  &
-                      'Linear System Free Factorization', .FALSE. )
+          CALL ListAddLogical( Params,'Linear System Free Factorization', .FALSE. )
+          CALL ListAddLogical( Params,'Linear System Refactorize', NewLinearSystem )
 
-          CALL ListAddLogical( Solver % Values, &
-                     'Linear System Refactorize', NewLinearSystem )
-
-          LowestSolver = ListGetString(Solver % Values,'MG Lowest Linear Solver',Found)
+          LowestSolver = ListGetString(Params,'MG Lowest Linear Solver',Found)
           IF ( .NOT. Found ) THEN
-            LIter=ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)
+            LIter=ListGetLogical(Params,'MG Lowest Linear Solver Iterative',Found)
             IF ( .NOT. Found .AND. Parallel ) LIter=.TRUE.
             LowestSolver='direct'
             IF ( LIter ) LowestSolver='iterative'
@@ -235,8 +236,7 @@ CONTAINS
        CALL MGmv( Matrix1, Solution, Residual, .TRUE. )
        Residual(1:n) = ForceVector(1:n) - Residual(1:n)
  
-       Tolerance = ListGetConstReal( Solver % Values, &
-          'Linear System Convergence Tolerance' )
+       Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
 !---------------------------------------------------------------------
 !
 !      Initialize the multilevel solve:
@@ -257,7 +257,7 @@ CONTAINS
 !      next level mesh, if not already there:
 !      ---------------------------------------------
        IF ( .NOT. ASSOCIATED( Mesh2 ) ) THEN
-          mgname = ListGetString( Solver % Values, 'MG Mesh Name', Found )
+          mgname = ListGetString( Params, 'MG Mesh Name', Found )
           IF ( .NOT. Found ) mgname = 'mgrid'
 
           WRITE( Path,'(a,i1)' ) TRIM(OutputPath) // '/' // TRIM(mgname), Level - 1
@@ -337,7 +337,7 @@ CONTAINS
        ProjPN => MeshProjector( Mesh2, Mesh1, Trans = .TRUE. )
        ProjQT => MeshProjector( Mesh2, Mesh1, Trans = .TRUE. )
 
-       Project = ListGetLogical( Solver % Values, 'MG Project Matrix', Found )
+       Project = ListGetLogical( Params, 'MG Project Matrix', Found )
        IF ( .NOT. Found ) Project = .TRUE.
 
 
@@ -357,17 +357,14 @@ CONTAINS
              Solver % Matrix => Matrix2
              i = Solver % MultigridLevel
 
-             k  = ListGetInteger( Solver % Values, &
-                          'Nonlinear System Max Iterations', Found )
-             CALL ListAddInteger( Solver % Values, &
-                          'Nonlinear System Max Iterations', 1 )
+             k  = ListGetInteger( Params,'Nonlinear System Max Iterations', Found )
+             CALL ListAddInteger( Params,'Nonlinear System Max Iterations', 1 )
 
              Solver % MultigridLevel = -1
 
              CALL MSolverActivate( CurrentModel, Solver, Solver % dt, Transient )
              Solver % MultigridLevel = i
-             CALL ListAddInteger( Solver % Values, &
-                      'Nonlinear System Max Iterations',MAX(1, k) )
+             CALL ListAddInteger( Params,'Nonlinear System Max Iterations',MAX(1, k) )
           END IF
        END IF
 
@@ -378,32 +375,25 @@ CONTAINS
        MaxIter = 1
 
        IF ( Level == Solver % MultiGridTotal ) THEN
-          MaxIter = ListGetInteger( Solver % Values,&
-              'MG Max Iterations', Found )
+          MaxIter = ListGetInteger( Params,'MG Max Iterations', Found )
 
           IF ( .NOT. Found ) THEN
-            IF( ListGetString( Solver % Values, &
-                  'Linear System Solver', Found ) == 'multigrid') THEN
-              MaxIter = ListGetInteger( Solver % Values, &
-                  'Linear System Max Iterations' )
+            IF( ListGetString( Params, 'Linear System Solver', Found ) == 'multigrid') THEN
+              MaxIter = ListGetInteger( Params,'Linear System Max Iterations' )
             ELSE
               MaxIter = 1
             END IF
           END IF
 
-          Tolerance = ListGetConstReal( Solver % Values, &
-              'MG Convergence Tolerance', Found )
+          Tolerance = ListGetConstReal( Params,'MG Convergence Tolerance', Found )
           IF ( .NOT. Found ) THEN
-             Tolerance = ListGetConstReal( Solver % Values, &
-                 'Linear System Convergence Tolerance' )
+             Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
           END IF
        ELSE
-          MaxIter = ListGetInteger( Solver % Values, &
-               'MG Level Max Iterations', Found )
+          MaxIter = ListGetInteger( Params,'MG Level Max Iterations', Found )
           IF ( .NOT. Found ) MaxIter = 1
 
-          Tolerance = ListGetConstReal( Solver % Values, &
-              'MG Level Convergence Tolerance', Found )
+          Tolerance = ListGetConstReal( Params,'MG Level Convergence Tolerance', Found )
           IF ( .NOT. Found ) Tolerance = HUGE(Tolerance)
        END IF
 
@@ -411,39 +401,37 @@ CONTAINS
 !      Smoothing preconditiong, if not given
 !      diagonal preconditioning is used:
 !      -------------------------------------
-       str = ListGetString( Solver % Values, 'MG Preconditioning', Found )
+       str = ListGetString( Params, 'MG Preconditioning', Found )
        IF ( .NOT. Found ) THEN
-         str = ListGetString( Solver % Values,'Linear System Preconditioning', Found )
+         str = ListGetString( Params,'Linear System Preconditioning', Found )
        END IF
 
 
        IF ( str == 'ilut' )  THEN
 
           IF ( NewLinearSystem ) THEN
-             ILUTOL = ListGetConstReal( Solver % Values, &
-                  'MG ILUT Tolerance', Found )
+             ILUTOL = ListGetConstReal( Params,'MG ILUT Tolerance', Found )
              IF ( .NOT. Found ) THEN
-                ILUTOL = ListGetConstReal( Solver % Values, &
-                     'Linear System ILUT Tolerance' )
+               ILUTOL = ListGetConstReal( Params,'Linear System ILUT Tolerance' )
              END IF
-
+             
              IF ( Parallel ) THEN
-                Condition = CRS_ILUT( PMatrix, ILUTOL )
+               Condition = CRS_ILUT( PMatrix, ILUTOL )
              ELSE
-                Condition = CRS_ILUT( Matrix1, ILUTOL )
+               Condition = CRS_ILUT( Matrix1, ILUTOL )
              END IF
-          END IF
+           END IF
 
        ELSE IF ( str(1:3) == 'ilu' ) THEN
           IF ( NewLinearSystem ) THEN
              k = ICHAR(str(4:4)) - ICHAR('0')
              IF ( k < 0 .OR. k > 9 ) k = 0
              IF ( Parallel ) THEN
-                PMatrix % Cholesky = ListGetLogical( Solver % Values, &
-                  'Linear System Symmetric ILU', Found )
+                PMatrix % Cholesky = ListGetLogical( Params, &
+                    'Linear System Symmetric ILU', Found )
                 Condition = CRS_IncompleteLU( PMatrix, k )
              ELSE
-                Matrix1 % Cholesky = ListGetLogical( Solver % Values, &
+                Matrix1 % Cholesky = ListGetLogical( Params, &
                   'Linear System Symmetric ILU', Found )
                 Condition = CRS_IncompleteLU( Matrix1, k )
              END IF
@@ -487,7 +475,6 @@ CONTAINS
        CALL SetCurrentMesh( CurrentModel, Solver % Mesh )
        CurrentModel % Meshes => Solver % Mesh
 
-
        IF ( Level == Solver % MultiGridTotal ) THEN
           WRITE( Message,'(A,F8.2)') 'MG iter time: ', CPUTime() - tt
           CALL Info( 'GMGSolve', Message, Level=5 )
@@ -516,7 +503,7 @@ CONTAINS
 !      Presmoothing:
 !      -------------
 
-       Iters => ListGetIntegerArray( Solver % Values,'MG Sweeps',Found)
+       Iters => ListGetIntegerArray( Params,'MG Sweeps',Found)
        IF(Found) THEN
          Sweeps = Iters(MIN(InvLevel,SIZE(Iters)))
        ELSE        
@@ -876,12 +863,14 @@ CONTAINS
 
        TYPE(Nodes_t), SAVE :: Nodes
        TYPE(Element_t), POINTER :: Element
+       TYPE(ValueList_t), POINTER :: Params
 !------------------------------------------------------------------------------
        tt = CPUTime()
 !
 !      Initialize:
 !      -----------
        Parallel = ParEnv % PEs > 1
+       Params => Solver % Values
 
        IF ( Level == Solver % MultiGridLevel ) THEN
           NewLinearSystem = .TRUE.
@@ -889,14 +878,11 @@ CONTAINS
              NewLinearSystem = NewLinearSystem .AND. NewSystem
           END IF
        ELSE IF ( Level <= 1 ) THEN
-          CALL ListAddLogical( Solver % Values,  &
-                      'Linear System Free Factorization', .FALSE. )
+          CALL ListAddLogical( Params,'Linear System Free Factorization', .FALSE. )
           IF ( NewLinearSystem ) THEN
-            CALL ListAddLogical( Solver % Values,  &
-                       'Linear System Refactorize', .TRUE. )
+            CALL ListAddLogical( Params,'Linear System Refactorize', .TRUE. )
           ELSE
-            CALL ListAddLogical( Solver % Values,  &
-                       'Linear System Refactorize', .FALSE. )
+            CALL ListAddLogical( Params,'Linear System Refactorize', .FALSE. )
           END IF
           NewLinearSystem = .FALSE.
        END IF
@@ -907,7 +893,7 @@ CONTAINS
 !      -----------------------------------
        IF ( Level <= 1 ) THEN
          IF ( .NOT. Parallel ) THEN
-           IF (ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)) THEN
+           IF (ListGetLogical(Params,'MG Lowest Linear Solver Iterative',Found)) THEN
              CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
            ELSE
              CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
@@ -939,8 +925,7 @@ CONTAINS
        RHSNorm = MGnorm( n, ForceVector )
        ResidualNorm = MGnorm( n, Residual ) / RHSNorm
  
-       Tolerance = ListGetConstReal( Solver % Values, &
-          'Linear System Convergence Tolerance' )
+       Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
 
 !---------------------------------------------------------------------
 !
@@ -977,7 +962,7 @@ CONTAINS
            END DO
            DEALLOCATE( Indexes,Deg,Basis,Nodes % x,Nodes % y,Nodes % z )
             
-           PatLevel => ListGetIntegerArray( Solver % Values,'MG P at Level',Found)
+           PatLevel => ListGetIntegerArray( Params,'MG P at Level',Found)
            IF(.NOT.Found) THEN
              ALLOCATE(PatLevel(Level-1))
              PatLevel = (/(i,i=1,level-1)/)
@@ -1074,29 +1059,24 @@ CONTAINS
        MaxIter = 1
 
        IF ( Level == Solver % MultiGridTotal ) THEN
-          MaxIter = ListGetInteger(Solver % Values,'MG Max Iterations',Found)
+          MaxIter = ListGetInteger(Params,'MG Max Iterations',Found)
 
           IF ( .NOT. Found ) THEN
-            IF( ListGetString( Solver % Values, &
-                   'Linear System Solver', Found ) == 'multigrid') THEN
-              MaxIter = ListGetInteger(Solver % Values,'Linear System Max Iterations')
+            IF( ListGetString( Params,'Linear System Solver', Found ) == 'multigrid') THEN
+              MaxIter = ListGetInteger(Params,'Linear System Max Iterations')
             ELSE
               MaxIter = 1
             END IF
           END IF
-          Tolerance = ListGetConstReal( Solver % Values, &
-              'MG Convergence Tolerance', Found )
+          Tolerance = ListGetConstReal( Params,'MG Convergence Tolerance', Found )
           IF ( .NOT. Found ) THEN
-             Tolerance = ListGetConstReal( Solver % Values, &
-                 'Linear System Convergence Tolerance' )
+            Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
           END IF
        ELSE
-          MaxIter = ListGetInteger( Solver % Values, &
-               'MG Level Max Iterations', Found )
+          MaxIter = ListGetInteger( Params,'MG Level Max Iterations', Found )
           IF ( .NOT. Found ) MaxIter = 1
 
-          Tolerance = ListGetConstReal( Solver % Values, &
-              'MG Level Convergence Tolerance', Found )
+          Tolerance = ListGetConstReal( Params,'MG Level Convergence Tolerance', Found )
           IF ( .NOT. Found ) Tolerance = HUGE(Tolerance)
        END IF
 
@@ -1105,36 +1085,34 @@ CONTAINS
 !      diagonal preconditioning is used:
 !      -------------------------------------
        IF ( NewLinearSystem ) THEN
-         str = ListGetString( Solver % Values, 'MG Preconditioning', Found )
+         str = ListGetString( Params, 'MG Preconditioning', Found )
          IF ( .NOT. Found ) THEN
-           str = ListGetString( Solver % Values,'Linear System Preconditioning', Found )
+           str = ListGetString( Params,'Linear System Preconditioning', Found )
          END IF
          IF ( str == 'ilut' )  THEN
-           ILUTOL = ListGetConstReal( Solver % Values, &
-                'MG ILUT Tolerance', Found )
+           ILUTOL = ListGetConstReal( Params,'MG ILUT Tolerance', Found )
            IF ( .NOT. Found ) THEN
-              ILUTOL = ListGetConstReal( Solver % Values, &
-                   'Linear System ILUT Tolerance' )
+             ILUTOL = ListGetConstReal( Params,'Linear System ILUT Tolerance' )
            END IF
            IF ( Parallel ) THEN
-              Condition = CRS_ILUT( PMatrix, ILUTOL )
+             Condition = CRS_ILUT( PMatrix, ILUTOL )
            ELSE
-              Condition = CRS_ILUT( Matrix1, ILUTOL )
+             Condition = CRS_ILUT( Matrix1, ILUTOL )
            END IF
          ELSE IF ( str(1:3) == 'ilu' ) THEN
            k = ICHAR(str(4:4)) - ICHAR('0')
            IF ( k < 0 .OR. k > 9 ) k = 0
            IF ( Parallel ) THEN
-              PMatrix % Cholesky = ListGetLogical( Solver % Values, &
-                   'Linear System Symmetric ILU', Found )
+              PMatrix % Cholesky = ListGetLogical( Params, &
+                  'Linear System Symmetric ILU', Found )
               Condition = CRS_IncompleteLU( PMatrix, k )
-           ELSE
-              Matrix1 % Cholesky = ListGetLogical( Solver % Values, &
-                   'Linear System Symmetric ILU', Found )
+            ELSE
+              Matrix1 % Cholesky = ListGetLogical( Params, &
+                  'Linear System Symmetric ILU', Found )
               Condition = CRS_IncompleteLU( Matrix1, k )
-           END IF
-         END IF
-       END IF
+            END IF
+          END IF
+        END IF
 
 
 !------------------------------------------------------------------------------
@@ -1204,7 +1182,7 @@ CONTAINS
 
      NB = 0
 
-     IF ( ListGetLogical( Solver % Values, 'Discontinuous Galerkin', Found ) ) THEN
+     IF ( ListGetLogical( Params, 'Discontinuous Galerkin', Found ) ) THEN
         DO i=1,Element % DGDOFs
            NB = NB + 1
            Indexes(NB) = Element % DGIndexes(i)
@@ -1259,7 +1237,7 @@ CONTAINS
         END DO
      END IF
 
-     GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
+     GB = ListGetLogical( Params, 'Bubbles in Global System', Found )
      IF (.NOT.Found) GB = .TRUE.
 
      IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
@@ -1436,6 +1414,7 @@ CONTAINS
     REAL(KIND=dp), POINTER CONTIG :: Residual2(:)
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
     REAL(KIND=dp) :: CPUTime, tt
+    TYPE(ValueList_t), POINTER :: Params
 
     LOGICAL :: NewLinearSystem, gotit
 
@@ -1449,6 +1428,7 @@ CONTAINS
     END IF
 
     Mesh => Solver % Mesh    
+    Params => Solver % Values
 
     tt = CPUTime()
 !
@@ -1460,7 +1440,7 @@ CONTAINS
     ! This is a counter that for the first full resursive round keeps the 
     ! flag NewLinearSystem true.
     IF ( Level == Solver % MultiGridLevel ) THEN
-      IF( ListGetLogical(Solver % Values,'MG Recompute Projector',GotIt) ) THEN
+      IF( ListGetLogical(Params,'MG Recompute Projector',GotIt) ) THEN
         NewLinearSystem = .TRUE.
       ELSE 
         NewLinearSystem = .NOT. ASSOCIATED(Matrix1 % Parent)
@@ -1474,16 +1454,16 @@ CONTAINS
 !      -----------------------------------
     n = Matrix1 % NumberOfRows
 
-    DirectLimit = ListGetInteger(Solver % Values,'MG Lowest Linear Solver Limit',GotIt) 
+    DirectLimit = ListGetInteger(Params,'MG Lowest Linear Solver Limit',GotIt) 
     IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
       NewLinearSystem = .FALSE.
       IF(PRESENT(NewSystem)) NewSystem = .FALSE.
-      IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Unsolve',gotit ) ) THEN
+      IF ( ListGetLogical( Params, 'MG Lowest Linear Solver Unsolve',gotit ) ) THEN
         RETURN
       ELSE IF ( .NOT. Parallel ) THEN
-        IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
+        IF ( ListGetLogical( Params, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
         ELSE
           CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
@@ -1518,9 +1498,9 @@ CONTAINS
     RHSNorm = MGnorm( n, ForceVector )
     ResidualNorm = MGnorm( n, Residual ) / RHSNorm
 
-    Tolerance = ListGetConstReal( Solver % Values,'Linear System Convergence Tolerance' )
+    Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
 
-    CoarseSave = ListGetLogical(Solver % Values,'MG Coarse Level Save',GotIt)
+    CoarseSave = ListGetLogical(Params,'MG Coarse Level Save',GotIt)
 
 !---------------------------------------------------------------------
 !
@@ -1548,7 +1528,7 @@ CONTAINS
       CALL Info('AMGSolve', Message)
       MinLevel = MIN(MinLevel,Level)
       
-      EliminateDir = ListGetLogical(Solver % Values,'MG Eliminate Dirichlet',GotIt) 
+      EliminateDir = ListGetLogical(Params,'MG Eliminate Dirichlet',GotIt) 
       IF(.NOT. GotIt) EliminateDir = .TRUE.
       IF(Level /= Solver % MultiGridTotal) EliminateDir = .FALSE.
 
@@ -1556,7 +1536,7 @@ CONTAINS
       ! Determine C/F split and projector from one dof, then project everything with it
       CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF, InvCF)        
       
-      IF( ListGetLogical(Solver % Values,'MG Projector Matrix Save',GotIt) ) THEN
+      IF( ListGetLogical(Params,'MG Projector Matrix Save',GotIt) ) THEN
         WRITE(Filename,'(A,I1,A)') 'P',Level,'.dat'
         CALL SaveMatrix(ProjT,TRIM(FileName))          
       END IF
@@ -1590,7 +1570,7 @@ CONTAINS
         END IF
       END IF
 
-      IF( ListGetLogical(Solver % Values,'MG Projected Matrix Save', GotIt ) ) THEN
+      IF( ListGetLogical(Params,'MG Projected Matrix Save', GotIt ) ) THEN
         WRITE(Filename,'(A,I1,A)') 'B',Level,'.dat'
         CALL SaveMatrix(Matrix2,TRIM(FileName))          
       END IF
@@ -1620,44 +1600,37 @@ CONTAINS
 
     MaxIter = 1
     IF ( Level == Solver % MultiGridTotal ) THEN
-      MaxIter = ListGetInteger( Solver % Values, &
-          'MG Max Iterations', Found )
+      MaxIter = ListGetInteger( Params,'MG Max Iterations', Found )
       IF ( .NOT. Found ) THEN
-        IF( ListGetString( Solver % Values, 'Linear System Solver', Found ) == 'multigrid') THEN
-          MaxIter = ListGetInteger( Solver % Values, &
-              'Linear System Max Iterations' )
+        IF( ListGetString( Params, 'Linear System Solver', Found ) == 'multigrid') THEN
+          MaxIter = ListGetInteger( Params,'Linear System Max Iterations' )
         ELSE
           MaxIter = 1
         END IF
       END IF
-      Tolerance = ListGetConstReal( Solver % Values, &
-          'MG Convergence Tolerance', Found )
+      Tolerance = ListGetConstReal( Params,'MG Convergence Tolerance', Found )
       IF ( .NOT. Found ) THEN
-        Tolerance = ListGetConstReal( Solver % Values, &
-            'Linear System Convergence Tolerance' )
+        Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
       END IF
     ELSE
-      MaxIter = ListGetInteger( Solver % Values, &
-          'MG Level Max Iterations', Found )
+      MaxIter = ListGetInteger( Params,'MG Level Max Iterations', Found )
       IF ( .NOT. Found ) MaxIter = 1         
-      Tolerance = ListGetConstReal( Solver % Values, &
-          'MG Level Convergence Tolerance', Found )
+      Tolerance = ListGetConstReal( Params,'MG Level Convergence Tolerance', Found )
       IF ( .NOT. Found ) Tolerance = HUGE(Tolerance)
     END IF
    
 !   Smoothing preconditiong, if not given diagonal preconditioning is used:
 !   ----------------------------------------------------------------------
-    str = ListGetString( Solver % Values, 'MG Preconditioning', Found )
+    str = ListGetString( Params, 'MG Preconditioning', Found )
     IF ( .NOT. Found ) THEN
-      str = ListGetString( Solver % Values, &
-          'Linear System Preconditioning', Found )
+      str = ListGetString( Params,'Linear System Preconditioning', Found )
     END IF
    
     IF ( str == 'ilut' )  THEN
       IF ( NewLinearSystem ) THEN
-        ILUTOL = ListGetConstReal( Solver % Values,'MG ILUT Tolerance', GotIt )
+        ILUTOL = ListGetConstReal( Params,'MG ILUT Tolerance', GotIt )
         IF ( .NOT. GotIt ) THEN
-          ILUTOL = ListGetConstReal( Solver % Values,'Linear System ILUT Tolerance' )
+          ILUTOL = ListGetConstReal( Params,'Linear System ILUT Tolerance' )
         END IF
         
         IF ( Parallel ) THEN
@@ -1672,11 +1645,11 @@ CONTAINS
         k = ICHAR(str(4:4)) - ICHAR('0')
         IF ( k < 0 .OR. k > 9 ) k = 0
         IF ( Parallel ) THEN
-          PMatrix % Cholesky = ListGetLogical( Solver % Values, &
+          PMatrix % Cholesky = ListGetLogical( Params, &
                  'Linear System Symmetric ILU', Found )
           Condition = CRS_IncompleteLU( PMatrix, k )
         ELSE
-          Matrix1 % Cholesky = ListGetLogical( Solver % Values, &
+          Matrix1 % Cholesky = ListGetLogical( Params, &
                  'Linear System Symmetric ILU', Found )
           Condition = CRS_IncompleteLU( Matrix1, k )
         END IF
@@ -1742,7 +1715,7 @@ CONTAINS
 !      Presmoothing:
 !      -------------
       
-      Iters => ListGetIntegerArray( Solver % Values,'MG Sweeps',GotIt)
+      Iters => ListGetIntegerArray( Params,'MG Sweeps',GotIt)
       IF(GotIt) THEN
         Sweeps = Iters(MIN(InvLevel,SIZE(Iters)))
       ELSE        
@@ -1883,7 +1856,7 @@ CONTAINS
        INTEGER :: cnods, RatioClasses(101)
        LOGICAL :: GotIt
        
-       Rounds = ListGetInteger(Solver % Values,'MG Compatible Relax Rounds',GotIt)
+       Rounds = ListGetInteger(Params,'MG Compatible Relax Rounds',GotIt)
        IF(.NOT. GotIt) Rounds = 3
        
        ALLOCATE(Ones(nods),Zeros(nods))
@@ -1899,11 +1872,10 @@ CONTAINS
        END DO
        Zeros = 0.0
        
-       IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
+       IterMethod = ListGetString( Params, 'MG Smoother', Found )
        
        IF ( .NOT. Found ) THEN
-         IterMethod = ListGetString( Solver % Values, &
-             'Linear System Iterative Method', Found )
+         IterMethod = ListGetString( Params,'Linear System Iterative Method', Found )
        END IF
        IF ( .NOT. Found ) IterMethod = 'jacobi'
        
@@ -1958,7 +1930,7 @@ CONTAINS
        CALL Info('CompatibleRelaxation',Message)
        
        newcands = 0
-       Limit = ListGetConstReal(Solver % Values,'MG Compatible Relax Limit',GotIt)
+       Limit = ListGetConstReal(Params,'MG Compatible Relax Limit',GotIt)
        IF(GotIt) THEN
          DO i=1,nods         
            Ratio = ABS(Zeros(i))
@@ -2011,18 +1983,18 @@ CONTAINS
 
     Component1 = 1
     IF(Components > 1) THEN
-      Component1 = ListGetInteger(Solver % Values,'MG Determining Component',&
+      Component1 = ListGetInteger(Params,'MG Determining Component',&
           GotIt,minv=1,maxv=Components)
       IF(.NOT. GotIt) Component1 = 1
     END IF
 
-    CompMat = ListGetLogical(Solver % Values,'MG Complex Matrix',GotIt)
+    CompMat = ListGetLogical(Params,'MG Complex Matrix',GotIt)
     CompMat = (CompMat .OR. .NOT. GotIt) .AND. Amat % COMPLEX
     IF(CompMat) THEN
       CALL Info('ChooseCoarseNodes','Assuming complex valued matrix')
     END IF
 
-    PseudoGeometric = ListGetLogical(Solver % Values,'MG Pseudo Geometric',GotIt)
+    PseudoGeometric = ListGetLogical(Params,'MG Pseudo Geometric',GotIt)
 
     Rows => Amat % Rows
     Cols => Amat % Cols
@@ -2032,7 +2004,7 @@ CONTAINS
     ! Make the candidate and strong bond list for determining the coarse nodes    
     Fixed = .FALSE.
     CF = 0
-    UseCR =  ListGetLogical(Solver % Values,'MG Compatible Relax Init',GotIt) 
+    UseCR =  ListGetLogical(Params,'MG Compatible Relax Init',GotIt) 
     IF(UseCR .AND. Components > 1) THEN
       CALL Fatal('CompatibleRelaxation','CR may only be applied to cases with 1 DOFs!')
     END IF
@@ -2064,14 +2036,14 @@ CONTAINS
 100 CALL AMGCoarse(Amat, CandList, Bonds, CF, CompMat)     
 
     IF(.NOT. (CompMat .OR. UseCR ) ) THEN
-      IF( ListGetLogical(Solver % Values,'MG Positive Connection Eliminate',GotIt)) THEN
+      IF( ListGetLogical(Params,'MG Positive Connection Eliminate',GotIt)) THEN
         CALL AMGPositiveBonds(Amat, Bonds, CandList, CF)
       END IF
     END IF
 
 
     IF( Components == 1 .AND. &
-        ListGetLogical(Solver % Values,'MG Compatible Relax Merit',GotIt) ) THEN
+        ListGetLogical(Params,'MG Compatible Relax Merit',GotIt) ) THEN
       CRIter = CRiter + 1
       CandList = 0
       CALL CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
@@ -2139,19 +2111,19 @@ CONTAINS
     debug = .FALSE.
     IF(debug) CALL Info('AMGBonds','Making a list of strong matrix connections')
 
-    NegLim = ListGetConstReal(Solver % Values,'MG Strong Connection Limit',GotIt)
+    NegLim = ListGetConstReal(Params,'MG Strong Connection Limit',GotIt)
     IF(.NOT. GotIt) NegLim = 0.06
 
     ! Negative connections are more useful for the interpolation, but also 
     ! positive strong connection may be taken into account
-    AllowPosLim = ListGetLogical(Solver % Values,'MG Positive Connection Allow',GotIt)
-    PosLim = ListGetConstReal(Solver % Values,'MG Positive Connection Limit',GotIt)
+    AllowPosLim = ListGetLogical(Params,'MG Positive Connection Allow',GotIt)
+    PosLim = ListGetConstReal(Params,'MG Positive Connection Limit',GotIt)
     IF(.NOT. GotIt) PosLim = 1.0
 
     ! In the first time deselect the Dirichlet nodes from the candidate list
     ! their value is determined at the finest level and need not to be recomputed
     ElimDir = EliminateDir
-    DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
+    DirLim = ListGetConstReal(Params,'MG Eliminate Dirichlet Limit',GotIt)
     IF(.NOT. GotIt) DirLim = 1.0d-8      
 
     nods = Amat % NumberOfRows
@@ -2163,8 +2135,8 @@ CONTAINS
     DO ind=1,nods
       maxconn = MAX(maxconn,Rows(ind+1)-Rows(ind))
     END DO
-    MaxConns = ListGetInteger(Solver % Values,'MG Strong Connection Maximum',GotIt)
-    MinConns = ListGetInteger(Solver % Values,'MG Strong Connection Minimum',GotIt)
+    MaxConns = ListGetInteger(Params,'MG Strong Connection Maximum',GotIt)
+    MinConns = ListGetInteger(Params,'MG Strong Connection Minimum',GotIt)
 
 
     ALLOCATE(measures(maxconn))
@@ -2361,7 +2333,7 @@ CONTAINS
     ElimDir = EliminateDir
     IF(.NOT. ElimDir ) RETURN
 
-    DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
+    DirLim = ListGetConstReal(Params,'MG Eliminate Dirichlet Limit',GotIt)
     IF(.NOT. GotIt) DirLim = 1.0d-8      
 
     nods = Amat % NumberOfRows
@@ -2422,14 +2394,14 @@ CONTAINS
     debug = .FALSE.
     IF(debug) CALL Info('AMGBonds','Making a list of strong matrix connections')
 
-    NegLim = ListGetConstReal(Solver % Values,'MG Strong Connection Limit',GotIt)
+    NegLim = ListGetConstReal(Params,'MG Strong Connection Limit',GotIt)
     IF(.NOT. GotIt) NegLim = 0.25
     
-    Pow = ListGetConstReal(Solver % Values,'MG Geometric Power',GotIt)
+    Pow = ListGetConstReal(Params,'MG Geometric Power',GotIt)
     IF(.NOT. GotIt) Pow = 1.0d0
 
     ElimDir = EliminateDir
-    DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
+    DirLim = ListGetConstReal(Params,'MG Eliminate Dirichlet Limit',GotIt)
     IF(.NOT. GotIt) DirLim = 1.0d-8      
 
     nods   = Amat % NumberOfRows
@@ -2441,8 +2413,8 @@ CONTAINS
     DO ind=1,nods
       maxconn = MAX(maxconn,Rows(ind+1)-Rows(ind))
     END DO
-    MaxConns = ListGetInteger(Solver % Values,'MG Strong Connection Maximum',GotIt)
-    MinConns = ListGetInteger(Solver % Values,'MG Strong Connection Minimum',GotIt)
+    MaxConns = ListGetInteger(Params,'MG Strong Connection Maximum',GotIt)
+    MinConns = ListGetInteger(Params,'MG Strong Connection Minimum',GotIt)
 
     ALLOCATE(measures(maxconn))
 
@@ -2605,13 +2577,13 @@ CONTAINS
 
     CALL Info('AMGBondsComplex','Making a list of strong matrix connections')
 
-    NegLim = ListGetConstReal(Solver % Values,'MG Strong Connection Limit',GotIt)
+    NegLim = ListGetConstReal(Params,'MG Strong Connection Limit',GotIt)
     IF(.NOT. GotIt) NegLim = 0.25
 
     ! In the first time deselect the Dirichlet nodes from the candidate list
     ! their value is determined at the finest level and need not to be recomputed
     ElimDir = EliminateDir
-    DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
+    DirLim = ListGetConstReal(Params,'MG Eliminate Dirichlet Limit',GotIt)
     IF(.NOT. GotIt) DirLim = 1.0d-8      
 
     nods = Amat % NumberOfRows
@@ -2623,8 +2595,8 @@ CONTAINS
     DO ind=1,nods
       maxconn = MAX(maxconn,Rows(ind+1)-Rows(ind))
     END DO
-    MaxConns = ListGetInteger(Solver % Values,'MG Strong Connection Maximum',GotIt)
-    MinConns = ListGetInteger(Solver % Values,'MG Strong Connection Minimum',GotIt)
+    MaxConns = ListGetInteger(Params,'MG Strong Connection Maximum',GotIt)
+    MinConns = ListGetInteger(Params,'MG Strong Connection Minimum',GotIt)
 
 
     ALLOCATE(measures(maxconn))
@@ -2758,14 +2730,14 @@ CONTAINS
 
     ! Negative connections are more useful for the interpolation, but also 
     ! positive strong connection may be taken into account
-    AllowPosLim = ListGetLogical(Solver % Values,'MG Positive Connection Allow',GotIt)
-    PosLim = ListGetConstReal(Solver % Values,'MG Positive Connection Limit',GotIt)
+    AllowPosLim = ListGetLogical(Params,'MG Positive Connection Allow',GotIt)
+    PosLim = ListGetConstReal(Params,'MG Positive Connection Limit',GotIt)
     IF(.NOT. GotIt) PosLim = 0.5
 
     ! In the first time deselect the Dirichlet nodes from the candidate list
     ! their value is determined at the finest level and need not to be recomputed
     ElimDir = EliminateDir
-    DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
+    DirLim = ListGetConstReal(Params,'MG Eliminate Dirichlet Limit',GotIt)
     IF(.NOT. GotIt) DirLim = 1.0d-8      
 
     nods = Amat % NumberOfRows
@@ -2855,9 +2827,9 @@ CONTAINS
     Cols   => Amat % Cols
     Values => Amat % Values
 
-    FollowBounds = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
+    FollowBounds = ListGetInteger(Params,'MG Boundary Priority',GotIt)
     IF(.NOT. GotIt) FollowBounds = 1
-    CoarseningMode = ListGetInteger(Solver % Values,'MG Coarsening Mode',&
+    CoarseningMode = ListGetInteger(Params,'MG Coarsening Mode',&
         GotIt,minv=0,maxv=3)
     IF(.NOT. GotIt) CoarseningMode = 3
 
@@ -3257,9 +3229,6 @@ CONTAINS
 
 
 
-
-
-
 !-----------------------------------------------------------------------------
 !>     make a matrix projection such that fine nodes are expressed with coarse nodes
 !>     Xf = P Xc, with given set of coarse nodes, CF, and the stiffness matrix
@@ -3280,7 +3249,7 @@ CONTAINS
        INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, ci, cj, Component1, Components, node
        REAL(KIND=dp), POINTER :: PValues(:), FValues(:)
        INTEGER, POINTER :: FRows(:), FCols(:), PRows(:), PCols(:), CoeffsInds(:)
-       REAL(KIND=dp) :: bond, value, possum, negsum, poscsum, negcsum, diagsum, &
+       REAL(KIND=dp) :: bond, VALUE, possum, negsum, poscsum, negcsum, diagsum, &
            ProjLim, negbond, posbond, maxbond
        LOGICAL :: Debug, AllocationsDone, DirectInterpolate, Lumping
        INTEGER :: inds(FSIZE), posinds(CSIZE), neginds(CSIZE), no, diag, InfoNode, &
@@ -3293,13 +3262,13 @@ CONTAINS
 
        IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
        
-       ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
+       ProjLim = ListGetConstReal(Params,'MG Projection Limit',GotIt)
        IF(.NOT. GotIt) ProjLim = 0.6
 
-       Lumping = ListGetLogical(Solver % Values,'MG Projection Lumping',GotIt)
+       Lumping = ListGetLogical(Params,'MG Projection Lumping',GotIt)
 
-       DirectInterpolate = ListGetLogical(Solver % Values,'MG Direct Interpolate',GotIt)
-       DirectLimit = ListGetInteger(Solver % Values,'MG Direct Interpolate Limit',GotIt)      
+       DirectInterpolate = ListGetLogical(Params,'MG Direct Interpolate',GotIt)
+       DirectLimit = ListGetInteger(Params,'MG Direct Interpolate Limit',GotIt)      
        IF(.NOT. GotIt) THEN
          IF(DirectInterpolate) THEN
            DirectLimit = 0
@@ -3308,17 +3277,17 @@ CONTAINS
          END IF
        END IF
 
-       FavorNeg = ListGetConstReal(Solver % Values,'MG Negative Connection Favor Factor',GotIt)
+       FavorNeg = ListGetConstReal(Params,'MG Negative Connection Favor Factor',GotIt)
        IF(.NOT. GotIt) FavorNeg = 1.0d0
 
        Components = DOFs
        Component1 = 1
        IF(Components > 1) THEN
-         Component1 = ListGetInteger(Solver % Values,'MG Determining Component',GotIt,minv=1,maxv=DOFs)
+         Component1 = ListGetInteger(Params,'MG Determining Component',GotIt,minv=1,maxv=DOFs)
          IF(.NOT. GotIt) Component1 = 1
        END IF
 
-       InfoNode = ListGetInteger(Solver % Values,'MG Info Node',GotIt)
+       InfoNode = ListGetInteger(Params,'MG Info Node',GotIt)
 
        Fdofs = Fmat % NumberOfRows
        FRows   => Fmat % Rows
@@ -3381,11 +3350,11 @@ CONTAINS
 
                IF(Fixed(ci)) CYCLE
 
-               value = FValues(i)
-               IF(ABS(value) < 1.0d-50) CYCLE
+               VALUE = FValues(i)
+               IF(ABS(VALUE) < 1.0d-50) CYCLE
                no = no + 1
                inds(no) = ci
-               coeffs(no) = value
+               coeffs(no) = VALUE
                IF(ci == ind) THEN
                  diag = no
                ELSE IF(CF(ci) > 0) THEN
@@ -3412,11 +3381,11 @@ CONTAINS
                IF(Fixed(ci)) CYCLE
 
                IF(CF(ci) > 0 .OR. ci == ind) THEN
-                 value = FValues(i)
-                 IF(ABS(value) < 1.0d-50) CYCLE 
+                 VALUE = FValues(i)
+                 IF(ABS(VALUE) < 1.0d-50) CYCLE 
                  no = no + 1
                  inds(no) = ci
-                 coeffs(no) = value
+                 coeffs(no) = VALUE
                  CoeffsInds(ci) = no
                  IF(ci == ind) diag = no
                END IF
@@ -3441,8 +3410,8 @@ CONTAINS
 
                  IF(Fixed(cj)) CYCLE
 
-                 value = Fvalues(i) * Fvalues(j) / Fvalues(Fmat % diag(ci))
-                 IF(ABS(value) < 1.0d-50) CYCLE
+                 VALUE = Fvalues(i) * Fvalues(j) / Fvalues(Fmat % diag(ci))
+                 IF(ABS(VALUE) < 1.0d-50) CYCLE
                  
                  k = CoeffsInds(cj) 
                  IF(k == 0) THEN
@@ -3456,7 +3425,7 @@ CONTAINS
                    PRINT *,'k',k,l,cj,CoeffsInds(cj)
                    CALL Fatal('InterpolateFineToCoarse','There are more neighbours than expected')
                  END IF
-                 coeffs(k) = coeffs(k) - value
+                 coeffs(k) = coeffs(k) - VALUE
                END DO
              END DO
 
@@ -3509,21 +3478,21 @@ CONTAINS
            END IF
 
            DO i=1,no
-             value = coeffs(i)
+             VALUE = coeffs(i)
              IF(i == diag) THEN
-               diagsum = value
-             ELSE IF(value > 0.0) THEN
-               possum = possum + value
+               diagsum = VALUE
+             ELSE IF(VALUE > 0.0) THEN
+               possum = possum + VALUE
                ci = inds(i)
                IF(CF(ci) > 0) THEN
-                 posmax = MAX(posmax, value)
+                 posmax = MAX(posmax, VALUE)
                  posi = posi + 1
                END IF
              ELSE 
-               negsum = negsum + value
+               negsum = negsum + VALUE
                ci = inds(i)
                IF(CF(ci) > 0) THEN
-                 negmax = MIN(negmax, value)
+                 negmax = MIN(negmax, VALUE)
                  negi = negi + 1
                END IF
              END IF
@@ -3558,18 +3527,18 @@ CONTAINS
 
              negcsum = 0.0
              DO i=1,no
-               value = coeffs(i)
+               VALUE = coeffs(i)
                ci = inds(i)
                IF(CF(ci) == 0) CYCLE
-               IF(value < ProjLim * negmax) THEN
+               IF(VALUE < ProjLim * negmax) THEN
                  negno = negno + 1
                  neginds(negno) = ci
-                 negcoeffs(negno) = value
-                 negcsum = negcsum + value
-               ELSE IF(value > ProjLim * posmax) THEN
+                 negcoeffs(negno) = VALUE
+                 negcsum = negcsum + VALUE
+               ELSE IF(VALUE > ProjLim * posmax) THEN
                  posno = posno + 1
                  posinds(posno) = ci
-                 poscoeffs(posno) = value                 
+                 poscoeffs(posno) = VALUE                 
                END IF
              END DO
 
@@ -3629,18 +3598,18 @@ CONTAINS
 
              poscsum = 0.0
              DO i=1,no
-               value = coeffs(i)
+               VALUE = coeffs(i)
                ci = inds(i)
                IF(CF(ci) == 0) CYCLE
-               IF( value > ProjLim * posmax ) THEN
+               IF( VALUE > ProjLim * posmax ) THEN
                  posno = posno + 1
                  posinds(posno) = ci
-                 poscoeffs(posno) = value
-                 poscsum = poscsum + value
-               ELSE IF(value < ProjLim * negmax) THEN
+                 poscoeffs(posno) = VALUE
+                 poscsum = poscsum + VALUE
+               ELSE IF(VALUE < ProjLim * negmax) THEN
                  negno = negno + 1
                  neginds(negno) = ci
-                 negcoeffs(negno) = value
+                 negcoeffs(negno) = VALUE
                END IF
              END DO
 
@@ -3704,21 +3673,21 @@ CONTAINS
              END IF            
 
              DO i=1,negi
-               value = -negsum * negcoeffs(i) / (negcsum * diagsum)
+               VALUE = -negsum * negcoeffs(i) / (negcsum * diagsum)
                ci = neginds(i)
-               IF(Debug) PRINT *,'F-: Pij',ind,CF(ci),value
+               IF(Debug) PRINT *,'F-: Pij',ind,CF(ci),VALUE
                PCols(Prows(node)+i-1) = CF(ci)
-               PValues(Prows(node)+i-1) = value
-               wsum = wsum + value
+               PValues(Prows(node)+i-1) = VALUE
+               wsum = wsum + VALUE
              END DO
 
              DO i=1,posi
-               value = -possum * poscoeffs(i) / (poscsum * diagsum * FavorNeg)
+               VALUE = -possum * poscoeffs(i) / (poscsum * diagsum * FavorNeg)
                ci = posinds(i)
-               IF(Debug) PRINT *,'F+: Pij',ind,CF(ci),value
+               IF(Debug) PRINT *,'F+: Pij',ind,CF(ci),VALUE
                PCols(Prows(node)+i+negi-1) = CF(ci)
-               PValues(Prows(node)+i+negi-1) = value
-               wsum = wsum + value
+               PValues(Prows(node)+i+negi-1) = VALUE
+               wsum = wsum + VALUE
              END DO
 
              IF(Debug) PRINT *,'ind wsum projnodes',ind,wsum,projnodes
@@ -3797,7 +3766,7 @@ CONTAINS
        INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, ci, cj, Component1, Components, node
        REAL(KIND=dp), POINTER :: PValues(:), FValues(:)
        INTEGER, POINTER :: FRows(:), FCols(:), PRows(:), PCols(:), CoeffsInds(:)
-       REAL(KIND=dp) :: bond, value, possum, negsum, poscsum, negcsum, diagsum, &
+       REAL(KIND=dp) :: bond, VALUE, possum, negsum, poscsum, negcsum, diagsum, &
            ProjLim, negbond, posbond, maxbond
        LOGICAL :: Debug, AllocationsDone, DirectInterpolate, Lumping
        INTEGER :: inds(FSIZE), posinds(CSIZE), neginds(CSIZE), no, diag, InfoNode, &
@@ -3809,14 +3778,14 @@ CONTAINS
 
        IF(Debug) CALL Info('InterpolateF2CDistance','Starting interpolation')
        
-       ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
+       ProjLim = ListGetConstReal(Params,'MG Projection Limit',GotIt)
        IF(.NOT. GotIt) ProjLim = 0.5
 
-       Pow = ListGetConstReal(Solver % Values,'MG Geometric Power',GotIt)
+       Pow = ListGetConstReal(Params,'MG Geometric Power',GotIt)
        IF(.NOT. GotIt) Pow = 1.0d0
 
-       DirectInterpolate = ListGetLogical(Solver % Values,'MG Direct Interpolate',GotIt)
-       DirectLimit = ListGetInteger(Solver % Values,'MG Direct Interpolate Limit',GotIt)      
+       DirectInterpolate = ListGetLogical(Params,'MG Direct Interpolate',GotIt)
+       DirectLimit = ListGetInteger(Params,'MG Direct Interpolate Limit',GotIt)      
        IF(.NOT. GotIt) THEN
          IF(DirectInterpolate) THEN
            DirectLimit = 0
@@ -3825,11 +3794,11 @@ CONTAINS
          END IF
        END IF
 
-       Component1 = ListGetInteger(Solver % Values,'MG Determining Component',GotIt,minv=1,maxv=DOFs)
+       Component1 = ListGetInteger(Params,'MG Determining Component',GotIt,minv=1,maxv=DOFs)
        IF(.NOT. GotIt) Component1 = 1
 
-       InfoNode = ListGetInteger(Solver % Values,'MG Info Node',GotIt)
-       InfoLevel = ListGetInteger(Solver % Values,'MG Info Level',GotIt)
+       InfoNode = ListGetInteger(Params,'MG Info Node',GotIt)
+       InfoLevel = ListGetInteger(Params,'MG Info Level',GotIt)
 
 
        Fdofs = Fmat % NumberOfRows
@@ -3912,13 +3881,13 @@ CONTAINS
              z1 = Mesh % Nodes % z(k)
 
              s2 = (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0) + (z1-z0)*(z1-z0)
-             value = s2 ** (-Pow/2.0_dp)
+             VALUE = s2 ** (-Pow/2.0_dp)
 
-             posmax = MAX(posmax,value)
+             posmax = MAX(posmax,VALUE)
              no = no + 1
 
              inds(no) = ci
-             coeffs(no) = value
+             coeffs(no) = VALUE
            END DO
 
 
@@ -3946,13 +3915,13 @@ CONTAINS
                  z1 = Mesh % Nodes % z(k)
 
                  s2 = (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0) + (z1-z0)*(z1-z0)
-                 value = s2 ** (-Pow/2.0_dp)
+                 VALUE = s2 ** (-Pow/2.0_dp)
 
-                 posmax = MAX(posmax,value)
+                 posmax = MAX(posmax,VALUE)
                  no = no + 1
 
                  inds(no) = cj
-                 coeffs(no) = value
+                 coeffs(no) = VALUE
                END DO
              END DO
 
@@ -3976,22 +3945,22 @@ CONTAINS
          
            possum = 0.0d0
            DO i=1,no
-             value = coeffs(i)
-             IF(value > ProjLim * posmax) THEN
+             VALUE = coeffs(i)
+             IF(VALUE > ProjLim * posmax) THEN
                projnodes = projnodes + 1
                posinds(projnodes) = inds(i)
-               poscoeffs(projnodes) = value
-               possum = possum + value
+               poscoeffs(projnodes) = VALUE
+               possum = possum + VALUE
              END IF
            END DO
            
            IF(AllocationsDone) THEN
              DO i=1,projnodes
-               value =  poscoeffs(i) / possum 
+               VALUE =  poscoeffs(i) / possum 
                ci = posinds(i)
-               IF(Debug) PRINT *,'Pij',ind,CF(ci),value
+               IF(Debug) PRINT *,'Pij',ind,CF(ci),VALUE
                PCols(Prows(node)+i-1) = CF(ci)
-               PValues(Prows(node)+i-1) = value
+               PValues(Prows(node)+i-1) = VALUE
              END DO
            END IF
          END IF
@@ -4052,7 +4021,7 @@ CONTAINS
            DirectLimit, projnodes
        REAL(KIND=dp) :: wsum, refbond, posmax
 
-       REAL(KIND=dp) :: poscoeffs(CSIZE), value, poscsum, possum, diagsum
+       REAL(KIND=dp) :: poscoeffs(CSIZE), VALUE, poscsum, possum, diagsum
        COMPLEX(KIND=dp) :: coeffs(FSIZE), cvalue 
 
        Debug = .FALSE.
@@ -4060,14 +4029,14 @@ CONTAINS
        CALL Info('ComplexInterpolateF2C','Starting interpolation')
 
        
-       ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
+       ProjLim = ListGetConstReal(Params,'MG Projection Limit',GotIt)
        IF(.NOT. GotIt) ProjLim = 0.5
 
-       Lumping = ListGetLogical(Solver % Values,'MG Projection Lumping',GotIt)
+       Lumping = ListGetLogical(Params,'MG Projection Lumping',GotIt)
 
-       DirectInterpolate = ListGetLogical(Solver % Values,'MG Direct Interpolate',GotIt)
+       DirectInterpolate = ListGetLogical(Params,'MG Direct Interpolate',GotIt)
 
-       DirectLimit = ListGetInteger(Solver % Values,'MG Direct Interpolate Limit',GotIt)      
+       DirectLimit = ListGetInteger(Params,'MG Direct Interpolate Limit',GotIt)      
        IF(.NOT. GotIt) THEN
          IF(DirectInterpolate) THEN
            DirectLimit = 0
@@ -4076,7 +4045,7 @@ CONTAINS
          END IF
        END IF
 
-       InfoNode = ListGetInteger(Solver % Values,'MG Info Node',GotIt)
+       InfoNode = ListGetInteger(Params,'MG Info Node',GotIt)
 
        Fdofs = Fmat % NumberOfRows 
        FRows   => Fmat % Rows
@@ -4237,14 +4206,14 @@ CONTAINS
            END IF
 
            DO i=1,no
-             value = ABS(coeffs(i))
+             VALUE = ABS(coeffs(i))
              IF(i == diag) THEN
-               diagsum = value
+               diagsum = VALUE
              ELSE 
-               possum = possum + value
+               possum = possum + VALUE
                ci = inds(i)
                IF(CF(ci) > 0) THEN
-                 posmax = MAX(posmax, value )
+                 posmax = MAX(posmax, VALUE )
                  posi = posi + 1
                END IF
              END IF
@@ -4266,14 +4235,14 @@ CONTAINS
            poscsum = 0.0
 
            DO i=1,no
-             value = ABS(coeffs(i))
+             VALUE = ABS(coeffs(i))
              ci = inds(i)
              IF(CF(ci) == 0) CYCLE
-             IF(ABS(value) > ProjLim * posmax) THEN
+             IF(ABS(VALUE) > ProjLim * posmax) THEN
                projnodes = projnodes + 1
                posinds(projnodes) = ci
-               poscoeffs(projnodes) = value                 
-               poscsum = poscsum + value
+               poscoeffs(projnodes) = VALUE                 
+               poscsum = poscsum + VALUE
              END IF
            END DO
 
@@ -4285,14 +4254,14 @@ CONTAINS
 
             wsum = 0.0
             DO i=1,projnodes
-               value = possum * poscoeffs(i) / (poscsum * diagsum)
+               VALUE = possum * poscoeffs(i) / (poscsum * diagsum)
                ci = posinds(i)
-               IF(Debug) PRINT *,'F+: Pij',node,CF(ci),value,poscoeffs(i)
+               IF(Debug) PRINT *,'F+: Pij',node,CF(ci),VALUE,poscoeffs(i)
 
                PCols(Prows(node)+i-1) = CF(ci) 
-               PValues(Prows(node)+i-1) = value
+               PValues(Prows(node)+i-1) = VALUE
                
-               wsum = wsum + value
+               wsum = wsum + VALUE
              END DO
              IF(Debug) PRINT *,'ind projnodes wsum',ind,projnodes,wsum,diagsum,poscsum,possum
 
@@ -4358,7 +4327,7 @@ CONTAINS
       nods1 = Matrix1 % NumberOfRows
       nods2 = Matrix2 % NumberOfRows
 
-      SaveLimit = ListGetInteger(Solver % Values,'MG Coarse Nodes Save Limit',GotIt) 
+      SaveLimit = ListGetInteger(Params,'MG Coarse Nodes Save Limit',GotIt) 
       IF(.NOT. GotIt) SaveLimit = nods2
 
       IF(nods2 > SaveLimit) RETURN
@@ -4608,7 +4577,7 @@ CONTAINS
 
        x1 = x0      
 
-       l = ListGetInteger(Solver % Values,'MG Info Node',GotIt)
+       l = ListGetInteger(Params,'MG Info Node',GotIt)
 
 
        DO k=1,Rounds
@@ -4868,7 +4837,7 @@ CONTAINS
       ALLOCATE( Row( NA ), Ind( NB ) )
 
 
-      Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon',GotIt)
+      Epsilon = ListGetConstReal(Params,'MG Matrix Create Epsilon',GotIt)
       IF(.NOT. GotIt) Epsilon = SQRT(TINY(Epsilon))
 
       B => AllocateMatrix()      
@@ -4992,7 +4961,7 @@ CONTAINS
 !      WRITE( Message,'(A,I8)' ) 'Projected matrix created with size',TotalNonZeros
 !      CALL Info( 'CRS_ProjectMatrixCreate', Message )
 
-      WRITE(Message,'(A,F6.2)') 'Coarse matrix reduction factor',&
+      WRITE(Message,'(A,F10.3)') 'Coarse matrix reduction factor',&
           1.0 *  SIZE(Matrix1 % Cols) / TotalNonZeros
       CALL Info('CRS_ProjectMatrixCreate',Message)
        
@@ -5067,6 +5036,7 @@ CONTAINS
     REAL(KIND=dp), POINTER CONTIG :: TmpArray(:,:), Residual2(:)
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL, Alpha, Rnorm
     REAL(KIND=dp) :: CPUTime, tt, tmp
+    TYPE(ValueList_t), POINTER :: Params
 
     LOGICAL :: NewLinearSystem, gotit, Normalize 
 
@@ -5080,6 +5050,7 @@ CONTAINS
     END IF
 
     Mesh => Solver % Mesh    
+    Params => Solver % Values
 
     tt = CPUTime()
 !
@@ -5094,7 +5065,7 @@ CONTAINS
 
     ! This does not seem to have any effect?
     !-------------------------------------------------------------------
-    Normalize = ListGetLogical( Solver % Values,'MG Normalize RHS',GotIt)
+    Normalize = ListGetLogical( Params,'MG Normalize RHS',GotIt)
 
     RHSNorm = ParallelReduction(SQRT(SUM(ForceVector**2)))
     IF( Normalize ) THEN
@@ -5114,18 +5085,18 @@ CONTAINS
 
     ! If at lowest level, choose a solution method and go for it
     !------------------------------------------------------------
-    DirectLimit = ListGetInteger(Solver % Values,'MG Lowest Linear Solver Limit',GotIt) 
+    DirectLimit = ListGetInteger(Params,'MG Lowest Linear Solver Limit',GotIt) 
     IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
       NewLinearSystem = .FALSE.
       IF(Level == 1 .AND. PRESENT(NewSystem)) NewSystem = .FALSE.
 
-      LowestSolver = ListGetString(Solver % Values,'MG Lowest Linear Solver',Found)
+      LowestSolver = ListGetString(Params,'MG Lowest Linear Solver',Found)
 
       IF ( .NOT. Found ) THEN
         LowestSolver = 'direct'
-        LIter = ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)
+        LIter = ListGetLogical(Params,'MG Lowest Linear Solver Iterative',Found)
         IF ( .NOT. Found .AND. Parallel ) LIter=.TRUE.
         IF ( LIter ) LowestSolver='iterative'
       END IF
@@ -5194,17 +5165,15 @@ CONTAINS
     CALL MGmv( Matrix1, Solution, Residual, .TRUE. )
     Residual(1:n) = ForceVector(1:n) - Residual(1:n)
 
-    Tolerance = ListGetConstReal( Solver % Values,&
-        'Linear System Convergence Tolerance' )
-
-    CoarseSave = ListGetLogical(Solver % Values,'MG Cluster Save',GotIt)
+    Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
+    CoarseSave = ListGetLogical(Params,'MG Cluster Save',GotIt)
 
 !---------------------------------------------------------------------
 !
 !      Initialize the multilevel solve:
 !      --------------------------------
 
-    IF( .NOT. ListGetLogical(Solver % Values,'MG Recompute Projector',GotIt) ) THEN
+    IF( .NOT. ListGetLogical(Params,'MG Recompute Projector',GotIt) ) THEN
       NewLinearSystem = .NOT. ASSOCIATED(Matrix1 % Parent)
     END IF
 
@@ -5218,14 +5187,19 @@ CONTAINS
       CALL Info('CMGSolve', Message)
       MinLevel = MIN(MinLevel,Level)
       
-      EliminateDir = ListGetLogical(Solver % Values,'MG Eliminate Dirichlet',GotIt) 
+      EliminateDir = ListGetLogical(Params,'MG Eliminate Dirichlet',GotIt) 
       IF(.NOT. GotIt) EliminateDir = .TRUE.
       IF(Level /= Solver % MultiGridTotal) EliminateDir = .FALSE.
       
       CALL ChooseClusterNodes(Matrix1, Solver, DOFs, EliminateDir, CF)      
+
+!      CALL CRS_InspectMatrix( Matrix1 ) 
+
       CALL CRS_ClusterMatrixCreate( Matrix1, CF, Matrix2, DOFs)       
 
-      TmpArray => ListGetConstRealArray(Solver % Values,'MG Cluster Alpha', gotIt )
+!      CALL CRS_InspectMatrix( Matrix2 ) 
+
+      TmpArray => ListGetConstRealArray(Params,'MG Cluster Alpha', gotIt )
       IF(gotIt) THEN
         Alpha = TmpArray(MIN(InvLevel,SIZE(TmpArray,1)),1)
         Matrix2 % Values = Matrix2 % Values / Alpha
@@ -5274,44 +5248,37 @@ CONTAINS
 
     MaxIter = 1
     IF ( Level == Solver % MultiGridTotal ) THEN
-      MaxIter = ListGetInteger( Solver % Values, &
-          'MG Max Iterations', Found )
+      MaxIter = ListGetInteger( Params,'MG Max Iterations', Found )
       IF ( .NOT. Found ) THEN
-        IF( ListGetString( Solver % Values, 'Linear System Solver', Found ) == 'multigrid') THEN
-          MaxIter = ListGetInteger( Solver % Values, &
-              'Linear System Max Iterations' )
+        IF( ListGetString( Params, 'Linear System Solver', Found ) == 'multigrid') THEN
+          MaxIter = ListGetInteger( Params,'Linear System Max Iterations' )
         ELSE
           MaxIter = 1
         END IF
       END IF
-      Tolerance = ListGetConstReal( Solver % Values, &
-          'MG Convergence Tolerance', Found )
+      Tolerance = ListGetConstReal( Params,'MG Convergence Tolerance', Found )
       IF ( .NOT. Found ) THEN
-        Tolerance = ListGetConstReal( Solver % Values, &
-            'Linear System Convergence Tolerance' )
+        Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
       END IF
     ELSE
-      MaxIter = ListGetInteger( Solver % Values, &
-          'MG Level Max Iterations', Found )
+      MaxIter = ListGetInteger( Params,'MG Level Max Iterations', Found )
       IF ( .NOT. Found ) MaxIter = 1         
-      Tolerance = ListGetConstReal( Solver % Values, &
-          'MG Level Convergence Tolerance', Found )
+      Tolerance = ListGetConstReal( Params,'MG Level Convergence Tolerance', Found )
       IF ( .NOT. Found ) Tolerance = HUGE(Tolerance)
     END IF
    
 !   Smoothing preconditiong, if not given diagonal preconditioning is used:
 !   ----------------------------------------------------------------------
-    str = ListGetString( Solver % Values, 'MG Preconditioning', Found )
+    str = ListGetString( Params, 'MG Preconditioning', Found )
     IF ( .NOT. Found ) THEN
-      str = ListGetString( Solver % Values, &
-          'Linear System Preconditioning', Found )
+      str = ListGetString( Params,'Linear System Preconditioning', Found )
     END IF
    
     IF ( str == 'ilut' )  THEN
       IF ( NewLinearSystem ) THEN
-        ILUTOL = ListGetConstReal( Solver % Values,'MG ILUT Tolerance', GotIt )
+        ILUTOL = ListGetConstReal( Params,'MG ILUT Tolerance', GotIt )
         IF ( .NOT. GotIt ) THEN
-          ILUTOL = ListGetConstReal( Solver % Values,'Linear System ILUT Tolerance' )
+          ILUTOL = ListGetConstReal( Params,'Linear System ILUT Tolerance' )
         END IF
         
         IF ( Parallel ) THEN
@@ -5326,11 +5293,11 @@ CONTAINS
         k = ICHAR(str(4:4)) - ICHAR('0')
         IF ( k < 0 .OR. k > 9 ) k = 0
         IF ( Parallel ) THEN
-          PMatrix % Cholesky = ListGetLogical( Solver % Values, &
+          PMatrix % Cholesky = ListGetLogical( Params, &
                  'Linear System Symmetric ILU', Found )
           Condition = CRS_IncompleteLU( PMatrix, k )
         ELSE
-          Matrix1 % Cholesky = ListGetLogical( Solver % Values, &
+          Matrix1 % Cholesky = ListGetLogical( Params, &
                  'Linear System Symmetric ILU', Found )
           Condition = CRS_IncompleteLU( Matrix1, k )
         END IF
@@ -5403,7 +5370,7 @@ CONTAINS
 !      -------------
 
       
-      Iters => ListGetIntegerArray( Solver % Values,'MG Sweeps',GotIt)
+      Iters => ListGetIntegerArray( Params,'MG Sweeps',GotIt)
       IF(GotIt) THEN
         Sweeps = Iters(MIN(InvLevel,SIZE(Iters)))
       ELSE        
@@ -5635,7 +5602,7 @@ CONTAINS
       ALLOCATE( Sizes(NnodB), CumSizes(NnodB+1), ClusterOrder(NnodA), &
           Row( NmatA ), Ind( NmatB ) )
 
-      Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon',GotIt)
+      Epsilon = ListGetConstReal(Params,'MG Matrix Create Epsilon',GotIt)
       IF(.NOT. GotIt) Epsilon = SQRT(TINY(Epsilon))
 
  
@@ -5683,8 +5650,6 @@ CONTAINS
           END DO
         END DO
       END IF
-
-
 
 10    TotalNonzeros = 0
       NoRow = 0
@@ -5815,7 +5780,7 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
         END DO
       END IF
 
-      Normalize = ListGetLogical( Solver % Values,'MG Matrix Enforce Zero Rowsum',GotIt )
+      Normalize = ListGetLogical( Params,'MG Matrix Enforce Zero Rowsum',GotIt )
       IF( Normalize ) THEN
         CALL Info('CRS_ClusterMatrixCreate','Enforcing rowsum to zero')
 
@@ -5837,7 +5802,7 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
 
       DEALLOCATE(  Sizes, CumSizes, ClusterOrder, Row, Ind )
       
-      WRITE(Message,'(A,F8.3)') 'Coarse matrix reduction factor',&
+      WRITE(Message,'(A,F10.3)') 'Coarse matrix reduction factor',&
           1.0 *  SIZE(A % Cols) / TotalNonZeros
       CALL Info('CRS_ClusterMatrixCreate',Message)
 
@@ -5863,7 +5828,7 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
       
       ! Save in ElmerPost
       IF(.TRUE.) THEN
-        m = ListGetInteger(Solver % Values,'MG Cluster Save Modulo',GotIt)
+        m = ListGetInteger(Params,'MG Cluster Save Modulo',GotIt)
 
         Perm => Solver % Variable % Perm
         TmpMatrix => Matrix1
@@ -5939,19 +5904,21 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
 
      INTEGER :: comm_active, group_active, group_world, ierr
      INTEGER, ALLOCATABLE :: memb(:)
+     TYPE(ValueList_t), POINTER :: Params
 
      SAVE TimeVar, FirstTime
 !------------------------------------------------------------------------------
      CALL SetCurrentMesh( Model, Solver % Mesh )
      Model % Solver => Solver
+     Params => Solver % Values
 
-     st = ListGetConstReal( Solver % Values, 'Start Time', Found )
+     st = ListGetConstReal( Params, 'Start Time', Found )
      IF ( Found ) THEN
        TimeVar => VariableGet( Model % Variables, 'Time' )
        IF ( TimeVar % Values(1) < st ) RETURN
      END IF
 
-     execi = ListGetInteger( Solver % Values, 'Exec Interval', Found )
+     execi = ListGetInteger( Params, 'Exec Interval', Found )
      IF ( Found ) THEN
        TimeVar => VariableGet( Model % Variables, 'Timestep' )
        execi = MOD( NINT(Timevar % Values(1))-1, execi )
@@ -5960,7 +5927,7 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
 
 !    IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
        Solver % NumberOFActiveElements = 0
-       EquationName = ListGetString( Solver % Values, 'Equation', stat )
+       EquationName = ListGetString( Params, 'Equation', stat )
 
        IF ( Stat ) THEN
           IF ( ASSOCIATED(Solver % ActiveElements) ) DEALLOCATE( Solver % ActiveElements )
@@ -5976,13 +5943,13 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
                 Maxdim = MAX( CurrentElement % TYPE % DIMENSION, Maxdim )
              END IF
           END DO
-          CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
+          CALL ListAddInteger( Params, 'Active Mesh Dimension', Maxdim )
        END IF
 !    END IF
 !------------------------------------------------------------------------------
      Solver % Mesh % OutputActive = .TRUE.
      OrigDT = dt
-     DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
+     DTScal = ListGetConstReal( Params,'Timestep Scale', Found )
      IF ( .NOT. Found ) DTScal = 1.0d0
      Solver % dt = DTScal * dt
 
@@ -6022,13 +5989,13 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
        END IF
      END IF
 
-     str = ListGetString( Solver % Values, 'Namespace', Found )
+     str = ListGetString( Params, 'Namespace', Found )
      IF (Found) CALL ListSetNamespace(TRIM(str))
 
      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
      iterV % Values(1) = 1
 
-     str = ListGetString( Solver  % Values, 'Procedure', Found )
+     str = ListGetString( Params, 'Procedure', Found )
 
 #ifdef SGIn32
       SolverAddr = Solver % PROCEDURE
