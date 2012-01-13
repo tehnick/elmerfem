@@ -53,9 +53,9 @@ CONTAINS
 
 
 !********************************************************************
-  FUNCTION CRS_Search( N,Array,Value ) RESULT ( Index )
+  FUNCTION CRS_Search( N,Array,VALUE ) RESULT ( Index )
 
-    INTEGER :: N,Value,Array(:)
+    INTEGER :: N,VALUE,Array(:)
 
     ! Local variables
 
@@ -72,17 +72,17 @@ CONTAINS
     IF ( Upper == 0 ) RETURN
 
     DO WHILE( .TRUE. )
-      IF ( Array(Lower) == Value ) THEN
+      IF ( Array(Lower) == VALUE ) THEN
         Index = Lower
         EXIT
-      ELSE IF ( Array(Upper) == Value ) THEN
+      ELSE IF ( Array(Upper) == VALUE ) THEN
         Index = Upper
         EXIT
       END IF
 
       IF ( (Upper-Lower)>1 ) THEN
         Lou = ISHFT((Upper+Lower), -1)
-        IF ( Array(Lou) < Value ) THEN
+        IF ( Array(Lou) < VALUE ) THEN
           Lower = Lou
         ELSE
           Upper = Lou
@@ -295,12 +295,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 !>    Add a given value to an element of a  CRS format matrix.
 !------------------------------------------------------------------------------
-  SUBROUTINE CRS_AddToMatrixElement( A,i,j,value )
+  SUBROUTINE CRS_AddToMatrixElement( A,i,j,VALUE )
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A     !< Structure holding the matrix
     INTEGER, INTENT(IN) :: i         !< row number of the matrix element
     INTEGER, INTENT(IN) :: j         !< column number of the matrix element
-    REAL(KIND=dp), INTENT(IN) :: value   !< value to be added to the matrix element
+    REAL(KIND=dp), INTENT(IN) :: VALUE   !< value to be added to the matrix element
  !------------------------------------------------------------------------------
     INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
@@ -314,14 +314,14 @@ CONTAINS
 
     IF ( .NOT.ASSOCIATED(Diag) .OR. i /= j .OR. .NOT. A % Ordered ) THEN
       k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
-      IF ( k==0 .AND. Value/=0 ) PRINT*,'Trying to add value to nonexistent matrix element: ', i,j,Value
+      IF ( k==0 .AND. VALUE/=0 ) PRINT*,'Trying to add value to nonexistent matrix element: ', i,j,VALUE
       IF ( k==0 ) RETURN
       k = k + Rows(i) - 1
     ELSE
       k = Diag(i)
     END IF
 !$omp atomic
-    Values(k) = Values(k) + value
+    Values(k) = Values(k) + VALUE
   END SUBROUTINE CRS_AddToMatrixElement
 !------------------------------------------------------------------------------
 
@@ -330,12 +330,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 !>    Set a given value to an element of a  CRS format matrix.
 !------------------------------------------------------------------------------
-  SUBROUTINE CRS_SetMatrixElement( A,i,j,value )
+  SUBROUTINE CRS_SetMatrixElement( A,i,j,VALUE )
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A     !< Structure holding the matrix
     INTEGER, INTENT(IN) :: i         !< row number of the matrix element
     INTEGER, INTENT(IN) :: j         !< column number of the matrix element
-    REAL(KIND=dp), INTENT(IN) :: value   !< new value of the matrix element
+    REAL(KIND=dp), INTENT(IN) :: VALUE   !< new value of the matrix element
 !------------------------------------------------------------------------------ 
     INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
@@ -350,14 +350,14 @@ CONTAINS
     IF ( .NOT.ASSOCIATED(Diag) .OR. i /= j .OR. .NOT. A % Ordered ) THEN
        k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
       IF ( k==0 ) THEN
-         PRINT*,'Trying to set value to nonexistent matrix element: ', i,j,value
+         PRINT*,'Trying to set value to nonexistent matrix element: ', i,j,VALUE
          RETURN
        END IF
        k = k + Rows(i) - 1
     ELSE
        k = Diag(i)
     END IF
-    Values(k) = value
+    Values(k) = VALUE
   END SUBROUTINE CRS_SetMatrixElement
 !------------------------------------------------------------------------------
 
@@ -365,12 +365,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 !>    Get a given matrix entry from CRS format matrix.
 !------------------------------------------------------------------------------
-  FUNCTION CRS_GetMatrixElement( A,i,j ) RESULT ( Value )
+  FUNCTION CRS_GetMatrixElement( A,i,j ) RESULT ( VALUE )
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), INTENT(IN):: A     !< Structure holding the matrix
     INTEGER, INTENT(IN) :: i         !< row number of the matrix element
     INTEGER, INTENT(IN) :: j         !< column number of the matrix element
-    REAL(KIND=dp) :: value   !< obtained value of the matrix element
+    REAL(KIND=dp) :: VALUE   !< obtained value of the matrix element
 !------------------------------------------------------------------------------ 
     INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
@@ -391,7 +391,7 @@ CONTAINS
     ELSE
        k = Diag(i)
     END IF
-    value = Values(k)
+    VALUE = Values(k)
 
   END FUNCTION CRS_GetMatrixElement
 !------------------------------------------------------------------------------
@@ -448,7 +448,7 @@ CONTAINS
     REAL(KIND=dp),OPTIONAL :: coeff   !< Optional coefficient to multiply the row to be copied with
 !------------------------------------------------------------------------------
 
-    REAL(KIND=dp) :: Value, c
+    REAL(KIND=dp) :: VALUE, c
     INTEGER :: i,j
 
     IF( PRESENT(Coeff)) THEN
@@ -459,9 +459,9 @@ CONTAINS
 
     DO i=A % Rows(n1),A % Rows(n1+1)-1
       j = A % Cols(i)
-      Value = c * A % Values(i) 
+      VALUE = c * A % Values(i) 
       A % Values(i) = 0.0_dp
-      CALL CRS_AddToMatrixElement( A,n2,j,Value )      
+      CALL CRS_AddToMatrixElement( A,n2,j,VALUE )      
     END DO
 
   END SUBROUTINE CRS_MoveRow
@@ -1138,7 +1138,7 @@ END FUNCTION CRS_RowSum
 
     B % NumberOfRows = n
     B % ListMatrix => NULL()
-    B % FORMAT = A % Format
+    B % FORMAT = A % FORMAT
 
     B % Rows => A % Rows
     B % Cols => A % Cols
@@ -2998,6 +2998,119 @@ END FUNCTION CRS_RowSum
 
   END SUBROUTINE CRS_ComplexMatrixVectorProd
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Check the matrix for correctness.
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_InspectMatrix( A )
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A   !< Structure holding the matrix
+!------------------------------------------------------------------------------
+
+    REAL(KIND=dp), POINTER :: Values(:)
+    INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
+    INTEGER :: i,j,n,ColMin,ColMax,RowMin,RowMax,ColN,RowN,ValN
+    REAL(KIND=dp) :: ValMin,ValMax,TotalSum,DiagSum
+
+    Diag   => A % Diag
+    Rows   => A % Rows
+    Cols   => A % Cols
+    Values => A % Values
+
+    n = A % NumberOfRows
+    RowMin = MINVAL( Rows )
+    RowMax = MAXVAL( Rows )
+    RowN = SIZE( Rows )
+
+    PRINT *,'Rows:'
+    PRINT *,'size:',RowN
+    PRINT *,'min:',RowMin
+    PRINT *,'max:',RowMax
+
+    IF( RowMin < 1 ) THEN
+      PRINT *,'Outliers:'
+      j =  0
+      DO i=1,RowN
+        IF( Rows(i) < 1 ) THEN
+          j = j + 1
+          IF( j < 10 ) PRINT *,'i',i,Rows(i)
+        END IF
+      END DO
+      IF( j > 0 ) THEN
+        PRINT *,'Number of row outliers:',j
+      END IF
+    END IF
+
+    ColMin = MINVAL( Cols )
+    ColMax = MAXVAL( Cols )
+    ColN = SIZE( Cols )
+
+    PRINT *,'Cols:'
+    PRINT *,'size:',ColN
+    PRINT *,'min:',ColMin
+    PRINT *,'max:',ColMax
+
+    IF( ColMin < 1 ) THEN
+      PRINT *,'Outliers:'
+      j = 0
+      DO i=1,ColN
+        IF( Cols(i) < 1 ) THEN
+          j = j + 1
+          IF( j < 10 )PRINT *,'i',i,Cols(i)
+        END IF
+      END DO
+      IF( j > 0 ) THEN
+        PRINT *,'Number of column outliers:',j
+      END IF
+    END IF
+
+    ValMin = MINVAL( Values )
+    ValMax = MAXVAL( Values )
+    ValN = SIZE( Values )
+    TotalSum = SUM( Values )
+
+    PRINT *,'Values:'
+    PRINT *,'size:',ValN
+    PRINT *,'min:',ValMin
+    PRINT *,'max:',ValMax
+    PRINT *,'sum:',TotalSum
+    
+    IF( ColN /= RowMax - 1  ) THEN
+      PRINT *,'Conflicting max row index :',n,RowMax-1
+    END IF
+    IF( N /= ColMax  ) THEN
+      PRINT *,'Conflicting max row index:',N,ColMax
+    END IF
+    IF( ColN /= ValN  ) THEN
+      PRINT *,'Conflicting size of Values vs. Cols:',ValN,ColN
+    END IF
+
+    PRINT *,'Checking Diag vector:'
+    j = 0
+    DO i=1,n
+      IF( i /= Cols(Diag(i)) ) THEN
+        j = j + 1
+        IF( j < 10 ) PRINT *,'diag:',i,Cols(Diag(i)) 
+      END IF
+    END DO
+    IF( j > 0 ) THEN
+      PRINT *,'Number of errornous diag entries:',j
+    ELSE
+      DiagSum = SUM( Values(Diag) )
+      PRINT *,'diagonal sum:',DiagSum
+
+! ratios are used to study cluster MG method, for example
+      PRINT *,'ratios:',TotalSum/DiagSum,(TotalSum-DiagSum)/DiagSum
+      
+      TotalSum = SUM( ABS( Values ) )
+      DiagSum = SUM( ABS( Values(Diag) ) )
+      PRINT *,'abs ratios:',TotalSum/DiagSum,(TotalSum-DiagSum)/DiagSum
+
+    END IF
+
+  END SUBROUTINE CRS_InspectMatrix
+
 
 END MODULE CRSMatrix
 !------------------------------------------------------------------------------
