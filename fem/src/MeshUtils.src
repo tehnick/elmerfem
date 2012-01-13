@@ -131,15 +131,15 @@ CONTAINS
 
      Mesh % Stabilize = .FALSE.
 
-     Mesh % Variables => Null()
-     Mesh % Parent => Null()
-     Mesh % Child => Null()
-     Mesh % Next => Null()
-     Mesh % RootQuadrant => Null()
-     Mesh % Elements => Null()
-     Mesh % Edges => Null()
-     Mesh % Faces => Null()
-     Mesh % Projector => Null()
+     Mesh % Variables => NULL()
+     Mesh % Parent => NULL()
+     Mesh % Child => NULL()
+     Mesh % Next => NULL()
+     Mesh % RootQuadrant => NULL()
+     Mesh % Elements => NULL()
+     Mesh % Edges => NULL()
+     Mesh % Faces => NULL()
+     Mesh % Projector => NULL()
      Mesh % NumberOfEdges = 0
      Mesh % NumberOfFaces = 0
      Mesh % NumberOfNodes = 0
@@ -152,7 +152,7 @@ CONTAINS
      Mesh % MaxElementDOFs  = 0
      Mesh % MaxElementNodes = 0
 
-     Mesh % ViewFactors => Null()
+     Mesh % ViewFactors => NULL()
 
      ALLOCATE( Mesh % Nodes, STAT=istat )
      IF ( istat /= 0 ) &
@@ -591,7 +591,7 @@ END SUBROUTINE GetMaxDefs
                    Element % TYPE % NodeV, Element % TYPE % NodeW )
         ELSE 
            ! Clear P element definitions and set manual bubbles
-           Element % PDefs => Null()
+           Element % PDefs => NULL()
            Element % BDOFs = MAX(0,inDOFs(5))
            ! WRITE (*,*) Element % BDOFs
         END IF
@@ -721,18 +721,18 @@ END SUBROUTINE GetMaxDefs
           Mesh % Elements(i) % NodeIndexes(j) = LocalPerm(nodes(j) - MinIndex + 1)
         END DO
 
-        Mesh % Elements(i) % EdgeIndexes => Null()
-        Mesh % Elements(i) % FaceIndexes => Null()
+        Mesh % Elements(i) % EdgeIndexes => NULL()
+        Mesh % Elements(i) % FaceIndexes => NULL()
 
-        Mesh % Elements(i) % BoundaryInfo % Left => Null()
+        Mesh % Elements(i) % BoundaryInfo % Left => NULL()
         IF ( Left >= 1 ) &
           Mesh % Elements(i) % BoundaryInfo % Left => Mesh % Elements(left)
 
-        Mesh % Elements(i) % BoundaryInfo % Right => Null()
+        Mesh % Elements(i) % BoundaryInfo % Right => NULL()
         IF ( Right >= 1 ) &
           Mesh % Elements(i) % BoundaryInfo % Right => Mesh % Elements(right)
 
-        Mesh % Elements(i) % Boundaryinfo % GebhardtFactors => Null()
+        Mesh % Elements(i) % Boundaryinfo % GebhardtFactors => NULL()
 
         Mesh % Elements(i) % NDOFs  = n
         IF ( ASSOCIATED(Mesh % Elements(i) % BoundaryInfo % Left) ) THEN
@@ -762,11 +762,11 @@ END SUBROUTINE GetMaxDefs
         END IF
 
         Mesh % Elements(i) % DGDOFs = 0
-        Mesh % Elements(i) % PDefs => Null()
-        Mesh % Elements(i) % DGIndexes => Null()
-        Mesh % Elements(i) % EdgeIndexes => Null()
-        Mesh % Elements(i) % FaceIndexes => Null()
-        Mesh % Elements(i) % BubbleIndexes => Null()
+        Mesh % Elements(i) % PDefs => NULL()
+        Mesh % Elements(i) % DGIndexes => NULL()
+        Mesh % Elements(i) % EdgeIndexes => NULL()
+        Mesh % Elements(i) % FaceIndexes => NULL()
+        Mesh % Elements(i) % BubbleIndexes => NULL()
       ELSE
         WRITE( Message, * ) 'Unknown element type ',TYPE,' ignoring element.'
         CALL Warn( 'LoadMesh', Message )
@@ -775,8 +775,8 @@ END SUBROUTINE GetMaxDefs
     IF ( Mesh % MaxElementDOFs <= 0 ) Mesh % MaxElementDOFs=Mesh % MaxElementNodes 
 
     DEALLOCATE( Coord, LocalEPerm )
-    Model % FreeSurfaceNodes => Null()
-    Model % BoundaryCurvatures => Null()
+    Model % FreeSurfaceNodes => NULL()
+    Model % BoundaryCurvatures => NULL()
 !------------------------------------------------------------------------------
 
     IF ( NeedEdges ) THEN
@@ -1727,8 +1727,8 @@ CONTAINS
           Faces   => Mesh % Faces
           FaceInd => Element % FaceIndexes
         CASE DEFAULT
-          Faces => Null()
-          FaceInd => Null()
+          Faces => NULL()
+          FaceInd => NULL()
         END SELECT
 
         IF ( .NOT. ASSOCIATED(Faces) .OR. .NOT. ASSOCIATED(FaceInd) ) CYCLE
@@ -2198,8 +2198,8 @@ CONTAINS
                 Faces(Face) % NDOFs  = Faces(Face) % TYPE % NumberOfNodes
              Faces(Face) % BDOFs  = 0
              Faces(Face) % DGDOFs = 0
-             Faces(Face) % EdgeIndexes => Null()
-             Faces(Face) % FaceIndexes => Null()
+             Faces(Face) % EdgeIndexes => NULL()
+             Faces(Face) % FaceIndexes => NULL()
 
              CALL AllocateVector( Faces(Face) % NodeIndexes,n1 )
              DO n2=1,n1
@@ -2477,8 +2477,8 @@ CONTAINS
                 Edges(Edge) % NDOFs  = Edges(Edge) % TYPE % NumberOfNodes
              Edges(Edge) % BDOFs  = 0
              Edges(Edge) % DGDOFs = 0
-             Edges(Edge) % EdgeIndexes => Null()
-             Edges(Edge) % FaceIndexes => Null()
+             Edges(Edge) % EdgeIndexes => NULL()
+             Edges(Edge) % FaceIndexes => NULL()
 
              CALL AllocateVector( Edges(Edge) % NodeIndexes, degree + 1 )
              DO n2=1,degree+1
@@ -2488,8 +2488,8 @@ CONTAINS
 
              Element % EdgeIndexes(k) = Edge
              ALLOCATE( Edges(Edge) % BoundaryInfo )
-             Edges(Edge) % BoundaryInfo % Left  => Null()
-             Edges(Edge) % BoundaryInfo % Right => Null()
+             Edges(Edge) % BoundaryInfo % Left  => NULL()
+             Edges(Edge) % BoundaryInfo % Right => NULL()
 
              ! Allocate P element definitions 
              IF ( ASSOCIATED( Element % PDefs ) ) THEN
@@ -5440,7 +5440,7 @@ CONTAINS
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: CurrentElement
-    TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
+    TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>NULL(), LeafQuadrant
     REAL(kind=dp) :: BoundingBox(6), eps2, eps1 = 1e-3, GlobalEps, LocalEps
     CHARACTER(LEN=MAX_NAME_LEN) :: MaskName
 
@@ -5490,7 +5490,7 @@ CONTAINS
 
       IF( ASSOCIATED( Mesh % RootQuadrant ) ) THEN
         CALL FreeQuadrantTree( Mesh % RootQuadrant )
-        Mesh % RootQuadrant => Null()
+        Mesh % RootQuadrant => NULL()
       END IF
     END IF
       
@@ -6005,7 +6005,7 @@ CONTAINS
     INTEGER, OPTIONAL :: MaskPerm(:)
     INTEGER, POINTER :: Clustering(:)
 !---------------------------------------------------------------
-
+    TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: MaskExists,GotIt,Hit
     REAL(KIND=dp), ALLOCATABLE :: Measure(:)
     INTEGER :: i,j,k,k0,l,ind,n,dim,dir,divs,nsize,elemsinpart,clusters
@@ -6024,9 +6024,14 @@ CONTAINS
     ELSE
       nsize = Mesh % NumberOfNodes
     END IF
-    
+     
+    IF( ASSOCIATED( Solver ) ) THEN
+      Params => Solver % Values
+    ELSE
+      CALL Fatal('ClusterNodesByDirection','No solver associated')
+    END IF
     dim = Mesh % MeshDim
-    Parray => ListGetConstRealArray( Solver % Values,'Clustering Normal Vector',GotIt )
+    Parray => ListGetConstRealArray( Params,'Clustering Normal Vector',GotIt )
     IF( GotIt ) THEN
       Normal = Parray(1:3,1)
     ELSE
@@ -6046,16 +6051,17 @@ CONTAINS
     END IF
 
 
-    Iarray => ListGetIntegerArray( Solver % Values,'Clustering Divisions',GotIt )
+    Iarray => ListGetIntegerArray( Params,'MG Cluster Divisions',GotIt )
+    Divisions = 1
     IF( GotIt ) THEN
-      Divisions = Iarray(1:3)
+      n = MIN( SIZE(Iarray), dim ) 
+      Divisions(1:n) = Iarray(1:n)
     ELSE
-      clustersize = ListGetInteger( Solver % Values,'MG Cluster Size',GotIt)
-      IF( GotIt ) THEN
+      clustersize = ListGetInteger( Params,'MG Cluster Size',GotIt)
+      IF( GotIt .AND. ClusterSize > 0) THEN
         IF( dim == 2 ) THEN
           Divisions(1) = ( nsize / clustersize ) ** 0.5
           Divisions(2) = ( nsize / ( clustersize * Divisions(1) ) )
-          Divisions(3) = 1
         ELSE
           Divisions(1:2) = ( nsize / clustersize ) ** (1.0_dp / 3 )
           Divisions(3) = ( nsize / ( clustersize * Divisions(1) * Divisions(2) ) )
@@ -6068,6 +6074,8 @@ CONTAINS
     Clusters = Divisions(1) * Divisions(2) * Divisions(3)
 
     IF( .FALSE. ) THEN
+      PRINT *,'dim:',dim
+      PRINT *,'divisions:',divisions
       PRINT *,'clusters:',clusters
       PRINT *,'nsize:',nsize
     END IF
