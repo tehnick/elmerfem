@@ -7,4 +7,4 @@ run:
 
 clean:
 	/bin/rm -f test.log temp.log mon.out
-	/bin/rm -rf square
+	/bin/rm -rf 1d
