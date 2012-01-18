@@ -183,7 +183,7 @@ CONTAINS
         U(i) = SUM( SOL(i,1:nd) * Basis(1:nd) )
       END DO
 
-      gradU = MATMUL(SOL(1:dim,1:nd),dBasisdx(1:nd,1:dim))
+      gradU(1:dim,1:dim) = MATMUL(SOL(1:dim,1:nd),dBasisdx(1:nd,1:dim))
 
       DO i=1,dim
         gradF(i) = SUM(SOL(L,1:nd)*dBasisdx(1:nd,i))
