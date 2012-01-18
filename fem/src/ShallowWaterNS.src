@@ -246,14 +246,13 @@ CONTAINS
           END IF
         END DO
         DO j=1,dim
-          IF (MassFluxDiscretization) THEN
-            IF(NewtonLinearization) &
-              FORCE(i+L) = FORCE(i+L) - s * U(j)*U(L)*dBasisdx(p,j)
-          ELSE
-            IF(NewtonLinearization) &
-              FORCE(i+L) = FORCE(i+L) + s * (U(L)*gradU(j,j)+U(j)*gradf(j))*Basis(p)
-          END IF
           IF(NewtonLinearization) THEN
+            IF (MassFluxDiscretization) THEN
+              FORCE(i+L) = FORCE(i+L) - s * U(j)*U(L)*dBasisdx(p,j)
+            ELSE
+              FORCE(i+L) = FORCE(i+L) + s * (U(L)*gradU(j,j)+U(j)*gradf(j))*Basis(p)
+            END IF
+
             DO k=1,dim
               FORCE(i+j) = FORCE(i+j) + s * U(k)*gradU(j,k) * Basis(p)
             END DO
