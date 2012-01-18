@@ -1225,6 +1225,8 @@ END SUBROUTINE GetMaxDefs
     SAVE Parray
 !------------------------------------------------------------------------------
 
+    DIM = CoordinateSystemDimension()
+
     NULLIFY( Projector )
     IF ( This <= 0 .OR. Trgt <= 0 ) RETURN
 
@@ -1243,6 +1245,8 @@ END SUBROUTINE GetMaxDefs
     END DO
 
     IF ( n1 <= 0 .OR. n2 <= 0 ) RETURN
+
+
 !
 !   Initialize mesh structures for boundaries, this
 !   is for getting the mesh projector:
@@ -1267,7 +1271,7 @@ END SUBROUTINE GetMaxDefs
     BMesh2 % MaxElementNodes = 0
     DO i=1, Mesh % NumberOfBoundaryElements
        Element => Elements(i)
-       IF ( Element % TYPE % ElementCode < 200 ) CYCLE
+       IF ( dim>1 .AND. Element % Type % ElementCode < 200 ) CYCLE
 
        n = Element % TYPE % NumberOfNodes
        Constraint = Element % BoundaryInfo % Constraint

@@ -3706,6 +3706,8 @@ END IF
 !      ... otherwise compute from the definition.
 !------------------------------------------------------------------------------
        SELECT CASE (elm % TYPE % DIMENSION)
+         CASE (0)
+           VALUE = f(1)
          CASE (1)
            VALUE = InterpolateInElement1D( elm,f,u )
          CASE (2)
@@ -4961,12 +4963,15 @@ END FUNCTION PointFaceDistance
     u = 0._dp
     v = 0._dp
     w = 0._dp
+    IF (Element % Type % Dimension==0) RETURN
+
     n = Element % TYPE % NumberOfNodes
 
     ! @todo Not supported yet
 !   IF (ASSOCIATED(Element % PDefs)) THEN
 !      CALL Fatal('GlobalToLocal','P elements not supported yet!')
 !   END IF
+
 
 !------------------------------------------------------------------------------
     DO i=1,Maxiter
