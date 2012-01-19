@@ -3010,8 +3010,9 @@ END FUNCTION CRS_RowSum
 
     REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
-    INTEGER :: i,j,n,ColMin,ColMax,RowMin,RowMax,ColN,RowN,ValN
+    INTEGER :: i,j,k,k2,n,ColMin,ColMax,RowMin,RowMax,ColN,RowN,ValN,UnSym
     REAL(KIND=dp) :: ValMin,ValMax,TotalSum,DiagSum
+    LOGICAL :: Hit
 
     Diag   => A % Diag
     Rows   => A % Rows
@@ -3108,6 +3109,27 @@ END FUNCTION CRS_RowSum
       PRINT *,'abs ratios:',TotalSum/DiagSum,(TotalSum-DiagSum)/DiagSum
 
     END IF
+    
+    UnSym = 0
+    DO i=1,n
+      DO k=Rows(i),Rows(i+1)-1
+        j = Cols(k)
+        Hit = .FALSE.
+        DO k2=Rows(j),Rows(j+1)-1
+          IF( Cols(k2) == i ) THEN
+            Hit = .TRUE.
+            EXIT
+          END IF
+        END DO
+        IF( .NOT. Hit ) THEN
+          UnSym = UnSym + 1
+          IF( UnSym < 10 ) PRINT *,'unsym:',i,j
+        END IF
+      END DO
+    END DO
+
+    PRINT *,'Number of unsymmetric entries in matrix topology:',UnSym
+
 
   END SUBROUTINE CRS_InspectMatrix
 
