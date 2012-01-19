@@ -361,6 +361,7 @@ SOLVEROBJS = \
 		CRSMatrix$(OBJ_EXT)				\
 		BandMatrix$(OBJ_EXT)				\
 		BandwidthOptimize$(OBJ_EXT)			\
+		BlockSolve$(OBJ_EXT)				\
 		MaterialModels$(OBJ_EXT)			\
 		FlowSolve$(OBJ_EXT)				\
 		HeatSolve$(OBJ_EXT)				\
@@ -434,6 +435,7 @@ EXTRA_DIST = \
 	ArtificialCompressibility.src \
 	BandMatrix.src \
 	BandwidthOptimize.src \
+	BlockSolve.src \
         cholmod.c	      \
 	ClusteringMethods.src \
 	CoordinateSystems.src \
@@ -966,6 +968,7 @@ ArteryOutlet.$(OBJEXT): ArteryOutlet.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJ
 ArtificialCompressibility.$(OBJEXT): ArtificialCompressibility.f90 DefUtils.$(OBJEXT)
 BandMatrix.$(OBJEXT): BandMatrix.f90 GeneralUtils.$(OBJEXT) Types.$(OBJEXT)
 BandwidthOptimize.$(OBJEXT): BandwidthOptimize.f90 SParIterGlobals.$(OBJEXT) ElementDescription.$(OBJEXT)
+BlockSolve.$(OBJEXT): BlockSolve.f90 SParIterSolver.$(OBJEXT)
 CoordinateSystems.$(OBJEXT): CoordinateSystems.f90 Types.$(OBJEXT)
 CRSMatrix.$(OBJEXT): CRSMatrix.f90 GeneralUtils.$(OBJEXT)
 DCRComplexSolve.$(OBJEXT): DCRComplexSolve.f90 DefUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) LinearAlgebra.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
@@ -1075,7 +1078,7 @@ SolveBand.$(OBJEXT): SolveBand.f90 Types.$(OBJEXT)
 solve_cmplx.$(OBJEXT): solve_cmplx.f90 Types.$(OBJEXT)
 solve_real.$(OBJEXT): solve_real.f90
 Solver.$(OBJEXT): Solver.f90 GeneralUtils.$(OBJEXT) ParallelUtils.$(OBJEXT) Types.$(OBJEXT)
-SolverUtils.$(OBJEXT): SolverUtils.f90 Multigrid.$(OBJEXT) EigenSolve.$(OBJEXT) ParallelUtils.$(OBJEXT) DirectSolve.$(OBJEXT) ElementUtils.$(OBJEXT) ParallelEigenSolve.$(OBJEXT) IterSolve.$(OBJEXT) MeshUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT) TimeIntegrate.$(OBJEXT) ModelDescription.$(OBJEXT) Types.$(OBJEXT)
+SolverUtils.$(OBJEXT): SolverUtils.f90 BlockSolve.$(OBJEXT) Multigrid.$(OBJEXT) EigenSolve.$(OBJEXT) ParallelUtils.$(OBJEXT) DirectSolve.$(OBJEXT) ElementUtils.$(OBJEXT) ParallelEigenSolve.$(OBJEXT) IterSolve.$(OBJEXT) MeshUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT) TimeIntegrate.$(OBJEXT) ModelDescription.$(OBJEXT) Types.$(OBJEXT)
 SolveSBand.$(OBJEXT): SolveSBand.f90 Types.$(OBJEXT)
 Spalart-Allmaras.$(OBJEXT): Spalart-Allmaras.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 SParIterComm.$(OBJEXT): SParIterComm.f90 SParIterGlobals.$(OBJEXT) GeneralUtils.$(OBJEXT) Types.$(OBJEXT)

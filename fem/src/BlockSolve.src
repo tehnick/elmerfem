@@ -1,0 +1,228 @@
+MODULE BlockSolve
+
+ USE Lists
+ USE CRSMatrix
+ USE ParallelUtils
+
+ TYPE SubVector_t
+    TYPE(Variable_t), POINTER :: Var
+    REAL(KIND=dp) :: rnorm, bnorm, xnorm
+    REAL(KIND=dp), ALLOCATABLE :: rhs(:)
+  END TYPE SubVector_t
+
+  TYPE SubMatrix_t
+     TYPE(Matrix_t), POINTER :: Mat
+     TYPE(Matrix_t), POINTER :: PrecMat
+  END TYPE SubMatrix_t
+
+  TYPE BlockMatrix_t
+    INTEGER :: NoVar = 0, MaxSize, TotSize
+    INTEGER, POINTER :: Offset(:)
+    TYPE(Solver_t), POINTER :: Solver
+    REAL(KIND=dp) :: rnorm, bnorm, xnorm
+    TYPE(SubMatrix_t), ALLOCATABLE :: SubMatrix(:,:)
+    LOGICAL, ALLOCATABLE :: SubMatrixActive(:,:)
+    TYPE(SubVector_t), POINTER :: SubVector(:) => Null()
+  END TYPE BlockMatrix_t
+
+  TYPE(BlockMatrix_t), TARGET, SAVE :: TotMatrix
+
+  LOGICAL, PRIVATE :: isParallel=.FALSE.
+
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+!> Perform matrix-vector product for block matrices.
+!> Has to be callab outside the module bt Krylov methods.
+!------------------------------------------------------------------------------
+  SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
+    INTEGER :: i,j,k,NoVar,ipar(*)
+    REAL(KIND=dp) :: u(*),v(*)
+    REAL(KIND=dp), ALLOCATABLE :: s(:)
+    INTEGER :: maxsize
+    INTEGER, POINTER :: Offset(:)
+    
+    NoVar = TotMatrix % NoVar
+    Offset => TotMatrix % Offset
+    MaxSize = TotMatrix % MaxSize
+
+    ALLOCATE( s(MaxSize) )
+
+    v(1:offset(NoVar+1)) = 0
+    DO i=1,NoVar
+      DO j=1,NoVar
+        s = 0._dp
+        IF (isParallel) THEN
+          CALL ParallelMatrixVector( TotMatrix % SubMatrix(i,j) % Mat, &
+               u(offset(j)+1:offset(j+1)), s  )
+        ELSE
+          CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
+                   u(offset(j)+1:offset(j+1)), s )
+        END IF
+
+        DO k=1,offset(i+1)-offset(i)
+          v(k+offset(i)) = v(k+offset(i)) + s(k)
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE BlockMatrixVectorProd
+  
+
+!------------------------------------------------------------------------------
+!> Perform block preconditioning by solving all the individual diagonal problems.
+!> Has to be called outside the module by Krylov methods.
+!------------------------------------------------------------------------------
+  SUBROUTINE BlockMatrixPrec( u,v,ipar )
+    USE DefUtils
+    
+    REAL(KIND=dp), TARGET :: u(*), v(*)
+    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),b(:), x(:), rhs_save(:)
+    INTEGER :: i,j,k,l,NoVar,ipar(*)
+    TYPE(Solver_t), POINTER :: Solver
+    INTEGER, POINTER :: Offset(:)
+    TYPE(ValueList_t), POINTER :: Params
+    INTEGER, POINTER :: BlockOrder(:)
+    TYPE(Matrix_t), POINTER :: A, mat_save
+    TYPE(Variable_t), POINTER :: Var, SolverVar
+
+    LOGICAL :: GotOrder, BlockGS, Found, NS, SkipCompChange
+    TYPE(Varying_string) :: namesp
+    CHARACTER(LEN=MAX_NAME_LEN) :: str
+
+    INTEGER(KIND=AddrInt) :: AddrFunc
+    
+    CALL Info('BlockMatrixPrec','Starting preconditioning',Level=6)
+    
+    WRITE(Message,'(A,I0)') 'Number of coupled variables: ',NoVar
+    
+    Solver => CurrentModel % Solver
+    Params => Solver % Values
+    
+    ! Enable user defined order for the solution of blocks
+    !---------------------------------------------------------------
+    BlockOrder => ListGetIntegerArray( Params,'Block Order',GotOrder)
+    BlockGS = ListGetLogical( Params,'Block Gauss-Seidel',Found)
+    
+    NoVar = TotMatrix % NoVar
+    Solver => TotMatrix % Solver
+    offset => TotMatrix % Offset
+    SolverVar => Solver % Variable
+
+    NS = ListGetNameSpace(namesp)
+
+    ! Initial guess 
+    !-----------------------------------------
+    u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
+
+    IF( BlockGS ) THEN
+      ALLOCATE( vtmp(offset(NoVar+1)), rtmp(offset(NoVar+1)) )
+      vtmp(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
+    END IF
+
+
+    DO j=1,NoVar
+      IF( GotOrder ) THEN
+        i = BlockOrder(j)
+      ELSE
+        i = j
+      END IF
+      
+      WRITE(Message,'(A,I0)') 'Solving block: ',i
+      CALL Info('BlockMatrixPrec',Message,Level=6)
+
+
+      ! Set pointers to the new linear system
+      !-------------------------------------------------------------------
+      A => TotMatrix % Submatrix(i,i) % PrecMat
+      IF( A % NumberOfRows == 0 ) THEN
+        A => TotMatrix % Submatrix(i,i) % Mat
+      ELSE
+        PRINT *,'Using tailored preconditioning matrix'
+      END IF
+
+
+      x => u(offset(i)+1:offset(i+1))
+      Var => TotMatrix % SubVector(i) % Var
+      Solver % Variable => Var
+      IF( BlockGS ) THEN
+        b => vtmp(offset(i)+1:offset(i+1))
+      ELSE      
+        b => v(offset(i)+1:offset(i+1))
+      END IF
+
+      mat_save => Solver % Matrix
+      Solver % Matrix => A
+      rhs_save => Solver % Matrix % RHS
+      Solver % Matrix % RHS => b
+    
+
+      IF( ListGetLogical( Params,'Block Prec Reuse',Found) ) THEN
+        PRINT *,'BlockPrecReuse'
+        DO k = 1, NoVar
+          IF( k == i ) CYCLE
+          IF( CRS_CopyMatrixPrec( TotMatrix % Submatrix(k,k) % Mat, A ) ) EXIT
+        END DO
+      END IF
+
+      CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
+      SkipCompChange = ListGetLogical( Params,'Skip Compute Nonlinear Change')
+      CALL ListAddLogical( Params,'Skip Compute Nonlinear Change',.TRUE.)
+
+      IF (isParallel) THEN
+        GlobalData => A % ParMatrix
+        GlobalMatrix => GlobalData % SplittedMatrix % InsideMatrix
+        GlobalMatrix % MatVecSubr = A % MatVecSubr
+        GlobalMatrix % Ematrix => A
+        GlobalMatrix % COMPLEX = A % COMPLEX
+
+        CALL IterSolver( GlobalMatrix, x,b, &
+            Solver,MatvecF=AddrFunc(SParMatrixVector), &
+                DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm))
+      ELSE
+        CALL SolveSystem( A, ParMatrix, b, &
+            x, Var % Norm, Var % DOFs, Solver )
+      END IF
+
+      Solver % Matrix % RHS => rhs_save
+      Solver % Matrix => mat_save
+
+      !---------------------------------------------------------------------
+      IF( BlockGS ) THEN        
+        CALL Info('BlockSolver','Computing block r.h.s',Level=5)
+      
+        DO l=j+1,NoVar
+          IF( GotOrder ) THEN
+            k = BlockOrder(l)
+          ELSE
+            k = l
+          END IF
+        
+          WRITE( str,'(A,I0,I0)') 'Block Gauss-Seidel Passive ',k,i
+          IF( ListGetLogical( Params, str, Found ) ) CYCLE
+        
+          ! The residual is used only as a temporary vector
+          !-------------------------------------------------------------
+          IF (isParallel) THEN
+            CALL ParallelMatrixVector(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
+          ELSE
+            CALL MatrixVectorMultiply(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
+          END IF
+          vtmp(offset(k)+1:offset(k+1)) = vtmp(offset(k)+1:offset(k+1)) &
+                   - rtmp(1:offset(k+1)-offset(k))
+        END DO
+      END IF
+    END DO
+    CALL ListSetNameSpace(CHAR(namesp))
+    CALL ListAddLogical( Params,'Skip Compute Nonlinear Change',SkipCompChange)
+    Solver % Variable => SolverVar
+
+    IF( BlockGS ) THEN
+      DEALLOCATE( vtmp, rtmp ) 
+    END IF
+
+    CALL Info('BlockMatrixPrec','Finished preconditioning',Level=6)
+    
+  END SUBROUTINE BlockMatrixPrec
+
+END MODULE BlockSolve

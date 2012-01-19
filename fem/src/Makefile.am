@@ -196,6 +196,7 @@ EXTRA_DIST = \
 	ArtificialCompressibility.src \
 	BandMatrix.src \
 	BandwidthOptimize.src \
+	BlockSolve.src \
         cholmod.c	      \
 	ClusteringMethods.src \
 	CoordinateSystems.src \
