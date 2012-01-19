@@ -1,8 +1,6 @@
 MODULE BlockSolve
 
- USE Lists
- USE CRSMatrix
- USE ParallelUtils
+ USE SolverUtils
 
  TYPE SubVector_t
     TYPE(Variable_t), POINTER :: Var
@@ -74,7 +72,6 @@ CONTAINS
 !> Has to be called outside the module by Krylov methods.
 !------------------------------------------------------------------------------
   SUBROUTINE BlockMatrixPrec( u,v,ipar )
-    USE DefUtils
     
     REAL(KIND=dp), TARGET :: u(*), v(*)
     REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),b(:), x(:), rhs_save(:)
@@ -206,7 +203,7 @@ CONTAINS
           IF (isParallel) THEN
             CALL ParallelMatrixVector(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
           ELSE
-            CALL MatrixVectorMultiply(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
+            CALL CRS_MatrixVectorMultiply(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
           END IF
           vtmp(offset(k)+1:offset(k+1)) = vtmp(offset(k)+1:offset(k+1)) &
                    - rtmp(1:offset(k+1)-offset(k))
