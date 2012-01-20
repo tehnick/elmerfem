@@ -217,7 +217,7 @@ CONTAINS
       CALL Info('InitializeBlockMatrix','Reusing existing blockmatrix',Level=6)
       RETURN
     ELSE IF( BlockMatrix % Novar /= 0 ) THEN
-      CALL Fatal('InitializeBlockMatrix','Currently only one block matrix may exist!')
+      CALL Fatal('InitializeBlockMatrix','Previous blockmatrix was of different size?')
     ELSE
       CALL Info('InitializeBlockMatrix','Starting',Level=6)
     END IF
@@ -264,13 +264,10 @@ CONTAINS
       
       !-----------------------------------------------------------------------------------
       ! If variable does not exist it will be created. 
-      ! Here only normal nodal elements are supported for the moment. 
-      ! Then also the creation of permutation vector is straight-forward.
-      ! Note that no reordering is currently performed.
-      !
-      ! There is limitation regarding non-nodal elements which stems partly from the fact
-      ! that an elementtype is solver specific while this one solver could have a number of
-      ! different elementtypes for different equations.
+      ! Here it is assumed that all components have the same number of dofs
+      ! described by the same permutation vector. If the components are
+      ! accounted in normal manner [1,2,3,...] then it suffices just to have 
+      ! pointers to the components of the full vector.
       !-----------------------------------------------------------------------------------
       IF(ASSOCIATED( Var ) ) THEN
         CALL Info('BlockSolver','Using existing variable > '//TRIM(VarName)//' <')		
@@ -301,6 +298,12 @@ CONTAINS
   END SUBROUTINE BlockInitMatrix
     
 
+
+  !-------------------------------------------------------------------------------------
+  !> Picks the components of a full matrix to the submatrices of a block matrix.
+  !> On choice, the user may have exactly the same block matrix structure than 
+  !> a leading component.
+  !-------------------------------------------------------------------------------------
   SUBROUTINE BlockPickMatrix( Solver, NoVar )
 
     TYPE(Solver_t) :: Solver
@@ -321,10 +324,12 @@ CONTAINS
       DO ColVar=1,NoVar            
         Amat => TotMatrix % Submatrix(RowVar,ColVar) % Mat          
         IF( TotMatrix % GotBlockStruct) THEN
+          ! A generic picking method for submatrices
+          !----------------------------------------------------------------------
           CALL CRS_BlockMatrixPick2(SolverMatrix,Amat,TotMatrix % BlockStruct,RowVar,ColVar)
         ELSE
-          ! One needs more complicated tests to reuse the matrix structure in a generic case
-          !---------------------------------------------------------------------------------
+          ! Picking of standard submatrices of size one.
+          !----------------------------------------------------------------------
           IF( ReuseMatrix .AND. ( RowVar + ColVar > 2 ) ) THEN
             CALL CRS_CopyMatrixTopology( TotMatrix % Submatrix(1,1) % Mat, Amat )
           END IF
@@ -335,7 +340,11 @@ CONTAINS
 
   END SUBROUTINE BlockPickMatrix
 
-
+  !-------------------------------------------------------------------------------------
+  !> The block preconditioning matrix need not be directly derived from the full 
+  !> matrix. Some or all the components may also be derived from a basic operator
+  !> such as the Laplacian. 
+  !-------------------------------------------------------------------------------------
   SUBROUTINE BlockPrecMatrix( Solver, NoVar )
 
     TYPE(Solver_t) :: Solver
@@ -451,10 +460,10 @@ CONTAINS
   END SUBROUTINE BlockUpdateRhs
   
 
-!------------------------------------------------------------------------------
-!> Perform matrix-vector product for block matrices.
-!> Has to be callable outside the module by Krylov methods.
-!------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------
+  !> Perform matrix-vector product for block matrices.
+  !> Has to be callable outside the module by Krylov methods.
+  !------------------------------------------------------------------------------
   SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
     INTEGER :: i,j,k,NoVar,ipar(*)
     REAL(KIND=dp) :: u(*),v(*)
@@ -631,6 +640,8 @@ CONTAINS
     END DO
 
     CALL ListSetNameSpace(CHAR(namesp))
+
+    CALL ListAddLogical( Params,'No Precondition Recompute',.TRUE.)
     CALL ListAddLogical( Params,'Skip Compute Nonlinear Change',SkipCompChange)
     Solver % Variable => SolverVar
 
@@ -669,7 +680,7 @@ CONTAINS
     BlockOrder => ListGetIntegerArray( Params,'Block Order',GotBlockOrder)
     LinIter = ListGetInteger( Params,'Linear System Max Iterations',GotIt)
     LinTol = ListGetConstReal( Params,'Linear System Convergence Tolerance',GotIt)
-    
+
     DO iter = 1, LinIter
       
       ! In block Jacobi the r.h.s. is not updated during the iteration cycle
@@ -682,6 +693,10 @@ CONTAINS
       END IF
       CALL Info('BlockSolver',Message,Level=6)
       MaxChange = 0.0_dp
+
+      IF( iter == 2 ) THEN
+        CALL ListAddLogical( Params,'No Precondition Recompute',.TRUE.)
+      END IF
       
       DO i=1,NoVar
         IF( GotBlockOrder ) THEN
@@ -726,6 +741,8 @@ CONTAINS
         MaxChange = MAX( MaxChange, Var % NonlinChange )
       END DO      
     END DO
+
+    CALL ListAddLogical( Params,'No Precondition Recompute',.FALSE.)
         
     Solver % Variable => SolverVar
 
@@ -747,7 +764,7 @@ CONTAINS
     
     TYPE(Matrix_t), POINTER :: A
     TYPE(Variable_t), POINTER :: SolverVar
-    
+    TYPE(ValueList_t), POINTER :: Params
     INTEGER :: NoVar, ndim, maxsize
     LOGICAL :: Converged, Diverged
     INTEGER :: Rounds, OutputInterval, PolynomialDegree
@@ -756,6 +773,7 @@ CONTAINS
     LOGICAL :: LS
     TYPE(Varying_string) :: namesp
 
+    Params => Solver % Values
     Offset => TotMatrix % Offset
     ndim = TotMatrix % TotSize 
     NoVar = TotMatrix % NoVar
@@ -813,6 +831,8 @@ CONTAINS
     !----------------------------------------------------------------------
     ! Solve matrix equation solver with the redefined block matrix operations
     !----------------------------------------------------------------------
+    CALL ListAddLogical( Params,'No Precondition Recompute',.FALSE.)
+
     precProc = AddrFunc(BlockMatrixPrec)
     mvProc = AddrFunc(BlockMatrixVectorProd)
 
@@ -842,6 +862,7 @@ CONTAINS
           Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
     END IF
     
+    CALL ListAddLogical( Params,'No Precondition Recompute',.FALSE.)
     CALL ListSetNameSpace(CHAR(namesp))
     Xnorm = SQRT( SUM( x**2) )
     
