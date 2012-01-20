@@ -145,23 +145,23 @@ CONTAINS
 
 !> Sets the matrix element to a desired value. 
 !------------------------------------------------------------------------------
-   SUBROUTINE SetMatrixElement( StiffMatrix, i, j, Value )
+   SUBROUTINE SetMatrixElement( StiffMatrix, i, j, VALUE )
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix  !< Structure holding the matrix
      INTEGER :: i                            !< Row index
      INTEGER :: j                            !< Column index
-     REAL(KIND=dp) :: Value                  !< Value to be obtained
+     REAL(KIND=dp) :: VALUE                  !< Value to be obtained
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
        CASE( MATRIX_CRS )
-         CALL CRS_SetMatrixElement( StiffMatrix, i, j, Value )
+         CALL CRS_SetMatrixElement( StiffMatrix, i, j, VALUE )
 
        CASE( MATRIX_LIST )
-         CALL List_SetMatrixElement( StiffMatrix % ListMatrix, i, j, Value )
+         CALL List_SetMatrixElement( StiffMatrix % ListMatrix, i, j, VALUE )
 
        CASE( MATRIX_BAND,MATRIX_SBAND )
-         CALL Band_SetMatrixElement( StiffMatrix, i, j, Value )
+         CALL Band_SetMatrixElement( StiffMatrix, i, j, VALUE )
      END SELECT
 !------------------------------------------------------------------------------
    END SUBROUTINE SetMatrixElement
@@ -169,23 +169,23 @@ CONTAINS
 
 !> Gets a matrix element. 
 !------------------------------------------------------------------------------
-   FUNCTION GetMatrixElement( StiffMatrix, i, j ) RESULT ( Value )
+   FUNCTION GetMatrixElement( StiffMatrix, i, j ) RESULT ( VALUE )
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix  !< Structure holding the matrix
      INTEGER :: i                            !< Row index
      INTEGER :: j                            !< Column index
-     REAL(KIND=dp) :: Value                  !< Value to be obtained
+     REAL(KIND=dp) :: VALUE                  !< Value to be obtained
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
        CASE( MATRIX_CRS )
-         Value = CRS_GetMatrixElement( StiffMatrix, i, j )
+         VALUE = CRS_GetMatrixElement( StiffMatrix, i, j )
 
       CASE( MATRIX_LIST )
-         Value = List_GetMatrixElement( StiffMatrix % ListMatrix, i, j )
+         VALUE = List_GetMatrixElement( StiffMatrix % ListMatrix, i, j )
 
        CASE( MATRIX_BAND,MATRIX_SBAND )
-         Value = Band_GetMatrixElement( StiffMatrix, i, j )
+         VALUE = Band_GetMatrixElement( StiffMatrix, i, j )
      END SELECT
 !------------------------------------------------------------------------------
    END FUNCTION GetMatrixElement
@@ -215,22 +215,22 @@ CONTAINS
 
 !> Adds to the value of a given matrix element.
 !------------------------------------------------------------------------------
-   SUBROUTINE AddToMatrixElement( StiffMatrix, i, j,Value )
+   SUBROUTINE AddToMatrixElement( StiffMatrix, i, j,VALUE )
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
      INTEGER :: i,j
-     REAL(KIND=dp) :: Value
+     REAL(KIND=dp) :: VALUE
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
        CASE( MATRIX_CRS )
-         CALL CRS_AddToMatrixElement( StiffMatrix, i, j, Value )
+         CALL CRS_AddToMatrixElement( StiffMatrix, i, j, VALUE )
 
       CASE( MATRIX_LIST )
-         CALL List_AddToMatrixElement( StiffMatrix % ListMatrix, i, j, Value )
+         CALL List_AddToMatrixElement( StiffMatrix % ListMatrix, i, j, VALUE )
 
        CASE( MATRIX_BAND,MATRIX_SBAND )
-         CALL Band_AddToMatrixElement( StiffMatrix, i, j, Value )
+         CALL Band_AddToMatrixElement( StiffMatrix, i, j, VALUE )
      END SELECT
 !------------------------------------------------------------------------------
    END SUBROUTINE AddToMatrixElement
@@ -244,10 +244,10 @@ CONTAINS
      TYPE(Matrix_t), POINTER :: StiffMatrix
      INTEGER :: i1,j1,i2,j2
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Value
+     REAL(KIND=dp) :: VALUE
 
-     Value = ChangeMatrixElement(StiffMatrix, i1, j1, 0.0_dp)
-     CALL AddToMatrixElement(StiffMatrix, i2, j2, Value )
+     VALUE = ChangeMatrixElement(StiffMatrix, i1, j1, 0.0_dp)
+     CALL AddToMatrixElement(StiffMatrix, i2, j2, VALUE )
      
 !------------------------------------------------------------------------------
    END SUBROUTINE MoveMatrixElement
@@ -3157,8 +3157,8 @@ CONTAINS
                       IF (MassConsistent) THEN
                         CALL IntegMassConsistent(j,n,nrm)
                       ELSE
-                        Bu = Element % Type % NodeU(j)
-                        Bv = Element % Type % NodeV(j)
+                        Bu = Element % TYPE % NodeU(j)
+                        Bv = Element % TYPE % NodeV(j)
                         nrm = NormalVector(Element,ElementNodes,Bu,Bv,.TRUE.)
                       END IF
                       n_comp(NodeIndexes(j)) = 1
@@ -4824,7 +4824,7 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
-    DEALLOCATE(A % DiagScaling); A % DiagScaling=>Null()
+    DEALLOCATE(A % DiagScaling); A % DiagScaling=>NULL()
     
   END SUBROUTINE BackScaleLinearSystem
 
@@ -4862,7 +4862,7 @@ END FUNCTION SearchNodeL
     END DO
 
     DEALLOCATE(A % DiagScaling)
-    A % DiagScaling => Null()
+    A % DiagScaling => NULL()
 
 !------------------------------------------------------------------------------
   END SUBROUTINE ReverseRowEquilibration
@@ -5028,6 +5028,8 @@ END FUNCTION SearchNodeL
       CASE('feti')
         CALL Fatal('SolveLinearSystem', &
             'Feti solver available only in parallel.')
+      CASE('block')
+        CALL BlockSolveExt( A, x, b, Solver )
       CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )
       END SELECT
@@ -5041,7 +5043,9 @@ END FUNCTION SearchNodeL
             x, b, Solver, A % ParMatrix )
       CASE('feti')
         CALL FetiSolver( A, x, b, Solver )
-      CASE DEFAULT
+      CASE('block')
+        CALL BlockSolveExt( A, x, b, Solver )
+     CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )
       END SELECT
     END IF
