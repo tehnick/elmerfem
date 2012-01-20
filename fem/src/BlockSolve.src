@@ -4,35 +4,9 @@ MODULE BlockSolve
 
  IMPLICIT NONE
 
- TYPE SubVector_t
-    TYPE(Variable_t), POINTER :: Var
-    REAL(KIND=dp) :: rnorm, bnorm, xnorm
-    REAL(KIND=dp), ALLOCATABLE :: rhs(:)
-  END TYPE SubVector_t
-
-  TYPE SubMatrix_t
-     TYPE(Matrix_t), POINTER :: Mat
-     TYPE(Matrix_t), POINTER :: PrecMat
-  END TYPE SubMatrix_t
-
-  TYPE BlockMatrix_t
-    INTEGER :: NoVar = 0, MaxSize, TotSize
-    INTEGER, POINTER :: Offset(:)
-    TYPE(Solver_t), POINTER :: Solver
-    REAL(KIND=dp) :: rnorm, bnorm, xnorm
-    TYPE(SubMatrix_t), ALLOCATABLE :: SubMatrix(:,:)
-    LOGICAL, ALLOCATABLE :: SubMatrixActive(:,:)
-    TYPE(SubVector_t), POINTER :: SubVector(:) => NULL()
-    INTEGER, POINTER :: BlockStruct(:)
-    LOGICAL :: GotBlockStruct
-  END TYPE BlockMatrix_t
-
-  TYPE(BlockMatrix_t), TARGET, SAVE :: TotMatrix
+  TYPE(BlockMatrix_t), POINTER, SAVE :: TotMatrix
 
   LOGICAL, PRIVATE :: isParallel=.FALSE.
-
-  
-
 
 CONTAINS
 
@@ -203,8 +177,8 @@ CONTAINS
     IMPLICIT NONE
     
     TYPE(Solver_t), TARGET :: Solver
-    TYPE(BlockMatrix_t) :: BlockMatrix
     INTEGER :: BlockDofs
+    TYPE(BlockMatrix_t), POINTER :: BlockMatrix
 
     TYPE(Solver_t), POINTER :: PSolver
     INTEGER, POINTER :: BlockStruct(:)
@@ -216,6 +190,12 @@ CONTAINS
     CHARACTER(LEN=max_name_len) :: VarName, str
 
     Params => Solver % Values
+
+    BlockMatrix => Solver % BlockMatrix
+    IF (ASSOCIATED(BlockMatrix)) RETURN
+
+    ALLOCATE(Solver % BlockMatrix)
+    BlockMatrix => Solver % BlockMatrix
  
     BlockStruct => ListGetIntegerArray( Params,'Block Structure',GotBlockStruct)
     IF( GotBlockStruct ) THEN

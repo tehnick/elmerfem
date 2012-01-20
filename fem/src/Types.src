@@ -97,6 +97,31 @@ MODULE Types
     REAL(KIND=dp), ALLOCATABLE :: Values(:),MassValues(:),DampValues(:),ILUValues(:)
   END  TYPE BasicMatrix_t
 
+
+  TYPE SubVector_t
+     TYPE(Variable_t), POINTER :: Var
+     REAL(KIND=dp) :: rnorm, bnorm, xnorm
+     REAL(KIND=dp), ALLOCATABLE :: rhs(:)
+  END TYPE SubVector_t
+
+  TYPE SubMatrix_t
+     TYPE(Matrix_t), POINTER :: Mat
+     TYPE(Matrix_t), POINTER :: PrecMat
+  END TYPE SubMatrix_t
+
+  TYPE BlockMatrix_t
+    INTEGER :: NoVar = 0, MaxSize, TotSize
+    INTEGER, POINTER :: Offset(:)
+    TYPE(Solver_t), POINTER :: Solver
+    REAL(KIND=dp) :: rnorm, bnorm, xnorm
+    TYPE(SubMatrix_t), ALLOCATABLE :: SubMatrix(:,:)
+    LOGICAL, ALLOCATABLE :: SubMatrixActive(:,:)
+    TYPE(SubVector_t), POINTER :: SubVector(:) => NULL()
+    INTEGER, POINTER :: BlockStruct(:)
+    LOGICAL :: GotBlockStruct
+  END TYPE BlockMatrix_t
+
+
   TYPE Matrix_t
     TYPE(Matrix_t), POINTER :: Child, Parent, ConstraintMatrix, EMatrix
     INTEGER :: NumberOfRows
@@ -558,6 +583,7 @@ MODULE Types
       INTEGER :: NumberOfActiveElements
       INTEGER, ALLOCATABLE ::  Def_Dofs(:,:)
 
+      TYPE(BlockMatrix_t), POINTER :: BlockMatrix => Null()
       TYPE(Matrix_t),   POINTER :: Matrix => Null()
       TYPE(Variable_t), POINTER :: Variable => Null()
     END TYPE Solver_t

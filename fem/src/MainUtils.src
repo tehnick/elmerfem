@@ -2688,7 +2688,7 @@ CONTAINS
         Coeff
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
     LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,&
-        ReuseMatrix, LS
+        ReuseMatrix, LS, InitDone
     INTEGER, POINTER :: VarPerm(:)
     
     TYPE (Matrix_t), POINTER :: Amat, SolverMatrix
@@ -2708,7 +2708,6 @@ CONTAINS
     Mesh => Solver % Mesh
     PSolver => Solver
 
-    NoVar = TotMatrix % NoVar
     isParallel = ParEnv % PEs > 1
     
          
@@ -2725,7 +2724,9 @@ CONTAINS
     !------------------------------------------------------------------------------
     IF( IsProcedure ) THEN 
       BlockDofs = Solver % Variable % Dofs      
+
       CALL BlockInitMatrix( Solver, TotMatrix, BlockDofs )
+
       NoVar = TotMatrix % NoVar
 
       TotMatrix % Solver => Solver
@@ -2733,7 +2734,8 @@ CONTAINS
       SolverVar => Solver % Variable
 
     ELSE
-      IF( NoVar == 0 ) THEN
+      TotMatrix => Solver % BlockMatrix
+      IF( .NOT.ASSOCIATED(TotMatrix)) THEN
         DO i = 1,9
           WRITE (str,'(A,I0)') 'Variable ',i
           IF(.NOT. ListCheckPresent( SolverParams, TRIM(str)) ) EXIT
