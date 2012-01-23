@@ -182,8 +182,10 @@ real(kind=dp) :: realtime,st
     CALL CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo )
 
 #ifdef HAVE_HYPRE
-    IF (ListGetLogical(CurrentModel % Solver % Values, &
-       'Linear System Use HYPRE', Found )) RETURN
+! the blocksolver needs the parallel structures for matrix-vector prod.,
+! even if using HYPRE
+!   IF (ListGetLogical(CurrentModel % Solver % Values, &
+!      'Linear System Use HYPRE', Found )) RETURN
 #endif
 
   !----------------------------------------------------------------------

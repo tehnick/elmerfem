@@ -538,6 +538,12 @@ CONTAINS
 
     NS = ListGetNameSpace(namesp)
 
+#define SOLSYS
+#ifdef SOLSYS
+    IF (isParallel) &
+      ALLOCATE( x(TotMatrix % MaxSize), b(TotMatrix % MaxSize) )
+#endif
+
     ! Initial guess 
     !-----------------------------------------
     u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
@@ -567,17 +573,43 @@ CONTAINS
         PRINT *,'Using specialized preconditioning block'
       END IF
 
-      x => u(offset(i)+1:offset(i+1))
       Var => TotMatrix % SubVector(i) % Var
       Solver % Variable => Var
+
+      mat_save => Solver % Matrix
+      Solver % Matrix => A
+
+#ifndef SOLSYS
+      x => u(offset(i)+1:offset(i+1))
       IF( BlockGS ) THEN
         b => vtmp(offset(i)+1:offset(i+1))
       ELSE      
         b => v(offset(i)+1:offset(i+1))
       END IF
-
-      mat_save => Solver % Matrix
-      Solver % Matrix => A
+#else
+      IF (isParallel) THEN
+        x = 0; b=0
+        l = 0
+        DO k=1,A % NumberofRows
+          IF (Parenv % MyPE==A % ParallelInfo % NeighbourList(k) % Neighbours(1)) THEN
+            l = l+1
+            x(k) = u(offset(i)+l)
+            IF( BlockGS ) THEN
+              b(k) = vtmp(offset(i)+l)
+            ELSE      
+              b(k) = v(offset(i)+l)
+            END IF
+           END IF
+        END DO
+      ELSE
+        x => u(offset(i)+1:offset(i+1))
+        IF( BlockGS ) THEN
+          b => vtmp(offset(i)+1:offset(i+1))
+        ELSE      
+          b => v(offset(i)+1:offset(i+1))
+        END IF
+      END IF
+#endif
       rhs_save => Solver % Matrix % RHS
       Solver % Matrix % RHS => b
     
@@ -595,19 +627,37 @@ CONTAINS
       CALL ListAddLogical( Params,'Skip Compute Nonlinear Change',.TRUE.)
 
       IF (isParallel) THEN
+#ifndef SOLSYS
         GlobalData => A % ParMatrix
         GlobalMatrix => GlobalData % SplittedMatrix % InsideMatrix
         GlobalMatrix % MatVecSubr = A % MatVecSubr
         GlobalMatrix % Ematrix => A
         GlobalMatrix % COMPLEX = A % COMPLEX
-
+ 
         CALL IterSolver( GlobalMatrix, x,b, &
             Solver,MatvecF=AddrFunc(SParMatrixVector), &
                 DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm))
+#else
+        CALL SolveSystem( A, ParMatrix, b, &
+            x, Var % Norm, Var % DOFs, Solver )
+#endif
       ELSE
         CALL SolveSystem( A, ParMatrix, b, &
             x, Var % Norm, Var % DOFs, Solver )
       END IF
+
+#ifdef SOLSYS
+      IF (isParallel) THEN
+        l = 0
+        DO k=1,A % NumberofRows
+          IF (Parenv % MyPE==A % ParallelInfo % NeighbourList(k) % Neighbours(1)) THEN
+            l = l+1
+            x(l) = x(k)
+            u(offset(i)+l) = x(l)
+          END IF
+        END DO
+      END IF
+#endif
 
       Solver % Matrix % RHS => rhs_save
       Solver % Matrix => mat_save
@@ -639,9 +689,15 @@ CONTAINS
       END IF
     END DO
 
+#ifdef SOLSYS
+    IF (isParallel) DEALLOCATE(x,b)
+#undef SOLSYS
+#endif
+
+
     CALL ListSetNameSpace(CHAR(namesp))
 
-    CALL ListAddLogical( Params,'No Precondition Recompute',.TRUE.)
+    CALL ListAddLogical( Params,'Linear System Refactorize',.FALSE. )
     CALL ListAddLogical( Params,'Skip Compute Nonlinear Change',SkipCompChange)
     Solver % Variable => SolverVar
 
@@ -831,8 +887,6 @@ CONTAINS
     !----------------------------------------------------------------------
     ! Solve matrix equation solver with the redefined block matrix operations
     !----------------------------------------------------------------------
-    CALL ListAddLogical( Params,'No Precondition Recompute',.FALSE.)
-
     precProc = AddrFunc(BlockMatrixPrec)
     mvProc = AddrFunc(BlockMatrixVectorProd)
 
@@ -862,7 +916,7 @@ CONTAINS
           Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
     END IF
     
-    CALL ListAddLogical( Params,'No Precondition Recompute',.FALSE.)
+    CALL ListAddLogical( Params,'Linear System Refactorize',.TRUE.)
     CALL ListSetNameSpace(CHAR(namesp))
     Xnorm = SQRT( SUM( x**2) )
     
