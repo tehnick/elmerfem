@@ -1636,9 +1636,15 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       WRITE(10,'(A)') '1'
       WRITE(10,'(A)') '"'//TRIM(FieldName)//'"'
       WRITE(10,'(A)') '1'
-      WRITE(10,'(ES16.7E3)') Time
+
+      ! Gmsh starts steady state indexes from zero, hence deductions by one
+      IF( TransientSimulation ) THEN
+        WRITE(10,'(ES16.7E3)') Time
+      ELSE
+        WRITE(10,'(ES16.7E3)') Time - 1.0_dp
+      END IF
       WRITE(10,'(A)') '3'
-      WRITE(10,'(I8)') VisitedTimes
+      WRITE(10,'(I8)') VisitedTimes-1
       IF(Rank == 0) THEN
         WRITE(10,'(A)') '1'
       ELSE IF(Rank == 1) THEN
