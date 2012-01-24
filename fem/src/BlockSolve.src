@@ -518,7 +518,7 @@ CONTAINS
     TYPE(Varying_string) :: namesp
     CHARACTER(LEN=MAX_NAME_LEN) :: str
     INTEGER(KIND=AddrInt) :: AddrFunc
-    
+
     CALL Info('BlockMatrixPrec','Starting preconditioning',Level=6)
     
     WRITE(Message,'(A,I0)') 'Number of coupled variables: ',NoVar
@@ -887,6 +887,8 @@ CONTAINS
     !----------------------------------------------------------------------
     ! Solve matrix equation solver with the redefined block matrix operations
     !----------------------------------------------------------------------
+    CALL ListAddLogical(Params,'Linear System Free Factorization',.FALSE.)
+
     precProc = AddrFunc(BlockMatrixPrec)
     mvProc = AddrFunc(BlockMatrixVectorProd)
 
@@ -916,7 +918,9 @@ CONTAINS
           Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
     END IF
     
-    CALL ListAddLogical( Params,'Linear System Refactorize',.TRUE.)
+    CALL ListAddLogical(Params,'Linear System Refactorize',.TRUE.)
+    CALL ListAddLogical(Params,'Linear System Free Factorization',.TRUE.)
+
     CALL ListSetNameSpace(CHAR(namesp))
     Xnorm = SQRT( SUM( x**2) )
     
