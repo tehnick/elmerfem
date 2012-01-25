@@ -1021,7 +1021,7 @@ CONTAINS
         DO ColVar=1,NoVar
           CALL ParallelActive( .TRUE.)
           Amat => TotMatrix % SubMatrix(RowVar,ColVar) % Mat
-          Amat % Comm = MPI_COMM_WORLD
+          Amat % Comm = Solver % Matrix % Comm
           Parenv % ActiveComm = Amat % Comm
           Solver % Variable => TotMatrix % SubVector(ColVar) % Var
           IF (.NOT.ASSOCIATED(Amat % ParMatrix)) &          
