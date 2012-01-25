@@ -1382,7 +1382,7 @@ END SUBROUTINE FetiProject
       nz=1
       ALLOCATE(z(nz,n))
       z = 0._dp
-      DO i=1,n
+      DO i=1,m
         IF (p(i)>0) z(1,p(i))=1._dp/dscale(p(i))
       END DO
 
@@ -1593,7 +1593,7 @@ END SUBROUTINE FetiProject
 
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL  :: Found, SaveRefactorize, Floating, LQ
+    LOGICAL  :: Found, Refactorize, Floating, LQ
     REAL(KIND=dp), POINTER :: xtmp(:),btmp(:),rtmp(:)
     INTEGER(KIND=AddrInt) :: mvProc, dotProc, nrmProc, stopcProc, precProc, AddrFunc
 
@@ -1611,8 +1611,8 @@ END SUBROUTINE FetiProject
 
     ! Tell 'DirectSolver' to factorize first time only:
     ! -------------------------------------------------
-    SaveRefactorize=GetLogical(Params, 'Linear System Refactorize',Found)
-    IF (.NOT.Found) SaveRefactorize = .TRUE.
+    Refactorize=GetLogical(Params, 'Linear System Refactorize',Found)
+    IF (.NOT.Found) Refactorize = .TRUE.
     CALL ListAddLogical(Params,'Linear System Refactorize',.FALSE.)
 
     ! Check if using local CGP, or (f.ex.) GCR from usual iterators:
@@ -1684,7 +1684,7 @@ END SUBROUTINE FetiProject
         ! of freedom given by FloatingDomain():
         ! ---------------------------------------------------
         ALLOCATE(A % Rows(n+1))
-        k=SIZE(A % Values/=0)
+        k=SIZE(A % Values)
         ALLOCATE(A % Cols(k), A % Values(k))
 
         A % Rows = SaveRows
@@ -1761,7 +1761,7 @@ END SUBROUTINE FetiProject
       A % Values => SaveValues
     END IF
 
-    IF ( SaveRefactorize ) THEN
+    IF ( Refactorize ) THEN
       CALL DirectSolver(A,x,y,Solver,Free_Fact=.TRUE.)
       CALL ListAddLogical(Params,'Linear System Refactorize', .TRUE. )
     END IF
