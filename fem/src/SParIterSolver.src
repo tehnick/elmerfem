@@ -1276,18 +1276,58 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   INTEGER, POINTER :: nb(:)
 
   LOGICAL :: NeedMass, NeedDamp, NeedPrec,Found
+  LOGICAL :: NewSetup
+  INTEGER :: verbosity
 
 #ifdef HAVE_HYPRE
     INTERFACE
+      !! original C function, does everything
       SUBROUTINE SolveHYPRE( n, Rows, Cols, Vals, Perm, INVPerm, GDOFs, &
            Owner, Xvec, RHSVec, PE, ILUn, Rounds, TOL, &
            hypremethod, hypre_intpara, hypre_dppara)
-        INTEGER :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
+        USE, intrinsic :: iso_c_binding
+        INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
                    PE, Owner(n), Rounds, ILUn, hypremethod, &
                    symmetry, maxlevel, hypre_intpara(10)
-        DOUBLE PRECISION :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter, &
+        REAL(KIND=c_double) :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter, &
                             hypre_dppara(5)
       END SUBROUTINE SolveHYPRE
+
+      !! create HYPRE matrix and setup solver/preconditioner
+      SUBROUTINE SolveHYPRE1( n, Rows, Cols, Vals, GDOFs, &
+           Owner, ILUn, &
+           hypremethod, hypre_intpara, hypre_dppara, &
+           verbosity, hypreContainer)
+        USE Types, only: AddrInt
+        USE, intrinsic :: iso_c_binding
+        INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
+                   PE, Owner(n), Rounds, ILUn, hypremethod, &
+                   symmetry, maxlevel, hypre_intpara(10), verbosity
+        REAL(KIND=c_double) :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter, &
+                            hypre_dppara(5)
+        INTEGER(KIND=AddrInt) :: hypreContainer
+      END SUBROUTINE SolveHYPRE1
+
+      !! solve linear system with same matrix as in SolveHYPRE1
+      SUBROUTINE SolveHYPRE2( n, GDOFs, &
+           Owner, Xvec, RHSVec, Rounds, TOL, verbosity, hypreContainer)
+        USE, intrinsic :: iso_c_binding
+        USE Types, only: AddrInt
+        INTEGER(KIND=c_int) :: n, GDOFs(n), Owner(n), Rounds, verbosity
+        REAL(KIND=c_double) :: Xvec(n),RHSvec(n),TOL
+        INTEGER(KIND=AddrInt) :: hypreContainer
+      END SUBROUTINE SolveHYPRE2
+
+      !! note: SolveHYPRE3 does not yet exist, it would update the matrix
+      !!       but not the preconditioner.
+
+      !! destroy the data structures (should be called when the matrix has
+      !! to be updated and SolveHYPRE1 has to be called again).
+      SUBROUTINE SolveHYPRE4(hypreContainer)
+        USE Types, only: AddrInt
+        INTEGER(KIND=AddrInt) :: hypreContainer
+      END SUBROUTINE SolveHYPRE4
+
     END INTERFACE
 #endif
 
@@ -1420,12 +1460,36 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       ALLOCATE( Owner(n), Aperm(n) )
       CALL ContinuousNumbering(ParallelInfo,SourceMatrix % Perm,APerm,Owner)
       ! ------------------------------------------------------------
-
+      if (.false.) then
+      ! monolithic HYPRE solve
       CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
         SourceMatrix % Cols, SourceMatrix % Values, SourceMatrix % Perm, &
          SourceMatrix % InvPerm, Aperm, Owner, Xvec, RHSvec, &
             ParEnv % MyPE, ILUn, Rounds, TOL, hypremethod,hypre_intpara, hypre_dppara)
-
+      else
+        verbosity=99 !TODO: get this from the simulation verbosity or something
+        NewSetup=ListGetLogical( Solver % Values, 'Linear System Refactorize',Found ) 
+        if (NewSetup) then
+          if (SourceMatrix % Hypre/=0) then
+            CALL SolveHYPRE4(SourceMatrix % Hypre)
+          end if    
+        end if 
+        ! setup solver/preconditioner
+        if (SourceMatrix % Hypre==0) then
+          CALL SolveHYPRE1( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
+            SourceMatrix % Cols, SourceMatrix % Values, Aperm, Owner, &
+              ILUn, hypremethod,hypre_intpara, hypre_dppara,&
+              verbosity, SourceMatrix % Hypre)        
+        end if
+        ! solve using previously computed HYPRE data structures.
+        ! NOTE: this is only correct if the matrix has not changed,
+        ! otherwise we should use the SolveHYPRE3 function, which is
+        ! not implemented, yet. This function will not update the matrix
+        ! in the solver and thus solve an old system if A has changed. 
+        CALL SolveHYPRE2( SourceMatrix % NumberOfRows, Aperm, Owner, Xvec, RHSvec, &
+              Rounds, TOL, verbosity, SourceMatrix % Hypre )
+      end if
+      
       DEALLOCATE( Owner, Aperm )
 
       ALLOCATE( VecEPerNB( ParEnv % PEs ) )
