@@ -1024,7 +1024,8 @@ CONTAINS
           Amat % Comm = MPI_COMM_WORLD
           Parenv % ActiveComm = Amat % Comm
           Solver % Variable => TotMatrix % SubVector(ColVar) % Var
-          CALL ParallelInitMatrix(Solver,Amat)
+          IF (.NOT.ASSOCIATED(Amat % ParMatrix)) &          
+            CALL ParallelInitMatrix(Solver,Amat)
           
           IF(ASSOCIATED(Amat % ParMatrix )) THEN
             Amat % ParMatrix % ParEnv % ActiveComm = &
