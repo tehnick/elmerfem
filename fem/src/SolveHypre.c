@@ -32,33 +32,35 @@ typedef struct {
 int ilower, iupper;
 
 HYPRE_IJMatrix A;
+HYPRE_IJMatrix Atilde;
 
 int hypre_method;
 HYPRE_Solver solver, precond;
 
 } ElmerHypreContainer;
 
-// output and logging are enabled if the verbosity flag is larger than these:
+/* output and logging are enabled if the verbosity flag is larger than these: */
 #define PRINTLEVEL 0
 #define LOGLEVEL 0
 
 #define FPRINTF if (verbosity>PRINTLEVEL) fprintf
 #define STDOUT stdout
 
-// there are two possible procedures of calling HYPRE here, 
-// the standard one (does everything once), and a step-wise
-// procedure of setup, solve and cleanup.
-// TO DO: we should add the possibility to keep the precon-
-// ditioner the same but update the system matrix (SolveHYPRE3), right now
-// calling SolveHYPRE2 solves with the matrix passed into   
-// SolveHYPRE1.
+/* there are two possible procedures of calling HYPRE here, 
+ the standard one (does everything once), and a step-wise
+ procedure of setup, solve and cleanup.
+ TO DO: we should add the possibility to keep the precon-
+ ditioner the same but update the system matrix (SolveHYPRE3), right now
+ calling SolveHYPRE2 solves with the matrix passed into   
+ SolveHYPRE1.
 
-// standard call: - convert matrix
-//                - convert vector b
-//                - setup solver and preconditioner
-//                - solve system
-//                - convert vector x back
-//                - destroy all data structures
+ standard call: - convert matrix
+                - convert vector b
+                - setup solver and preconditioner
+                - solve system
+                - convert vector x back
+                - destroy all data structures
+*/
 void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
  (
   int *nrows,int *rows, int *cols, double *vals, int *perm,
@@ -131,13 +133,9 @@ st  = realtime_();
            rcols = (int *)realloc( rcols, nnz*sizeof(int) );
            csize = nnz;
          }
-//         irow = invperm[i];
-//         irow = globaldofs[irow-1];
          irow=globaldofs[i];
          for( k=0,j=rows[i]; j<rows[i+1]; j++,k++)
          {
-//           rcols[k] = invperm[cols[j-1]-1];
-//           rcols[k] = globaldofs[rcols[k]-1];
            rcols[k] = globaldofs[cols[j-1]-1];
          }
          HYPRE_IJMatrixAddToValues(A, 1, &nnz, &irow, rcols, &vals[rows[i]-1]);
@@ -159,14 +157,12 @@ st  = realtime_();
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
-//   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = rhsvec[i];
    for( i=0; i<local_size; i++ ) txvec[i] = rhsvec[i];
    HYPRE_IJVectorAddToValues(b, local_size, rcols, txvec );
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
    HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(x);
-//   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = xvec[i];
    for( i=0; i<local_size; i++ ) txvec[i] = xvec[i];
    HYPRE_IJVectorSetValues(x, local_size, rcols, txvec );
 
@@ -347,19 +343,28 @@ st  = realtime_();
    HYPRE_IJVectorDestroy(x);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
+/*///////////////////////////////////////////////////////////////////////////////////////////////*/
 
-// initialization for a new matrix.
-//      - convert matrix
-//      - setup solver and preconditioner
-//      - return a pointer 'Container' which the calling fortran
-//        program should not alter but pass back into subsequent
-//        SolveHYPRE2, ~3 and ~4 calls.
+/* initialization for a new matrix.
+      - convert matrix
+      - setup solver and preconditioner
+      - return a pointer 'Container' which the calling fortran
+        program should not alter but pass back into subsequent
+        SolveHYPRE2, ~3 and ~4 calls.
+
+ This function has an additional feature compared to the SolveHYPRE call above,
+ namely to use a block diagonal approximation of A for the preconditioner setup.
+ This mimics the behavior of the BILUn preconditioners in Elmer, although any   
+ preconditioner (like ParaSails or BoomerAMG) can still be used in combination  
+ with block diagonal approximation. 
+ BILU=0 or 1 - use A. 
+ BILU=k - assume k equations and use block diagonal A with k blocks.
+*/
 void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
  (
   int *nrows,int *rows, int *cols, double *vals,
   int *globaldofs, int *owner,
-  int *ILUn,
+  int *ILUn, int *BILU,
   int *hypre_method, int *hypre_intpara, double *hypre_dppara,
   int *verbosityPtr,
   void** ContainerPtr
@@ -367,13 +372,13 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 {
    int i, j, k, *rcols;
    int myid, num_procs;
-   int N, n;
+   int N, n, csize=128;
 
    int ilower, iupper;
    int local_size, extra;
    ElmerHypreContainer* Container;
 
-   HYPRE_IJMatrix A;
+   HYPRE_IJMatrix A, Atilde;
    HYPRE_ParCSRMatrix parcsr_A;
    HYPRE_IJVector b;
    HYPRE_ParVector par_b;
@@ -431,23 +436,19 @@ st  = realtime_();
       one could set all the rows together (see the User's Manual).
    */
    {
-      int nnz,irow,i,j,k,*rcols,csize=32;
+      int nnz,irow,i,j,k,*rcols;
 
       rcols = (int *)malloc( csize*sizeof(int) );
       for (i = 0; i < local_size; i++)
       {
          nnz = rows[i+1]-rows[i];
          if ( nnz>csize ) {
-           rcols = (int *)realloc( rcols, nnz*sizeof(int) );
-           csize = nnz;
+           csize = nnz+csize;
+           rcols = (int *)realloc( rcols, csize*sizeof(int) );
          }
-//         irow = invperm[i];
-//         irow = globaldofs[irow-1];
          irow=globaldofs[i];
          for( k=0,j=rows[i]; j<rows[i+1]; j++,k++)
          {
-//           rcols[k] = invperm[cols[j-1]-1];
-//           rcols[k] = globaldofs[rcols[k]-1];
            rcols[k] = globaldofs[cols[j-1]-1];
          }
          HYPRE_IJMatrixAddToValues(A, 1, &nnz, &irow, rcols, &vals[rows[i]-1]);
@@ -458,8 +459,52 @@ st  = realtime_();
    /* Assemble after setting the coefficients */
    HYPRE_IJMatrixAssemble(A);
 
+   if (*BILU<=1)
+     {
+     Atilde = A;
+     }
+   else
+     {
+     int nnz,irow,jcol,i,j,k,*rcols;
+     double *dbuf;
+     if (myid==0) FPRINTF(STDOUT,"HYPRE: using BILU(%d) approximation for preconditioner\n",*BILU);
+
+     HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, ilower, iupper, &Atilde);
+     HYPRE_IJMatrixSetObjectType(Atilde, HYPRE_PARCSR);
+     HYPRE_IJMatrixInitialize(Atilde);
+
+     rcols = (int *)malloc( csize*sizeof(int) );
+     dbuf = (double *)malloc( csize*sizeof(double) );
+     for (i = 0; i < local_size; i++)
+       {
+       irow=globaldofs[i];
+       nnz = 0;
+       for (j=rows[i];j<rows[i+1];j++)
+         {
+         jcol = globaldofs[cols[j-1]-1];
+         /*TODO - is the block ordering preserved in the linear numbering?
+                  Here we assume it is.
+          */
+         if ((irow%*BILU)==(jcol%*BILU))
+           {
+           rcols[nnz] = jcol;
+           dbuf[nnz] = vals[j-1];
+           nnz++;
+           }
+         }
+       HYPRE_IJMatrixAddToValues(Atilde, 1, &nnz, &irow, rcols, dbuf);
+       }
+     free( rcols );
+     free( dbuf );
+     /* Assemble after setting the coefficients */
+     HYPRE_IJMatrixAssemble(Atilde);     
+     }
+
    /* Get the parcsr matrix object to use */
-   HYPRE_IJMatrixGetObject(A, (void**) &parcsr_A);
+   /* note: this is only used for setup,  */
+   /* so we put in the possibly approxima-*/
+   /* ted matrix Atilde                   */
+   HYPRE_IJMatrixGetObject(Atilde, (void**) &parcsr_A);
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
@@ -585,7 +630,7 @@ st  = realtime_();
        fprintf( stderr,"Hypre preconditioning method not implemented\n");
        exit(EXIT_FAILURE);
      }
-   // compute the preconditioner
+   /* compute the preconditioner */
    if (myid==0) FPRINTF(STDOUT,"create preconditioner...");
    HYPRE_ParCSRBiCGSTABSetup(solver, parcsr_A, par_b, par_x);
    } else if ( *hypre_method == 10 ) { /* boomer AMG */
@@ -632,17 +677,18 @@ Container->ilower = ilower;
 Container->iupper = iupper;     
 Container->hypre_method = *hypre_method;
 Container->A = A;
+Container->Atilde = Atilde;
 Container->solver = solver;
 Container->precond = precond;
 
-//FPRINTF( STDOUT, "ID no. %i: setup time: %g\n", myid, realtime_()-st );
+/* FPRINTF( STDOUT, "ID no. %i: setup time: %g\n", myid, realtime_()-st ); */
 if (myid==0) FPRINTF( STDOUT, "setup time: %g\n", myid, realtime_()-st );
 
-}// SolveHypre1 - matrix conversion and solver setup
+}/* SolveHypre1 - matrix conversion and solver setup */
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
+/*////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-//! solve a linear system with previously constructed solver and preconditioner
+/* solve a linear system with previously constructed solver and preconditioner */
 void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
  (
   int *nrows, int *globaldofs, int *owner,  double *xvec,
@@ -703,20 +749,17 @@ if (Container==NULL)
 
    for( k=0,i=0; i<local_size; i++ ) rcols[k++] = globaldofs[i];
 
-//   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = rhsvec[i];
    for( i=0; i<local_size; i++ ) txvec[i] = rhsvec[i];
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
-//   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = rhsvec[i];
    for( i=0; i<local_size; i++ ) txvec[i] = rhsvec[i];
    HYPRE_IJVectorAddToValues(b, local_size, rcols, txvec );
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
    HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(x);
-//   for( i=0; i<local_size; i++ ) txvec[invperm[i]-1] = xvec[i];
    for( i=0; i<local_size; i++ ) txvec[i] = xvec[i];
    HYPRE_IJVectorSetValues(x, local_size, rcols, txvec );
 
@@ -763,7 +806,7 @@ if (Container==NULL)
      if ( owner[i] ) xvec[i] = txvec[k++];
 
    if (myid==0) FPRINTF( STDOUT, "solve time: %g\n", myid, realtime_()-st );
-//   FPRINTF( STDOUT, "ID no. %i: solve time: %g\n", myid, realtime_()-st );
+/*   FPRINTF( STDOUT, "ID no. %i: solve time: %g\n", myid, realtime_()-st ); */
    free( txvec );
    free( rcols );
 
@@ -773,12 +816,12 @@ if (Container==NULL)
 }
 
 
-//TODO - add function solvehypre3 that e..g updates the matrix in the
-//       Container and Krylov solver but leaves the preconditioner   
-//       unchanged.
+/*TODO - add function solvehypre3 that e..g updates the matrix in the
+       Container and Krylov solver but leaves the preconditioner   
+       unchanged.
+*/
 
-
-//! destroy HYPRE data structure stored in a fortran environment
+/* destroy HYPRE data structure stored in a fortran environment */
 void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(void** ContainerPtr)
    {
    ElmerHypreContainer* Container = (ElmerHypreContainer*)(*ContainerPtr);
@@ -799,7 +842,10 @@ void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(void** ContainerPtr)
       /* Destroy solver */
       HYPRE_BoomerAMGDestroy(Container->solver);
    }
- HYPRE_IJMatrixDestroy(Container->A);
+ if (Container->Atilde != Container->A)
+   {
+   HYPRE_IJMatrixDestroy(Container->Atilde);
+   }
  free(Container);
  *ContainerPtr=NULL;
  }

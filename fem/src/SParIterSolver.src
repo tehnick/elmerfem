@@ -1266,7 +1266,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
   CHARACTER(LEN=MAX_NAME_LEN) :: Prec, IterativeMethod
   REAL(KIND=dp) :: TOL, hypre_dppara(5) = 0
-  INTEGER :: ILUn, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob, &
+  INTEGER :: ILUn, BILU, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob, &
       hypre_solver, hypre_pre, hypremethod,  &
       gind, hypre_intpara(10) = 0
 
@@ -1295,13 +1295,13 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
       !! create HYPRE matrix and setup solver/preconditioner
       SUBROUTINE SolveHYPRE1( n, Rows, Cols, Vals, GDOFs, &
-           Owner, ILUn, &
+           Owner, ILUn, BILU, &
            hypremethod, hypre_intpara, hypre_dppara, &
            verbosity, hypreContainer)
         USE Types, only: AddrInt
         USE, intrinsic :: iso_c_binding
         INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
-                   PE, Owner(n), Rounds, ILUn, hypremethod, &
+                   PE, Owner(n), Rounds, ILUn, BILU, hypremethod, &
                    symmetry, maxlevel, hypre_intpara(10), verbosity
         REAL(KIND=c_double) :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter, &
                             hypre_dppara(5)
@@ -1469,6 +1469,11 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       else
         verbosity=99 !TODO: get this from the simulation verbosity or something
         NewSetup=ListGetLogical( Solver % Values, 'Linear System Refactorize',Found ) 
+        if (ListGetLogical(Solver % Values, 'HYPRE Block Diagonal', Found)) then
+          bilu=Solver % Variable % Dofs
+        else
+          bilu=1
+        end if
         if (NewSetup) then
           if (SourceMatrix % Hypre/=0) then
             CALL SolveHYPRE4(SourceMatrix % Hypre)
@@ -1478,7 +1483,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
         if (SourceMatrix % Hypre==0) then
           CALL SolveHYPRE1( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
             SourceMatrix % Cols, SourceMatrix % Values, Aperm, Owner, &
-              ILUn, hypremethod,hypre_intpara, hypre_dppara,&
+              ILUn, BILU, hypremethod,hypre_intpara, hypre_dppara,&
               verbosity, SourceMatrix % Hypre)        
         end if
         ! solve using previously computed HYPRE data structures.
