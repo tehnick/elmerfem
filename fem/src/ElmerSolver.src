@@ -143,6 +143,9 @@
 #ifdef HAVE_MUMPS
        CALL Info( 'MAIN', ' MUMPS library linked in.', Level=3 )
 #endif
+#ifdef HAVE_CHOLMOD
+       CALL Info( 'MAIN', ' CHOLMOD library linked in.', Level=3 )
+#endif
 #ifdef HAVE_SUPERLU
        CALL Info( 'MAIN', ' SUPERLU library linked in.', Level=3 )
 #endif
@@ -947,6 +950,7 @@
 
      REAL(KIND=dp) :: RealTime, newtime, prevtime=0, maxtime
      REAL(KIND=dp), ALLOCATABLE :: xx(:,:), xxnrm(:), yynrm(:), PrevXX(:,:,:)
+
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
