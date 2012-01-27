@@ -66,22 +66,24 @@ MODULE FetiSolve
   ! ----------------------------
   TYPE(Matrix_t), POINTER, SAVE :: Bmat=>Null()
 
+  ! the null space or kernel of the input system A, also called
+  ! R in the relevant FETI literature:
+  ! ------------------------------------------------------------
+  INTEGER, PRIVATE, SAVE :: nz
+  INTEGER, PRIVATE, PARAMETER :: maxnz=8
+  REAL(KIND=dp), ALLOCATABLE, SAVE, PRIVATE ::z(:,:)
+
   ! Neighbour identification, local and global numbering of 
   ! neighbour PEs:
   ! -------------------------------------------------------
-  INTEGER, PRIVATE, SAVE :: nneigh
+  INTEGER, PRIVATE, SAVE :: nneigh,  FixInds(maxnz)
   INTEGER, ALLOCATABLE, PRIVATE, SAVE :: lpnum(:), gpnum(:)
 
   ! Some global flags:
   ! ------------------
   LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE., NullSpaceLC=.TRUE.
-  LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG
+  LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG, Refactorize
 
-  ! the null space or kernel of the input system A, also called
-  ! R in the relevant FETI literature:
-  ! ------------------------------------------------------------
-  INTEGER, PRIVATE, SAVE :: nz,maxnz=8
-  REAL(KIND=dp), ALLOCATABLE, PRIVATE ::z(:,:)
 
 #include "huti_fdefs.h"
 
@@ -838,7 +840,7 @@ CONTAINS
       i_type = mpi_integer
       d_type = mpi_double_precision
 
-      if (op==1) then
+      if (refactorize .and. op==1) then
 !call resettimer('factorize')
         ! If not using CG, assemble and factorize the G'G matrix:
         !
@@ -871,6 +873,7 @@ CONTAINS
         ! local sequential numbering for the \alpha's,
         ! based on position in the neighbour tables:
         ! ---------------------------------------------
+        if (allocated(g_i)) deallocate(g_i)
         allocate(l_i(0:nneigh+1),g_i(0:nneigh+1))
         l_i(0)=1
         do i=1,nneigh+1
@@ -1337,7 +1340,7 @@ END SUBROUTINE FetiProject
     INTEGER :: FixInds(:)
     TYPE(Solver_t) :: Solver
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-12
+    REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-9
     REAL(KIND=dp), ALLOCATABLE :: x(:),tz(:,:)
     INTEGER, POINTER :: p(:)
     INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(6)
@@ -1354,6 +1357,9 @@ END SUBROUTINE FetiProject
 
     dofs = Solver % Variable % DOFs
     n = A % NumberOfRows
+
+    IF(ALLOCATED(z)) DEALLOCATE(z)
+    nz = 0
 
     ! We might be operating in a scaled system, i.e. solving
     ! (DAD)y = Db; x=Dy
@@ -1375,7 +1381,6 @@ END SUBROUTINE FetiProject
 
       m =  Solver % Mesh % NumberOfNodes
       p => Solver % Variable % Perm
-      CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
 
       ! constant 1 (complications due to p-elements)
       ! --------------------------------------------------
@@ -1383,16 +1388,18 @@ END SUBROUTINE FetiProject
       ALLOCATE(z(nz,n))
       z = 0._dp
       DO i=1,m
-        IF (p(i)>0) z(1,p(i))=1._dp/dscale(p(i))
+        j=p(i)
+        IF (j>0) z(1,j) = 1._dp / dscale(j)
       END DO
 
-      ALLOCATE(x(n))
+      ALLOCATE(x(n));
       CALL MatrixVectorMultiply(A,z(1,:),x)
-      Floating = ALL(x<floatEps)
+      Floating = ALL(ABS(x)<floatEps)
 
       IF (.NOT.Floating) THEN
         DEALLOCATE(z); nz=0;
       ELSE
+        CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
         Fixinds(1) = p(FixNodes(1))
       END IF
       IF (.NOT.ASSOCIATED(A % DiagScaling)) DEALLOCATE(dscale)
@@ -1406,7 +1413,6 @@ END SUBROUTINE FetiProject
 
       m =  Solver % Mesh % NumberOfNodes
       p => Solver % Variable % Perm
-      CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
 
       coord_x => Solver % Mesh % Nodes % x
       coord_y => Solver % Mesh % Nodes % y
@@ -1459,6 +1465,7 @@ END SUBROUTINE FetiProject
       ! ----------------------------------------
       Floating=nz>0
       IF (Floating) THEN
+        CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
         DO i=1,nz
           IF (FloatInds(i)<=dim) THEN  ! x-y-z translation
             FixInds(i) = dofs*(p(FixNodes(2*FloatInds(i)-1))-1)+FloatInds(i)
@@ -1589,11 +1596,11 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
     REAL(KIND=dp), ALLOCATABLE :: y(:)
     REAL(KIND=dp) :: alpha(maxnz), zz, TOL
-    INTEGER :: i,j,k,l,m,n,q,d,nLC,FixInds(maxnz),zinds(maxnz)
+    INTEGER :: i,j,k,l,m,n,q,d,nLC
 
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL  :: Found, Refactorize, Floating, LQ
+    LOGICAL  :: Found, Floating=.FALSE., FetiInit
     REAL(KIND=dp), POINTER :: xtmp(:),btmp(:),rtmp(:)
     INTEGER(KIND=AddrInt) :: mvProc, dotProc, nrmProc, stopcProc, precProc, AddrFunc
 
@@ -1601,7 +1608,6 @@ END SUBROUTINE FetiProject
     INTEGER, POINTER :: SaveCols(:),SaveRows(:)
 !------------------------------------------------------------------------------
 
-    InitializeLC = .TRUE.;  InitializeIf = .TRUE.
     Params => GetSolverParams()
     TOL=GetCReal( Params,'Linear System Convergence Tolerance')
 
@@ -1622,10 +1628,6 @@ END SUBROUTINE FetiProject
     n = A % NumberOfRows
     ALLOCATE(y(n))
 
-    ! Check neighbouring partitions:
-    ! ------------------------------
-    CALL FetiGetNeighbours()
-
     ! Initialize parallel matrix for the original system for
     ! matrix-vector multiply in FetiStopc. NOT USED at the
     ! moment.
@@ -1633,9 +1635,17 @@ END SUBROUTINE FetiProject
 !   y=b
 !   CALL ParallelInitSolve(A,x,y,y)
 
-    ! Check for floating domains, initialize null space z (a.k.a. R):
-    ! ---------------------------------------------------------------
-    Floating = FetiFloatingDomain(A,Solver,FixInds,TOL)
+    IF(Refactorize) THEN
+      InitializeLC = .TRUE.;  InitializeIf = .TRUE.
+
+      ! Check neighbouring partitions:
+      ! ------------------------------
+      CALL FetiGetNeighbours()
+
+      ! Check for floating domains, initialize null space z (a.k.a. R):
+      ! ---------------------------------------------------------------
+      Floating = FetiFloatingDomain(A,Solver,FixInds,TOL)
+    END IF
 
     IF (Floating) THEN
 
@@ -1673,9 +1683,9 @@ END SUBROUTINE FetiProject
           a % rows(n+j)=l
           do i=1,n
             IF ( z(j,i)==0 ) CYCLE
-            a % cols(l)=i
-            a % values(l)=z(j,i)
-            l=l+1
+             a % cols(l)=i
+             a % values(l)=z(j,i)
+             l=l+1
           end do
         end do
         a % rows(n+nz+1)=l
@@ -1753,7 +1763,7 @@ END SUBROUTINE FetiProject
 
     IF (Floating) THEN
       x = x + MATMUL(alpha(1:nz),z)
-      DEALLOCATE(z)
+!     DEALLOCATE(z)
 
       DEALLOCATE(A % Values,A % Rows, A % Cols)
       A % Rows => SaveRows
