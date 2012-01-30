@@ -1216,7 +1216,7 @@ END SUBROUTINE FetiProject
 
     EXTERNAL matvecsubr, precsubr, dotprodfun, normfun
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,iter,nnz,nLC,nrows,maxit,ipar(50), output,Restart,Saven
+    INTEGER :: i,j,m,iter,nnz,nLC,nrows,maxit,ipar(50), output,Restart,Saven
     REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err0,err1,err2,TOL,dpar(1)
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found,prec
@@ -1240,7 +1240,10 @@ END SUBROUTINE FetiProject
     ALLOCATE(T(n),S(n),Ri(n))
 
     x(1:n)=0
-    IF (nz>0) x(1:nz)=MATMUL(z,f)
+    IF (nz>0) THEN
+      m = SIZE(z,2)
+      x(1:nz)=MATMUL(z,f(1:m))
+    END IF
     CALL FetiProject(A,n,x,OP=1,TOL=1d-12)
 
     HUTI_NDIM=n
