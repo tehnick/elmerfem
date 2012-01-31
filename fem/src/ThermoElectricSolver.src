@@ -71,7 +71,6 @@ SUBROUTINE ThermoElectricSolver( Model,Solver,dt,Transient)
 
   NonlinTol = GetConstReal(Params,'Nonlinear System Convergence Tolerance',Found)
 
-
   DO iter=1,NonlinIter
     CALL DefaultInitialize()
     CALL BulkAssembly()
@@ -131,7 +130,7 @@ CONTAINS
        sigma(3,3),alpha(3,3), pelt(3,3), hcond(3,3), epsil(3,3),rho,c_p,Temp
 
     REAL(KIND=dp) :: sigma_n(3,3,n),alpha_n(3,3,n), pelt_n(3,3,n), &
-            hcond_n(3,3,n), epsil_n(3,3,n),rho_n(n),c_p_n(n)
+            hcond_n(3,3,n), epsil_n(3,3,n),rho_n(n),c_p_n(n),epsil0
 
     TYPE(ValueList_t), POINTER :: Material, BF
 
@@ -145,15 +144,32 @@ CONTAINS
     CALL InputTensor(Material, hcond_n, isScalar,'Heat Conductivity', Element)
     CALL InputTensor(Material, alpha_n, isScalar,'Seebeck Coefficient', Element)
     CALL InputTensor(Material, sigma_n, isScalar,'Electric Conductivity', Element)
-    CALL InputTensor(Material, epsil_n, isScalar,'Electric Permittivity', Element)
+
+    IF( ListCheckPresent( Material,'Relative Permittivity') ) THEN
+      epsil0 = GetConstReal( Model % Simulation,'Permittivity of Vacuum',Found)
+      IF(.NOT. Found ) THEN
+        CALL Fatal('ThermoElectricSolver',&
+            '> Relative Permittivity < requires > Permittivity of Vacuum < !')
+      END IF
+      CALL InputTensor(Material, epsil_n, isScalar,'Electric Permittivity', Element)
+    ELSE
+      epsil0 = 1.0_dp
+      CALL InputTensor(Material, epsil_n, isScalar,'Electric Permittivity', Element)
+    END IF
+
 
     rho_n = GetReal( Material, 'Density',Found,Element )
     c_p_n = GetReal( Material, 'Heat Capacity',Found,Element )
 
     BF => GetBodyForce(Element)
-    IF (ASSOCIATED(BF)) THEN
+    IF (ASSOCIATED(BF)) THEN      
       LOAD(1,1:n) = GetReal(BF,'Heat Source',Found,Element)
-      LOAD(2,1:n) = GetReal(BF,'Input Current',Found,Element)
+      IF( Found ) THEN
+        Load(1,1:n) = rho_n * Load(1,1:n) 
+      ELSE
+        LOAD(1,1:n) = GetReal(BF,'Volumetric Heat Source',Found,Element)
+      END IF
+      LOAD(2,1:n) = GetReal(BF,'Current Source',Found,Element)
     END IF
 
     CALL GetVectorLocalSolution(SOL,UElement=Element)
@@ -174,7 +190,7 @@ CONTAINS
           hcond(i,j) = SUM(hcond_n(i,j,:)*Basis(1:n))
           alpha(i,j) = SUM(alpha_n(i,j,:)*Basis(1:n))
           sigma(i,j) = SUM(sigma_n(i,j,:)*Basis(1:n))
-          epsil(i,j) = SUM(epsil_n(i,j,:)*Basis(1:n))
+          epsil(i,j) = epsil0 * SUM(epsil_n(i,j,:)*Basis(1:n))
         END DO
       END DO
       rho = SUM(rho_n*Basis(1:n))
