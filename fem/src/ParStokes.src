@@ -81,12 +81,12 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
   LOGICAL :: AllocationsDone = .FALSE., Found, Convect, GotForceBC, NormalTangential, &
-       SkipPowerLaw
+       SkipPowerLaw, Newton = .FALSE.
   TYPE(Element_t), POINTER :: Element
 
-  REAL(KIND=dp) :: Norm, NonlinearTol
+  REAL(KIND=dp) :: Norm, NonlinearTol, NewtonThreshold, NonLinError
   INTEGER :: n, m, p, q, nb, nd, t, istat, active, dim, &
-       iter, NonlinearIter
+       iter, NonlinearIter, MaxPicardIterations
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:,:), FORCE(:), rho(:), mu(:), &
@@ -141,16 +141,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
            CASE ('velocity preconditioning')
               VelocitySolver => Model % Solvers(i)
               AMatrix => VelocitySolver % Matrix
-           CASE ('gradient block 1')     
-              GradSolver1 => Model % Solvers(i)
-              B1Matrix => GradSolver1 % Matrix              
-           CASE ('gradient block 2')     
-              GradSolver2 => Model % Solvers(i)
-              B2Matrix => GradSolver2 % Matrix                            
-           CASE ('gradient block 3')     
-              GradSolver3 => Model % Solvers(i)
-              B3Matrix => GradSolver3 % Matrix              
-         
            END SELECT
         END IF
      END DO
@@ -171,30 +161,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
      IF ( ANY(Solver % Variable % Perm(1:n) /= VelocitySolver % Variable % Perm(1:n)) ) &
           CALL Fatal( 'ParStokes', 'Nonmatching variable permutations, &
           use Optimize Bandwidth in velocity preconditioning' )
-
-     
-     ! IF (Parallel) THEN
-     IF (.FALSE.) THEN ! Grad blocks are not employed yet...
-        IF ( .NOT. ASSOCIATED(GradSolver1) ) &
-             CALL Fatal( 'ParStokes', 'Gradient block 1 missing...' )     
-        IF ( .NOT. ASSOCIATED(GradSolver2) ) &
-             CALL Fatal( 'ParStokes', 'Gradient block 2 missing...' )     
-        IF ( (dim > 2) .AND. (.NOT. ASSOCIATED(GradSolver3)) ) & 
-             CALL Fatal( 'ParStokes', 'Gradient block 3 missing...' )                
-        
-        IF ( ANY(Solver % Variable % Perm(1:n) /= GradSolver1 % Variable % Perm(1:n)) ) &
-             CALL Fatal( 'ParStokes', 'Nonmatching variable permutations, &
-             use Optimize Bandwidth in grad block 1' )
-        IF ( ANY(Solver % Variable % Perm(1:n) /= GradSolver2 % Variable % Perm(1:n)) ) &
-             CALL Fatal( 'ParStokes', 'Nonmatching variable permutations, &
-             use Optimize Bandwidth in grad block 2' )    
-        IF (dim > 2) THEN
-           IF ( ANY(Solver % Variable % Perm(1:n) /= GradSolver3 % Variable % Perm(1:n) ) ) THEN
-              CALL Fatal( 'ParStokes', 'Nonmatching variable permutations, &
-                   use Optimize Bandwidth in grad block 3' )
-           END IF
-        END IF
-     END IF
   END IF
 
 
@@ -222,12 +188,9 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
           ExtPressure(p), &
           ALocal(m,m), & 
           PLocal(p,p), &
-          B1Local(p,p), &
-          B2Local(p,p), &
-          B3Local(p,p), &
           STAT=istat )
      IF ( istat /= 0 ) THEN
-        CALL Fatal( 'StokesSolver', 'Memory allocation error.' )
+        CALL Fatal( 'ParStokes', 'Memory allocation error.' )
      END IF
 
      IF (BlockPreconditioning) THEN
@@ -243,7 +206,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
              V( Solver % Matrix % NumberOfRows, RestartM), &      ! For saving the range of coefficient matrix
              STAT=istat )
         IF ( istat /= 0 ) THEN
-           CALL Fatal( 'StokesSolver', 'Memory allocation error.' )
+           CALL Fatal( 'ParStokes', 'Memory allocation error.' )
         END IF
      END IF
 
@@ -267,24 +230,39 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   Active = GetNOFActive()
 
   DO iter=1, NonlinearIter
+     !-----------------------------------------------------------------------
+     ! Check whether it is the time to switch to Newton linearization...
+     !-----------------------------------------------------------------------
+     Newton = .FALSE.
+     IF (iter > 2) THEN
+       NewtonThreshold = ListGetConstReal( Solver % Values, &
+           'Nonlinear System Newton After Tolerance', Found )
+       IF ( Found .AND. (NonLinError < NewtonThreshold) ) THEN
+         Newton = .TRUE.
+       ELSE
+         MaxPicardIterations = ListGetInteger( Solver % Values, &
+             'Nonlinear System Newton After Iterations', Found )    
+         IF ( Found ) THEN
+           IF ( iter > MaxPicardIterations ) THEN
+             Newton = .TRUE.
+           END IF
+         END IF
+       END IF
+     END IF
 
+     IF (Newton) THEN
+        WRITE(Message,'(a)') 'The Newton linearization is used...'
+        CALL Info('ParSolver', Message, Level=4)
+     END IF
+ 
+     !------------------------------------------------------------------
+     ! Initialize matrix structures...
+     !------------------------------------------------------------------
      CALL DefaultInitialize()
 
      IF (BlockPreconditioning) THEN
        CALL InitializeToZero( AMatrix, AMatrix % RHS ) 
        CALL InitializeToZero( PMatrix, PMatrix % RHS )        
-       !CALL CRS_ZeroMatrix( AMatrix )
-       !CALL DefaultInitialize(VelocitySolver)        
-       !CALL CRS_ZeroMatrix( PMatrix )
-
-       !IF (Parallel .AND. Iter == 1) THEN
-       IF (.FALSE.) THEN
-          CALL InitializeToZero( B1Matrix, B1Matrix % RHS ) 
-          CALL InitializeToZero( B2Matrix, B2Matrix % RHS ) 
-          IF (dim == 3) THEN
-             CALL InitializeToZero( B3Matrix, B3Matrix % RHS ) 
-          END IF
-       END IF
      END IF
 
      !------------------------------------------------------------
@@ -297,6 +275,10 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
        RotatedVarValues = 0.0d0          
      END IF
 
+     !---------------------------------------------------------------
+     ! We always generate the initial guess by adjusting material law
+     ! exponent to obtain linear behaviour
+     !---------------------------------------------------------------
      IF (Iter==1) THEN
         SkipPowerlaw = .TRUE.
      ELSE
@@ -343,11 +325,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
           CALL GetScalarLocalSolution( Vz, ComponentName(Solver % Variable % Name,3) )
         END IF
 
-        !-------------------------------------------
-        !Get element local matrix and rhs vector:
-        !-------------------------------------------
+        !---------------------------------------------------------------------
+        ! Get element local matrix and rhs vector:
+        !---------------------------------------------------------------------
         CALL LocalMatrix( STIFF, PLocal, FORCE, LOAD, rho, mu, &
-             Vx, Vy, Vz, Element, n, nd+nb, dim, Convect, SkipPowerLaw)
+             Vx, Vy, Vz, Element, n, nd+nb, dim, Convect, SkipPowerLaw, Newton)
 
         IF ( nb > 0 ) THEN
            CALL StaticCondensation( nd, nb, dim, STIFF, FORCE )
@@ -365,19 +347,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                  END DO
               END DO
            END DO
-
-           ! IF (Parallel) THEN
-           IF (.FALSE.) THEN
-              DO p=1,nd
-                 DO q=1,nd
-                    B1Local(p,q) = Stiff( (p-1)*(dim+1)+1, q*(dim+1) )
-                    B2Local(p,q) = Stiff( (p-1)*(dim+1)+2, q*(dim+1) )
-                    IF (dim==3) &
-                         B3Local(p,q) = Stiff( (p-1)*(dim+1)+3, q*(dim+1) )   
-                 END DO
-              END DO
-           END IF
-
         END IF
 
         CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -386,14 +355,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
           Force = 0.0d0
           CALL DefaultUpdateEquations( ALocal, FORCE, USolver=VelocitySolver)
           CALL DefaultUpdateEquations( PLocal, FORCE, USolver=PressureSolver)
-          
-          ! IF (Parallel) THEN
-          IF (.FALSE.) THEN
-             CALL DefaultUpdateEquations( B1Local, FORCE, USolver=GradSolver1)
-             CALL DefaultUpdateEquations( B2Local, FORCE, USolver=GradSolver2)  
-             IF (dim==3) &
-                  CALL DefaultUpdateEquations( B3Local, FORCE, USolver=GradSolver3)            
-          END IF
         END IF
  
      END DO
@@ -517,8 +478,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 
         !------------------------------------------------------------------------------------------
         ! Dirichlet BSs for p-elements need special treatment in order to handle non-nodal dofs.
-        ! TO DO: Nullify the rows of the discrete grad matrix if the row corresponds to
-        ! the Dirichlet velocity condition...
         !------------------------------------------------------------------------------------------
         IF (.FALSE.) THEN
           CALL SetBoundaryConditions(Model, VelocitySolver % Matrix, ComponentName(Solver % Variable % name, 1), &
@@ -589,7 +548,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
              ALLOCATE( TempMr(n) )
            END IF
 
-
         ELSE
            n =  Solver % Matrix % NumberOfRows
            IF ( .NOT. ALLOCATED(Residual) ) THEN
@@ -630,13 +588,13 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                Mr(j) = Mb(j) - Mr(j)
              END DO
            END IF
-           Norm = Mynorm( n, Mr )/Mynorm( n, Mb )
+           NonLinError = Mynorm( n, Mr )/Mynorm( n, Mb )
 
            WRITE(Message,'(a,I4,ES12.3)') 'Residual for nonlinear iterate', &
-              Iter, Norm
+              Iter, NonLinError
            CALL Info('StokesSolver', Message, Level=4)            
 
-           IF ( Norm <  NonlinearTol .OR. Iter==NonlinearIter ) THEN
+           IF ( NonLinError < NonlinearTol .OR. Iter==NonlinearIter ) THEN
              DEALLOCATE( Residual )
              DEALLOCATE( TempRes )
              DEALLOCATE( TempS )
@@ -733,8 +691,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                END DO
              END DO
            ELSE
-             !IF (.FALSE.) THEN
-             !IF (Parallel) THEN
              !--------------------------------------------------------
              ! Save the current status of parallel matrix structure
              !-------------------------------------------------------
@@ -754,9 +710,9 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                Solver % Variable % Values( i*(dim+1) ) = PressureSolver % Variable % Values(i)
              END DO
 
-             !-------------------------------------------------------
+             !-------------------------------------------------------------------------------
              ! Update the vectors of the parallel matrix structure   
-             !-------------------------------------------------------
+             !-------------------------------------------------------------------------------
              CALL ParallelUpdateSolve( Solver % Matrix, Solver % Variable % Values, TempRes )
              !-----------------------------------------------------------------------
              ! Perform mv-product and insert the result into the argument vectors...
@@ -789,7 +745,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                'No Precondition Recompute', .TRUE.)
            CALL ListAddLogical(VelocitySolver % Values, &
                'Linear System Refactorize', .FALSE.)
-
            CurrentModel % Solver => VelocitySolver
            Norm = DefaultSolve(VelocitySolver)      
            CurrentModel % Solver => Solver
@@ -825,15 +780,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 
            IF (Parallel) &
                 CALL ParallelUpdateResult( Solver % Matrix, Solver % Variable % Values, Residual )
-
-
-           !IF (ParEnv % MyPE == 1 .AND. round == 1) THEN
-           !  j = Solver % Matrix % NumberOfRows
-           !  DO i=1,n
-           !    PRINT *, i, Mr(i)
-           !  END DO
-           !END IF
-
 
            IF (Norm < MinTolerance) EXIT
 
@@ -877,10 +823,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 
 
       END IF
-
-     !IF (BlockPreconditioning) &
-     !    CALL BackRotateNTSystem( Solver % Variable % Values, Solver % Variable % Perm, &
-     !    Solver % Variable % DOFs )
 
    END DO
 
@@ -956,10 +898,9 @@ CONTAINS
        V(1:n,j) = T2(1:n)
     END IF
 
-    !res = ComplexNorm(m,r)/ComplexNorm(m,f)
     RR(1:n) = r(1:n)
     res = MyNorm(n,r)/Mynorm(n,b)
-    !PRINT *, 'Residual norm after minimization = ', res
+
     WRITE(Message,'(a,I4,ES12.3)') 'OuterIteration residual for iterate', &
         Round, res
     CALL Info('TwoLevelSolver',Message,Level=4)
@@ -973,23 +914,24 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrix(  STIFF, Mass, FORCE, LOAD, Nodalrho, &
-       Nodalmu, Vx, Vy, Vz, Element, n, nd, dim, Convect, SkipPowerLaw)
+       Nodalmu, Vx, Vy, Vz, Element, n, nd, dim, Convect, SkipPowerLaw, Newton)
 !------------------------------------------------------------------------------
     REAL(KIND=dp), TARGET :: STIFF(:,:), Mass(:,:), FORCE(:), LOAD(:,:)
     REAL(KIND=dp) :: Nodalmu(:), Nodalrho(:), Vx(:), Vy(:), Vz(:), GradDivParam
     INTEGER :: dim, n, nd
     TYPE(Element_t), POINTER :: Element
-    LOGICAL :: Stabilization, Convect, SkipPowerLaw
+    LOGICAL :: Stabilization, Convect, SkipPowerLaw, Newton
     !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), &
          DetJ, LoadAtIP(dim+1), Velo(dim), Grad(dim,dim), AK, w1, w2, w3, ViscAtIp, RhoAtIP
-    REAL(KIND=dp), POINTER :: A(:,:), F(:), M(:,:)
-    LOGICAL :: Stat
+    REAL(KIND=dp), POINTER :: A(:,:), F(:), M(:,:), Jac(:,:)
+    REAL(KIND=dp), TARGET :: JacM(nd*(dim+1),nd*(dim+1)), Sol(nd*(dim+1)) 
+    LOGICAL :: Stat, ViscNewtonLin
     INTEGER :: t, i, j, k, l, p, q
     TYPE(GaussIntegrationPoints_t) :: IP
 
     REAL(KIND=dp) :: mu = 1.0d0, rho = 1.0d0, s, c, c2, ch, rotterm, mK, hK, Re, VNorm, &
-         a1, a2, muder
+         a1, a2, muder, muder0, Strain(dim,dim)
 
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -999,6 +941,8 @@ CONTAINS
     STIFF = 0.0d0
     FORCE = 0.0d0
     Mass = 0.0d0
+    IF (Newton) JacM = 0.0d0
+    ViscNewtonLin = .FALSE.
 
     !----------------------
     ! Numerical integration:
@@ -1014,26 +958,18 @@ CONTAINS
 
        s = IP % s(t) * detJ
 
-       !Velo = MATMUL( NodalVelo(1:dim,1:nd), Basis(1:nd) )
-       
+       Grad = 0.0d0
+       DO i=1,dim
+          Grad(1,i) = SUM( Vx(1:n) * dBasisdx(1:n,i) )
+          Grad(2,i) = SUM( Vy(1:n) * dBasisdx(1:n,i) )
+          IF ( DIM > 2 ) Grad(3,i) = SUM( Vz(1:n) * dBasisdx(1:n,i) )
+       END DO
 
        !----------------------------------------------
        ! Material parameters at the integration point:
        !----------------------------------------------
-       !mu  = SUM( Basis(1:n) * Nodalmu(1:n) )
-       !rho = SUM( Basis(1:n) * Nodalrho(1:n) )
-
        ViscAtIP  = SUM( Basis(1:n) * Nodalmu(1:n) )
        RhoAtIP = SUM( Basis(1:n) * Nodalrho(1:n) )
-
-       !PRINT *, 'mu before = ', mu   
-       !PRINT *, 'rho before = ', rho
-       !PRINT *, 'u before = ', NodalVelo(1,1:n)
-       !PRINT *, 'ut,vt before = ', IP % U(t), IP % V(t)
-       
-       !mu = EffectiveViscosity( mu, rho, NodalVelo(1,1:n), NodalVelo(2,1:n), &
-       !    NodalVelo(3,1:n), Element, Nodes, n, n, IP % U(t), IP % V(t), &
-       !    IP % W(t), muder )
        
        IF ( SkipPowerLaw ) THEN
           mu = ViscAtIP
@@ -1041,16 +977,14 @@ CONTAINS
           IF( ListCheckPresent( Material, 'Viscosity Model' ) ) THEN
              mu = EffectiveViscosity( ViscAtIP, RhoAtIp, Vx, Vy, Vz, &
                   Element, Nodes, n, n, IP % U(t), IP % V(t), &
-                  IP % W(t), muder )
+                  IP % W(t), muder0 )
+             ViscNewtonLin = Newton .AND. muder0/= 0.0d0
+             IF ( ViscNewtonLin )  Strain = (Grad+TRANSPOSE(Grad))/2
           ELSE
              mu = ViscAtIP
           END IF
        END IF
 
-       !PRINT *, 'mu after = ', mu   
-       !PRINT *, 'rho after = ', rho     
-       !PRINT *, 'u after = ', NodalVelo(1,1:n)
-       !PRINT *, 'ut,vt after = ', IP % U(t), IP % V(t)      
        !--------------------------------------------
        ! The source term at the integration point:
        !------------------------------------------
@@ -1064,6 +998,25 @@ CONTAINS
              i = (dim+1) * (p-1) + 1
              j = (dim+1) * (q-1) + 1
              A => STIFF(i:i+dim,j:j+dim)
+             IF ( ViscNewtonLin ) Jac => JacM( i:i+dim,j:j+dim )
+
+             IF ( ViscNewtonLin ) THEN
+               DO i=1,dim
+                 muder = muder0*SUM(Strain(i,1:dim)*dBasisdx(q,1:dim))
+                 DO j=1,dim
+                   a1 = 0.0d0
+                   a2 = 0.0d0
+                   DO k=1,dim
+                     a1 = a1 + Grad(j,k)*dBasisdx(p,k)
+                     a2 = a2 + Grad(k,j)*dBasisdx(p,k)
+                   END DO
+                   Jac(j,i) = Jac(j,i) + s * muder * (a1+a2)
+                   !  Jac(i,i)=Jac(i,i) + s*muder*Grad(i,j)*dBasisdx(p,j)
+                   !   Jac(j,i)=Jac(j,i) + s*muder*Grad(i,j)*dBasisdx(p,i)
+                 END DO
+               END DO
+             END IF
+
              DO i=1,dim
                 DO j = 1,dim
                    A(i,i) = A(i,i) + s * mu * dBasisdx(q,j) * dBasisdx(p,j)
@@ -1093,6 +1046,16 @@ CONTAINS
           END DO
        END DO
     END DO
+
+    IF ( ViscNewtonLin ) THEN
+       SOL=0.0d0
+       SOL(1:(dim+1)*n:dim+1) = Vx(1:n)
+       SOL(2:(dim+1)*n:dim+1) = Vy(1:n)
+       IF ( dim>2 ) SOL(3:(dim+1)*n:dim+1) = Vz(1:n)
+       p = (dim+1)*n
+       Stiff(1:p,1:p) = Stiff(1:p,1:p)+JacM(1:p,1:p)
+       FORCE(1:p)=FORCE(1:p)+MATMUL(JacM(1:p,1:p),SOL(1:p))
+    END IF
 
     ! Omit dofs that do not correspond to linear pressure approximation...
     DO p = n+1,nd
@@ -1362,11 +1325,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE NullifyEdgeDofs
 !------------------------------------------------------------------------------
-
-
-
-
-
 
 
 
