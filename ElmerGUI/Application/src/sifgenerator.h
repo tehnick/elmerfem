@@ -1,4 +1,4 @@
-/*****************************************************************************
+sif/*****************************************************************************
  *                                                                           *
  *  Elmer, A Finite Element Software for Multiphysical Problems              *
  *                                                                           *
@@ -117,7 +117,8 @@ class SifGenerator  {
 
   int  findHashValue(DynamicEditor*, const QString&, const QString&);
   bool parseSolverSpecificTab(DynamicEditor *, const QString&);
-  void parseGeneralTab(Ui::solverParameterEditor);
+  void parseExecSolverTab(Ui::solverParameterEditor);
+  void parseNumericalTechniquesTab(Ui::solverParameterEditor);
   void parseSteadyStateTab(Ui::solverParameterEditor);
   void parseNonlinearSystemTab(Ui::solverParameterEditor);
   void parseLinearSystemTab(Ui::solverParameterEditor);

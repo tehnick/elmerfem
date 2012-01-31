@@ -570,8 +570,11 @@ void SifGenerator::makeSolverBlocks(const QString &solverName)
 
   ui = tmp->ui; 
 
+  // Parse the exec solver also for non-PDE solvers
+  parseExecSolverTab(ui);
+
   if(hasMatrix) {
-    parseGeneralTab(ui);
+    parseNumericalTechniquesTab(ui);
     parseSteadyStateTab(ui);
     parseNonlinearSystemTab(ui);
     parseLinearSystemTab(ui);
@@ -900,7 +903,7 @@ bool SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, const QStrin
 
 // Parse "Exec Solver" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void SifGenerator::parseGeneralTab(Ui::solverParameterEditor ui)
+void SifGenerator::parseExecSolverTab(Ui::solverParameterEditor ui)
 {
   if(ui.execAlways->isChecked())
     te->append("  Exec Solver = Always");
@@ -919,7 +922,12 @@ void SifGenerator::parseGeneralTab(Ui::solverParameterEditor ui)
   
   if(ui.execNever->isChecked())
     te->append("  Exec Solver = Never");
-  
+}
+
+// Parse "Numerical Techniques" tab from ui to sif:
+//-----------------------------------------------------------------------------
+void SifGenerator::parseNumericalTechniquesTab(Ui::solverParameterEditor ui)
+{
   addSifLineBool("  Stabilize = ", ui.stabilizeCheck->isChecked());
   addSifLineBool("  Bubbles = ", ui.bubblesCheck->isChecked());
   addSifLineBool("  Lumped Mass Matrix = ", ui.lumpedMassCheck->isChecked());
