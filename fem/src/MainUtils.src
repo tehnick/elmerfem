@@ -2661,6 +2661,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 !> This is a line of solvers where a matrix is matrices and a vector of vectors 
 !> are created to allow different kinds of block strategies for the solvers.
+!> This strategy has optimal memory consumption even if block strategies are 
+!> employed on the linear system level. 
 !------------------------------------------------------------------------------
   SUBROUTINE BlockSolver( Model, Solver, dt, Transient )
 !------------------------------------------------------------------------------
@@ -3228,8 +3230,10 @@ CONTAINS
   
 
 !------------------------------------------------------------------------------
-!> This is the original line of solvers where each solver includes looping over 
-!> elements and the convergence control. 
+!> This executes the original line of solvers (legacy solvers) where each solver 
+!> includes looping over elements and the convergence control. From generality
+!> point of view this misses some opportunities to have control of the nonlinear
+!> system. 
 !------------------------------------------------------------------------------
   SUBROUTINE SingleSolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
@@ -3356,6 +3360,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Runs a solver as defined in the command file. There are several
+!> ways how to skip the execution. The are also three different ways
+!> how the metrices may be assmebled and solver: standard (single), coupled and
+!> block. 
+!------------------------------------------------------------------------------
   SUBROUTINE SolverActivate( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
      TYPE(Model_t)  :: Model
@@ -3364,7 +3373,8 @@ CONTAINS
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
      LOGICAL :: stat, Found, TimeDerivativeActive, Timing, IsPassiveBC
-     INTEGER :: i, j, n, BDOFs, execi, timestep, PassiveBcId
+     INTEGER :: i, j, n, BDOFs, timestep, timei, PassiveBcId
+     INTEGER, POINTER :: ExecIntervals(:)
      REAL(KIND=dp) :: tcond, t0, rt0, st, rst, ct, CPUTime,RealTime
      TYPE(Variable_t), POINTER :: TimeVar, IterV
      CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -3377,31 +3387,52 @@ CONTAINS
      Model % Solver => Solver
      Params => Solver % Values
 
+!------------------------------------------------------------------------------
+! The solver may be skipped by giving the start time, or stop time, or the 
+! active exec intervals.
+!------------------------------------------------------------------------------
      st = ListGetConstReal( Params, 'Start Time', Found )
      IF ( Found ) THEN
        TimeVar => VariableGet( Model % Variables, 'Time' )
        IF ( TimeVar % Values(1) < st ) RETURN
      END IF
 
-     execi = ListGetInteger( Params, 'Exec Interval', Found )
+     st = ListGetConstReal( Params, 'Stop Time', Found )
      IF ( Found ) THEN
+       TimeVar => VariableGet( Model % Variables, 'Time' )
+       IF ( TimeVar % Values(1) > st ) RETURN
+     END IF
+    
+     ExecIntervals => ListGetIntegerArray( Params,'Exec Intervals', Found )
+     IF( .NOT. Found ) THEN
+       ExecIntervals =>  ListGetIntegerArray( Params,'Exec Interval', Found )
+     END IF
+     IF ( Found ) THEN
+       TimeVar => VariableGet( Model % Variables, 'Timestep Interval' )
+       timei = NINT(Timevar % Values(1))
+
        TimeVar => VariableGet( Model % Variables, 'Timestep' )
-       execi = MOD( NINT(Timevar % Values(1))-1, execi )
-       IF ( execi /= 0 ) RETURN
+       timestep = NINT(TimeVar % Values(1))
+
+       IF( MOD( timestep-1, ExecIntervals(timei)) /= 0 ) RETURN
      END IF
 
 !------------------------------------------------------------------------------
-
+! If solver timing is requested start the watches
+!------------------------------------------------------------------------------
      Timing = ListGetLogical(Params,'Solver Timing',Found)
      IF( Timing ) THEN
-       t0 = CPUTime(); rt0 = RealTime()
+       t0 = CPUTime()
+       rt0 = RealTime()
      END IF
 
      Solver % Mesh % OutputActive = .TRUE.
      TimeDerivativeActive = TransientSimulation
 
-     ! This is to avoid resetting of certain info that could be interesting
-     ! when saving data.
+!----------------------------------------------------------------------
+! This is to avoid resetting of certain info that could be interesting
+! when saving data i.e. using an auxiliary solver.
+!----------------------------------------------------------------------
      IF(.NOT. ListGetLogical( Params,'Auxiliary Solver',Found)) THEN
        DTScal = ListGetConstReal( Params, 'Timestep Scale', Found )
        IF ( .NOT. Found ) DTScal = 1.0_dp
@@ -3425,31 +3456,31 @@ CONTAINS
        IF (Found) CALL ListSetNamespace(TRIM(str))
      END IF
 
-     !------------------------------------------------------------------------------
-     !     Check for passive-active boundaries
-     !------------------------------------------------------------------------------
+ !------------------------------------------------------------------------------
+ ! Check for passive-active boundaries
+ !------------------------------------------------------------------------------
      PassiveBcId = 0
      IsPassiveBC = .FALSE.
      DO j=1,Model % NumberOfBCs
-        IsPassiveBC = ListGetLogical( Model % BCs(j) % Values, &
-             'Passive Target',Found)
-        IF (.NOT.Found) IsPassiveBC = .FALSE.
-        IF (IsPassiveBC) THEN
-           PassiveBcId = j
-           EXIT
-        END IF
+       IsPassiveBC = ListGetLogical( Model % BCs(j) % Values, &
+           'Passive Target',Found)
+       IF (IsPassiveBC) THEN
+         PassiveBcId = j
+         EXIT
+       END IF
      END DO
-     IF (PassiveBcId /= 0 .AND. IsPassiveBC) THEN
-        CALL GetPassiveBoundary( Model, Model % Mesh, PassiveBcId )
-        WRITE(Message, '(A,I0,A,I0,A)' ) &
-             'Passive element BC no. ',j, ' assigned to BC-ID no. ', &
-             PassiveBcId
-        CALL INFO('MainUtils',Message,Level=9)
-     ELSE
-        CALL INFO('Mainutils','No Passive element boundary found', Level=9)
+     IF ( IsPassiveBC ) THEN
+       CALL GetPassiveBoundary( Model, Model % Mesh, PassiveBcId )
+       WRITE(Message, '(A,I0,A,I0,A)' ) &
+           'Passive element BC no. ',j, ' assigned to BC-ID no. ', &
+           PassiveBcId
+       CALL INFO('MainUtils',Message,Level=5)
      END IF
-     !-------------------------------------------------------------------
 
+ !---------------------------------------------------------------------
+ ! Call the correct type of solver: standard (single), coupled or block
+ ! This is where everything really happens!
+ !---------------------------------------------------------------------
      IF( Solver % SolverMode == SOLVER_MODE_COUPLED .OR. &
          Solver % SolverMode == SOLVER_MODE_ASSEMBLY ) THEN
        CALL CoupledSolver( Model, Solver, DTScal * dt, TimeDerivativeActive )
@@ -3462,10 +3493,11 @@ CONTAINS
      CALL ListSetNamespace('')
      Solver % dt = dt
 
-
+!------------------------------------------------------------------------------
+! After solution register the timing, if requested
 !------------------------------------------------------------------------------
      IF( Timing ) THEN
-       st  = CPUTime() - t0;
+       st  = CPUTime() - t0
        rst = RealTime() - rt0
 
        str = ListGetString( Params,'Equation',Found)
