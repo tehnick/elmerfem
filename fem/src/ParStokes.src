@@ -104,6 +104,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !----------------------------------------------------------------------------- 
   LOGICAL :: BlockPreconditioning, Parallel, UpdateMatrix, UseTrueResidual, Timing, &
        OptimizeBW, GlobalBubbles
+  LOGICAL :: DoScaling, DoEquilibration
   CHARACTER(LEN=MAX_NAME_LEN) :: Eq
   INTEGER :: i, j, k, nlen, Round, MaxIterations, RestartM
   INTEGER, ALLOCATABLE :: Indexes(:)
@@ -118,6 +119,8 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
       TempMx(:), TempMb(:), TempMr(:), TempRHS(:)
   REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
   SAVE Snew, R, S, V, Indexes, ALocal, PLocal, B1Local, B2Local, B3Local, Vx, Vy, Vz
+  REAL(KIND=dp), ALLOCATABLE :: RowScalingA(:), RowScalingP(:)
+  SAVE RowScalingA, RowScalingP
 !------------------------------------------------------------------------------
   Parallel = ParEnv % Pes > 1
 
@@ -125,6 +128,10 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   BlockPreconditioning = ListGetLogical( Solver % Values, 'Block Preconditioning', Found)
   IF ( .NOT. Found) BlockPreconditioning = .FALSE.
   Convect = .FALSE. 
+
+  DoScaling=ListGetLogical(Solver % Values, 'Linear System Scaling', Found) 
+  DoEquilibration=ListGetLogical(Solver % Values, 'Linear System Row Equilibration', Found)
+  DoScaling = DoScaling .OR. DoEquilibration
 
   !----------------------------------------------------------------------------------
   ! Find the preconditioning matrices and solvers generated before simulation
@@ -503,9 +510,54 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         ! First, perform linear system scaling by row equilibration and make some
         ! initializations...
         !-------------------------------------------------------------------------------
-        IF ( ListGetLogical(Solver % Values, 'Linear System Scaling', Found) ) THEN
-           CALL OptimalMatrixScaling( Solver % Matrix, VelocitySolver % Matrix, &
-                PressureSolver % Matrix, dim, Solver % Matrix % RHS, Parallel )
+        IF ( DoScaling ) THEN
+          IF ( DoEquilibration ) THEN
+            !CALL OptimalMatrixScaling( Solver % Matrix, VelocitySolver % Matrix, &
+            !     PressureSolver % Matrix, dim, Solver % Matrix % RHS, Parallel )
+            CALL RowEquilibration(Solver%Matrix,Solver%Matrix%RHS,Parallel)
+          ELSE
+            CALL ScaleLinearSystem(Solver,Solver%Matrix,Solver%Matrix%RHS)
+          END IF
+          ! store the scaling for the blocks A and Q
+          j = PressureSolver % Matrix % NumberOfRows
+          IF (.not. allocated(RowScalingP)) THEN
+            ALLOCATE(RowScalingP(j))
+          END IF
+          RowScalingP=1.0_dp
+          IF (.not. allocated(RowScalingA)) THEN
+            ALLOCATE(RowScalingA(AMatrix%NumberOfRows))
+          END IF
+          RowScalingA=1.0_dp
+          ! for row equilibration we do not scale the A and Q matrices
+          ! so that their symmetry is not destroyed, instead we scale 
+          ! the RHS back to the symmetric scaling
+          IF (DoEquilibration) THEN
+            DO i=1,j
+              RowScalingP(i) = 1.0_dp/Solver%Matrix%DiagScaling((dim+1)*i)
+              DO p=1,dim
+                RowScalingA( dim*(i-1)+p ) = &
+                            1.0_dp/Solver%Matrix%DiagScaling( (dim+1)*(i-1)+p )
+              END DO
+            END DO
+          ELSE
+          IF (.not. associated(PMatrix%DiagScaling)) THEN
+            ALLOCATE(PMatrix%DiagScaling(j))
+          END IF
+          PMatrix%DiagScaling(:)=1.0_dp
+          IF (.not. allocated(RowScalingA)) THEN
+            ALLOCATE(AMatrix%DiagScaling(AMatrix%NumberOfRows))
+          END IF
+          AMatrix%DiagScaling(:)=1.0_dp
+            DO i=1,j
+              PMatrix%DiagScaling(i) = Solver%Matrix%DiagScaling((dim+1)*i)
+              DO p=1,dim
+                AMatrix%DiagScaling( dim*(i-1)+p ) = &
+                            Solver%Matrix%DiagScaling( (dim+1)*(i-1)+p )
+              END DO
+            END DO
+            CALL ScaleLinearSystem( VelocitySolver, AMatrix, DiagScaling=AMatrix%DiagScaling)
+            CALL ScaleLinearSystem( PressureSolver, PMatrix, DiagScaling=PMatrix%DiagScaling)
+          END IF
         END IF
 
         IF (Parallel) THEN
@@ -655,11 +707,16 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
            ! Update the preconditioner system rhs by assuming that the preconditioning
            ! system and the primary system have the same permutation...
            !--------------------------------------------------------------------------
+           ! we multiply by the inverse of the row scaling of the global matrix, for  
+           ! symmetric scaling we have set the arrays to 1 so nothing happens here.   
+           ! For row equilibration this makes sure that the correct system is solved  
+           ! without having to scale the A and Q matrices.
            j = PressureSolver % Matrix % NumberOfRows
            DO i=1,j
-              PressureSolver % Matrix % RHS(i) = Residual((dim+1)*i)
+              PressureSolver % Matrix % RHS(i) = Residual((dim+1)*i) * RowScalingP(i)
               DO p=1,dim
-                 VelocitySolver % Matrix % RHS( dim*(i-1)+p ) = Residual( (dim+1)*(i-1)+p )  
+                 VelocitySolver % Matrix % RHS( dim*(i-1)+p ) = Residual( (dim+1)*(i-1)+p )  &
+                        * RowScalingA( dim*(i-1)+p )
               END DO
            END DO
 
@@ -687,7 +744,8 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
              DO i=1,j
                DO p=1,dim
                  VelocitySolver % Matrix % RHS( dim*(i-1)+p ) = &
-                     VelocitySolver % Matrix % RHS( dim*(i-1)+p ) - TempRes( (dim+1)*(i-1)+p )  
+                     VelocitySolver % Matrix % RHS( dim*(i-1)+p ) - &
+                     TempRes( (dim+1)*(i-1)+p ) * RowScalingA( dim*(i-1)+p )
                END DO
              END DO
            ELSE
@@ -725,7 +783,9 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
              DO i=1,j
                DO p=1,dim
                  VelocitySolver % Matrix % RHS( dim*(i-1)+p ) = &
-                     VelocitySolver % Matrix % RHS( dim*(i-1)+p ) - TempRes( (dim+1)*(i-1)+p )  
+                     VelocitySolver % Matrix % RHS( dim*(i-1)+p ) - &
+                     TempRes( (dim+1)*(i-1)+p ) * RowScalingA(dim*(i-1)+p )
+                       
                END DO
              END DO
              !-----------------------------------------------------------------------------
@@ -784,6 +844,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
            IF (Norm < MinTolerance) EXIT
 
         END DO
+        
+        ! unscale solution if column scaling was used
+        IF (DoScaling .AND. (.NOT. DoEquilibration)) THEN
+          CALL BackScaleLinearSystem(Solver,Solver%Matrix,Solver%Matrix%RHS,Solver%Variable%Values)
+        END IF
 
         IF( Timing ) THEN
           st  = CPUTime() - t0;
