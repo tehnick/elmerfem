@@ -374,7 +374,7 @@ CONTAINS
       sndLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i)) THEN
+        IF (ig(i) ) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
           sz = SIZE(nb(i) % Neighbours)
@@ -607,7 +607,7 @@ CONTAINS
       nLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i)) THEN
+        IF (ig(i))  THEN
           ninterface=ninterface+1
           lint(ninterface)=i
 
@@ -668,6 +668,12 @@ CONTAINS
             END DO
             proc = nb(l) % Neighbours(j+1)
             CALL SetMatrixElement(Bmat,nLC,proc,-j*val)
+
+!           proc = nb(l) % Neighbours(1)
+!           CALL SetMatrixElement(Bmat,nLC,proc,1._dp)
+!           proc = nb(l) % Neighbours(j+1)
+!           CALL SetMatrixElement(Bmat,nLC,proc,-1._dp)
+
           END DO
         ELSE
           lproc = lpnum(proc)
@@ -1348,7 +1354,9 @@ END SUBROUTINE FetiProject
     INTEGER, POINTER :: p(:)
     INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(6)
     REAL(KIND=dp), POINTER :: coord_x(:),coord_y(:),coord_z(:), dscale(:)
-    LOGICAL :: Found
+    TYPE(Varying_string) :: nm
+    LOGICAL :: Found, gotNM
+    REAL(KIND=dp) :: xc,yc,zc,hc
     TYPE(ValueList_t), POINTER :: Params
     INTEGER, ALLOCATABLE :: floatinds(:)
     CHARACTER(MAX_NAME_LEN) :: Method
@@ -1420,6 +1428,15 @@ END SUBROUTINE FetiProject
       coord_x => Solver % Mesh % Nodes % x
       coord_y => Solver % Mesh % Nodes % y
       coord_z => Solver % Mesh % Nodes % z
+
+      xc = SQRT(SUM(coord_x))/m
+      yc = SQRT(SUM(coord_y))/m
+      zc = SQRT(SUM(coord_z))/m
+      hc = 0._dp
+      hc = hc + (MAXVAL(coord_x)-MINVAL(coord_x))**2
+      hc = hc + (MAXVAL(coord_y)-MINVAL(coord_y))**2
+      hc = hc + (MAXVAL(coord_z)-MINVAL(coord_z))**2
+      hc = SQRT(hc)
       
       IF (dim==2) nz=dofs+1
       IF (dim==3) nz=dofs+dim
@@ -1436,15 +1453,15 @@ END SUBROUTINE FetiProject
       DO i=1,m
         IF (p(i) <= 0) CYCLE
         j=dofs*(p(i)-1)
-        tz(dofs+1,j+1) = -coord_y(i)  / dscale(j+1)  ! rot about z
-        tz(dofs+1,j+2) =  coord_x(i)  / dscale(j+2)
+        tz(dofs+1,j+1) = -(coord_y(i)-yc) / hc / dscale(j+1)  ! rot about z
+        tz(dofs+1,j+2) =  (coord_x(i)-xc) / hc / dscale(j+2)
 
         IF (dim>=3) THEN
-          tz(dofs+2,j+2) = -coord_z(i) / dscale(j+2) ! rot about x
-          tz(dofs+2,j+3) =  coord_y(i) / dscale(j+3)
+          tz(dofs+2,j+2) = -(coord_z(i)-zc) / hc / dscale(j+2) ! rot about x
+          tz(dofs+2,j+3) =  (coord_y(i)-yc) / hc / dscale(j+3)
 
-          tz(dofs+3,j+1) =  coord_z(i) / dscale(j+1) ! rot about y
-          tz(dofs+3,j+3) = -coord_x(i) / dscale(j+3)
+          tz(dofs+3,j+1) =  (coord_z(i)-zc) / hc / dscale(j+1) ! rot about y
+          tz(dofs+3,j+3) = -(coord_x(i)-xc) / hc / dscale(j+3)
         END IF
       END DO
       IF (.NOT.ASSOCIATED(A % DiagScaling)) DEALLOCATE(dscale)
@@ -1470,14 +1487,20 @@ END SUBROUTINE FetiProject
       IF (Floating) THEN
         CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
         DO i=1,nz
-          IF (FloatInds(i)<=dim) THEN  ! x-y-z translation
-            FixInds(i) = dofs*(p(FixNodes(2*FloatInds(i)-1))-1)+FloatInds(i)
+!           FixInds(i) = dofs*(p(FixNodes(2*FloatInds(i)-1))-1)+FloatInds(i)
+
+          IF (FloatInds(i)==1) THEN  ! x translation
+            FixInds(i) = dofs*(p(FixNodes(1))-1)+1
+          ELSE IF (FloatInds(i)==2) THEN  ! y translation
+            FixInds(i) = dofs*(p(FixNodes(3))-1)+2
+          ELSE IF (FloatInds(i)==3) THEN  ! z translation
+            FixInds(i) = dofs*(p(FixNodes(5))-1)+3
           ELSE IF (FloatInds(i)==dofs+1) THEN ! rot 'bout z
-            FixInds(i) = dofs*(p(FixNodes(4))-1)+1
+            FixInds(i) = dofs*(p(FixNodes(2))-1)+1
           ELSE IF (FloatInds(i)==dofs+2) THEN ! rot 'bout x
-            FixInds(i) = dofs*(p(FixNodes(6))-1)+2
+            FixInds(i) = dofs*(p(FixNodes(4))-1)+2
           ELSE IF (FloatInds(i)==dofs+3) THEN ! rot 'bout y
-            FixInds(i) = dofs*(p(FixNodes(2))-1)+3
+            FixInds(i) = dofs*(p(FixNodes(6))-1)+3
           ELSE                                ! the rest assumed potential like
             FixInds(i)=dofs*(p(FixNodes(1))-1)+FloatInds(i)
           END IF
@@ -1488,6 +1511,7 @@ END SUBROUTINE FetiProject
       NullSpaceLC=.FALSE.
       RETURN
     END IF
+
 
     ! By default assemble the ker(A) from the null frequency eigenmodes:
     ! ==================================================================
@@ -1504,12 +1528,16 @@ END SUBROUTINE FetiProject
     ! ----------------------------------
     ALLOCATE(eigVectors(Neigs,n))
       
-    method = ListGetString( Params, 'Linear System Direct Method', Found )
-    CALL ListAddString( Params, 'Linear System Direct Method', 'umfpack' )
+    nm=''
+    gotNM=ListGetNameSpace(nm)
+    CALL ListSetNameSpace('feti:')
 
-    CALL ListAddString( Params, 'Linear System Solver', 'Direct' )
-    CALL ListAddConstReal( Params, &
-               'Eigen System Convergence Tolerance', TOL/100._dp )
+    CALL ListAddString( Params, 'Feti: Linear System Solver', 'Direct' )
+    CALL ListAddString( Params, 'Feti: Linear System Direct Method', 'umfpack' )
+
+    IF (.NOT.ListCheckPresent(Params,'Eigen System Convergence Tolerance')) &
+      CALL ListAddConstReal( Params, &
+               'Feti: Eigen System Convergence Tolerance', 1.0d-9)
 
     IF (.NOT.ASSOCIATED(A % MassValues)) THEN
       ALLOCATE(A % MassValues(SIZE(A % Values)))
@@ -1521,12 +1549,11 @@ END SUBROUTINE FetiProject
       CALL ArpackEigenSolve(Solver,A,n,NEigs,EigValues,EigVectors)
     END IF
 
-    CALL ListAddString( Params, 'Linear System Solver', 'Feti' )
-    CALL ListAddString( Params, 'Linear System Direct Method', method )
-
     ! Delete factorization as we can't use the same factorization within FETI:
     ! ------------------------------------------------------------------------
     CALL DirectSolver(A,x,x,Solver,Free_Fact=.TRUE.)
+
+    CALL ListSetNameSpace(char(nm))
 
     ! Finally create null(A) from zero freq. eigenvectors:
     ! ----------------------------------------------------
@@ -1709,6 +1736,7 @@ END SUBROUTINE FetiProject
         END DO
       END IF
     END IF
+
 
     ! Compute and distribute r.h.s. for L.C.'s:
     ! -SUM_part(B_i A_i^-1 b_i)
