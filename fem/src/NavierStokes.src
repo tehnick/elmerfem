@@ -157,7 +157,7 @@ MODULE NavierStokes
      REAL(KIND=dp), POINTER :: A(:,:),M(:,:),Load(:), Jac(:,:)
      REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3), VC(6,6), B(6,3), G(3,6)
 
-     REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2,GasC, hScale, a1, a2
+     REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2,GasC, hScale
 
      REAL(KIND=dp) :: VNorm,hK,mK,mu,dmudx(3),Temperature, &
                drhodp,drhodp_n(n)
@@ -748,17 +748,7 @@ MODULE NavierStokes
          DO i=1,dim
            muder = muder0*SUM(Strain(i,:)*dBasisdx(q,:))
            DO j=1,dim
-             a1 = 0.0d0
-             a2 = 0.0d0
-             DO k=1,dim
-               a1 = a1 + Grad(j,k)*dBasisdx(p,k)
-               a2 = a2 + Grad(k,j)*dBasisdx(p,k)
-             END DO
-             Jac(j,i) = Jac(j,i) + s * muder * (a1+a2)	   
-
-             ! Jac(i,i)=Jac(i,i) + s*muder*Grad(i,j)*dBasisdx(p,j)
-             ! Jac(j,i)=Jac(j,i) + s*muder*Grad(i,j)*dBasisdx(p,i)
-
+             Jac(j,i)=Jac(j,i)+s*2*muder*SUM(Strain(j,:)*dBasisdx(p,:))
            END DO
          END DO
        END IF
