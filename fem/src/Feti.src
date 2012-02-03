@@ -84,6 +84,8 @@ MODULE FetiSolve
   LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE., NullSpaceLC=.TRUE.
   LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG, Refactorize
 
+logical,allocatable::diripoint(:)
+
 
 #include "huti_fdefs.h"
 
@@ -374,7 +376,7 @@ CONTAINS
       sndLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i) ) THEN
+        IF (ig(i) .and..not.diripoint(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
           sz = SIZE(nb(i) % Neighbours)
@@ -607,7 +609,7 @@ CONTAINS
       nLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i))  THEN
+        IF (ig(i) .and..not.diripoint(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
 
@@ -1493,7 +1495,7 @@ END SUBROUTINE FetiProject
             FixInds(i) = dofs*(p(FixNodes(1))-1)+1
           ELSE IF (FloatInds(i)==2) THEN  ! y translation
             FixInds(i) = dofs*(p(FixNodes(3))-1)+2
-          ELSE IF (FloatInds(i)==3) THEN  ! z translation
+          ELSE IF (dofs>2.AND.FloatInds(i)==3) THEN  ! z translation
             FixInds(i) = dofs*(p(FixNodes(5))-1)+3
           ELSE IF (FloatInds(i)==dofs+1) THEN ! rot 'bout z
             FixInds(i) = dofs*(p(FixNodes(2))-1)+1
@@ -1636,7 +1638,31 @@ END SUBROUTINE FetiProject
 
     REAL(KIND=dp), POINTER :: SaveValues(:)
     INTEGER, POINTER :: SaveCols(:),SaveRows(:)
+type(element_t),pointer::el
+type(valuelist_t),pointer::bc
 !------------------------------------------------------------------------------
+
+if(allocated(diripoint)) deallocate(diripoint)
+allocate(diripoint(a%numberofrows))
+diripoint=.false.
+do i=1,getnofboundaryelements()
+ el=>getboundaryelement(i)
+ bc=>getbc()
+ if(.not.associated(bc))cycle
+ do j=1,2
+   if(listcheckpresent(bc,'velocity '//trim(i2s(j)))) then
+     diripoint(2*(solver % variable %perm(el%nodeindexes)-1)+j)=.true.
+   end if
+  end do
+end do
+!print*,parenv%mype,count(diripoint);flush(6)
+diripoint=.false.
+
+    Params => GetSolverParams()
+    TOL=GetCReal( Params,'Linear System Convergence Tolerance')
+
+    ! Check whether to use the 'total' FETI scheme:
+    ! ---------------------------------------------
 
     Params => GetSolverParams()
     TOL=GetCReal( Params,'Linear System Convergence Tolerance')
@@ -1676,6 +1702,7 @@ END SUBROUTINE FetiProject
       ! ---------------------------------------------------------------
       Floating = FetiFloatingDomain(A,Solver,FixInds,TOL)
     END IF
+print*,parenv%mype,nz,floating
 
     IF (Floating) THEN
 
