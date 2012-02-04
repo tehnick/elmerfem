@@ -1356,6 +1356,9 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       IF ( IterativeMethod(1:8) == 'bicgstab' ) THEN
          hypre_solver=0;
          IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Hypre: BiCGStab",Level=1)
+      ELSE IF ( IterativeMethod(1:2) == 'cg' ) THEN
+         hypre_solver=2;
+         IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Hypre: CG",Level=1)
       ELSE IF ( IterativeMethod(1:9) == 'boomeramg' )THEN
          IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Hypre: BoomerAMG",Level=1)
          hypre_solver=1;
@@ -1380,7 +1383,10 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       ! NB.: hypremethod = 0 ... BiCGStab + ILUn
       !                    1 ... BiCGStab + ParaSails
       !                    2 ... BiCGStab + BoomerAMG
-      !                   10 ... BoomerAMG 
+      !                   10 ... BoomerAMG
+      !                   20 ... CG + ILUn
+      !                   21 ... CG + ParaSails
+      !                   22 ... CG + BoomerAMG  
       hypremethod = hypre_solver * 10 + hypre_pre
 
       TOL = ListGetConstReal( Solver % Values, &

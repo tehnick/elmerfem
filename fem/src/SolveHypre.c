@@ -525,7 +525,85 @@ st  = realtime_();
                          1 ... BiCGStab + ParaSails
                          2 ... BiCGStab + BoomerAMG
                         10 ... BoomerAMG 
+                        20 ... CG + ILUn 
+                        21 ... CG + ParaSails 
+                        22 ... CG + ParaSails
    */
+   
+   /* create preconditioner for Krylov methods */
+   /* for Boomer as solver we create it as a   */
+   /* preconditioner here and set the pointer  */
+   if (*hypre_method%10 == 0 )      
+       {
+       HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
+       static char *argv[5], str[3];
+       argv[0] = "-level";
+       sprintf( str, "%d", *ILUn );
+       if (myid == 0) FPRINTF( stderr,"SolveHypre: using ILU%i\n",*ILUn); 
+       argv[1] = str;
+       HYPRE_EuclidSetParams( precond, 2, argv );
+       }
+     else if (*hypre_method%10 == 1 )
+       {
+       if (myid == 0) FPRINTF( stderr,"SolveHypre: using ParaSails\n"); 
+       /* Now set up the ParaSails preconditioner and specify any parameters */
+       HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
+       /* Set some parameters (See Reference Manual for more parameters) */
+       /* threshold = dppara[0]; maxlevels= intpara[1] */
+       HYPRE_ParaSailsSetParams(precond, hypre_dppara[0], hypre_intpara[1]);
+       /* filter = dppara[1] */
+       HYPRE_ParaSailsSetFilter(precond, hypre_dppara[1]);
+       /* symmetry = intpara[0] */
+       HYPRE_ParaSailsSetSym(precond, hypre_intpara[0]);
+       if (verbosity>LOGLEVEL)
+           {
+           HYPRE_ParaSailsSetLogging(precond, 3);
+           }
+         else
+	   {
+           HYPRE_ParaSailsSetLogging(precond, 0);
+           }
+         
+       }
+     else if ((*hypre_method%10 == 2) || (*hypre_method == 10))
+       {
+       if (myid == 0) {
+	 FPRINTF( stderr,"SolveHypre: using BoomerAMG\n");
+	 FPRINTF( stderr,"RelaxType=%d\n",hypre_intpara[0]); 
+	 FPRINTF( stderr,"CoarsenType=%d\n",hypre_intpara[1]); 
+	 FPRINTF( stderr,"NumSweeps=%d\n",hypre_intpara[2]); 
+	 FPRINTF( stderr,"MaxLevels=%d\n",hypre_intpara[3]); 
+	 FPRINTF( stderr,"Interpolation Type=%d\n",hypre_intpara[4]); 
+	 FPRINTF( stderr,"Smooth Type=%d\n",hypre_intpara[5]);
+	 FPRINTF( stderr,"Cycle Type=%d\n",hypre_intpara[6]);
+	 FPRINTF( stderr,"DOFs=%d\n",hypre_intpara[7]);
+       }
+       HYPRE_BoomerAMGCreate(&precond);
+       /* Set some parameters (See Reference Manual for more parameters) */
+       HYPRE_BoomerAMGSetNumFunctions(precond, hypre_intpara[7]); /* No. of PDE's */
+       if (verbosity>PRINTLEVEL)
+         {
+         HYPRE_BoomerAMGSetPrintLevel(precond, 1); /* print amg solution info */
+         }
+       else
+         {
+         HYPRE_BoomerAMGSetPrintLevel(precond, 0); 
+         }
+       HYPRE_BoomerAMGSetNumSweeps(precond, 1); /* fixed for preconditioner to 1 */
+       HYPRE_BoomerAMGSetTol(precond, 0.0); /* conv. tolerance zero */
+       HYPRE_BoomerAMGSetMaxIter(precond, 1); /* do only one iteration! */
+       HYPRE_BoomerAMGSetRelaxType(precond, hypre_intpara[0]);   /* G-S/Jacobi hybrid relaxation */
+       HYPRE_BoomerAMGSetCoarsenType(precond, hypre_intpara[1]);  /* coarsening type */
+	 
+       HYPRE_BoomerAMGSetMaxLevels(precond, hypre_intpara[3]); /* levels of coarsening */
+       HYPRE_BoomerAMGSetInterpType(precond, hypre_intpara[4]);  /* interpolation type */
+       HYPRE_BoomerAMGSetSmoothType(precond, hypre_intpara[5]);  /* smoother type */
+     } else {
+       fprintf( stderr,"Hypre preconditioning method not implemented\n");
+       exit(EXIT_FAILURE);
+     }
+
+   /* create solver */
    if ( *hypre_method < 10) { /* BiGSTAB methods */
      /* Create solver */
      HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver);
@@ -550,127 +628,81 @@ st  = realtime_();
        HYPRE_ParCSRBiCGSTABSetLogging(solver, 0);      /* needed to get run info later */
        }
 
-     if ( *hypre_method == 0 ) {
-       HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
+     if (hypre_method==0)
        {
-         static char *argv[5], str[3];
-         argv[0] = "-level";
-         sprintf( str, "%d", *ILUn );
-	 if (myid == 0) FPRINTF( stderr,"SolveHypre: using BiCGStab + ILU%i\n",*ILUn); 
-         argv[1] = str;
-         HYPRE_EuclidSetParams( precond, 2, argv );
-       }
-
        /* Set the PCG preconditioner */
        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
 				(HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
      } else if (*hypre_method == 1) { 
-       if (myid == 0) FPRINTF( stderr,"SolveHypre: using BiCGStab + paraSails\n"); 
-       /* Now set up the ParaSails preconditioner and specify any parameters */
-       HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
-       {
-	 /* Set some parameters (See Reference Manual for more parameters) */
-         /* threshold = dppara[0]; maxlevels= intpara[1] */
-	 HYPRE_ParaSailsSetParams(precond, hypre_dppara[0], hypre_intpara[1]);
-	 /* filter = dppara[1] */
-	 HYPRE_ParaSailsSetFilter(precond, hypre_dppara[1]);
-         /* symmetry = intpara[0] */
-	 HYPRE_ParaSailsSetSym(precond, hypre_intpara[0]);
-	 if (verbosity>LOGLEVEL)
-	   {
-           HYPRE_ParaSailsSetLogging(precond, 3);
-           }
-         else
-	   {
-           HYPRE_ParaSailsSetLogging(precond, 0);
-           }
-         
-       }
        /* Set the PCG preconditioner */
        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
 				(HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
      } else if(*hypre_method == 2){
-       if (myid == 0) {
-	 FPRINTF( stderr,"SolveHypre: using BiCGStab + boomerAMG\n");
-	 FPRINTF( stderr,"RelaxType=%d\n",hypre_intpara[0]); 
-	 FPRINTF( stderr,"CoarsenType=%d\n",hypre_intpara[1]); 
-	 FPRINTF( stderr,"NumSweeps=%d\n",hypre_intpara[2]); 
-	 FPRINTF( stderr,"MaxLevels=%d\n",hypre_intpara[3]); 
-	 FPRINTF( stderr,"Interpolation Type=%d\n",hypre_intpara[4]); 
-	 FPRINTF( stderr,"Smooth Type=%d\n",hypre_intpara[5]);
-	 FPRINTF( stderr,"Cycle Type=%d\n",hypre_intpara[6]);
-	 FPRINTF( stderr,"DOFs=%d\n",hypre_intpara[7]);
-       }
-       HYPRE_BoomerAMGCreate(&precond);
-       {
-	 /* Set some parameters (See Reference Manual for more parameters) */
-	 HYPRE_BoomerAMGSetNumFunctions(precond, hypre_intpara[7]); /* No. of PDE's */
-	 if (verbosity>PRINTLEVEL)
-	   {
-           HYPRE_BoomerAMGSetPrintLevel(precond, 1); /* print amg solution info */
-           }
-         else
-           {
-           HYPRE_BoomerAMGSetPrintLevel(precond, 0); 
-           }
-	 HYPRE_BoomerAMGSetNumSweeps(precond, 1); /* fixed for preconditioner to 1 */
-	 HYPRE_BoomerAMGSetTol(precond, 0.0); /* conv. tolerance zero */
-	 HYPRE_BoomerAMGSetMaxIter(precond, 1); /* do only one iteration! */
-	 HYPRE_BoomerAMGSetRelaxType(precond, hypre_intpara[0]);   /* G-S/Jacobi hybrid relaxation */
-	 HYPRE_BoomerAMGSetCoarsenType(precond, hypre_intpara[1]);  /* coarsening type */
-	 
-	 HYPRE_BoomerAMGSetMaxLevels(precond, hypre_intpara[3]); /* levels of coarsening */
-	 HYPRE_BoomerAMGSetInterpType(precond, hypre_intpara[4]);  /* interpolation type */
-	 HYPRE_BoomerAMGSetSmoothType(precond, hypre_intpara[5]);  /* smoother type */
-       }
        /* Set the BiCGSTAB preconditioner */
        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
 				(HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
-     } else {
-       fprintf( stderr,"Hypre preconditioning method not implemented\n");
-       exit(EXIT_FAILURE);
-     }
+       }
    /* compute the preconditioner */
    if (myid==0) FPRINTF(STDOUT,"create preconditioner...");
    HYPRE_ParCSRBiCGSTABSetup(solver, parcsr_A, par_b, par_x);
+
    } else if ( *hypre_method == 10 ) { /* boomer AMG */
       int num_iterations;
       double final_res_norm;
-
-      if (myid == 0) {
-	FPRINTF( STDOUT,"SolveHypre: using BoomerAMG\n"); 
-	FPRINTF( STDOUT,"RelaxType=%d\n",hypre_intpara[0]); 
-	FPRINTF( STDOUT,"CoarsenType=%d\n",hypre_intpara[1]); 
-	FPRINTF( STDOUT,"NumSweeps=%d\n",hypre_intpara[2]); 
-	FPRINTF( STDOUT,"MaxLevels=%d\n",hypre_intpara[3]); 
-	FPRINTF( STDOUT,"Interpolation Type=%d\n",hypre_intpara[4]); 
-	FPRINTF( STDOUT,"Smooth Type=%d\n",hypre_intpara[5]);
- 	FPRINTF( STDOUT,"Cycle Type=%d\n",hypre_intpara[6]);
-  	FPRINTF( STDOUT,"DOFs=%d\n",hypre_intpara[7]);
-      }
-      /* Create solver */
-      HYPRE_BoomerAMGCreate(&solver);
-
-      /* Set some parameters (See Reference Manual for more parameters) */
-      HYPRE_BoomerAMGSetNumFunctions(solver, hypre_intpara[7]); /* No. of PDE's */
-	 if (verbosity>PRINTLEVEL)
-	   {
-           HYPRE_BoomerAMGSetPrintLevel(solver, 3);  
-           }
-         else
-	   {
-           HYPRE_BoomerAMGSetPrintLevel(solver, 0);  
-           }
-      HYPRE_BoomerAMGSetRelaxType(solver, hypre_intpara[0]);   /* G-S/Jacobi hybrid relaxation */
-      HYPRE_BoomerAMGSetCoarsenType(solver, hypre_intpara[1]);  /* coarsening type */
-      HYPRE_BoomerAMGSetNumSweeps(solver, hypre_intpara[2]);   /* Sweeeps on each level */
-      HYPRE_BoomerAMGSetMaxLevels(solver, hypre_intpara[3]); /* levels of coarsening */
-      HYPRE_BoomerAMGSetInterpType(solver, hypre_intpara[4]);  /* interpolation type */
-      HYPRE_BoomerAMGSetSmoothType(solver, hypre_intpara[5]);  /* smoother type */
+      
+      solver = precond;
+      precond = NULL;
 
       /* Now setup - note that the input vectors are ignored so we can pass in NULLs */
       if (myid==0) FPRINTF(STDOUT,"construct BoomerAMG solver");
       HYPRE_BoomerAMGSetup(solver, parcsr_A, par_b, par_x);
+     }
+   else if ((int)(*hypre_method/10)==2) { /* CG */
+     /* Create solver */
+     HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD, &solver);
+
+     /* Set some parameters (See Reference Manual for more parameters) */
+     HYPRE_ParCSRPCGSetTwoNorm(solver, 1);     /* use the two norm as the stopping criteria */
+     if (verbosity>PRINTLEVEL)
+       {
+       HYPRE_ParCSRPCGSetPrintLevel(solver, 2);   /* print solve info */
+       }
+     else
+       {
+       HYPRE_ParCSRPCGSetPrintLevel(solver, 0);   
+       }
+     
+     if (verbosity>LOGLEVEL)
+       {
+       HYPRE_ParCSRPCGSetLogging(solver, 1);      /* needed to get run info later */
+       }
+     else
+       {
+       HYPRE_ParCSRPCGSetLogging(solver, 0);      /* needed to get run info later */
+       }
+
+     if (*hypre_method%10==0)
+       {
+       /* Set the PCG preconditioner */
+       HYPRE_PCGSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
+				(HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
+     } else if (*hypre_method%10 == 1) { 
+       /* Set the PCG preconditioner */
+       HYPRE_PCGSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
+				(HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
+     } else if(*hypre_method%10 == 2){
+       /* Set the BiCGSTAB preconditioner */
+       HYPRE_PCGSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
+				(HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
+       }
+   /* compute the preconditioner */
+   if (myid==0) FPRINTF(STDOUT,"create preconditioner...");
+   HYPRE_ParCSRPCGSetup(solver, parcsr_A, par_b, par_x);
+     }
+   else
+     {
+       fprintf( stderr,"Hypre solver method not implemented\n");
+       exit(EXIT_FAILURE);
      }
 
 Container->ilower = ilower;
@@ -796,6 +828,13 @@ if (Container==NULL)
 	FPRINTF(STDOUT,"\n");
       }
      }
+   else if ((int)(Container->hypre_method/10)==2) 
+     {
+     /* Now setup and solve! */
+     HYPRE_ParCSRPCGSetMaxIter(solver, *Rounds); /* max iterations */
+     HYPRE_ParCSRPCGSetTol(solver, *TOL);       /* conv. tolerance */
+     HYPRE_ParCSRPCGSolve(Container->solver, parcsr_A, par_b, par_x);
+     }
 
    for( k=0,i=0; i<local_size; i++ )
       if ( owner[i] ) rcols[k++] = globaldofs[i];
@@ -827,20 +866,27 @@ void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(void** ContainerPtr)
    ElmerHypreContainer* Container = (ElmerHypreContainer*)(*ContainerPtr);
    if (Container==0) return;
 
-     /* Destroy solver and preconditioner */
-     if (Container->hypre_method<10) {
-     HYPRE_ParCSRBiCGSTABDestroy(Container->solver);
-     if ( Container->hypre_method == 0 ) {
-       HYPRE_EuclidDestroy(Container->precond);
-     } else if ( Container->hypre_method == 1 ) {
-       HYPRE_ParaSailsDestroy(Container->precond);
-     } else {
-       HYPRE_BoomerAMGDestroy(Container->precond);
-     }
-   } else if ( Container->hypre_method == 10 ) { /* boomer AMG */
+   if ( Container->hypre_method == 10 ) { /* boomer AMG */
 
       /* Destroy solver */
       HYPRE_BoomerAMGDestroy(Container->solver);
+     }
+   else
+     {
+     /* Destroy solver and preconditioner */
+     if (Container->hypre_method<10) {
+       HYPRE_ParCSRBiCGSTABDestroy(Container->solver);
+       }
+     else if ((int)(Container->hypre_method/10)==2) {
+       HYPRE_ParCSRPCGDestroy(Container->solver);
+       }
+     if ( Container->hypre_method % 10 == 0 ) {
+       HYPRE_EuclidDestroy(Container->precond);
+     } else if ( Container->hypre_method % 10 == 1 ) {
+       HYPRE_ParaSailsDestroy(Container->precond);
+     } else if (Container->hypre_method % 10 == 2 ) {
+       HYPRE_BoomerAMGDestroy(Container->precond);
+     }
    }
  if (Container->Atilde != Container->A)
    {
