@@ -68,6 +68,9 @@ MODULE ModelDescription
 CONTAINS
 
 !------------------------------------------------------------------------------
+!> Loads a dynamic object (e.g. solver or user defined function) and returns
+!> its address in order to be able to call it. 
+!------------------------------------------------------------------------------
   FUNCTION GetProcAddr( str, Quiet, Abort ) RESULT( Proc )
 !------------------------------------------------------------------------------
     CHARACTER(LEN=*) :: str
@@ -123,7 +126,6 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE LoadIncludeFile( Model,InFileUnit,FileName,MeshDir,MeshName,ScanOnly )
-!------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
      TYPE(Model_t) :: Model
      INTEGER :: InFileUnit
@@ -191,6 +193,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> This subroutine is used to reload input from the file to allow
+!> multiple parameter sets within the same simulation.
+!------------------------------------------------------------------------------
   FUNCTION ReloadInputFile( Model ) RESULT(got)
 !------------------------------------------------------------------------------
     LOGICAL :: got
@@ -207,6 +212,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+!------------------------------------------------------------------------------
+!> Subroutine for loading the fields from the input file. This may be 
+!> used multiple times. On first calling the ScanOnly should be true 
+!> to allow only the reading of number of fields. 
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE LoadInputFile( Model, InFileUnit, FileName, &
          MeshDir, MeshName, BaseLoad, ScanOnly, Runc )
@@ -245,12 +255,8 @@ CONTAINS
     LOGICAL :: FirstTime = .TRUE.
 
     INTEGER :: nlen
-    REAL(KIND=dp) :: Value
-!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: VALUE
 
-!   OPEN( InFileUnit,FILE=TRIM(FileName),STATUS='OLD',ERR=10 )
-
-!
 !------------------------------------------------------------------------------
 !   Read model header first
 !------------------------------------------------------------------------------
@@ -324,16 +330,16 @@ CONTAINS
         END IF
       END DO
 
-      Model % BCs => Null()
-      Model % ICs => Null()
-      Model % Bodies => Null()
-      Model % Solvers => Null()
-      Model % Equations => Null()
-      Model % Materials => Null()
-      Model % Constants => Null()
-      Model % Simulation => Null()
-      Model % BodyForces => Null()
-      Model % Boundaries => Null()
+      Model % BCs => NULL()
+      Model % ICs => NULL()
+      Model % Bodies => NULL()
+      Model % Solvers => NULL()
+      Model % Equations => NULL()
+      Model % Materials => NULL()
+      Model % Constants => NULL()
+      Model % Simulation => NULL()
+      Model % BodyForces => NULL()
+      Model % Boundaries => NULL()
     END IF
 
 
@@ -348,6 +354,7 @@ CONTAINS
          END DO
          BoundaryIndex = 0
        END IF
+
     END IF
 
     IF ( PRESENT(runc) ) runc = .FALSE.
@@ -725,7 +732,6 @@ CONTAINS
     END DO
 !------------------------------------------------------------------------------
 
-!   CLOSE( InFileUnit )
 
     IF ( .NOT. ScanOnly )  THEN
 
@@ -791,8 +797,8 @@ CONTAINS
        LOGICAL, OPTIONAL :: ReturnType,FreeNames
 
        INTEGER :: i,j, k,n, istat
-       TYPE(HashTable_t), POINTER, SAVE :: Hash =>Null()
-       TYPE(HashValue_t), POINTER :: Value
+       TYPE(HashTable_t), POINTER, SAVE :: Hash =>NULL()
+       TYPE(HashValue_t), POINTER :: VALUE
        LOGICAL :: FirstTime = .TRUE.,lstat
        CHARACTER(LEN=MAX_STRING_LEN) :: str,str1
        EXTERNAL ENVIR
@@ -856,7 +862,7 @@ CONTAINS
              IF ( i <= 0 .OR. j<= 0 ) CYCLE
              str1 = str(1:i-1) // ':' //  str(j+1:LEN_TRIM(str)-1)
 
-             ALLOCATE( Value, STAT=istat )
+             ALLOCATE( VALUE, STAT=istat )
 
              IF ( istat /= 0 ) THEN
                 IF ( CheckAbort <= 1 ) THEN
@@ -869,9 +875,9 @@ CONTAINS
                 END IF
              END IF
 
-             Value % TYPE = str(i+1:j-3)
+             VALUE % TYPE = str(i+1:j-3)
 
-             lstat = HashAdd( hash, str1, Value )
+             lstat = HashAdd( hash, str1, VALUE )
              IF ( .NOT. lstat ) THEN
                 IF ( CheckAbort <= 1 ) THEN
                    CALL Warn( 'Model Input', 'Hash table build error. Keyword checking disabled.' )
@@ -918,40 +924,46 @@ CONTAINS
           str =  'solver: '
         END IF
 
-        i=Index(Name,':')+1
+        i=INDEX(Name,':')+1
         IF (name(i:i)==' ') i=i+1
         str = TRIM(str) // TRIM(Name(i:))
 
 !------------------------------------------------------------------------------
 
-       Value => HashValue( Hash, str )
-       IF ( ASSOCIATED( Value ) ) THEN
+       VALUE => HashValue( Hash, str )
+       IF ( ASSOCIATED( VALUE ) ) THEN
           IF ( PRESENT( ReturnType ) ) THEN
              ReturnType = .TRUE.
-             TYPE = Value % TYPE
+             TYPE = VALUE % TYPE
           END IF
-          IF  ( HashEqualKeys( Value % TYPE, TYPE ) ) RETURN
+          IF  ( HashEqualKeys( VALUE % TYPE, TYPE ) ) RETURN
        END IF
 
        IF ( PRESENT( ReturnType ) ) ReturnType = .FALSE.
 
-       IF ( .NOT.ASSOCIATED(Value) .AND. (CheckAbort <= 1 .OR. FreeNames) ) THEN
+       IF ( .NOT.ASSOCIATED(VALUE) .AND. (CheckAbort <= 1 .OR. FreeNames) ) THEN
           IF ( .NOT. ScanOnly ) THEN
             WRITE( Message, * ) 'Unlisted keyword: [', TRIM(name), &
                       '] in section: [', TRIM(Section), ']'
             CALL Info( 'Model Input', Message )
           END IF
-       ELSE
-          IF ( ASSOCIATED( Value ) ) THEN
-             WRITE( Message, * ) 'Keyword: [', TRIM(name), &
-                    '] in section: [', TRIM(Section), ']',  &
-                    ' is given wrong type: [', TRIM(TYPE),  &
-                    '], should be of type: [', TRIM(Value % TYPE),']'
-          ELSE
-             WRITE( Message, * ) 'Unlisted keyword: [', TRIM(name), &
-               '] in section: [', TRIM(Section), '].'
-          END IF
+       ELSE IF ( ASSOCIATED( VALUE ) ) THEN
+         ! Difference between types 'string' and 'file' is just that 
+         ! file is case sensitive while string is not. Hence both are ok. 
+         !----------------------------------------------------------------
+         IF( TRIM(VALUE % TYPE) == 'string' .AND. TRIM(TYPE) == 'file') THEN
+           RETURN
+         ELSE
+           WRITE( Message, * ) 'Keyword: [', TRIM(name), &
+               '] in section: [', TRIM(Section), ']',  &
+               ' is given wrong type: [', TRIM(TYPE),  &
+               '], should be of type: [', TRIM(VALUE % TYPE),']'
           CALL Fatal( 'Model Input', Message )
+        END IF
+       ELSE
+         WRITE( Message, * ) 'Unlisted keyword: [', TRIM(name), &
+             '] in section: [', TRIM(Section), '].'
+         CALL Fatal( 'Model Input', Message )
        END IF
 
        RETURN
@@ -1062,7 +1074,7 @@ CONTAINS
                       CALL ListAddConstRealArray( List,Name,N1,N2, &
                              ATx(1:N1,1:N2,1),Proc )
                     ELSE
-                      CALL ListAddConstReal( List,Name,Value,Proc )
+                      CALL ListAddConstReal( List,Name,VALUE,Proc )
                     END IF
    
                   CASE( LIST_TYPE_VARIABLE_SCALAR )
@@ -1087,7 +1099,7 @@ CONTAINS
                        CALL ListAddConstRealArray( List,Name,N1,N2, &
                          ATx(1:N1,1:N2,1), Proc, str(str_beg+5:) )
                     ELSE
-                      CALL ListAddConstReal( List,Name,Value,Proc, &
+                      CALL ListAddConstReal( List,Name,VALUE,Proc, &
                                   str(str_beg+5:) )
                     END IF
    
@@ -1406,6 +1418,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Loads the Gebhardt factors needed in the radiation heat transfer.
+!> This may be done externally only when the emissivities are constant.
+!> Hence there is a internal computation of Gebhardt factors that is highly optimized.
+!> \deprecated
+!------------------------------------------------------------------------------
   SUBROUTINE LoadGebhardtFactors( Mesh,FileName )
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh
@@ -1497,7 +1514,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-!    Figure out requested coordinate system
+!>    Figure out the requested coordinate system.
 !------------------------------------------------------------------------------
   SUBROUTINE SetCoordinateSystem( Model )
 !------------------------------------------------------------------------------
@@ -1565,7 +1582,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Function to read model from the ELMER DATA BASE 
+!> Function to read the complete Elmer model: sif file and mesh files.
 !------------------------------------------------------------------------------
   FUNCTION LoadModel( ModelName,BoundariesOnly,numprocs,mype ) RESULT( Model )
 !------------------------------------------------------------------------------
@@ -2005,6 +2022,9 @@ TYPE(valuelist_t), POINTER :: lst
 
 
 !------------------------------------------------------------------------------
+!> Save fields in a file that may be used in restarting of Elmer simulation.
+!> The data may be saved either in ascii and binary formats.
+!------------------------------------------------------------------------------
   FUNCTION SaveResult( Filename,Mesh,Time,SimulationTime,Binary,SaveAll,&
                        FreeSurface ) RESULT(SaveCount)
 !------------------------------------------------------------------------------
@@ -2349,6 +2369,9 @@ TYPE(valuelist_t), POINTER :: lst
 
 
 !------------------------------------------------------------------------------
+!> Loads the result file that has been saved by an earlier Elmer simulation.
+!> This makes it possible to restart the simulation.
+!------------------------------------------------------------------------------
   SUBROUTINE LoadRestartFile( RestartFile,TimeCount,Mesh,Continuous,EOF )
     CHARACTER(LEN=*) :: RestartFile
     INTEGER :: TimeCount
@@ -2370,7 +2393,7 @@ TYPE(valuelist_t), POINTER :: lst
     LOGICAL, SAVE :: PosFile = .FALSE.
     LOGICAL, SAVE :: Binary
 
-    REAL(KIND=dp) :: Dummy,value,Time
+    REAL(KIND=dp) :: Dummy,VALUE,Time
     REAL(KIND=dp), POINTER :: Component(:), Temp(:)
     REAL(KIND=dp), POINTER :: Velocity1(:),Velocity2(:),Velocity3(:),Pressure(:)
     INTEGER(KIND=IntOff_k) :: Pos
@@ -2621,18 +2644,18 @@ TYPE(valuelist_t), POINTER :: lst
 
             DO j=1, n
                IF ( FmtVersion > 0 ) THEN
-                  CALL GetValue( RestartUnit, Perm, j, k, value )
+                  CALL GetValue( RestartUnit, Perm, j, k, VALUE )
                ELSE
-                  READ( RestartUnit,* ) Node, k, value
+                  READ( RestartUnit,* ) Node, k, VALUE
                END IF
 
                IF ( .NOT. ASSOCIATED( Var % Perm ) ) THEN
-                  IF ( k > 0 ) Var % Values(k) = value
+                  IF ( k > 0 ) Var % Values(k) = VALUE
                ELSE IF ( Var % Perm(j) <= 0 ) THEN
                   Var % Perm(j) = k
-                  IF ( k > 0 ) Var % Values(k) = value
+                  IF ( k > 0 ) Var % Values(k) = VALUE
                ELSE IF ( Var % Perm(j) > 0 ) THEN
-                  IF ( k > 0 ) Var % Values(Var % Perm(j)) = value
+                  IF ( k > 0 ) Var % Values(Var % Perm(j)) = VALUE
                END IF
             END DO
 
@@ -2775,7 +2798,7 @@ CONTAINS
    END FUNCTION GetPosition
       
 
-   SUBROUTINE GetValue( RestartUnit, Perm, iNode, iPerm, Value )
+   SUBROUTINE GetValue( RestartUnit, Perm, iNode, iPerm, VALUE )
    !
    ! Get iPerm = Perm(iNode) and Value from input
    !
@@ -2783,7 +2806,7 @@ CONTAINS
       INTEGER, POINTER :: Perm(:)
       INTEGER, INTENT(IN) :: iNode
       INTEGER, INTENT(OUT) :: iPerm
-      REAL(dp), INTENT(OUT) :: Value
+      REAL(dp), INTENT(OUT) :: VALUE
 
       IF ( ASSOCIATED( Perm ) ) THEN
          iPerm = Perm(iNode)
@@ -2793,9 +2816,9 @@ CONTAINS
 
       IF ( iPerm > 0 ) THEN
          IF ( Binary ) THEN
-            CALL BinReadDouble( RestartUnit, Value )
+            CALL BinReadDouble( RestartUnit, VALUE )
          ELSE
-            READ( RestartUnit, * ) Value
+            READ( RestartUnit, * ) VALUE
          END IF
       END IF
    END SUBROUTINE GetValue
@@ -2966,6 +2989,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+!------------------------------------------------------------------------------
+!> Writes data in ElmerPost format. 
 !------------------------------------------------------------------------------
   SUBROUTINE WritePostFile( PostFile,ResultFile,Model,TimeCount,AppendFlag )
 !------------------------------------------------------------------------------
@@ -3098,7 +3124,7 @@ CONTAINS
         Var => Var % Next; CYCLE
       END IF
 
-      IF( Var % Type /= Variable_on_nodes ) THEN
+      IF( Var % TYPE /= Variable_on_nodes ) THEN
         Var => Var % Next; CYCLE
       END IF
 
@@ -3184,7 +3210,7 @@ CONTAINS
           Var => Var % Next; CYCLE
         END IF
 
-        IF( Var % Type /= Variable_on_nodes ) THEN
+        IF( Var % TYPE /= Variable_on_nodes ) THEN
           Var => Var % Next; CYCLE
         END IF
 
@@ -3538,7 +3564,7 @@ CONTAINS
              Var => Var % Next; CYCLE
            END IF
 
-           IF( Var % Type /= Variable_on_nodes ) THEN
+           IF( Var % TYPE /= Variable_on_nodes ) THEN
              Var => Var % Next; CYCLE
            END IF
 
@@ -3813,7 +3839,7 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
   Solver % Mesh => Model % Mesh
   Mesh => Solver % Mesh
 
-  Params => Null()
+  Params => NULL()
   CALL ListAddString( Params,'Linear System Iterative Method', 'CG' )
   CALL ListAddLogical( Params,'Linear System Symmetric', .TRUE. )
   CALL ListAddInteger( Params, 'Linear System Max Iterations', 5000 )
@@ -3828,7 +3854,7 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
            Solver % Mesh,CPerm,1,MATRIX_CRS,.FALSE. )
 
   A % Comm = MPI_COMM_WORLD
-  A % ParMatrix => Null()
+  A % ParMatrix => NULL()
   Solver % Matrix => A
   Model % Solver => Solver
 
@@ -3836,13 +3862,13 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
 
   Solver % TimeOrder = 0
 
-  Mesh % Variables => Null()
+  Mesh % Variables => NULL()
   CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
         'nodal h',1,h,Cperm) !,Output=.FALSE.)
   Solver % Variable=>VariableGet(Mesh % Variables,'nodal h',ThisOnly=.TRUE.)
 
   IF ( ParEnv % PEs>1 ) THEN
-    IF ( ASSOCIATED(Solver % Mesh % ParallelInfo % Interface) ) THEN
+    IF ( ASSOCIATED(Solver % Mesh % ParallelInfo % INTERFACE) ) THEN
       ParEnv % ActiveComm = MPI_COMM_WORLD
 
       ALLOCATE(ParEnv % Active(ParEnv % PEs))
@@ -3878,7 +3904,7 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
   DO t=1,active
     Element => Mesh % Elements(t)
     Model % CurrentElement => Element
-    n = Element % Type % NumberOfNodes
+    n = Element % TYPE % NumberOfNodes
     
     !Get element local matrix and rhs vector:
     !----------------------------------------
@@ -3906,9 +3932,9 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
   WRITE(Message,'(A,2ES12.4)') 'Element Size Ratio: ',ElemMax / ElemMin, MAXVAL(h)/MINVAL(h)
   CALL Info('ElementSizeSolver',Message)
 
-  Model % Solver=>Null()
+  Model % Solver=>NULL()
   DEALLOCATE(Mesh % Variables)
-  Mesh % Variables => Null()
+  Mesh % Variables => NULL()
 
   CALL FreeMatrix(A)
   DEALLOCATE( FORCE, STIFF,Cperm )
