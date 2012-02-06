@@ -723,13 +723,19 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
            !--------------------------------------------------------------------------
            ! Solve the preconditioning systems sequentially...
            !--------------------------------------------------------------------------
-           IF (Round > 1) CALL ListAddLogical(PressureSolver % Values, &
+           IF (Round > 1) THEN 
+             CALL ListAddLogical(PressureSolver % Values, &
                'No Precondition Recompute', .TRUE.)
+             CALL ListAddLogical(PressureSolver % Values, &
+               'Linear System Refactorize', .FALSE.)
+           END IF
            CurrentModel % Solver => PressureSolver
            Norm = DefaultSolve(PressureSolver)
            CurrentModel % Solver => Solver
            CALL ListAddLogical(PressureSolver % Values, &
                'No Precondition Recompute', .FALSE.)
+           CALL ListAddLogical(PressureSolver % Values, &
+               'Linear System Refactorize', .TRUE.)               
            
            !-----------------------------------------------------------------------------
            ! Perform matrix-vector product to produce upper triangular preconditioner...
@@ -801,15 +807,19 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
              Mr(1:j) = TempMr(1:j)
            END IF
 
-           IF (Round > 1) CALL ListAddLogical(VelocitySolver % Values, &
+           IF (Round > 1) THEN
+             CALL ListAddLogical(VelocitySolver % Values, &
                'No Precondition Recompute', .TRUE.)
-           CALL ListAddLogical(VelocitySolver % Values, &
+             CALL ListAddLogical(VelocitySolver % Values, &
                'Linear System Refactorize', .FALSE.)
+           END IF
            CurrentModel % Solver => VelocitySolver
            Norm = DefaultSolve(VelocitySolver)      
            CurrentModel % Solver => Solver
            CALL ListAddLogical(VelocitySolver % Values, &
                'No Precondition Recompute', .FALSE.)  
+           CALL ListAddLogical(VelocitySolver % Values, &
+               'Linear System Refactorize', .TRUE.)  
 
            !-------------------------------------------------------------------------
            ! Insert the computed approximation of the error into the search direction 
