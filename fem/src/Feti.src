@@ -84,8 +84,7 @@ MODULE FetiSolve
   LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE., NullSpaceLC=.TRUE.
   LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG, Refactorize
 
-logical,allocatable::diripoint(:)
-
+  LOGICAL, ALLOCATABLE, PRIVATE, SAVE :: DirichletDOFs(:)
 
 #include "huti_fdefs.h"
 
@@ -376,7 +375,7 @@ CONTAINS
       sndLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i) .and..not.diripoint(i)) THEN
+        IF (ig(i) .and..not.DirichletDOFs(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
           sz = SIZE(nb(i) % Neighbours)
@@ -499,22 +498,28 @@ CONTAINS
     TYPe(Matrix_t), POINTER :: B
 !------------------------------------------------------------------------------
     TYPE(Solver_t), POINTER :: Solver
-    INTEGER :: i,j,k,n,d,Active
+    INTEGER :: i,j,k,l,n,d,Active
     INTEGER, ALLOCATABLE :: Perm(:)
     INTEGER, POINTER  :: p(:)
     LOGICAL :: Found
+    LOGICAL, ALLOCATABLE :: Done(:)
+    REAL(KIND=dp) :: val
     REAL(KIND=dp), ALLOCATABLE :: Vals(:)
     TYPE(ValueList_t), POINTER :: BC
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     Solver => GetSolver()
 
-    ALLOCATE(Perm(A % NumberOfRows),B % RHS(A % NumberOfRows)); B % RHS=0._dp
-    ALLOCATE(Vals(Solver % Mesh % MaxElementNodes))
-
-    Perm(1:nLC) = B % Perm
+    n = A % NumberOfRows
     d =  Solver % Variable % DOFs
     p => Solver % Variable % Perm
+
+    ALLOCATE(Perm(n),B % RHS(n), Done(d*n));
+    B % RHS=0._dp
+    Done = .FALSE.
+    Perm(1:nLC) = B % Perm
+
+    ALLOCATE(Vals(Solver % Mesh % MaxElementNodes))
 
     Active = GetNOFBoundaryElements()
     DO i=1,Active
@@ -529,24 +534,32 @@ CONTAINS
         Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
         IF (.NOT.Found) CYCLE
         DO k=1,n
+          l=d*(p(Element % NodeIndexes(k))-1)+j
+          IF(Done(l)) CYCLE
+
           nLC = nLC+1
+          Done(l)=.TRUE.
+
           ! - sign here to indicate D-condition instead of interface
           ! compatibility conditions...:
           ! --------------------------------------------------------
-          Perm(nLC) = -(d*(p(Element % NodeIndexes(k))-1)+j)
+          Perm(nLC)=-l
+
           IF (ASSOCIATED(A % DiagScaling)) THEN
-            B % RHS(nLC) = Vals(k)/A % DiagScaling(-Perm(nLC))
+            B % RHS(nLC) = Vals(k)/A % DiagScaling(l)
+            CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
           ELSE
-            B % RHS(nLC) = Vals(k)
+            val = ABS(A % Values(A % Diag(l)))
+            B % RHS(nLC) = Vals(k)*val
+            CALL SetMatrixElement(B, nLC, ParEnv % myPE, val)
           END IF
-          CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
         END DO
       END DO
     END DO
 
     DEALLOCATE(B % Perm)
     ALLOCATE(B % Perm(nLC))
-    B % Perm  = Perm(1:nLC)
+    B % Perm = Perm(1:nLC)
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiAddDtoB
 !------------------------------------------------------------------------------
@@ -609,7 +622,7 @@ CONTAINS
       nLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i) .and..not.diripoint(i)) THEN
+        IF (ig(i) .and..not.DirichletDOFs(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
 
@@ -1255,7 +1268,6 @@ END SUBROUTINE FetiProject
     CALL FetiProject(A,n,x,OP=1,TOL=1d-12)
 
     HUTI_NDIM=n
-    bnorm = normfun(n,b,1)
 
     CALL matvecsubr(x(1:n),T,ipar)
     Ri = -(T - b(1:n))
@@ -1351,7 +1363,7 @@ END SUBROUTINE FetiProject
     INTEGER :: FixInds(:)
     TYPE(Solver_t) :: Solver
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-9
+    REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-7
     REAL(KIND=dp), ALLOCATABLE :: x(:),tz(:,:)
     INTEGER, POINTER :: p(:)
     INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(6)
@@ -1431,9 +1443,9 @@ END SUBROUTINE FetiProject
       coord_y => Solver % Mesh % Nodes % y
       coord_z => Solver % Mesh % Nodes % z
 
-      xc = SQRT(SUM(coord_x))/m
-      yc = SQRT(SUM(coord_y))/m
-      zc = SQRT(SUM(coord_z))/m
+      xc = SUM(coord_x)/m
+      yc = SUM(coord_y)/m
+      zc = SUM(coord_z)/m
       hc = 0._dp
       hc = hc + (MAXVAL(coord_x)-MINVAL(coord_x))**2
       hc = hc + (MAXVAL(coord_y)-MINVAL(coord_y))**2
@@ -1637,27 +1649,38 @@ END SUBROUTINE FetiProject
     INTEGER(KIND=AddrInt) :: mvProc, dotProc, nrmProc, stopcProc, precProc, AddrFunc
 
     REAL(KIND=dp), POINTER :: SaveValues(:)
-    INTEGER, POINTER :: SaveCols(:),SaveRows(:)
-type(element_t),pointer::el
-type(valuelist_t),pointer::bc
+    INTEGER, POINTER :: SaveCols(:),SaveRows(:),p(:)
+
+    INTEGER, ALLOCATABLE :: Indexes(:)
+
+    TYPE(Element_t), POINTER :: El
+    TYPE(ValueList_t), POINTER :: Bc
 !------------------------------------------------------------------------------
 
-if(allocated(diripoint)) deallocate(diripoint)
-allocate(diripoint(a%numberofrows))
-diripoint=.false.
-do i=1,getnofboundaryelements()
- el=>getboundaryelement(i)
- bc=>getbc()
- if(.not.associated(bc))cycle
- do j=1,2
-   if(listcheckpresent(bc,'velocity '//trim(i2s(j)))) then
-     diripoint(2*(solver % variable %perm(el%nodeindexes)-1)+j)=.true.
-   end if
-  end do
-end do
-!print*,parenv%mype,count(diripoint);flush(6)
-diripoint=.false.
 
+    ! Flag dirichlet d.o.f., to remove 'em from interface conditions:
+    ! ----------------------------------------------------------------
+    IF(ALLOCATED(DirichletDOFs)) DEALLOCATE(DirichletDOFs)
+    ALLOCATE(DirichletDOFs(A % NumberOfRows))
+
+    DirichletDOFs=.FALSE.
+    d  = Solver % Variable % DOFs
+    p => Solver % Variable % Perm
+    ALLOCATE(Indexes(Solver % Mesh % MaxElementDOFs))
+    DO i=1,GetNofBoundaryElements()
+      El=>GetBoundaryElement(i)
+      BC=>GetBC()
+      IF(.NOT.ASSOCIATED(BC)) CYCLE
+      n = GetElementDOFs(Indexes)
+      DO j=1,d
+        IF(ListCheckPresent(BC,ComponentName(Solver % Variable,j))) &
+          DirichletDOFs(d*(p(Indexes(1:n))-1)+j)=.TRUE.
+      END DO
+    END DO
+    DEALLOCATE(Indexes)
+
+    ! Get various  solution options:
+    ! ------------------------------
     Params => GetSolverParams()
     TOL=GetCReal( Params,'Linear System Convergence Tolerance')
 
@@ -1702,7 +1725,6 @@ diripoint=.false.
       ! ---------------------------------------------------------------
       Floating = FetiFloatingDomain(A,Solver,FixInds,TOL)
     END IF
-print*,parenv%mype,nz,floating
 
     IF (Floating) THEN
 
