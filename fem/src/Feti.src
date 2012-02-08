@@ -1401,7 +1401,6 @@ END SUBROUTINE FetiProject
 
     dim = CoordinateSystemDimension()
 
-    NullSpaceLC=.TRUE.
     IF(dofs==1) THEN
       !
       ! For Poisson, check if 1 in null space:
@@ -1431,8 +1430,7 @@ END SUBROUTINE FetiProject
         Fixinds(1) = p(FixNodes(0))
       END IF
       IF (.NOT.ASSOCIATED(A % DiagScaling)) DEALLOCATE(dscale)
-
-      NullSpaceLC=.FALSE.
+      NullSpaceLC=GetLogical(Params,'Feti Fixing Using L.C.',Found)
       RETURN
     ELSE IF (GetLogical(Params,'Feti Kernel Rot-Trans',Found)) THEN
       !
@@ -1526,7 +1524,7 @@ END SUBROUTINE FetiProject
         ALLOCATE(z(nz,n))
         z = tz(floatinds(1:nz),:)
       END IF
-      NullSpaceLC=.FALSE.
+      NullSpaceLC=GetLogical(Params,'Feti Fixing Using L.C.',Found)
       RETURN
     END IF
 
@@ -1588,6 +1586,9 @@ END SUBROUTINE FetiProject
     IF (.NOT.ASSOCIATED(A % DiagScaling)) DEALLOCATE(dscale)
 
     Floating = nz>0
+    NullSpaceLC=GetLogical(Params,'Feti Fixing Using L.C.',Found)
+    IF(.NOT.Found) NullSpaceLC=.TRUE.
+
 !------------------------------------------------------------------------------
   END FUNCTION FetiFloatingDomain
 !------------------------------------------------------------------------------
