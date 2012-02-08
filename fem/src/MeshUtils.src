@@ -6227,7 +6227,7 @@ CONTAINS
     USE GeneralUtils
 
     TYPE(Solver_t) :: Solver
-    INTEGER, OPTIONAL :: FixingDofs(:)
+    INTEGER, OPTIONAL :: FixingDofs(0:)
     INTEGER, OPTIONAL :: MaskPerm(:)
 
 !---------------------------------------------------------------
@@ -6235,7 +6235,7 @@ CONTAINS
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: MaskExists,FixBestDirection,FoundBetter, GotIt
     INTEGER :: i,j,k,l,ind,n,dim,dir,nsize,Sweep,MaxSweep,DirBest
-    INTEGER :: PosMeasureIndex, NegMeasureIndex, FixingNodes(6)
+    INTEGER :: PosMeasureIndex, NegMeasureIndex, FixingNodes(0:6)
     LOGICAL, ALLOCATABLE :: ForbiddenNodes(:)
     REAL(KIND=dp), POINTER :: Parray(:,:)
     REAL(KIND=dp) :: Normal(3), Tangent1(3), Tangent2(3), Coord(3), &
@@ -6292,6 +6292,7 @@ CONTAINS
     AveCoord(1) = Mesh % Nodes % x(k)
     AveCoord(2) = Mesh % Nodes % y(k)
     AveCoord(3) = Mesh % Nodes % z(k)
+    IF(PRESENT(FixingDOFs)) FixingDOFs(0)=k
     
 
 !   PRINT *,'AveCoord:',AveCoord

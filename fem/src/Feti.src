@@ -375,7 +375,7 @@ CONTAINS
       sndLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i) .and..not.DirichletDOFs(i)) THEN
+        IF (ig(i) .AND..NOT.DirichletDOFs(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
           sz = SIZE(nb(i) % Neighbours)
@@ -514,7 +514,7 @@ CONTAINS
     d =  Solver % Variable % DOFs
     p => Solver % Variable % Perm
 
-    ALLOCATE(Perm(n),B % RHS(n), Done(d*n));
+    ALLOCATE(Perm(n),B % RHS(n), Done(n));
     B % RHS=0._dp
     Done = .FALSE.
     Perm(1:nLC) = B % Perm
@@ -534,7 +534,10 @@ CONTAINS
         Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
         IF (.NOT.Found) CYCLE
         DO k=1,n
-          l=d*(p(Element % NodeIndexes(k))-1)+j
+          l = p(Element % NodeIndexes(k))
+          IF (l<=0) CYCLE 
+
+          l=d*(l-1)+j
           IF(Done(l)) CYCLE
 
           nLC = nLC+1
@@ -622,7 +625,7 @@ CONTAINS
       nLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i) .and..not.DirichletDOFs(i)) THEN
+        IF (ig(i) .AND..NOT.DirichletDOFs(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
 
@@ -1366,11 +1369,11 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-7
     REAL(KIND=dp), ALLOCATABLE :: x(:),tz(:,:)
     INTEGER, POINTER :: p(:)
-    INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(6)
+    INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(0:6)
     REAL(KIND=dp), POINTER :: coord_x(:),coord_y(:),coord_z(:), dscale(:)
     TYPE(Varying_string) :: nm
     LOGICAL :: Found, gotNM
-    REAL(KIND=dp) :: xc,yc,zc,hc
+    REAL(KIND=dp) :: xc,yc,zc,hc,ss
     TYPE(ValueList_t), POINTER :: Params
     INTEGER, ALLOCATABLE :: floatinds(:)
     CHARACTER(MAX_NAME_LEN) :: Method
@@ -1425,7 +1428,7 @@ END SUBROUTINE FetiProject
         DEALLOCATE(z); nz=0;
       ELSE
         CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
-        Fixinds(1) = p(FixNodes(1))
+        Fixinds(1) = p(FixNodes(0))
       END IF
       IF (.NOT.ASSOCIATED(A % DiagScaling)) DEALLOCATE(dscale)
 
@@ -1504,11 +1507,11 @@ END SUBROUTINE FetiProject
 !           FixInds(i) = dofs*(p(FixNodes(2*FloatInds(i)-1))-1)+FloatInds(i)
 
           IF (FloatInds(i)==1) THEN  ! x translation
-            FixInds(i) = dofs*(p(FixNodes(1))-1)+1
+            FixInds(i) = dofs*(p(FixNodes(0))-1)+1
           ELSE IF (FloatInds(i)==2) THEN  ! y translation
-            FixInds(i) = dofs*(p(FixNodes(3))-1)+2
+            FixInds(i) = dofs*(p(FixNodes(0))-1)+2
           ELSE IF (dofs>2.AND.FloatInds(i)==3) THEN  ! z translation
-            FixInds(i) = dofs*(p(FixNodes(5))-1)+3
+            FixInds(i) = dofs*(p(FixNodes(0))-1)+3
           ELSE IF (FloatInds(i)==dofs+1) THEN ! rot 'bout z
             FixInds(i) = dofs*(p(FixNodes(2))-1)+1
           ELSE IF (FloatInds(i)==dofs+2) THEN ! rot 'bout x
@@ -1516,8 +1519,9 @@ END SUBROUTINE FetiProject
           ELSE IF (FloatInds(i)==dofs+3) THEN ! rot 'bout y
             FixInds(i) = dofs*(p(FixNodes(6))-1)+3
           ELSE                                ! the rest assumed potential like
-            FixInds(i)=dofs*(p(FixNodes(1))-1)+FloatInds(i)
+            FixInds(i)=dofs*(p(FixNodes(0))-1)+FloatInds(i)
           END IF
+
         END DO
         ALLOCATE(z(nz,n))
         z = tz(floatinds(1:nz),:)
@@ -1601,7 +1605,7 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
     INTEGER :: n
     REAL(KIND=dp), POINTER CONTIG :: tx(:),tb(:)
-!call resettimer('direct')
+!call checktimer('direct')
     n = A % NumberOfRows
     tx=>x
     tb=>b
@@ -1640,7 +1644,7 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
     REAL(KIND=dp), ALLOCATABLE :: y(:)
     REAL(KIND=dp) :: alpha(maxnz), zz, TOL
-    INTEGER :: i,j,k,l,m,n,q,d,nLC
+    INTEGER :: i,j,k,l,m,n,nd,q,d,nLC
 
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Mesh_t), POINTER :: Mesh
@@ -1651,19 +1655,22 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp), POINTER :: SaveValues(:)
     INTEGER, POINTER :: SaveCols(:),SaveRows(:),p(:)
 
+    SAVE SaveValues, SaveCols,  SaveRows
+
     INTEGER, ALLOCATABLE :: Indexes(:)
+    REAL(KIND=dP), ALLOCATABLE :: vals(:)
 
     TYPE(Element_t), POINTER :: El
     TYPE(ValueList_t), POINTER :: Bc
 !------------------------------------------------------------------------------
 
-
     ! Flag dirichlet d.o.f., to remove 'em from interface conditions:
     ! ----------------------------------------------------------------
     IF(ALLOCATED(DirichletDOFs)) DEALLOCATE(DirichletDOFs)
-    ALLOCATE(DirichletDOFs(A % NumberOfRows))
 
-    DirichletDOFs=.FALSE.
+    ALLOCATE(DirichletDOFs(A % NumberOFRows))
+    DirichletDOFs = .FALSE.
+
     d  = Solver % Variable % DOFs
     p => Solver % Variable % Perm
     ALLOCATE(Indexes(Solver % Mesh % MaxElementDOFs))
@@ -1671,13 +1678,14 @@ END SUBROUTINE FetiProject
       El=>GetBoundaryElement(i)
       BC=>GetBC()
       IF(.NOT.ASSOCIATED(BC)) CYCLE
-      n = GetElementDOFs(Indexes)
+      nd = GetElementDOFs(Indexes)
       DO j=1,d
         IF(ListCheckPresent(BC,ComponentName(Solver % Variable,j))) &
-          DirichletDOFs(d*(p(Indexes(1:n))-1)+j)=.TRUE.
+          DirichletDOFs(d*(p(Indexes(1:nd))-1)+j)=.TRUE.
       END DO
     END DO
     DEALLOCATE(Indexes)
+
 
     ! Get various  solution options:
     ! ------------------------------
@@ -1726,8 +1734,9 @@ END SUBROUTINE FetiProject
       Floating = FetiFloatingDomain(A,Solver,FixInds,TOL)
     END IF
 
+    ! 'fix' A  to allow solving local system:
+    ! ---------------------------------------
     IF (Floating) THEN
-
       saverows   => a % rows
       savecols   => a % cols
       savevalues => a % values
@@ -1855,6 +1864,32 @@ END SUBROUTINE FetiProject
       CALL DirectSolver(A,x,y,Solver,Free_Fact=.TRUE.)
       CALL ListAddLogical(Params,'Linear System Refactorize', .TRUE. )
     END IF
+
+    IF (TotalFeti) THEN
+      ! If using (total)Feti as a preconditioner and using sloppy
+      ! tolerances, forcing exact D-condtions afterwards seems to
+      ! help outer iteration convergence:
+      ! -------------------------------------------------------------
+      nd = Solver % Mesh % MaxElementDOFs
+      ALLOCATE(Indexes(nd),Vals(nd))
+      DO i=1,GetNofBoundaryElements()
+        El=>GetBoundaryElement(i)
+        BC=>GetBC()
+        IF(.NOT.ASSOCIATED(BC)) CYCLE
+        nd = GetElementDOFs(Indexes)
+        DO j=1,d
+          Vals(1:nd)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
+          IF(Found) THEN
+            IF(ASSOCIATED(A % DiagScaling)) &
+              vals(1:nd) = vals(1:nd) / A % DiagScaling(d*(p(Indexes(1:nd))-1)+j)
+
+            x(d*(p(Indexes(1:nd))-1)+j) = Vals(1:nd)
+          END IF
+        END DO
+      END DO
+      DEALLOCATE(Indexes,Vals)
+    END IF
+
     CALL ParallelActiveBarrier()
 !------------------------------------------------------------------------------
   END SUBROUTINE  Feti
