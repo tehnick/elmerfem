@@ -183,6 +183,7 @@ MODULE NetCDFInterface
     !----------------------------------------------------------------------------------------------
     !> Reads the given variable and returns data on the desired cell on it from NetCDF grid.
     !> There are two versions since ideally the dimensions of the vectors and are different. 
+    !> This is the 2D version. 
     !----------------------------------------------------------------------------------------------
     SUBROUTINE NetCDFDataCell2D( outcome, NetDim, DimIndex, TimeIndex )
       !------------------------------------------------------
@@ -191,57 +192,81 @@ MODULE NetCDFInterface
       INTEGER, INTENT(IN) :: DimIndex(:)
       INTEGER, INTENT(IN) :: TimeIndex
       !------------------------------------------------------      
-      REAL (KIND=dp) :: stencil(2,2,1)
-      INTEGER :: i,j,IndexVector(3), CountVector(3)
+      REAL (KIND=dp) :: stencil3D(2,2,1),stencil2D(2,2)
+      INTEGER :: i,j,IndexVector3D(3), CountVector3D(3),&
+          IndexVector2D(2),CountVector2D(2)
     
       ! Access variable and take the values
       !---------------------------------------------------------------------------------------------
-      CountVector = (/ 2, 2, 1 /)
-      IndexVector = (/ DimIndex(1), DimIndex(2), TimeIndex /)
-     
-      stencil = 0.0_dp
-
-      NetCDFstatus = NF90_GET_VAR(FileId,VarId,stencil,IndexVector,CountVector)
+      IF( TimeIndex == 0 ) THEN
+        CountVector2D = (/ 2, 2 /)
+        IndexVector2D = (/ DimIndex(1), DimIndex(2) /)
+        NetCDFstatus = NF90_GET_VAR(FileId,VarId,stencil2D,IndexVector2D,CountVector2D)
+        outcome(:,:,1) = stencil2D(:,:)
+      ELSE
+       CountVector3D = (/ 2, 2, 1 /)
+        IndexVector3D = (/ DimIndex(1), DimIndex(2), TimeIndex /)
+        NetCDFstatus = NF90_GET_VAR(FileId,VarId,stencil3D,IndexVector3D,CountVector3D)
+        outcome(:,:,1) = stencil3D(:,:,1)
+      END IF
+      
       IF ( NetCDFstatus /= NF90_NOERR ) THEN 
         PRINT *,'FileId:',FileId
         PRINT *,'VarId:',VarId
-        PRINT *,'IndexVector:',IndexVector
-        PRINT *,'CountVector:',CountVector
+        IF( TimeIndex == 0 ) THEN
+          PRINT *,'IndexVector:',IndexVector2D
+          PRINT *,'CountVector:',CountVector2D
+        ELSE
+          PRINT *,'IndexVector:',IndexVector3D
+          PRINT *,'CountVector:',CountVector3D         
+        END IF
         CALL Fatal('GridDataReader','NetCDF variable access failed in 2D.')
       END IF
-
-      outcome(:,:,1) = stencil(:,:,1)
 
     END SUBROUTINE NetCDFDataCell2D
   
 
-    SUBROUTINE NetCDFDataCell3D( outcome, NetDim, DimIndex, TimeIndex )
+    !----------------------------------------------------------------------------------------------
+    !> The 3D version of the previous routine.
+    !----------------------------------------------------------------------------------------------
+   SUBROUTINE NetCDFDataCell3D( outcome, NetDim, DimIndex, TimeIndex )
       !------------------------------------------------------
       REAL (KIND=dp), INTENT(OUT) :: outcome(:,:,:) 
       INTEGER, INTENT(IN) :: NetDim
       INTEGER, INTENT(IN) :: DimIndex(:)
       INTEGER, INTENT(IN) :: TimeIndex
       !------------------------------------------------------      
-      REAL (KIND=dp) :: stencil(2,2,2,1)
-      INTEGER :: i,j,IndexVector(4), CountVector(4)
+      REAL (KIND=dp) :: stencil4D(2,2,2,1),stencil3d(2,2,2)
+      INTEGER :: i,j
+      INTEGER :: IndexVector3D(3), CountVector3D(3), &
+          IndexVector4D(4), CountVector4D(4)
     
       ! Access variable and take the values
       !---------------------------------------------------------------------------------------------
-      CountVector = (/ 2, 2, 2, 1 /)
-      IndexVector = (/ DimIndex(1), DimIndex(2), DimIndex(3), TimeIndex /)
-     
-      stencil = 0.0_dp
-
-      NetCDFstatus = NF90_GET_VAR(FileId,VarId,stencil,IndexVector,CountVector)
-      IF ( NetCDFstatus /= NF90_NOERR ) THEN 
-        PRINT *,'FileId:',FileId
-        PRINT *,'VarId:',VarId
-        PRINT *,'IndexVector:',IndexVector
-        PRINT *,'CountVector:',CountVector
-        CALL Fatal('GridDataReader','NetCDF variable access failed in 3D.')
+      IF( TimeIndex == 0 ) THEN
+        CountVector3D = (/ 2, 2, 2 /)
+        IndexVector3D = (/ DimIndex(1), DimIndex(2), DimIndex(3) /)             
+        NetCDFstatus = NF90_GET_VAR(FileId,VarId,stencil3D,IndexVector3D,CountVector3D)
+        outcome(:,:,:) = stencil3D(:,:,:) 
+      ELSE
+        CountVector4D = (/ 2, 2, 2, 1 /)
+        IndexVector4D = (/ DimIndex(1), DimIndex(2), DimIndex(3), TimeIndex /)
+        NetCDFstatus = NF90_GET_VAR(FileId,VarId,stencil4D,IndexVector4D,CountVector4D)
+        outcome(:,:,:) = stencil4D(:,:,:,1)
       END IF
 
-      outcome(:,:,:) = stencil(:,:,:,1)
+       IF ( NetCDFstatus /= NF90_NOERR ) THEN 
+        PRINT *,'FileId:',FileId
+        PRINT *,'VarId:',VarId
+        IF( TimeIndex == 0 ) THEN
+          PRINT *,'IndexVector:',IndexVector3D
+          PRINT *,'CountVector:',CountVector3D
+        ELSE
+          PRINT *,'IndexVector:',IndexVector4D
+          PRINT *,'CountVector:',CountVector4D         
+        END IF
+        CALL Fatal('GridDataReader','NetCDF variable access failed in 3D.')
+      END IF
 
     END SUBROUTINE NetCDFDataCell3D
     
@@ -292,7 +317,7 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Solver_t), POINTER :: PSolver
   TYPE(ValueList_t), POINTER :: Params
-  INTEGER :: k,node,MeshDim, NetDim,iTime,nTime
+  INTEGER :: n,k,node,MeshDim, NetDim,iTime,nTime
   INTEGER, POINTER :: FieldPerm(:)
   REAL(KIND=dp), POINTER :: Field(:)
   REAL(KIND=dp) :: x(3),dx(3),x0(3),x1(3),u1(3),u2(3),dt,t0,val,&
@@ -304,7 +329,9 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
   CHARACTER (len = MAX_NAME_LEN) :: str, VarName, TargetName, &
       CoordSystem, TimeInterpolationMethod
   REAL(KIND=dp) :: Coeff, InterpMultiplier, InterpBias, TimeIndex, acc
-  LOGICAL :: Found, IsTime, DoCoordinateTransformation
+  LOGICAL :: Found, IsTime, DoCoordinateTransformation, DoCoordMapping, &
+      DoScaling, DoBoundingBox, DoPeriodic 
+  INTEGER, POINTER :: CoordMapping(:), PeriodicDir(:)
 
   ! General initializations
   !------------------------------------------------------------------------------
@@ -324,6 +351,24 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
   
   CoordSystem = GetString( Params,'Coordinate Transformation',&
       DoCoordinateTransformation)
+
+  CoordMapping => ListGetIntegerArray( Params,'Coordinate Mapping',&
+      DoCoordMapping )
+  IF( DoCoordMapping ) THEN
+    IF ( SIZE(CoordMapping) /= 3 ) THEN
+      WRITE( Message, * ) 'Invalid size of coordinate mapping: ', SIZE(CoordMapping)
+      CALL Fatal( 'GridDataReader', Message )
+    END IF
+    DO i=1,3
+      IF( .NOT. ANY( CoordMapping == i ) ) THEN
+        WRITE( Message, * ) 'Coordinate mapping should be a permutation of 1,2 and 3'
+        CALL Fatal( 'GridDataReader', Message )        
+      END IF
+    END DO
+  END IF
+
+  PeriodicDir => ListGetIntegerArray( Params,'Periodic Directions',&
+      DoPeriodic )
  
   !------------------------------------------------------------------------------
   ! Initialize NetCDF data locations, sizes and resolution
@@ -338,59 +383,101 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
   END IF
   x1 = x0 + (DimSize-1) * dx
 
-  IF( Debug ) THEN
-    PRINT *,'NetCDF (Uniform) Grid Bounding Box 1:'
-    PRINT *,'Min:',x0
-    PRINT *,'Max:',x1
-    PRINT *,'NetDim',NetDim
-    PRINT *,'Sizes',DimSize,TimeSize
-  END IF
   
   !------------------------------------------------------------------------------
   ! Optionally map the Elmer mesh so that it coinsides with the NetCDF mesh
   ! This is intended mainly for testing purposes etc.
   !------------------------------------------------------------------------------
-  IF( ListGetLogical( Params,'Enable Scaling',Found ) ) THEN
-    x0e(1) = MINVAL(Mesh % Nodes % x)
-    x0e(2) = MINVAL(Mesh % Nodes % y)
-    x0e(3) = MINVAL(Mesh % Nodes % z)
-    x1e(1) = MAXVAL(Mesh % Nodes % x)
-    x1e(2) = MAXVAL(Mesh % Nodes % y)
-    x1e(3) = MAXVAL(Mesh % Nodes % z)
+  DoScaling = ListGetLogical( Params,'Enable Scaling',Found ) 
+  
+  DoBoundingBox = ListGetLogical( Params,'Check Bounding Box',Found ) 
+  IF( DoScaling ) THEN
+    IF( DoCoordinateTransformation .OR. DoCoordMapping ) THEN
+      CALL Fatal('GridDataReader','Cannot do scaling and mapping together!')
+    ELSE      
+      DoBoundingBox = .TRUE.
+    END IF
+  END IF
+
+  IF( DoBoundingBox ) THEN
     
-    Found = .FALSE.
-    DO i=1,NetDim
-      q = (x1(i) - x0(i) ) / ( x1e(i) - x0e(i) )
-      r = x0(i) - q * x0e(i)
+    PRINT *,'NetCDF Bounding Box:'
+    PRINT *,'Min: ',x0
+    PRINT *,'Max: ',x1
+    PRINT *,'NetDim: ',NetDim
+    PRINT *,'Sizes: ',DimSize,TimeSize
 
-      acc = MAX( ABS(r), ABS( q- 1.0) )
-
-      ! If the bounding box of the two meshes is the same do nothing
-      IF( acc < 1.0d-8 ) CYCLE
-
-      Found = .TRUE.
-      IF( i == 1 ) THEN
-        Mesh % Nodes % x = r + q * Mesh % Nodes % x 
-      ELSE IF( i == 2 ) THEN
-        Mesh % Nodes % y = r + q * Mesh % Nodes % y
+    x = 0.0_dp
+    x0e = HUGE( x0e )
+    x1e = -HUGE( x1e )
+    
+    DO node=1, Mesh % NumberOfNodes
+      IF( ASSOCIATED( FieldPerm ) ) THEN
+        k = FieldPerm(node) 
+        IF( k == 0 ) CYCLE
       ELSE        
-        Mesh % Nodes % z = r + q * Mesh % Nodes % z 
+        k = node
       END IF
+      
+      x(1) = Mesh % Nodes % x(node)
+      x(2) = Mesh % Nodes % y(node)
+      IF( NetDim == 3 ) x(3) = Mesh % Nodes % z(node)
+      
+      IF( DoCoordinateTransformation ) THEN
+        x = CoordinateTransformation( x, CoordSystem )
+      END IF
+      
+      IF( DoCoordMapping ) THEN
+        x = x( CoordMapping(1:NetDim) ) 
+      END IF
+      
+      x0e = MIN( x0e, x )
+      x1e = MAX( x1e, x )
     END DO
 
-    IF( Found ) THEN
-      x0e(1) = MINVAL(Mesh % Nodes % x)
-      x0e(2) = MINVAL(Mesh % Nodes % y)
-      x0e(3) = MINVAL(Mesh % Nodes % z)
-      x1e(1) = MAXVAL(Mesh % Nodes % x)
-      x1e(2) = MAXVAL(Mesh % Nodes % y)
-      x1e(3) = MAXVAL(Mesh % Nodes % z)
+    PRINT *,'Elmer Bounding Box:'
+    PRINT *,'Min: ',x0e
+    PRINT *,'Max: ',x1e
+     
+    IF( DoScaling ) THEN
+      Found = .FALSE.
+      DO i=1,NetDim
+        q = (x1(i) - x0(i) ) / ( x1e(i) - x0e(i) )
+        r = x0(i) - q * x0e(i)
+        
+        acc = MAX( ABS(r), ABS( q- 1.0) )
+        
+        ! If the bounding box of the two meshes is the same do nothing
+        IF( acc < 1.0d-8 ) CYCLE
+        
+        Found = .TRUE.
+        IF( i == 1 ) THEN
+          Mesh % Nodes % x = r + q * Mesh % Nodes % x 
+        ELSE IF( i == 2 ) THEN
+          Mesh % Nodes % y = r + q * Mesh % Nodes % y
+        ELSE        
+          Mesh % Nodes % z = r + q * Mesh % Nodes % z 
+        END IF
+      END DO
       
-      PRINT *,'Modified Elmer Bounding Box:'
-      PRINT *,'Min:',x0e
-      PRINT *,'Max:',x1e
-    END IF
+      IF( Found ) THEN
+        x0e(1) = MINVAL(Mesh % Nodes % x)
+        x0e(2) = MINVAL(Mesh % Nodes % y)
+        x0e(3) = MINVAL(Mesh % Nodes % z)
+        x1e(1) = MAXVAL(Mesh % Nodes % x)
+        x1e(2) = MAXVAL(Mesh % Nodes % y)
+        x1e(3) = MAXVAL(Mesh % Nodes % z)
+        
+        PRINT *,'Modified Elmer Bounding Box:'
+        PRINT *,'x0: ',x0e
+        PRINT *,'x1: ',x1e
+      END IF
+    ELSE
+      IF( ALL( x0e >= x0 ) .AND. ALL( x1e <= x1 ) ) THEN
+        CALL Info('GridDataReader','Elmer bounding box is within the NetCDF one!')
+      END IF
 
+    END IF
   END IF
 
 
@@ -401,7 +488,7 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
   !--------------------------------------------------------------------------------------
   IF( TimeSize == 0 ) THEN
     CALL Info('GridDataReader','No time given, using 1st step')
-    IntTimeIndex = 1
+    IntTimeIndex = 0
     nTime = 1
     pTime = 1.0_dp
   ELSE
@@ -501,7 +588,9 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
       END IF
       Coeff = InterpMultiplier * pTime 
       
-      IF ( IntTimeIndex < 1 .OR. IntTimeIndex > TimeSize ) THEN
+      IF ( IntTimeIndex == 0 ) THEN
+        CONTINUE
+      ELSE IF ( IntTimeIndex < 1 .OR. IntTimeIndex > TimeSize ) THEN
         WRITE (Message, '(A,I0,A,I0,A)') 'Time value ', IntTimeIndex, ' is out of range (1,',TimeSize, ')'
         CALL Warn('GridDataReader',Message)
       END IF
@@ -530,13 +619,25 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
           x = CoordinateTransformation( x, CoordSystem )
         END IF
 
+        IF( DoCoordMapping ) THEN
+          x = x( CoordMapping(1:NetDim) ) 
+        END IF
+
+        IF( DoPeriodic ) THEN
+          DO i=1,NetDim
+            IF( PeriodicDir(i) > 0 ) THEN
+              IF( x(i) > x1(i) ) x(i) = x(i) - (x1(i) - x0(i) )
+              IF( x(i) < x0(i) ) x(i) = x(i) + (x1(i) - x0(i) )             
+            END IF
+          END DO
+
+        END IF
+
         Found = FDInterpolation(NetDim,x,DimSize,x0,dx,x1,Eps,IntTimeIndex,val) 
 
         IF( Found ) THEN
           Field(k) = Field(k) + Coeff * val
           NoHits = NoHits + 1
-        ELSE
-          PRINT *,'Interpolation result: ',x,val
         END IF
         
       END DO
@@ -719,7 +820,7 @@ CONTAINS
       !-------------------------------------------------------------------------------
       ind(i) = CEILING( ( xf(i) - x0(i) ) / dx(i) ) 
       
-      !        PRINT *,'Ind(i): ', i,ind(i),Xf(i),X0(i),Dx(i) 
+!      PRINT *,'Ind(i): ', i,ind(i),Xf(i),X0(i),Dx(i) 
       
       ! Checks that the estimated index is within the bounding box
       IF( ind(i) < 1 .OR. ind(i) >= DimSize(i) ) THEN
@@ -730,9 +831,9 @@ CONTAINS
         ELSE IF( xf(i) >= x1(i) .AND. xf(i) <= x1(i) + Eps(i) ) THEN
           ind(i) = DimSize(i) - 1
         ELSE ! The index is too far to be salvaged            
-          RETURN
           WRITE (Message, '(A,I0,A,I0,A,F14.3,A)') 'ind(',i,') = ', ind(i), ' from Elmer coordinate ',&
-              Xf(i), ' Not in bounding box'            
+              Xf(i), ' Not in bounding box'
+          PRINT *,'Boundint box:',x0(i),x1(i)
           CALL Warn( 'GridDataReader',Message)
           RETURN
         END IF
@@ -761,7 +862,7 @@ CONTAINS
   
 
   !------------------------------------------------------------------------------------
-  ! Transforms input coordinates into the given coordinate system
+  ! Transforms Elmer input coordinates into the given coordinate system of the netCDF file.
   !------------------------------------------------------------------------------------
   FUNCTION CoordinateTransformation( vec0, CoordSystem ) RESULT( vec1 )
     !--------------------------------------------------------------
@@ -787,7 +888,7 @@ CONTAINS
       vec1(2) = RAD_TO_DEG * ATAN2( vec0(2), vec0(1) )
       vec1(3) = vec0(3)
       
-    CASE ('default')
+    CASE ('none')
       vec1 = vec0
 
     CASE DEFAULT
