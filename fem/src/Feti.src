@@ -82,7 +82,7 @@ MODULE FetiSolve
   ! Some global flags:
   ! ------------------
   LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE., NullSpaceLC=.TRUE.
-  LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG, Refactorize
+  LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG, Refactorize, FetiAsPrec=.FALSE.
 
   LOGICAL, ALLOCATABLE, PRIVATE, SAVE :: DirichletDOFs(:)
 
@@ -511,54 +511,66 @@ CONTAINS
     Solver => GetSolver()
 
     n = A % NumberOfRows
-    d =  Solver % Variable % DOFs
-    p => Solver % Variable % Perm
 
-    ALLOCATE(Perm(n),B % RHS(n), Done(n));
+    ALLOCATE(Perm(n),B % RHS(n))
     B % RHS=0._dp
-    Done = .FALSE.
     Perm(1:nLC) = B % Perm
 
-    ALLOCATE(Vals(Solver % Mesh % MaxElementNodes))
-
-    Active = GetNOFBoundaryElements()
-    DO i=1,Active
-      Element => GetBoundaryElement(i)
-      IF (.NOT. ActiveBoundaryElement()) CYCLE
-
-      BC => GetBC()
-      IF (.NOT.ASSOCIATED(BC)) CYCLE
-
-      n = GetElementNOFNodes()
-      DO j=1,d
-        Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
-        IF (.NOT.Found) CYCLE
-        DO k=1,n
-          l = p(Element % NodeIndexes(k))
-          IF (l<=0) CYCLE 
-
-          l=d*(l-1)+j
-          IF(Done(l)) CYCLE
-
+    IF (FetiAsPrec) THEN
+      DO i=1,n
+        IF ( DirichletDofs(i) ) THEN
           nLC = nLC+1
-          Done(l)=.TRUE.
+          Perm(nLC) = -i
+          B % RHS(nLC) = A % RHS(i)
+          CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
+        END IF
+      END DO
+    ELSE 
+      d =  Solver % Variable % DOFs
+      p => Solver % Variable % Perm
 
-          ! - sign here to indicate D-condition instead of interface
-          ! compatibility conditions...:
-          ! --------------------------------------------------------
-          Perm(nLC)=-l
+      ALLOCATE(Vals(Solver % Mesh % MaxElementNodes), Done(n))
+      Done = .FALSE.
 
-          IF (ASSOCIATED(A % DiagScaling)) THEN
-            B % RHS(nLC) = Vals(k)/A % DiagScaling(l)
-            CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
-          ELSE
-            val = ABS(A % Values(A % Diag(l)))
-            B % RHS(nLC) = Vals(k)*val
-            CALL SetMatrixElement(B, nLC, ParEnv % myPE, val)
-          END IF
+      Active = GetNOFBoundaryElements()
+      DO i=1,Active
+        Element => GetBoundaryElement(i)
+        IF (.NOT. ActiveBoundaryElement()) CYCLE
+
+        BC => GetBC()
+        IF (.NOT.ASSOCIATED(BC)) CYCLE
+
+        n = GetElementNOFNodes()
+        DO j=1,d
+          Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
+          IF (.NOT.Found) CYCLE
+          DO k=1,n
+            l = p(Element % NodeIndexes(k))
+            IF (l<=0) CYCLE 
+
+            l=d*(l-1)+j
+            IF(Done(l)) CYCLE
+
+            nLC = nLC+1
+            Done(l)=.TRUE.
+
+            ! - sign here to indicate D-condition instead of interface
+            ! compatibility conditions...:
+            ! --------------------------------------------------------
+            Perm(nLC)=-l
+
+            IF (ASSOCIATED(A % DiagScaling)) THEN
+              B % RHS(nLC) = Vals(k)/A % DiagScaling(l)
+              CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
+            ELSE
+              val = ABS(A % Values(A % Diag(l)))
+              B % RHS(nLC) = Vals(k)*val
+              CALL SetMatrixElement(B, nLC, ParEnv % myPE, val)
+            END IF
+          END DO
         END DO
       END DO
-    END DO
+    END IF
 
     DEALLOCATE(B % Perm)
     ALLOCATE(B % Perm(nLC))
@@ -1244,7 +1256,7 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err0,err1,err2,TOL,dpar(1)
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found,prec
-    REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:),Ssave(:,:),Psave(:,:),srho(:)
+    REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:),Ssave(:,:),Psave(:,:),srho(:),rr(:)
 !------------------------------------------------------------------------------
 !call resettimer('cpg')
     nrows=A % NumberOfRows
@@ -1261,9 +1273,9 @@ END SUBROUTINE FetiProject
       x=0; RETURN;
     END IF
 
-    ALLOCATE(T(n),S(n),Ri(n))
+    ALLOCATE(T(n),S(n),Ri(n),rr(n))
 
-    x(1:n)=0
+    x=0
     IF (nz>0) THEN
       m = SIZE(z,2)
       x(1:nz)=MATMUL(z,f(1:m))
@@ -1276,14 +1288,15 @@ END SUBROUTINE FetiProject
     Ri = -(T - b(1:n))
     CALL FetiProject(A,n,Ri,OP=0,TOL=1d-12)
 
-    err1 = normfun(n,Ri,1)/bnorm
-    IF (err1<TOL) RETURN
-    
+    err0 = normfun(n,Ri,1)
+    err1 = err0 / bnorm
     IF ( output /= 0 .AND. ParEnv % MyPE==0 ) THEN
       PRINT*,' '
       PRINT*,'         iter     |ax-b|                    |ax-b|/b';
       PRINT*,'      --------------------------------------------------';flush(6)
+      PRINT*,0,err0,err1; Flush(6)
     END IF
+    IF (err1<TOL) RETURN
 
     IF (Restart>0) THEN
       Saven=0
@@ -1334,6 +1347,13 @@ END SUBROUTINE FetiProject
 
        err0 = normfun(n,Ri,1)
        err1 = err0 / bnorm
+
+!err2 = FetiStopc(x,b,Ri,ipar,dpar)
+!CALL matvecsubr(x,rr,ipar)
+!rr = rr - b
+!CALL FetiProject(A,n,rr,OP=0,TOL=1d-12)
+!err2 = normfun(n,rr,1)
+
        IF ( output>0 .AND. MOD(iter,output)==0) THEN
          IF (ParEnv % MyPE==0) THEN
            PRINT*,iter,err0,err1; Flush(6)
@@ -1489,6 +1509,7 @@ END SUBROUTINE FetiProject
       j=nz
       nz=0
       DO i=1,j
+        tz(i,:) = tz(i,:)/MAXVAL(ABS(tz(i,:)))
         CALL MatrixVectorMultiply(A,tz(i,:),x)
         IF (ALL(ABS(x)<floatEps)) THEN
           nz=nz+1
@@ -1641,9 +1662,9 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), POINTER :: A
     TYPE(Solver_t) :: Solver
-    REAL(KIND=dp) :: x(:),b(:)
+    REAL(KIND=dp), target :: x(:),b(:)
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), ALLOCATABLE :: y(:)
+    REAL(KIND=dp), ALLOCATABLE,target :: y(:)
     REAL(KIND=dp) :: alpha(maxnz), zz, TOL
     INTEGER :: i,j,k,l,m,n,nd,q,d,nLC
 
@@ -1687,7 +1708,6 @@ END SUBROUTINE FetiProject
     END DO
     DEALLOCATE(Indexes)
 
-
     ! Get various  solution options:
     ! ------------------------------
     Params => GetSolverParams()
@@ -1701,7 +1721,8 @@ END SUBROUTINE FetiProject
 
     ! Check whether to use the 'total' FETI scheme:
     ! ---------------------------------------------
-    TotalFeti = GetLogical(Params, 'Total Feti', Found)
+    TotalFeti  = GetLogical(Params, 'Total Feti', Found)
+    FetiAsPrec = GetLogical(Params, 'Feti Use As Preconditioner', Found)
 
     ! Tell 'DirectSolver' to factorize first time only:
     ! -------------------------------------------------
@@ -1720,8 +1741,8 @@ END SUBROUTINE FetiProject
     ! matrix-vector multiply in FetiStopc. NOT USED at the
     ! moment.
     ! ------------------------------------------------------
-!   y=b
-!   CALL ParallelInitSolve(A,x,y,y)
+    ! y=b
+    ! CALL ParallelInitSolve(A,x,y,rtmp)
 
     IF(Refactorize) THEN
       InitializeLC = .TRUE.;  InitializeIf = .TRUE.
@@ -1862,33 +1883,20 @@ END SUBROUTINE FetiProject
     END IF
 
     IF ( Refactorize ) THEN
-      CALL DirectSolver(A,x,y,Solver,Free_Fact=.TRUE.)
+      Refactorize=GetLogical(Params,'Linear System Free Factorization',Found)
+      IF(.NOT.Found) Refactorize=.TRUE.
+      IF(Refactorize) CALL DirectSolver(A,x,y,Solver,Free_Fact=.TRUE.)
       CALL ListAddLogical(Params,'Linear System Refactorize', .TRUE. )
     END IF
 
-    IF (TotalFeti) THEN
+    IF (TotalFeti .AND. FetiAsPrec) THEN
       ! If using (total)Feti as a preconditioner and using sloppy
       ! tolerances, forcing exact D-condtions afterwards seems to
       ! help outer iteration convergence:
       ! -------------------------------------------------------------
-      nd = Solver % Mesh % MaxElementDOFs
-      ALLOCATE(Indexes(nd),Vals(nd))
-      DO i=1,GetNofBoundaryElements()
-        El=>GetBoundaryElement(i)
-        BC=>GetBC()
-        IF(.NOT.ASSOCIATED(BC)) CYCLE
-        nd = GetElementDOFs(Indexes)
-        DO j=1,d
-          Vals(1:nd)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
-          IF(Found) THEN
-            IF(ASSOCIATED(A % DiagScaling)) &
-              vals(1:nd) = vals(1:nd) / A % DiagScaling(d*(p(Indexes(1:nd))-1)+j)
-
-            x(d*(p(Indexes(1:nd))-1)+j) = Vals(1:nd)
-          END IF
-        END DO
+      DO i=1,n
+        IF (DirichletDofs(i)) x(i) = b(i)
       END DO
-      DEALLOCATE(Indexes,Vals)
     END IF
 
     CALL ParallelActiveBarrier()
@@ -2011,6 +2019,7 @@ END SUBROUTINE FetiProject
      y = y + b
      CALL FetiDirectSolver(A,x,y,Solver)
 
+call parallelactivebarrier()
      ! For floating domains:
      ! ---------------------
      call FetiMV(lx,llx,ipar)
