@@ -60,15 +60,16 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
   TYPE(ValueList_t),POINTER :: Params
   TYPE(Solver_t), POINTER :: PSolver
   TYPE(Mesh_t), POINTER :: Mesh
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, OldVarName, Name, Oper, LevelsetName, TargetName
-  INTEGER :: i,j,k,l,n,dim,DOFs,itop,ibot,iup,jup,ii,jj,Rounds,nsize,layer, &
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, OldVarName, Name, Oper, OldOper, &
+      LevelsetName, TargetName
+  INTEGER :: i,j,k,l,n,dim,Dofs,dof,itop,ibot,iup,jup,lup,ii,jj,Rounds,nsize,layer, &
       ActiveDirection,elem,TopNodes,NoVar,BotNodes
   INTEGER, POINTER :: MaskPerm(:),TopPointer(:),BotPointer(:),UpPointer(:),DownPointer(:),&
       NodeIndexes(:),TargetPointer(:),BotPerm(:),&
       PermOut(:),PermIn(:),LevelsetPerm(:),TopPerm(:)
   LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
       Debug, MaskExist, GotVar, GotOper, BottomTarget, TemporalLayer
-  REAL(KIND=dp) :: dx,UnitVector(3),ElemVector(3),DotPro,Eps,Length,Level,val
+  REAL(KIND=dp) :: dx,UnitVector(3),ElemVector(3),DotPro,Eps,Length,Level,val,q
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: FieldOut(:), FieldIn(:), Levelset(:), Coord(:),TopField(:)
   TYPE(Variable_t), POINTER :: Var, OldVar
@@ -149,7 +150,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 
   debug = .FALSE.
 
-  DO WHILE(GotVar .OR. GotOper)
+  DO WHILE(.TRUE.)
 
     NoVar = NoVar + 1    
     IF(Debug) PRINT *,'NoVar',NoVar
@@ -160,7 +161,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     IF(GotVar) THEN
       Var => VariableGet( Model % Variables, TRIM(VarName) )
       IF ( .NOT. ASSOCIATED( Var ) )  THEN
-        CALL Fatal('StructuredProjectToPlane','The desired variable does not exist!')
+        CALL Fatal('StructuredProjectToPlane','Variable does not exist: '//TRIM(VarName))
       END IF
     END IF
 
@@ -176,6 +177,33 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 
     FieldIn => Var % Values
     PermIn => Var % Perm
+    Dofs = Var % Dofs
+
+
+    ! Read in the operator
+    !-----------------------------------------------
+    WRITE (Name,'(A,I0)') 'Operator ',NoVar
+    Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
+    IF(.NOT. GotOper ) THEN
+      ! For the first variable the operator is definately needed
+      IF( NoVar > 1 ) THEN
+        Oper = OldOper
+      ELSE
+        EXIT
+      END IF
+    END IF
+    OldOper = Oper
+
+    
+    ! Either new field or new operator is needed
+    !-----------------------------------------------
+    IF( .NOT. (GotVar .OR. GotOper ) ) THEN
+      IF( NoVar == 1 ) THEN
+        CALL Warn('StructuredProjectToPlane','Not even one field and operator to treat?')
+      END IF
+      EXIT
+    END IF
+
 
     ! Create the projected variable if needed
     !-----------------------------------------------
@@ -187,33 +215,28 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 
     Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
     IF ( .NOT. ASSOCIATED( Var ) )  THEN      
-      NULLIFY(FieldOut)
       WRITE (Name,'(A,I0,A)') 'Target Variable ',NoVar,' At Bottom'
       IF( ListGetLogical( Params, TRIM(Name), GotIt ) ) THEN
-        ALLOCATE( FieldOut(BotNodes) )
-        CALL VariableAdd( Mesh % Variables, Solver % Mesh, PSolver, &
-            TargetName, 1, FieldOut, BotPerm)           
+        CALL VariableAddVector( Mesh % Variables, Solver % Mesh, PSolver, &
+            TargetName, Dofs, Perm = BotPerm)           
         Var => VariableGet( Mesh % Variables, TRIM(TargetName) )        
       ELSE
-        ALLOCATE( FieldOut(TopNodes) )
-        CALL VariableAdd( Mesh % Variables, Solver % Mesh, PSolver, &
-            TargetName, 1, FieldOut, TopPerm)           
+        CALL VariableAddVector( Mesh % Variables, Solver % Mesh, PSolver, &
+            TargetName, Dofs, Perm = TopPerm)           
       END IF
       Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
       PRINT *,'Created Target Variable:',TRIM(Var % Name)
     END IF
+    IF( Var % Dofs /= Dofs ) THEN
+      PRINT *,'Dofs:',Var % Dofs, Dofs
+      CALL Fatal('StructureProjectToPlane','Mismatch in the dofs in fields!')
+    END IF
+
     FieldOut => Var % Values
     PermOut => Var % Perm    
     FieldOut = 0.0_dp
 
     TemporalLayer = .TRUE.
-
-
-
-   
-    WRITE (Name,'(A,I0)') 'Operator ',NoVar
-    Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
-    IF(.NOT. GotOper) CYCLE 
 
     IF(Oper == 'isosurface') THEN
       WRITE (Name,'(A,I0)') 'Isosurface Variable ',NoVar
@@ -236,180 +259,202 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
         CALL FATAL('StructuredProjectToPlane','no > Layer Index < indicated for output')
     END IF
 
-    ! Operators for dimensional reduction
-    !-----------------------------------------------
-    SELECT CASE(Oper)      
-      
-    CASE ('sum')      
-      TopField = 0.0_dp
-      DO i=1,nsize
-        itop = TopPointer(i)
-        j = i
-        IF(ASSOCIATED(PermIn)) j = PermIn(i)
-        IF(j == 0) CYCLE
-        val = FieldIn(j)
-        TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + val 
-      END DO
-      
-    CASE ('min')      
-      TopField = HUGE(TopField)
-      DO i=1,nsize
-        itop = TopPointer(i)
-        j = i
-        IF(ASSOCIATED(PermIn)) j = PermIn(i)
-        IF(j == 0) CYCLE
-        TopField(TopPerm(itop)) = MIN( FieldIn(j),TopField(TopPerm(itop)))
-      END DO
-      
-    CASE ('max')      
-      TopField = -HUGE(TopField)
-      DO i=1,nsize
-        itop = TopPointer(i)
-        j = i
-        IF(ASSOCIATED(PermIn)) j = PermIn(i)
-        IF(j == 0) CYCLE
-        TopField(TopPerm(itop)) = MAX( FieldIn(j),TopField(TopPerm(itop)))
-      END DO
+    ! Loop over components
+    !------------------------------------------------
+    DO dof = 1, Dofs
 
-    CASE ('bottom')
-      TopField = 0.0_dp
-      DO i=1,nsize
-        IF( i == BotPointer(i) ) THEN
+      ! Operators for dimensional reduction
+      !-----------------------------------------------
+      SELECT CASE(Oper)      
+        
+      CASE ('sum')      
+        TopField = 0.0_dp
+        DO i=1,nsize
+          itop = TopPointer(i)
           j = i
           IF(ASSOCIATED(PermIn)) j = PermIn(i)
-          TopField(TopPerm(TopPointer(i))) = FieldIn(j)
-        END IF
-      END DO
-
-    CASE ('top')
-      TopField = 0.0_dp
-      DO i=1,nsize
-        IF( i == TopPointer(i) ) THEN
+          IF(j == 0) CYCLE
+          j = Dofs*(j-1)+dof
+          val = FieldIn(j)
+          TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + val 
+        END DO
+        
+      CASE ('min')      
+        TopField = HUGE(TopField)
+        DO i=1,nsize
+          itop = TopPointer(i)
           j = i
           IF(ASSOCIATED(PermIn)) j = PermIn(i)
-          TopField(TopPerm(TopPointer(i))) = FieldIn(j)
-        END IF
-      END DO
-
-    CASE ('layer below top')
-      TopField = 0.0_dp
-      DO i=1,nsize
-        IF( i == TopPointer(i) ) THEN
-           l = i
-           DO k=1,layer
-              l = DownPointer(l)
-           END DO
-           IF(ASSOCIATED(PermIn)) l = PermIn(l)
-           TopField(TopPerm(i)) = FieldIn(l)
-        END IF
-      END DO
-
-    CASE ('layer above bottom')
-      TopField = 0.0_dp
-      DO i=1,nsize
-        IF( i == BotPointer(i) ) THEN
-           l = i
-           DO k=1,layer
-              l = UpPointer(l)
-           END DO
-           IF(ASSOCIATED(PermIn)) l = PermIn(l)
-           TopField(TopPerm(i)) = FieldIn(l)
-        END IF
-      END DO
-
-    CASE ('isosurface')
-      TopField = 0.0_dp
-      DO i=1,nsize
-        iup = UpPointer(i)
-        j = i
-        jup = iup
-        IF(ASSOCIATED(LevelsetPerm)) THEN
-          j = LevelsetPerm(j)
-          jup = LevelsetPerm(jup)
-        END IF
-        IF(j == 0 .OR. jup == 0) CYCLE
-
-        IF( (Levelset(jup) - Level) * (Levelset(j) - Level) <= 0.0_dp ) THEN
-          itop = TopPointer(i)           
-          dx = ABS(Levelset(jup) - Levelset(j))           
-          IF(ASSOCIATED(PermIn)) THEN
-            TopField(TopPerm(itop)) = &
-                ABS(Levelset(jup)-Level) * FieldIn(PermIn(i)) / dx + &
-                ABS(Level-Levelset(j)) * FieldIn(PermIn(iup)) / dx 
-          ELSE
-            TopField(TopPerm(itop)) = &
-                ABS(Levelset(jup)-Level) * FieldIn(i) / dx + &
-                ABS(Level-Levelset(j)) * FieldIn(iup) / dx            
+          IF(j == 0) CYCLE
+          j = Dofs*(j-1)+dof
+          TopField(TopPerm(itop)) = MIN( FieldIn(j),TopField(TopPerm(itop)))
+        END DO
+        
+      CASE ('max')      
+        TopField = -HUGE(TopField)
+        DO i=1,nsize
+          itop = TopPointer(i)
+          j = i
+          IF(ASSOCIATED(PermIn)) j = PermIn(i)
+          IF(j == 0) CYCLE
+          j = Dofs*(j-1)+dof
+          TopField(TopPerm(itop)) = MAX( FieldIn(j),TopField(TopPerm(itop)))
+        END DO
+        
+      CASE ('bottom')
+        TopField = 0.0_dp
+        DO i=1,nsize
+          IF( i == BotPointer(i) ) THEN
+            j = i
+            IF(ASSOCIATED(PermIn)) j = PermIn(i)
+            j = Dofs*(j-1)+dof
+            TopField(TopPerm(TopPointer(i))) = FieldIn(j)
           END IF
-        END IF
-      END DO
-      
-    CASE ('int')
-      TopField = 0.0_dp
-      DO i=1,nsize
-        itop = TopPointer(i)
-        ! Note for top and bottom this will automatically reduce the distance to half
-        !----------------------------------------------------------------------------
-        dx = 0.5*(Coord(UpPointer(i)) - Coord(DownPointer(i)))
-        j = i
-        IF(ASSOCIATED(PermIn)) j = PermIn(i) 
-        TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + dx * FieldIn(j)
-      END DO
-
-    CASE ('dist')
-      TopField = 0.0_dp
-      DO i=1,nsize
-        itop = TopPointer(i)
-        dx = 0.5*(Coord(UpPointer(i)) - Coord(DownPointer(i)))
-        TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + dx 
-      END DO
-
-    CASE ('index')
-      FieldOut = 0.0_dp
-      DO i=1,nsize
-        IF( i == TopPointer(i) ) THEN
-          l = i
-          DO k=1,nsize
-            IF( ASSOCIATED(PermOut)) THEN
-              FieldOut(PermOut(l)) = 1.0_dp * k
-            ELSE
-              FieldOut(l) = 1.0_dp * k
+        END DO
+        
+      CASE ('top')
+        TopField = 0.0_dp
+        DO i=1,nsize
+          IF( i == TopPointer(i) ) THEN
+            j = i
+            IF(ASSOCIATED(PermIn)) j = PermIn(i)
+            j = Dofs*(j-1)+dof
+            TopField(TopPerm(TopPointer(i))) = FieldIn(j)
+          END IF
+        END DO
+        
+      CASE ('layer below top')
+        TopField = 0.0_dp
+        DO i=1,nsize
+          IF( i == TopPointer(i) ) THEN
+            l = i
+            DO k=1,layer
+              l = DownPointer(l)
+            END DO
+            IF(ASSOCIATED(PermIn)) l = PermIn(l)
+            l = Dofs*(l-1)+dof
+            TopField(TopPerm(i)) = FieldIn(l)
+          END IF
+        END DO
+        
+      CASE ('layer above bottom')
+        TopField = 0.0_dp
+        DO i=1,nsize
+          IF( i == BotPointer(i) ) THEN
+            l = i
+            DO k=1,layer
+              l = UpPointer(l)
+            END DO
+            IF(ASSOCIATED(PermIn)) l = PermIn(l)
+            l = Dofs*(l-1)+dof
+            TopField(TopPerm(i)) = FieldIn(l)
+          END IF
+        END DO
+        
+      CASE ('isosurface')
+        TopField = 0.0_dp
+        DO i=1,nsize
+          iup = UpPointer(i)
+          j = i
+          jup = iup
+          IF(ASSOCIATED(LevelsetPerm)) THEN
+            j = LevelsetPerm(j)
+            jup = LevelsetPerm(jup)
+          END IF
+          IF(j == 0 .OR. jup == 0) CYCLE
+          
+          IF( (Levelset(jup) - Level) * (Levelset(j) - Level) <= 0.0_dp ) THEN
+            itop = TopPointer(i)           
+            dx = ABS(Levelset(jup) - Levelset(j))           
+            l = i
+            lup = iup
+            IF(ASSOCIATED(PermIn)) THEN
+              l = PermIn(l)
+              lup = PermIn(lup)
             END IF
-            IF( l == BotPointer(l)) EXIT
-            l = DownPointer(l)            
-          END DO
-        END IF
-      END DO
-      TemporalLayer = .FALSE.
+            l = Dofs*(l-1) + dof
+            lup = Dofs*(lup-1) + dof
+            q = ABS(Levelset(jup)-Level) / dx          
+            TopField(TopPerm(itop)) = q * FieldIn(l) + (1-q) * FieldIn(lup) 
+          END IF
+        END DO
+        
+      CASE ('int')
+        TopField = 0.0_dp
+        DO i=1,nsize
+          itop = TopPointer(i)
+          ! Note for top and bottom this will automatically reduce the distance to half
+          !----------------------------------------------------------------------------
+          dx = 0.5*(Coord(UpPointer(i)) - Coord(DownPointer(i)))
+          j = i
+          IF(ASSOCIATED(PermIn)) j = PermIn(i) 
+          j = Dofs*(j-1) + dof
+          TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + dx * FieldIn(j)
+        END DO
+        
+      CASE ('dist')
+        TopField = 0.0_dp
+        DO i=1,nsize
+          itop = TopPointer(i)
+          dx = 0.5*(Coord(UpPointer(i)) - Coord(DownPointer(i)))
+          TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + dx 
+        END DO
+        
+      CASE ('index')
+        FieldOut = 0.0_dp
+        DO i=1,nsize
+          IF( i == TopPointer(i) ) THEN
+            l = i
+            DO k=1,nsize
+              IF( ASSOCIATED(PermOut)) THEN
+                FieldOut(PermOut(l)) = 1.0_dp * k
+              ELSE
+                FieldOut(l) = 1.0_dp * k
+              END IF
+              IF( l == BotPointer(l)) EXIT
+              l = DownPointer(l)            
+            END DO
+          END IF
+        END DO
+        TemporalLayer = .FALSE.
+        
+      CASE default
+        CALL Fatal('StructuredProjectToPlane','Unknown operator: '//TRIM(Oper))
+        
+      END SELECT
+      
 
-    CASE default
-      CALL Fatal('StructuredProjectToPlane','Unknown operator: '//TRIM(Oper))
+      ! Finally copy the projected values to the target variable
+      ! It could be at the top, but it could also be at the bottom, or everywhere
+      !----------------------------------------------------------------------------
+      IF( TemporalLayer ) THEN
 
-    END SELECT
+        PRINT *,'NoVar',NoVar,dofs,dof
+        PRINT *,'Range:',MINVAL(TopField),MAXVAL(TopField)
 
+        k = 0
+        DO i=1,nsize
+          j = i
+          IF( ASSOCIATED( PermOut ) ) THEN
+            j = PermOut(i)
+            IF( j == 0 ) CYCLE
+          END IF
+          k = TopPerm( TopPointer(i) )
+          j = Dofs*(j-1) + dof
+          FieldOut(j) = TopField(k)
+        END DO
+      END IF
 
-    ! Finally copy the projected values to the target variable
-    ! It could be at the top, but it could also be at the bottom, or everywhere
-    !----------------------------------------------------------------------------
-    IF( TemporalLayer ) THEN
-      k = 0
-      DO i=1,nsize
-        j = i
-        IF( ASSOCIATED( PermOut ) ) THEN
-          j = PermOut(i)
-          IF( j == 0 ) CYCLE
-        END IF
-        k = TopPerm( TopPointer(i) )
-        FieldOut(j) = TopField(k)
-      END DO    
-    END IF
-
+    END DO
   END DO
+
 
   at1 = CPUTime()
 
   WRITE(Message,* ) 'Projection time: ',at1-at0
   CALL Info('StructuredProjectToPlane',Message)
+  CALL Info( 'StructuredProjectToPlane','All done')
+  CALL Info( 'StructuredProjectToPlane','------------------------------------------')
 
 !------------------------------------------------------------------------------
 END SUBROUTINE StructuredProjectToPlane
