@@ -680,13 +680,13 @@ CONTAINS
     END IF
     Eps(2) = GetConstReal(Params, "Y Epsilon", Found ) 
     IF ( .NOT. Found ) THEN
-      CALL Info('GridDataReader', 'Keyword > Epsilon < not given, setting equal to > X Epsilon <')
+      CALL Info('GridDataReader', 'Keyword > Y Epsilon < not given, setting equal to > X Epsilon <')
       Eps(2) = Eps(1)
     END IF
     IF( NetDim == 3 ) THEN
       Eps(3) = GetConstReal(Params, "Z Epsilon", Found ) 
       IF ( .NOT. Found ) THEN
-        CALL Info('GridDataReader', 'Keyword > Epsilon Z < not given, setting equal to > X Epsilon <')
+        CALL Info('GridDataReader', 'Keyword > Z Epsilon < not given, setting equal to > X Epsilon <')
         Eps(3) = Eps(1)
       END IF
     END IF
