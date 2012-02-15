@@ -142,6 +142,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Get calling address of the procedure and add it to the Solver structure.
+!------------------------------------------------------------------------------
   SUBROUTINE AddSolverProcedure( Solver,PROCEDURE  )
 !------------------------------------------------------------------------------
     TYPE(Solver_t) :: Solver
@@ -156,6 +158,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Add the generic stuff related to each Solver. 
+!> A few solvers are for historical reasons given a special treatment. 
 !------------------------------------------------------------------------------
   SUBROUTINE AddEquationBasics( Solver, Name,Transient )
 !------------------------------------------------------------------------------
@@ -836,24 +841,6 @@ CONTAINS
       END IF
     END IF
 
-    !------------------------------------------------------------------------------
-    ! Add computation of the weights resulting from Galerkin integration
-    !------------------------------------------------------------------------------
-!    IF ( ListGetLogical( Solver % Values,'Calculate Weights', Found ) ) THEN
-!      Var_name = GetVarName(Solver % Variable) // ' Weights'
-!      Var => VariableGet( Solver % Mesh % Variables, var_name )
-!      IF ( .NOT. ASSOCIATED(Var) ) THEN
-!        Perm => Solver % Variable % Perm
-!        IF( ASSOCIATED( Perm ) ) THEN
-!          ALLOCATE( Solution(SIZE(Solver % Variable % Perm)) )
-!          Solution = 0.0d0        
-!          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-!              var_name, 1, Solution, Solver % Variable % Perm )
-!          NULLIFY( Solution )
-!        END IF
-!      END IF
-!    END IF
-    !------------------------------------------------------------------------------
 
     Solver % NOFEigenValues = 0
     !   NULLIFY( Solver % Variable % PrevValues )
@@ -1167,6 +1154,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Solve the equations one-by-one. 
 !------------------------------------------------------------------------------
   SUBROUTINE SolveEquations( Model, dt, TransientSimulation, &
       CoupledMinIter, CoupledMaxIter, SteadyStateReached, RealTimestep )
@@ -1571,8 +1560,8 @@ CONTAINS
 
 
 !---------------------------------------------------
-! Perform assembly for the block system linear
-! system of equations.
+!> Perform assembly for the block system linear
+!> system of equations.
 !---------------------------------------------------
   SUBROUTINE BlockSystemAssembly(Solver,dt,Transient,RowVar,ColVar,&
       RowIndOffset,ColIndOffset)

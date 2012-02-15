@@ -68,6 +68,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   TYPE(Matrix_t),POINTER  :: StiffMatrix
   TYPE(ValueList_t), POINTER :: Material
   TYPE(Solver_t), POINTER :: PSolver 
+  TYPE(ValueList_t), POINTER :: Params
 
   REAL(KIND=dp) :: Normal(3), u, v, w, UPull, PrevUpull, &
       Update, MaxUpdate, VelocityRelax, DispRelax, &
@@ -125,6 +126,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   ! The variables needed for solution
   !------------------------------------------------------------------------------
+  Params => Solver % Values
 
   PSolver => Solver
   SurfSol  => Solver % Variable
@@ -135,7 +137,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
     CALL Fatal('TransientPhaseChange','Surface field needed for Phase Change')
   END IF
 
-  TemperatureName = ListGetString( Solver % Values, 'Phase Change Variable', Stat )
+  TemperatureName = ListGetString( Params, 'Phase Change Variable', Stat )
   IF(.NOT. Stat) TemperatureName = 'Temperature'
 
   TempSol => VariableGet( Solver % Mesh % Variables, TRIM(TemperatureName) )
@@ -145,18 +147,18 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
     CALL Fatal('TransientPhaseChange','Temperature field needed for Phase Change')
   END IF
 
-  NonlinearIter = ListGetInteger( Solver % Values, &
+  NonlinearIter = ListGetInteger( Params, &
       'Nonlinear System Max Iterations', stat )
   IF ( .NOT. stat ) NonlinearIter = 1    
-  NonlinearTol  = ListGetConstReal( Solver % Values, &
+  NonlinearTol  = ListGetConstReal( Params, &
       'Nonlinear System Convergence Tolerance', stat )
 
-  PullControl = ListGetLogical( Solver % Values,'Pull Rate Control',stat)
+  PullControl = ListGetLogical( Params,'Pull Rate Control',stat)
   IF( DIM == 3 .AND. PullControl ) THEN
     CALL Fatal('TransientPhaseChange','Pull rate control not implemented in 3D')
   END IF
 
-  TriplePointFixed = ListGetLogical( Solver % Values,'Triple Point Fixed',stat)
+  TriplePointFixed = ListGetLogical( Params,'Triple Point Fixed',stat)
   IF( DIM == 3 .AND. TriplePointFixed ) THEN
     CALL Fatal('TransientPhaseChange','Fixed triple point not implemented in 3D')
   END IF
@@ -202,7 +204,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
     END DO
     
     ! Direction of minimum change is the normal direction if not given
-    NormalDirection = ListGetInteger( Solver % Values,'Normal Direction',Stat)
+    NormalDirection = ListGetInteger( Params,'Normal Direction',Stat)
     IF(.NOT. Stat) THEN
       j = 1
       DO i=1,DIM
@@ -256,7 +258,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
 
     ! Check whether normals are computed by an auxialiary solver
     !---------------------------------------------------------------------------------
-    VariableName = ListGetString( Solver % Values, 'Normal Variable', Stat )
+    VariableName = ListGetString( Params, 'Normal Variable', Stat )
     IF(Stat) THEN
       HelpSol => VariableGet( Solver % Mesh % Variables, TRIM(VariableName), ThisOnly=.TRUE. )
     ELSE
@@ -283,7 +285,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
     END IF
     SurfaceVelo => HelpSol % Values
 
-    VelocityRelax = GetCReal(Solver % Values,'Velocity Relaxation Factor',DoVelocityRelax)
+    VelocityRelax = GetCReal(Params,'Velocity Relaxation Factor',DoVelocityRelax)
     IF(DoVelocityRelax) THEN
       ALLOCATE( PrevSurfaceVelo(SIZE(Surface)), STAT=istat)
       IF ( istat /= 0 ) CALL Fatal( 'TransientPhaseChange', 'Memory allocation error 2.' )     
@@ -294,7 +296,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   END IF
 
 
-  i =  ListGetInteger( Solver % Values,'Passive Steps',Stat)
+  i =  ListGetInteger( Params,'Passive Steps',Stat)
   IF( i >= SubroutineVisited) GOTO 200
 
   ! The first pull velocity should always be set
@@ -309,7 +311,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
 
   ! Loads may be provided externally by using the 'Calculate Loads' flag in heat eq.
   !----------------------------------------------------------------------------------
-  UseLoads = ListGetLogical( Solver % Values,'Use Nodal Loads',Stat) 
+  UseLoads = ListGetLogical( Params,'Use Nodal Loads',Stat) 
 
   IF(UseLoads) THEN
     LoadsSol => VariableGet( Solver % Mesh % Variables,TRIM(TemperatureName)//' Loads')
@@ -329,7 +331,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
       CurrentLoads = 0.0_dp
     END IF
 
-    UseFirstLoads = ListGetLogical( Solver % Values,'Use First Loads',Stat) 
+    UseFirstLoads = ListGetLogical( Params,'Use First Loads',Stat) 
     IF( .NOT. UseFirstLoads ) THEN
       IF( TimeStep > 1 .AND. CoupledIter == 1 ) THEN
 !        PrevPrevLoads = PrevLoads
@@ -365,7 +367,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   ForceVector => Solver % Matrix % RHS
 
 
-  LoadsRelax = GetCReal(Solver % Values,'Loads Relaxation Factor',UseAverageLoads) 
+  LoadsRelax = GetCReal(Params,'Loads Relaxation Factor',UseAverageLoads) 
 
   LoadsOrder = 0
   IF( UseAverageLoads .AND. ( .NOT. UseFirstLoads .OR. CoupledIter > 1 ) ) THEN
@@ -437,7 +439,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   END DO
   
   IF( DoVelocityRelax ) THEN
-    VelocityRelax = GetCReal(Solver % Values,'Velocity Relaxation Factor',Stat)
+    VelocityRelax = GetCReal(Params,'Velocity Relaxation Factor',Stat)
     SurfaceVelo = VelocityRelax * SurfaceVelo + (1-VelocityRelax) * PrevSurfaceVelo
   END IF
 
@@ -457,7 +459,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   ! If no smoothing is applied directly to the free surface then its update may be computed
   ! directly from the velocity field.
   !-----------------------------------------------------------------------------------------
-  DispRelax = ListGetCReal(Solver % Values,'Surface Smoothing Factor',Stat) 
+  DispRelax = ListGetCReal(Params,'Surface Smoothing Factor',Stat) 
 
 ! Currently this is disabled since without this one can used higher order time discreatization
   IF( Solver % Order <= 1 .AND. ABS( DispRelax ) < EPSILON( DispRelax) ) THEN
@@ -549,7 +551,7 @@ CONTAINS
     StiffMatrix = 0.0d0
     MassMatrix  = 0.0d0
  
-    StabFactor = ListGetConstReal(Solver % Values,'Velocity Smoothing Factor',Stat )
+    StabFactor = ListGetConstReal(Params,'Velocity Smoothing Factor',Stat )
 
     NodalSurf(1:n) = Surface( SurfPerm(NodeIndexes) )
    
@@ -729,7 +731,7 @@ CONTAINS
     MassMatrix  = 0.0d0
     n = nCoord
 
-    StabFactor = ListGetConstReal(Solver % Values,'Surface Smoothing Factor')
+    StabFactor = ListGetConstReal(Params,'Surface Smoothing Factor')
     StabCoeff = StabFactor / dt
 
     NodalVelo(1:n) = SurfaceVelo( SurfPerm(NodeIndexes) )

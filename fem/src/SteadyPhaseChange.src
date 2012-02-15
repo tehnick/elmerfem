@@ -1,4 +1,4 @@
-!/*****************************************************************************/
+/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
@@ -63,6 +63,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
   TYPE(GaussIntegrationPoints_t) :: IntegStuff  
   TYPE(ValueList_t), POINTER :: Material, BC
   TYPE(Solver_t), POINTER :: PSolver 
+  TYPE(ValueList_t), POINTER :: Params
   
   REAL(KIND=dp) :: Normal(3), u, v, w, &
        Density, Update, MaxUpdate, MaxTempDiff, Relax, LocalRelax, &
@@ -118,8 +119,8 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Get variables needed for solution
 !------------------------------------------------------------------------------
+  Params => Solver % Values
 
-! The variable for the surface height change
   PSolver => Solver
   NULLIFY(SurfSol)
   NULLIFY(Surface)
@@ -132,7 +133,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
      END IF
      VariableName = ComponentName(Solver % Variable)
   ELSE
-    VariableName = ListGetString( Solver % Values, 'Surface Variable', Stat )
+    VariableName = ListGetString( Params, 'Surface Variable', Stat )
     IF(.NOT. Stat) VariableName = 'Surface'
     SurfSol => VariableGet( Solver % Mesh % Variables, VariableName )
     Surface  => SurfSol % Values
@@ -156,7 +157,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
   END IF
 
 ! variable of which the isotherm is used
-  VariableName = ListGetString( Solver % Values, 'Phase Change Variable', Stat )
+  VariableName = ListGetString( Params, 'Phase Change Variable', Stat )
   IF( .NOT. Stat ) VariableName = 'Temperature'
 
   TempSol => VariableGet( Solver % Mesh % Variables, VariableName )
@@ -170,7 +171,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
   END IF
 
 !---------------------------------------------------------------------------------
-  Relax = GetCReal( Solver % Values,  & 
+  Relax = GetCReal( Params,  & 
        'Nonlinear System Relaxation Factor', stat )
   IF ( .NOT. stat ) Relax = 1.0d0
 
@@ -349,16 +350,16 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
 
   Trip_Temp =  Temperature( TempPerm(Trip_node) )    
 
-  i =  ListGetInteger( Solver % Values,'Passive Steps',Stat)
+  i =  ListGetInteger( Params,'Passive Steps',Stat)
   IF( i >= SubroutineVisited) GOTO 200
 
 !----------------------------------------------------------------------------
 
-  NewtonAfterIter = ListGetInteger( Solver % Values, &
+  NewtonAfterIter = ListGetInteger( Params, &
        'Nonlinear System Newton After Iterations', stat )    
   IF ( stat .AND. SubroutineVisited > NewtonAfterIter ) Newton = .TRUE.
   
-  NewtonAfterTol = ListGetConstReal( Solver % Values, &
+  NewtonAfterTol = ListGetConstReal( Params, &
        'Nonlinear System Newton After Tolerance', stat )
   
   IF(Newton) THEN
@@ -370,7 +371,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
 ! Find the melting point:
 !-----------------------
 
-  TriplePointFixed = ListGetLogical( Solver % Values,'Triple Point Fixed',stat)
+  TriplePointFixed = ListGetLogical( Params,'Triple Point Fixed',stat)
   IF(.NOT. Stat) TriplePointFixed = .FALSE.
 
   IF( TriplePointFixed ) THEN
@@ -580,11 +581,11 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
   volume = volume / area
   volabs = volabs / area
   
-  i = ListGetInteger(Solver % Values,'Lumped Acceleration After Iterations', Stat)
+  i = ListGetInteger(Params,'Lumped Acceleration After Iterations', Stat)
   
   IF(Stat .AND. SubroutineVisited > i) THEN
     
-     j = ListGetInteger(Solver % Values,'Lumped Acceleration Mode', Stat)
+     j = ListGetInteger(Params,'Lumped Acceleration Mode', Stat)
      SELECT CASE( j ) 
      CASE( 1 )
         cvol = 0.5*(prevtave+tave)/(prevtave-tave)
@@ -605,7 +606,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
         ccum = 1.0
      END IF
      
-     clim = ListGetConstReal(Solver % Values,'Lumped Acceleration Limiter', Stat)
+     clim = ListGetConstReal(Params,'Lumped Acceleration Limiter', Stat)
      IF(.NOT. Stat) clim = 100.0
      cvol = MIN(clim,cvol)
      cvol = MAX(1.0/clim,cvol)
@@ -671,7 +672,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
      IsoSurfAllocated = .FALSE.
   END IF
    
-  IF( ListGetLogical(Solver % Values,'Internal Mesh Movement',GotIt)) THEN
+  IF( ListGetLogical(Params,'Internal Mesh Movement',GotIt)) THEN
      CALL BoxMoveMesh()
   END IF
 
@@ -695,7 +696,7 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------------------  
-!> Subroutine creates isotherm where the tempereature coinsides with the melting temperature
+!> Subroutine creates isotherm where the tempereature coinsides with the melting temperature.
 !-------------------------------------------------------------------------------------------  
   SUBROUTINE CreateIsotherm()
 
@@ -810,7 +811,7 @@ CONTAINS
      END IF
 
      ! The last one is just one extra node for safety
-     IF(ListGetLogical(Solver % Values,'Save Isotherm',stat)) THEN
+     IF(ListGetLogical(Params,'Save Isotherm',stat)) THEN
         CALL Info('SteadyPhaseChange','Isotherm saved to file isotherm.dat')
         OPEN (10,FILE='isotherm.dat')
         DO i=1,Nelems
@@ -826,6 +827,7 @@ CONTAINS
 
 !-------------------------------------------------------------------------------------------  
 !> Internal mesh update strategy suitable for some simple geometries.
+!> Assumes that the deformation is gradually decaying to the rectangle edges.
 !-------------------------------------------------------------------------------------------  
   SUBROUTINE BoxMoveMesh()
     

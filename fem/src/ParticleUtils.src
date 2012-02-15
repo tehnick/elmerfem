@@ -1443,13 +1443,13 @@ RETURN
     
     IF ( ParEnv % mype==0 ) THEN
       WRITE (Message,'(A,T22,I12)') 'Active particles:',TotNoParticles
-      CALL Info('ParticleAdvector',Message)
+      CALL Info('ParticleInformation',Message)
       WRITE (Message,'(A,T22,F12.2)') 'Elapsed time:',tottime
-      CALL Info('ParticleAdvector',Message)
+      CALL Info('ParticleInformation',Message)
       WRITE (Message,'(A,T22,I12)') 'Time steps taken:',TimeStepsTaken
-      CALL Info('ParticleAdvector',Message)
+      CALL Info('ParticleInformation',Message)
       WRITE (Message,'(A,T22,I12)') 'Particle steps taken:',TotParticleStepsTaken
-      CALL Info('ParticleAdvector',Message)
+      CALL Info('ParticleInformation',Message)
     END IF
   END SUBROUTINE ParticleInformation
 
@@ -4766,7 +4766,6 @@ PRINT *,'NoPeriodic',NoPeriodic
     CHARACTER(MAX_NAME_LEN) :: Dir
     REAL(KIND=dp) :: SaveNodeFraction
     LOGICAL :: Found,Visited = .FALSE.
-  
 
     CHARACTER(MAX_NAME_LEN) :: Str
     INTEGER :: NumberOfNodes, ParallelNodes, Dim
@@ -4801,7 +4800,7 @@ PRINT *,'NoPeriodic',NoPeriodic
     Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
     
     Dim = Particles % dim
-        
+
     NumberOfNodes = 0
     DO i=1,Particles % NumberOfParticles
       IF ( Particles % Status(i) > MaxSaveStatus .OR. &
@@ -4829,6 +4828,8 @@ PRINT *,'NoPeriodic',NoPeriodic
     ELSE
       WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
     END IF
+
+    CALL Info('ParticleOutputVtu','Saving particles to file: '//TRIM(VtuFile),Level=8)
     CALL WriteVtuFile( VtuFile )
     
 
@@ -6029,6 +6030,7 @@ PRINT *,'NoPeriodic',NoPeriodic
     LOGICAL :: VtuFormat, TableFormat, AnyFormat, Found
     
     SAVE :: TableFormat, VtuFormat, Visited
+
     
     Particles => GlobalParticles
     Params => GetSolverParams()
@@ -6053,7 +6055,8 @@ PRINT *,'NoPeriodic',NoPeriodic
     
     IF( TableFormat ) CALL ParticleOutputTable( Particles )
     IF( VtuFormat ) CALL ParticleOutputVtu( Particles ) 
-    
+
+
   END SUBROUTINE SaveParticleData
   
 

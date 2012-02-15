@@ -458,7 +458,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
    
-!>    Check if the current element has been defined passive.
+!------------------------------------------------------------------------------
+!> Check if the current element has been defined passive.
 !> This is done by inspecting a looking an the values of "varname Passive"
 !> in the Body Force section. It is determined to be passive if it has 
 !> more positive than negative hits in an element.
@@ -516,39 +517,21 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !>  For time dependent simulations add the time derivative coefficient terms
 !>  to the matrix containing other coefficients.
 !------------------------------------------------------------------------------
    SUBROUTINE Add1stOrderTime( MassMatrix, StiffMatrix,  &
           Force, dt, n, DOFs, NodeIndexes, Solver )
 !------------------------------------------------------------------------------
-!
-! REAL(KIND=dp) :: MassMatrix(:,:)
-!   INPUT:
-!
-! REAL(KIND=dp) :: StiffMatrix(:,:)
-!   INOUT:
-!   
-! REAL(KIND=dp) :: Force(:)
-!   INOUT:
-!   
-! REAL(KIND=dp) :: dt
-!   INPUT: Simulation timestep size
-!
-! INTEGER :: n
-!   INPUT: number of element nodes
-!
-! INTEGER :: DOFs
-!   INPUT: variable degrees of freedom
-!
-! TYPE(Solver_t), POINTER :: Solver
-!   INPUT: solver parameter list (used to get some options for time integration)
-! 
-!------------------------------------------------------------------------------
-     TYPE(Solver_t) :: Solver
-     REAL(KIND=dp) :: MassMatrix(:,:),StiffMatrix(:,:),Force(:),dt
-     INTEGER :: n,DOFs
-     INTEGER :: NodeIndexes(:)
+     REAL(KIND=dp) :: MassMatrix(:,:)   !< Local mass matrix.
+     REAL(KIND=dp) :: StiffMatrix(:,:)  !< Local stiffness matrix.
+     REAL(KIND=dp) :: Force(:)          !< Local right-hand-side vector.
+     REAL(KIND=dp) :: dt                !< Simulation timestep size
+     INTEGER :: n                       !< number of element nodes
+     INTEGER :: DOFs                    !< variable degrees of freedom
+     INTEGER :: NodeIndexes(:)          !< element nodes
+     TYPE(Solver_t) :: Solver           !< Solver structure.
 !------------------------------------------------------------------------------
      LOGICAL :: GotIt
      INTEGER :: i,j,k,l,m,Order
@@ -655,44 +638,22 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
 !>  For time dependent simulations add the time derivative coefficient terms
 !>  to the matrix containing other coefficients.
 !------------------------------------------------------------------------------
    SUBROUTINE Add2ndOrderTime( MassMatrix, DampMatrix, StiffMatrix,  &
          Force, dt, n, DOFs, NodeIndexes, Solver )
 !------------------------------------------------------------------------------
-!
-! REAL(KIND=dp) :: MassMatrix(:,:)
-!   INPUT:
-!
-! REAL(KIND=dp) :: DampMatrix(:,:)
-!   INPUT:
-!
-! REAL(KIND=dp) :: StiffMatrix(:,:)
-!   INOUT:
-!   
-! REAL(KIND=dp) :: Force(:)
-!   INOUT:
-!   
-! REAL(KIND=dp) :: dt
-!   INPUT: Simulation timestep size
-!
-! INTEGER :: n
-!   INPUT: number of element nodes
-!
-! INTEGER :: DOFs
-!   INPUT: variable degrees of freedom
-!
-! TYPE(Solver_t) :: Solver
-!   INPUT: solver parameter list (used to get some options for time integration)
-! 
-!------------------------------------------------------------------------------
-     TYPE(Solver_t) :: Solver
-
-     REAL(KIND=dp) :: MassMatrix(:,:),DampMatrix(:,:), &
-                  StiffMatrix(:,:),Force(:),dt
-     INTEGER :: n,DOFs
-     INTEGER :: NodeIndexes(:)
+     REAL(KIND=dp) :: MassMatrix(:,:)   !< Local mass matrix.
+     REAL(KIND=dp) :: DampMatrix(:,:)   !< Local damping matrix.
+     REAL(KIND=dp) :: StiffMatrix(:,:)  !< Local stiffness matrix.
+     REAL(KIND=dp) :: Force(:)          !< Local right-hand-side vector.
+     REAL(KIND=dp) :: dt                !< Simulation timestep size
+     INTEGER :: n                       !< number of element nodes
+     INTEGER :: DOFs                    !< variable degrees of freedom
+     INTEGER :: NodeIndexes(:)          !< element nodes
+     TYPE(Solver_t) :: Solver           !< Solver structure.
 !------------------------------------------------------------------------------
      LOGICAL :: GotIt
      INTEGER :: i,j,k,l
@@ -797,7 +758,6 @@ CONTAINS
      CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), LForce, &
                   n, DOFs, NodeIndexes )
 !------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
      Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt )
      SELECT CASE(Method)
      CASE DEFAULT
@@ -810,35 +770,19 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Update the right-hand-side of the global equation by adding the local entry. 
+!------------------------------------------------------------------------------
    SUBROUTINE UpdateTimeForce( StiffMatrix, &
            ForceVector, LocalForce, n, NDOFs, NodeIndexes )
 !------------------------------------------------------------------------------
-! 
-! TYPE(Matrix_t), POINTER :: StiffMatrix
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: ForceVector(:)
-!   INOUT: The global RHS vector
-!
-! REAL(KIND=dp) :: LocalForce(:)
-!   INPUT: Element local force vector
-!
-! INTEGER :: n, NDOFs
-!   INPUT :: number of nodes / element and number of DOFs / node
-!
-! INTEGER :: NodeIndexes(:)
-!   INPUT: Element node to global node numbering mapping
-! 
-!------------------------------------------------------------------------------
-     TYPE(Matrix_t), POINTER :: StiffMatrix
-
-     REAL(KIND=dp) :: LocalForce(:),ForceVector(:)
-
-     INTEGER :: n, NDOFs, NodeIndexes(:)
+     TYPE(Matrix_t), POINTER :: StiffMatrix  !< Global stiffness matrix.
+     REAL(KIND=dp) :: LocalForce(:)     !< Local right-hand-side vector.
+     REAL(KIND=dp) :: ForceVector(:)    !< Global right-hand-side vector.
+     INTEGER :: n                       !< number of element nodes
+     INTEGER :: nDOFs                   !< variable degrees of freedom
+     INTEGER :: NodeIndexes(:)          !< Element node to global node numbering mapping.
 !------------------------------------------------------------------------------
      INTEGER :: i,j,k
-!------------------------------------------------------------------------------
-!    Update rhs vector....
 !------------------------------------------------------------------------------
      CALL UpdateGlobalForce( StiffMatrix % Force(:,1), LocalForce, &
                      n, NDOFs, NodeIndexes )
@@ -849,37 +793,20 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
 !> Add element local matrices & vectors to global matrices and vectors.
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
       ForceVector, LocalForce, n, NDOFs, NodeIndexes, RotateNT )
 !------------------------------------------------------------------------------
-!
-! TYPE(Matrix_t), POINTER :: StiffMatrix
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: LocalStiffMatrix(:,:)
-!   INPUT: Local matrix to be added to the global matrix
-!
-! REAL(KIND=dp) :: ForceVector(:)
-!   INOUT: The global RHS vector
-!
-! REAL(KIND=dp) :: LocalForce(:)
-!   INPUT: Element local force vector
-!
-! INTEGER :: n, NDOFs
-!   INPUT :: number of nodes / element and number of DOFs / node
-!
-! INTEGER :: NodeIndexes(:)
-!   INPUT: Element node to global node numbering mapping
-! 
-!------------------------------------------------------------------------------
-     TYPE(Matrix_t), POINTER :: StiffMatrix
-
-     REAL(KIND=dp) :: LocalStiffMatrix(:,:),LocalForce(:),ForceVector(:)
-
-     LOGICAL, OPTIONAL :: RotateNT
-     INTEGER :: n, NDOFs, NodeIndexes(:)
+     TYPE(Matrix_t), POINTER :: StiffMatrix  !< The global matrix
+     REAL(KIND=dp) :: LocalStiffMatrix(:,:)  !< Local matrix to be added to the global matrix.
+     REAL(KIND=dp) :: LocalForce(:)          !< Element local force vector.
+     REAL(KIND=dp) :: ForceVector(:)         !< The global RHS vector.
+     INTEGER :: n                            !< Number of nodes.
+     INTEGER :: NDOFs                        !< Number of element nodes. 
+     INTEGER :: NodeIndexes(:)               !< Element node to global node numbering mapping.
+     LOGICAL, OPTIONAL :: RotateNT           !< Should the global equation be done in local normal-tangential coordinates.
 !------------------------------------------------------------------------------
      INTEGER :: i,j,k,dim, Indexes(n)
      LOGICAL :: Rotate
@@ -934,34 +861,18 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !> Update the global vector with the local vector entry.
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalForce(ForceVector, LocalForce, n, &
              NDOFs, NodeIndexes, RotateNT )
 !------------------------------------------------------------------------------
-!
-! TYPE(Matrix_t), POINTER :: StiffMatrix
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: LocalStiffMatrix(:,:)
-!   INPUT: Local matrix to be added to the global matrix
-!
-! REAL(KIND=dp) :: ForceVector(:)
-!   INOUT: The global RHS vector
-!
-! REAL(KIND=dp) :: LocalForce(:)
-!   INPUT: Element local force vector
-!
-! INTEGER :: n, NDOFs
-!   INPUT :: number of nodes / element and number of DOFs / node
-!
-! INTEGER :: NodeIndexes(:)
-!   INPUT: Element node to global node numbering mapping
-! 
-!------------------------------------------------------------------------------
-     REAL(KIND=dp) :: LocalForce(:),ForceVector(:)
-     LOGICAL, OPTIONAL :: RotateNT
-     INTEGER :: n, NDOFs, NodeIndexes(:)
+     REAL(KIND=dp) :: LocalForce(:)          !< Element local force vector.
+     REAL(KIND=dp) :: ForceVector(:)         !< The global RHS vector.
+     INTEGER :: n                            !< Number of nodes.
+     INTEGER :: NDOFs                        !< Number of element nodes. 
+     INTEGER :: NodeIndexes(:)               !< Element node to global node numbering mapping.
+     LOGICAL, OPTIONAL :: RotateNT           !< Should the global equation be done in local normal-tangential coordinates.
 !------------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: Element
      INTEGER :: i,j,k, dim,indexes(n)
@@ -1315,44 +1226,18 @@ CONTAINS
    SUBROUTINE SetDirichletBoundaries( Model, A, b, Name, DOF, NDOFs, Perm, &
        PermOffSet, OffDiagonalMatrix )
 !------------------------------------------------------------------------------
-!
-! TYPE(Model_t) :: Model
-!   INPUT: the current model structure
-!
-! TYPE(Matrix_t), POINTER :: A
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: b
-!   INOUT: The global RHS vector
-! 
-! CHARACTER(LEN=*) :: Name
-!   INPUT: name of the dof to be set
-!
-! INTEGER :: DOF, NDOFs
-!   INPUT: The order number of the dof and the total number of DOFs for
-!          this equation
-!
-! INTEGER :: Perm(:)
-!   INPUT: The node reordering info, this has been generated at the
-!          beginning of the simulation for bandwidth optimization
-!
-! INTEGER :: PermOffSet
-!   INPUT: If the matrix and permutation vectors are not in sync the offset may
-!          used as a remedy. Needed in fully coupled systems.
-!
-! LOGICA :: OffDiagonalMatrix
-!  INPUT: For block systems the only the diagonal matrix should be given non-zero
-!         entries for matrix and r.h.s., for off-diagonal matrices just set the row
-!         to zero.
-!
-!------------------------------------------------------------------------------
-    TYPE(Model_t) :: Model
-    TYPE(Matrix_t), POINTER :: A
-    REAL(KIND=dp) :: b(:)
-    CHARACTER(LEN=*) :: Name 
-    INTEGER :: DOF, NDOFs, Perm(:)
-    INTEGER, OPTIONAL :: PermOffSet
-    LOGICAL, OPTIONAL :: OffDiagonalMatrix
+    TYPE(Model_t) :: Model          !< The current model structure
+    TYPE(Matrix_t), POINTER :: A    !< The global matrix
+    REAL(KIND=dp) :: b(:)           !< The global RHS vector
+    CHARACTER(LEN=*) :: Name        !< Name of the dof to be set
+    INTEGER :: DOF                  !< The order number of the dof
+    INTEGER :: NDOFs                !< The total number of DOFs for this equation
+    INTEGER :: Perm(:)              !< The node reordering info, this has been generated at the beginning of the 
+                                    !< simulation for bandwidth optimization
+    INTEGER, OPTIONAL :: PermOffSet  !< If the matrix and permutation vectors are not in sync the offset may used as a remedy. 
+                                     !< Needed in fully coupled systems.
+    LOGICAL, OPTIONAL :: OffDiagonalMatrix  !< For block systems the only the diagonal matrix should be given non-zero 
+                                            !< entries for matrix and r.h.s., for off-diagonal matrices just set the row to zero.
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: Element
     INTEGER, POINTER :: NodeIndexes(:), IndNodes(:)
@@ -1629,7 +1514,6 @@ CONTAINS
 ! Note that it is best that the coordinates are transformed to nodes using 
 ! the right variable. Otherwise it could point to nodes that are not active.
 !------------------------------------------------------------------------------
-
      
     DO BC=1,Model % NumberOfBCs
       
@@ -2063,35 +1947,16 @@ CONTAINS
    SUBROUTINE SetPeriodicBoundariesPass1( Model, A, b, &
                       Name, DOF, NDOFs, Perm, This, Done )
 !------------------------------------------------------------------------------
-!
-! TYPE(Model_t) :: Model
-!   INPUT: the current model structure
-!
-! TYPE(Matrix_t), POINTER :: A
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: b(:)
-!   INOUT: The global RHS vector
-! 
-! CHARACTER(LEN=*) :: Name
-!   INPUT: name of the dof to be set
-!
-! INTEGER :: DOF, NDOFs
-!   INPUT: The order number of the dof and the total number of DOFs for
-!          this equation
-!
-! INTEGER :: Perm(:)
-!   INPUT: The node reordering info, this has been generated at the
-!          beginning of the simulation for bandwidth optimization
-!------------------------------------------------------------------------------
-    TYPE(Model_t) :: Model
-    TYPE(Matrix_t), POINTER :: A
-
-    REAL(KIND=dp) :: b(:)
-
-    CHARACTER(LEN=*) :: Name
-    LOGICAL :: Done(:)
-    INTEGER :: This, DOF, NDOFs, Perm(:)
+    TYPE(Model_t) :: Model        !< The current model structure
+    TYPE(Matrix_t), POINTER :: A  !< The global matrix
+    REAL(KIND=dp) :: b(:)         !< The global RHS vector
+    CHARACTER(LEN=*) :: Name      !< name of the dof to be set
+    LOGICAL :: Done(:)            !< Has the node already been done. 
+    INTEGER :: This               !< Number of the current boundary.
+    INTEGER :: DOF                !< The order number of the dof
+    INTEGER :: NDOFs              !< the total number of DOFs for this equation
+    INTEGER :: Perm(:)            !< The node reordering info, this has been generated at the
+                                  !< beginning of the simulation for bandwidth optimization
 !------------------------------------------------------------------------------
 
     INTEGER :: p,q,i,j,k,l,m,n,nn,ii,nlen
@@ -2274,37 +2139,16 @@ CONTAINS
    SUBROUTINE SetPeriodicBoundariesPass2( Model, A, b, &
                       Name, DOF, NDOFs, Perm, This, Done )
 !------------------------------------------------------------------------------
-!
-! TYPE(Model_t) :: Model
-!   INPUT: the current model structure
-!
-! TYPE(Matrix_t), POINTER :: A
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: b(:)
-!   INOUT: The global RHS vector
-! 
-! CHARACTER(LEN=*) :: Name
-!   INPUT: name of the dof to be set
-!
-! INTEGER :: DOF, NDOFs
-!   INPUT: The order number of the dof and the total number of DOFs for
-!          this equation
-!
-! INTEGER :: Perm(:)
-!   INPUT: The node reordering info, this has been generated at the
-!          beginning of the simulation for bandwidth optimization
+    TYPE(Model_t) :: Model        !< The current model structure
+    TYPE(Matrix_t), POINTER :: A  !< The global matrix
+    REAL(KIND=dp) :: b(:)         !< The global RHS vector
+    CHARACTER(LEN=*) :: Name      !< name of the dof to be set
+    LOGICAL :: Done(:)            !< Has the node already been done. 
+    INTEGER :: This               !< Number of the current boundary.
+    INTEGER :: DOF                !< The order number of the dof
+    INTEGER :: NDOFs              !< the total number of DOFs for this equation
+    INTEGER :: Perm(:)            !< The node reordering info, this has been generated at the
 !------------------------------------------------------------------------------
-    TYPE(Model_t) :: Model
-    TYPE(Matrix_t), POINTER :: A
-
-    REAL(KIND=dp) :: b(:)
-
-    CHARACTER(LEN=*) :: Name
-    LOGICAL :: Done(:)
-    INTEGER :: This, DOF, NDOFs, Perm(:)
-!------------------------------------------------------------------------------
-
     INTEGER :: i,j,k,l,m,n,nn,ii,nlen
     LOGICAL :: GotIt
     REAL(KIND=dp) :: Scale,s,ValueOffset
@@ -2371,6 +2215,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !> Sets just one Dirichlet point in contrast to setting the whole field.
 !> This is a lower order routine that the previous one. 
 !------------------------------------------------------------------------------
@@ -2381,7 +2226,8 @@ CONTAINS
     IMPLICIT NONE
 
     TYPE(Matrix_t), POINTER :: StiffMatrix
-    REAL(KIND=dp) :: ForceVector(:), NodeValue
+    REAL(KIND=dp) :: ForceVector(:)
+    REAL(KIND=dp) :: NodeValue
     INTEGER :: DOF, NDOFs, Perm(:), NodeIndex
 !------------------------------------------------------------------------------
 
@@ -2420,38 +2266,21 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
 !> Sets nodal loads directly to the matrix structure. 
 !> The intended use for this, is for example, in multiphysics coupling where
 !> the nodal loads may have been computed by another solver. 
 !------------------------------------------------------------------------------
    SUBROUTINE SetNodalLoads( Model, A, b, Name, DOF, NDOFs, Perm )
 !------------------------------------------------------------------------------
-!
-! TYPE(Model_t) :: Model
-!   INPUT: the current model structure
-!
-! TYPE(Matrix_t), POINTER :: A
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: b
-!   INOUT: The global RHS vector
-! 
-! CHARACTER(LEN=*) :: Name
-!   INPUT: name of the dof to be set
-!
-! INTEGER :: DOF, NDOFs
-!   INPUT: The order number of the dof and the total number of DOFs for
-!          this equation
-!
-! INTEGER :: Perm(:)
-!   INPUT: The node reordering info, this has been generated at the
-!          beginning of the simulation for bandwidth optimization
-!------------------------------------------------------------------------------
-    TYPE(Model_t) :: Model
-    TYPE(Matrix_t), POINTER :: A
-    REAL(KIND=dp) :: b(:)
-    CHARACTER(LEN=*) :: Name 
-    INTEGER :: DOF, NDOFs, Perm(:)
+    TYPE(Model_t) :: Model         !< The current model structure
+    TYPE(Matrix_t), POINTER :: A   !< The global matrix
+    REAL(KIND=dp) :: b(:)          !< The global RHS vector
+    CHARACTER(LEN=*) :: Name       !< Name of the dof to be set
+    INTEGER :: DOF                 !< The order number of the dof
+    INTEGER :: NDOFs               !< The total number of DOFs for this equation
+    INTEGER :: Perm(:)             !< The node reordering info, this has been generated at the
+                                   !< beginning of the simulation for bandwidth optimization.
 !------------------------------------------------------------------------------
 
     TYPE(Element_t), POINTER :: Element
@@ -2828,8 +2657,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
-
+!------------------------------------------------------------------------------
 !> Check if Normal / Tangential vector boundary conditions present and
 !> allocate space for normals, and if in 3D for two tangent direction
 !> vectors.
@@ -3036,6 +2864,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !> Average boundary normals for nodes. The average boundary normals
 !> may be beneficial as they provide more continuous definition of normal
 !> over curved boundaries. 
@@ -3433,16 +3262,12 @@ END FUNCTION SearchNodeL
 
 
 
-!> Rotate previous force and solution vectors.
+!------------------------------------------------------------------------------
+!> Initialize solver for next timestep.
 !------------------------------------------------------------------------------
   SUBROUTINE InitializeTimestep( Solver )
 !------------------------------------------------------------------------------
-!
-! TYPE(Solver_t) :: Solver
-!   INPUT:
-!
-!------------------------------------------------------------------------------
-     TYPE(Solver_t) :: Solver
+     TYPE(Solver_t) :: Solver  !< Solver to be initialized.
 !------------------------------------------------------------------------------
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
      LOGICAL :: GotIt
@@ -3572,7 +3397,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
 
-
+!------------------------------------------------------------------------------
 !> Update force vector AFTER ALL OTHER ASSEMBLY STEPS BUT BEFORE SETTING
 !> DIRICHLET CONDITIONS. Required only for time dependent simulations..
 !------------------------------------------------------------------------------
@@ -3895,6 +3720,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
   
+!------------------------------------------------------------------------------
 !> When a new field has been computed compare it to the previous one.
 !> Different convergence measures may be used. 
 !> Also performs relaxation if a non-unity relaxation factor is given.
@@ -3905,6 +3731,7 @@ END FUNCTION SearchNodeL
     LOGICAL :: SteadyState
     INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
+!------------------------------------------------------------------------------
     INTEGER :: i, n, nn, RelaxAfter, IterNo
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER CONTIG :: b(:), x(:), r(:)
@@ -3925,11 +3752,6 @@ END FUNCTION SearchNodeL
     TYPE(ValueList_t), POINTER :: SolverParams
 
     SolverParams => Solver % Values
-
-
-
-
-
   
     IF(SteadyState) THEN	
       Skip = ListGetLogical( SolverParams,'Skip Compute Steady State Change',Stat)
@@ -4268,6 +4090,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     
 
+!------------------------------------------------------------------------------
 !> Checks stepsize of a linear system so that the error has decreased.
 !------------------------------------------------------------------------------
   FUNCTION CheckStepSize(Solver,FirstTrial,PrevResidual,Residual,&
@@ -4510,8 +4333,8 @@ END FUNCTION SearchNodeL
 
 
 !------------------------------------------------------------------------------
-!>     Scale system Ax = b as:
-!>       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
+!>  Scale system Ax = b as:
+!>  (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !------------------------------------------------------------------------------
   SUBROUTINE ScaleLinearSystem(Solver,A,b,x,DiagScaling,ApplyScaling,RhsScaling)
 
@@ -4743,8 +4566,9 @@ END FUNCTION SearchNodeL
 
 
   
-  !>  Scale the system back to original.
-  !--------------------------------------------------------------
+!--------------------------------------------------------------
+!>  Scale the system back to original.
+!--------------------------------------------------------------
   SUBROUTINE BackScaleLinearSystem(Solver,A,b,x,DiagScaling) 
 
     TYPE(Solver_t) :: Solver
@@ -4870,10 +4694,7 @@ END FUNCTION SearchNodeL
 
 
 
-
-
-
-
+!------------------------------------------------------------------------------
 !> Solves a linear system and also calls the necessary preconditioning routines.
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
@@ -5227,41 +5048,20 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !> Solve a system. Various additional utilities are included and 
 !> naturally a call to the linear system solver.
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveSystem( A,ParA,b,x,Norm,DOFs,Solver )
 !------------------------------------------------------------------------------
-!
-! TYPE(Matrix_t), POINTER :: A
-!   INPUT: The coefficient matrix
-!
-! TYPE(ParIterSolverGlobalD_t), POINTER :: ParA
-!   INPUT: holds info for parallel solver, if not executing in parallel
-!          this is just a dummy.
-!
-! REAL(KIND=dp) :: b(:)
-!   INPUT: The RHS vector
-!
-! REAL(KIND=dp) :: x(:)
-!   INOUT: Previous solution on entry, new solution on exit (hopefully)
-!
-! REAL(KIND=dp) :: Norm
-!   OUTPUT: 2-Norm of solution
-!
-! INTEGER :: DOFs
-!   INPUT: Number of degrees of freedom / node for this equation
-!
-! TYPE(Solver_t) :: Solver
-!   INPUT: Holds various solver options
-! 
-!------------------------------------------------------------------------------
-    REAL(KIND=dp) CONTIG :: b(:), x(:)
-    REAL(KIND=dp) :: Norm
-    TYPE(Matrix_t), POINTER :: A
-    INTEGER :: DOFs
-    TYPE(Solver_t), TARGET :: Solver
-    TYPE(SParIterSolverGlobalD_t), POINTER :: ParA
+    REAL(KIND=dp) CONTIG :: b(:)   !< The RHS vector
+    REAL(KIND=dp) CONTIG :: x(:)   !< Previous solution on entry, new solution on exit (hopefully)
+    REAL(KIND=dp) :: Norm          !< L2 Norm of solution
+    TYPE(Matrix_t), POINTER :: A   !< The coefficient matrix
+    INTEGER :: DOFs                !< Number of degrees of freedom per node for this equation
+    TYPE(Solver_t), TARGET :: Solver                 !< Holds various solver options.
+    TYPE(SParIterSolverGlobalD_t), POINTER :: ParA   !< holds info for parallel solver, 
+                                                     !< if not executing in parallel this is just a dummy.
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
@@ -5454,6 +5254,7 @@ END FUNCTION SearchNodeL
 END SUBROUTINE SolveSystem
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
 !> Solve a linear eigen system.
 !------------------------------------------------------------------------------
 SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
@@ -5491,6 +5292,7 @@ END SUBROUTINE SolveEigenSystem
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !> A parser of the variable name that returns the true variablename
 !> where the inline options have been interpreted.
 !------------------------------------------------------------------------------
@@ -5534,6 +5336,7 @@ END SUBROUTINE VariableNameParser
 
 
 
+!------------------------------------------------------------------------------
 !> Updates values for exported variables which are typically auxiliary variables derived
 !> from the solution.
 !------------------------------------------------------------------------------
@@ -5678,6 +5481,7 @@ END SUBROUTINE VariableNameParser
 END SUBROUTINE UpdateExportedVariables
 
 
+!------------------------------------------------------------------------------
 !> Eliminates bubble degrees of freedom from a local linear system.
 !------------------------------------------------------------------------------
 SUBROUTINE NSCondensate( N, Nb, dim, K, F, F1 )
@@ -5751,36 +5555,21 @@ SUBROUTINE Condensate( N, K, F, F1 )
 END SUBROUTINE Condensate
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
 !>     Subroutine for condensation of p element bubbles from linear problem.
 !>     Modifies given stiffness matrix and force vector(s) 
 !------------------------------------------------------------------------------
 SUBROUTINE CondensateP( N, Nb, K, F, F1 )
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
-!    INTEGER :: N
-!      INPUT: Sum of nodal, edge and face degrees of freedom 
-!
-!    INTEGER :: Nb
-!      INPUT: Sum of internal (bubble) degrees of freedom
-!
-!    REAL(Kind=dp) :: K(:,:)
-!      INOUT: Local stiffness matrix
-!
-!    REAL(Kind=dp) :: F(:)
-!      INOUT: Local force vector
-!
-!    REAL(Kind=dp), OPTIONAL :: F1(:)
-!      INOUT: Local second force vector 
-!    
-!------------------------------------------------------------------------------
-
     USE LinearAlgebra
-    INTEGER :: N, Nb
-    REAL(KIND=dp) :: K(:,:),F(:),Kbb(Nb,Nb), &
+    INTEGER :: N               !< Sum of nodal, edge and face degrees of freedom.
+    INTEGER :: Nb              !< Sum of internal (bubble) degrees of freedom.
+    REAL(KIND=dp) :: K(:,:)    !< Local stiffness matrix.
+    REAL(KIND=dp) :: F(:)      !< Local force vector.
+    REAL(KIND=dp), OPTIONAL :: F1(:)  !< Local second force vector.
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Kbb(Nb,Nb), &
     Kbl(Nb,N), Klb(N,Nb), Fb(Nb)
-    REAL(KIND=dp), OPTIONAL :: F1(:)
-
     INTEGER :: m, i, j, l, p, Ldofs(N), Bdofs(Nb)
 
     Ldofs = (/ (i, i=1,n) /)
@@ -5804,6 +5593,8 @@ END SUBROUTINE CondensateP
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Solves a harmonic system.
 !------------------------------------------------------------------------------
 SUBROUTINE SolveHarmonicSystem( G, Solver )
 !------------------------------------------------------------------------------
@@ -5943,33 +5734,14 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
 SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
         Norm, DOFs, Solver )
 !------------------------------------------------------------------------------  
-!
-!  TYPE(Matrix_t), POINTER :: StiffMatrix
-!     INPUT: Linear equation matrix information. 
-!            The restriction matrix is assumed to be in the EMatrix-field.
-!
-!  REAL(KIND=dp) :: ForceVector(:)
-!     INPUT: The right hand side of the linear equation
-!
-!  REAL(KIND=dp) :: Solution(:)
-!     INOUT: Previous solution as input, new solution as output.
-!
-!  REAL(KIND=dp) :: Norm
-!     OUTPUT: The 2-norm of the solution.
-!
-!  INTEGER :: DOFs
-!     INPUT: Number of degrees of freedon of the equation.
-!
-!  TYPE(Solver_t), TARGET :: Solver
-!     INPUT: Linear equation solver options.
-!
-!------------------------------------------------------------------------------  
-
   IMPLICIT NONE
-  TYPE(Matrix_t), POINTER :: StiffMatrix
-  REAL(KIND=dp) :: ForceVector(:), Solution(:), Norm
-  INTEGER :: DOFs
-  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Matrix_t), POINTER :: StiffMatrix !< Linear equation matrix information. 
+                                         !< The restriction matrix is assumed to be in the EMatrix-field
+  REAL(KIND=dp) :: ForceVector(:)        !< The right hand side of the linear equation
+  REAL(KIND=dp) :: Solution(:)           !< Previous solution as input, new solution as output.
+  REAL(KIND=dp) :: Norm                  !< The L2 norm of the solution.
+  INTEGER :: DOFs                        !< Number of degrees of freedon of the equation.
+  TYPE(Solver_t), TARGET :: Solver       !< Linear equation solver options.
 !------------------------------------------------------------------------------
   TYPE(Solver_t), POINTER :: SolverPointer
   TYPE(Matrix_t), POINTER :: CollectionMatrix, RestMatrix, &

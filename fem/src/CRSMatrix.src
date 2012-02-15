@@ -52,17 +52,15 @@ MODULE CRSMatrix
 CONTAINS
 
 
-!********************************************************************
+!-----------------------------------------------------------------------------
+!> Search CRS matrix for what?
+!-----------------------------------------------------------------------------
   FUNCTION CRS_Search( N,Array,VALUE ) RESULT ( Index )
-
+!-----------------------------------------------------------------------------
     INTEGER :: N,VALUE,Array(:)
-
-    ! Local variables
-
+!-----------------------------------------------------------------------------
     INTEGER :: Lower, Upper,Lou,Index
-
-    !*******************************************************************
-
+!-----------------------------------------------------------------------------
     Index = 0 
     Upper = N
     Lower = 1
@@ -95,8 +93,7 @@ CONTAINS
     RETURN
 
   END FUNCTION CRS_Search
-
-!********************************************************************
+!------------------------------------------------------------------------------
 
 
 
@@ -2524,15 +2521,6 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_LUPrecondition( u,v,ipar )
 !------------------------------------------------------------------------------
-! 
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: 
-!
-!------------------------------------------------------------------------------
     INTEGER, DIMENSION(*), INTENT(IN) :: ipar  !< structure holding info from (HUTIter-iterative solver package)
     REAL(KIND=dp), DIMENSION(HUTI_NDIM), INTENT(IN) :: v   !< Right-hand-side vector
     REAL(KIND=dp), DIMENSION(HUTI_NDIM), INTENT(OUT) :: u   !< Solution vector
@@ -2593,12 +2581,12 @@ END FUNCTION CRS_RowSum
        RETURN
     END IF
 
-!***********************************************************************
+!--------------------------------------------------------------------
 ! The following #ifdefs  seem really necessery, if speed is an issue:
 ! SGI compiler optimizer  wants to know the sizes of the arrays very
 ! explicitely, while DEC compiler seems to make a copy of some of the
 ! arrays on the subroutine call (destroying performance).
-!***********************************************************************
+!--------------------------------------------------------------------
 #ifndef SGI
     IF ( A % Cholesky ) THEN
       !
@@ -2710,12 +2698,12 @@ END FUNCTION CRS_RowSum
        RETURN
     END IF
 
-!***********************************************************************
+!---------------------------------------------------------------------
 ! The following #ifdefs  seem really necessery, if speed is an issue:
 ! SGI compiler optimizer  wants to know the sizes of the arrays very
 ! explicitely, while DEC compiler seems to make a copy of some of the
 ! arrays on the subroutine call (destroying performance).
-!***********************************************************************
+!--------------------------------------------------------------------
 #ifndef SGI
     IF ( A % Cholesky ) THEN
       !
@@ -2822,12 +2810,12 @@ END FUNCTION CRS_RowSum
                   GlobalMatrix % SpMV, n,Rows,Cols,Values,u,v,0)
       RETURN
    END IF
-!***********************************************************************
+!--------------------------------------------------------------------
 ! The following #ifdefs  seem really necessery, if speed is an issue:
 ! SGI compiler optimizer  wants to know the sizes of the arrays very
 ! explicitely, while DEC compiler seems to make a copy of some of the
 ! arrays on the subroutine call (destroying performance).
-!***********************************************************************
+!--------------------------------------------------------------------
 #ifndef SGI
     IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
 !$omp parallel do private(j,s)
@@ -2932,12 +2920,12 @@ END FUNCTION CRS_RowSum
     Cols   => GlobalMatrix % Cols
     Values => GlobalMatrix % Values
 
-!***********************************************************************
+!----------------------------------------------------------------------
 ! The following #ifdefs  seem really necessery, if speed is an issue:
 ! SGI compiler optimizer  wants to know the sizes of the arrays very
 ! explicitely, while DEC compiler seems to make a copy of some of the
 ! arrays on the subroutine call (destroying performance).
-!***********************************************************************
+!----------------------------------------------------------------------
 #ifndef SGI
     IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
 !$omp parallel do private(rsum,j,s)

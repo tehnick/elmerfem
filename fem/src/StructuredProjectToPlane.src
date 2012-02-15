@@ -156,7 +156,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     IF(Debug) PRINT *,'NoVar',NoVar
 
     WRITE (Name,'(A,I0)') 'Variable ',NoVar
-    VarName = ListGetString( Solver % Values, TRIM(Name), GotVar )
+    VarName = ListGetString( Params, TRIM(Name), GotVar )
     NULLIFY(Var)    
     IF(GotVar) THEN
       Var => VariableGet( Model % Variables, TRIM(VarName) )
@@ -183,7 +183,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     ! Read in the operator
     !-----------------------------------------------
     WRITE (Name,'(A,I0)') 'Operator ',NoVar
-    Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
+    Oper = ListGetString( Params, TRIM(Name),GotOper)
     IF(.NOT. GotOper ) THEN
       ! For the first variable the operator is definately needed
       IF( NoVar > 1 ) THEN
@@ -240,7 +240,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 
     IF(Oper == 'isosurface') THEN
       WRITE (Name,'(A,I0)') 'Isosurface Variable ',NoVar
-      LevelsetName = ListGetString(Solver % Values,TRIM(Name),GotIt )
+      LevelsetName = ListGetString(Params,TRIM(Name),GotIt )
       IF(GotIt) THEN
         Var => VariableGet( Model % Variables, TRIM(LevelsetName) )
         Levelset => Var % Values
@@ -251,10 +251,10 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END IF
       
       WRITE (Name,'(A,I0)') 'Isosurface Value ',NoVar
-      Level = ListGetConstReal(Solver % Values,TRIM(Name),GotIt)
+      Level = ListGetConstReal(Params,TRIM(Name),GotIt)
     ELSE IF ( Oper(1:5) == 'layer' ) THEN
       WRITE (Name,'(A,I0)') 'Layer Index ',NoVar
-      layer = GetInteger( Solver % Values, Name, GotIt )
+      layer = GetInteger( Params, Name, GotIt )
       IF (.NOT.GotIt) &
         CALL FATAL('StructuredProjectToPlane','no > Layer Index < indicated for output')
     END IF

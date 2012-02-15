@@ -56,9 +56,9 @@ CONTAINS
 
  
 !------------------------------------------------------------------------------
-!
-!  Actually SQUARE of the second invariant of velocity is returned
-!
+!> Return second invariant.
+!> Note: Actually SQUARE of the second invariant of velocity is returned
+!------------------------------------------------------------------------------
    FUNCTION SecondInvariant( Velo,dVelodx,CtrMetric,Symb ) RESULT(SecInv)
 !------------------------------------------------------------------------------
 
@@ -179,6 +179,10 @@ this ise not in USE
 
 
 
+!------------------------------------------------------------------------------
+!> Returns effective viscosity for Navier-Stokes equation. 
+!> The viscosity model may be either some nonnewtonian material law, 
+!> or from turbulence models, but not from both at the same time.
 !------------------------------------------------------------------------------
    FUNCTION EffectiveViscosity( Viscosity,Density,Ux,Uy,Uz,Element, &
         Nodes,n,nd,u,v,w, muder ) RESULT(mu)
@@ -321,11 +325,11 @@ this ise not in USE
         Q2 = 139.0d03
 
         IF (Temp.LE. Tlimit) THEN
-           ArrheniusFactor = A1 * exp( -Q1/(R * (273.15 + Temp)))
+           ArrheniusFactor = A1 * EXP( -Q1/(R * (273.15 + Temp)))
         ELSE IF((Tlimit<Temp) .AND. (Temp .LE. 0.0_dp)) THEN
-           ArrheniusFactor = A2 * exp( -Q2/(R * (273.15 + Temp)))
+           ArrheniusFactor = A2 * EXP( -Q2/(R * (273.15 + Temp)))
         ELSE
-           ArrheniusFactor = A2 * exp( -Q2/(R * (273.15)))
+           ArrheniusFactor = A2 * EXP( -Q2/(R * (273.15)))
            CALL INFO('EffectiveViscosity','Positive Temperature detected in Glen - limiting to zero!', Level = 5)
         END IF
 
@@ -584,6 +588,8 @@ this ise not in USE
 
 
 !------------------------------------------------------------------------------
+!> Returns effective heat conductivity mainly related to turbulence models.
+!------------------------------------------------------------------------------
    FUNCTION EffectiveConductivity( Conductivity,Density,Element, &
         Temperature,Ux,Uy,Uz,Nodes,n,nd,u,v,w ) RESULT(PCond)
 !------------------------------------------------------------------------------
@@ -675,6 +681,10 @@ this ise not in USE
    END FUNCTION EffectiveConductivity
 !------------------------------------------------------------------------------
 
+
+
+!------------------------------------------------------------------------------
+!> Returns density stemming from various equations of state.
 !------------------------------------------------------------------------------
    SUBROUTINE ElementDensity( Density, n )
 !------------------------------------------------------------------------------

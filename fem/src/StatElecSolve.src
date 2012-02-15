@@ -36,12 +36,70 @@
 
 
 !------------------------------------------------------------------------------
+!> Initialization of the primary solver, i.e. StatElecSolver.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
+SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL ::  TransientSimulation
+    REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+    LOGICAL :: Found, Calculate
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+    INTEGER :: dim
+
+    Params => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF (ListGetLogical(Params,'Calculate Electric Energy',Found)) &
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+        'Electric Energy Density' )
+    
+    IF (ListGetLogical(Params,'Calculate Surface Charge',Found)) &
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+        'Surface Charge Density' )
+    
+    Calculate = ListGetLogical(Params,'Calculate Electric Field',Found)
+    IF( Calculate ) THEN
+      IF( Dim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elfield[Electric Field:2]' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elfield[Electric Field:3]' )
+      END IF
+    END IF
+    
+    Calculate = ListGetLogical(Params,'Calculate Electric Flux',Found)
+    IF( Calculate ) THEN
+      IF( Dim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elflux[Electric Flux:2]' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elflux[Electric Flux:3]' )
+      END IF
+    END IF
+
+!------------------------------------------------------------------------------
+END SUBROUTINE StatElecSolver_Init
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
 !>  Solves the Poisson equation for the electric potential and compute the 
 !>  electric field, flux, energy and capacitance as requested using nodal averaging.
 !
-!  NOTE: The permittivity of vacuum is divided into the right hand side of the 
-!        equation. This has to be accounted for in setting the body forces and
-!        assigning flux boundary conditions
+!>  Note that the permittivity of vacuum is divided into the right hand side of the 
+!>  equation. This has to be accounted for in setting the body forces and
+!>  assigning flux boundary conditions
 !> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
@@ -188,17 +246,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       CALL Fatal( 'StatElecSolve', 'Memory allocation error 2' )
     END IF
     
-    CalculateField = ListGetLogical( Params, &
-        'Calculate Electric Field', GotIt )
-    
-    CalculateFlux = ListGetLogical( Params, &
-        'Calculate Electric Flux', GotIt )
-    
-    CalculateEnergy = ListGetLogical( Params, &
-        'Calculate Electric Energy', GotIt )
-     
-    CalculateSurfCharge = GetLogical( Params, &
-        'Calculate Surface Charge', GotIt )
+    CalculateField = ListGetLogical( Params,'Calculate Electric Field', GotIt )    
+    CalculateFlux = ListGetLogical( Params,'Calculate Electric Flux', GotIt )    
+    CalculateEnergy = ListGetLogical( Params,'Calculate Electric Energy', GotIt )     
+    CalculateSurfCharge = GetLogical( Params,'Calculate Surface Charge', GotIt )
 
     ConstantBulk = ListGetLogical( Params,'Constant Bulk System',GotIt)
     ConstantBulk = ConstantBulk .OR. ListGetLogical( Params,'Save Bulk System',GotIt)
@@ -1416,7 +1467,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
 
 !------------------------------------------------------------------------------
-!>  To compute the capacitance matrix for m bodies, also m permutations are 
+!> To compute the capacitance matrix for m bodies, also m permutations are 
 !> required. This subroutine sets at permutation i, the body i to 1, 
 !> and all else to 0.
 !------------------------------------------------------------------------------
@@ -1587,61 +1638,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
 
-!------------------------------------------------------------------------------
-!> Initialization of the primary solver, i.e. StatElecSolver.
-!> \ingroup Solvers
-!------------------------------------------------------------------------------
-SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
-!------------------------------------------------------------------------------
-    USE DefUtils
-    IMPLICIT NONE
-!------------------------------------------------------------------------------
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t), TARGET :: Solver
-    LOGICAL ::  TransientSimulation
-    REAL(KIND=dp) :: dt
-!------------------------------------------------------------------------------
-    LOGICAL :: Found, Calculate
-    TYPE(ValueList_t), POINTER :: Params
-    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
-    INTEGER :: dim
-
-    Params => GetSolverParams()
-    dim = CoordinateSystemDimension()
-
-    IF (ListGetLogical(Params,'Calculate Electric Energy',Found)) &
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-        'Electric Energy Density' )
-    
-    IF (ListGetLogical(Params,'Calculate Surface Charge',Found)) &
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-        'Surface Charge Density' )
-    
-    Calculate = ListGetLogical(Params,'Calculate Electric Field',Found)
-    IF( Calculate ) THEN
-      IF( Dim == 2 ) THEN
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elfield[Electric Field:2]' )
-      ELSE
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elfield[Electric Field:3]' )
-      END IF
-    END IF
-    
-    Calculate = ListGetLogical(Params,'Calculate Electric Flux',Found)
-    IF( Calculate ) THEN
-      IF( Dim == 2 ) THEN
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elflux[Electric Flux:2]' )
-      ELSE
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elflux[Electric Flux:3]' )
-      END IF
-    END IF
-
-!------------------------------------------------------------------------------
-END SUBROUTINE StatElecSolver_Init
-!------------------------------------------------------------------------------
 
 
 

@@ -77,6 +77,8 @@
      LOGICAL :: CalculateCurrent, CalculateHeating
      LOGICAL :: ControlPower, ControlCurrent, Control
 
+     TYPE(ValueList_t), POINTER :: Params
+
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
 
 
@@ -92,6 +94,7 @@
 !------------------------------------------------------------------------------
      Potential     => Solver % Variable % Values
      PotentialPerm => Solver % Variable % Perm
+     Params => Solver % Values
 
      LocalNodes = Model % NumberOfNodes
      StiffMatrix => Solver % Matrix
@@ -100,11 +103,11 @@
      Norm = Solver % Variable % Norm
      DIM = CoordinateSystemDimension()
 
-     ControlTarget = GetCReal( Solver % Values,'Power Control',ControlPower)
+     ControlTarget = GetCReal( Params,'Power Control',ControlPower)
      IF(ControlPower) THEN
        ControlCurrent = .FALSE.
      ELSE
-       ControlTarget = GetCReal( Solver % Values,'Current Control',ControlCurrent)
+       ControlTarget = GetCReal( Params,'Current Control',ControlCurrent)
      END IF
      Control = ControlPower .OR. ControlCurrent
 
@@ -135,7 +138,7 @@
 
        NULLIFY( Cwrk )
  
-       CalculateCurrent = ListGetLogical( Solver % Values, &
+       CalculateCurrent = ListGetLogical( Params, &
            'Calculate Volume Current', GotIt )
        IF ( CalculateCurrent )  &
            ALLOCATE( VolCurrent( DIM*Model%NumberOfNodes ), STAT=istat )
@@ -149,7 +152,7 @@
          IF ( GotIt ) EXIT
        END DO
        IF ( .NOT. GotIt )  &
-            CalculateHeating = ListGetLogical( Solver % Values, &
+            CalculateHeating = ListGetLogical( Params, &
             'Calculate Joule Heating', GotIt )
        IF ( CalculateHeating )  &
            ALLOCATE( Heating( Model%NumberOfNodes ), STAT=istat )
@@ -157,7 +160,7 @@
          CALL Fatal( 'StatCurrentSolve', 'Memory allocation error.' )
        END IF
 
-       ConstantWeights = ListGetLogical( Solver % Values, &
+       ConstantWeights = ListGetLogical( Params, &
            'Constant Weights', GotIt )
 
 !------------------------------------------------------------------------------
@@ -198,7 +201,7 @@
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
 
-     EquationName = ListGetString( Solver % Values, 'Equation' )
+     EquationName = ListGetString( Params, 'Equation' )
      
      at = CPUTime()
      at0 = RealTime()
