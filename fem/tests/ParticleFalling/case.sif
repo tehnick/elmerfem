@@ -11,9 +11,9 @@ Check Keywords Warn
 Header
   Mesh DB "." "square"
 End
-
+ 
 Simulation
-  Max Output Level = 8
+  Max Output Level = 40
   Coordinate System = Cartesian 
   Simulation Type = transient
   Steady State Max Iterations = 1
@@ -78,7 +78,7 @@ Solver 2
   Data Field Name = String "Particle Trace"
   Weight Field Name = String "Particle Weight"
   Normalize Data by Weight = Logical True
-  
+   
   Diffusion Coefficient = Real 1.0
   
   Linear System Solver = Iterative
@@ -98,9 +98,18 @@ Solver 3
   Exec Solver = never
   Equation = String "ResultOutput"
   Procedure = File "ResultOutputSolve" "ResultOutputSolver"
-  Output File Name = String "kinetic" 
+  Output File Name = String "fields" 
   Output Format = String "vtu"
 End
+
+Solver 4
+  Exec Solver = never
+  Equation = String "ParticleOutput"
+  Procedure = File "SaveGridData" "ParticleOutputSolver"
+  Filename Prefix = String "particles" 
+  Output Format = String "vtu"
+End
+
 
 
 Material 1
