@@ -1917,3 +1917,51 @@ void SetElementDivisionCylinder(struct GridType *grid,int info)
 		  grid->rotateradius1,grid->rotateradius2);
   grid->dz0 = dzmax;
 }
+
+
+int InspectElement(struct FemType *data,int idx)
+{
+  int elemtype,nonodes,i,j,k;
+  Real *x,*y,*z;
+  Real ds,minds,xc,yc,zc;
+  Real x0,y0,z0;
+  int ii,jj,mini,minj,kk;
+  int *inds;
+  
+  elemtype = data->elementtypes[idx];
+  printf("Inspecting element %d of type %d\n",idx,elemtype);
+
+  nonodes = elemtype % 100;
+  x = data->x;
+  y = data->y;
+  z = data->z;
+
+  for(k=0;k<nonodes;k++) {
+    kk = data->topology[idx][k];
+    x0 = x[kk];
+    y0 = y[kk];
+    z0 = z[kk];
+    mini = -1;
+    minj = -1;
+    minds = 1.0e20;
+
+    for(i=0;i<nonodes;i++) {
+      ii = data->topology[idx][i];
+      for(j=i+1;j<nonodes;j++) {
+	jj = data->topology[idx][j];
+	xc = (x[ii]+x[jj])/2;
+	yc = (y[ii]+y[jj])/2;
+	zc = (z[ii]+z[jj])/2;
+	ds = sqrt( pow(x0-xc,2) + pow(y0-yc,2) + pow(z0-zc,2) );
+	if( mini == -1 || ds < minds) {
+	  mini = i;
+	  minj = j;
+	  minds = ds;
+	}
+      }
+    }      
+
+    printf("k=%d mini=%d minj=%d ds=%.3le\n",k+1,mini+1,minj+1,minds);
+  }
+  
+}

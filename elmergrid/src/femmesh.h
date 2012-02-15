@@ -25,3 +25,4 @@ int GetSideInfo(struct CellType *cell,int cellno,int side,int element,
 		int *elemind);
 void SetElementDivisionExtruded(struct GridType *grid,int info);
 void SetElementDivisionCylinder(struct GridType *grid,int info);
+int InspectElement(struct FemType *data,int idx);

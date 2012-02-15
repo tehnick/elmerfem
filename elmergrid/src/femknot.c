@@ -144,6 +144,7 @@ void GetElementSide(int element,int side,int normal,
   elemtype = data->elementtypes[element];
   elemind = data->topology[element];
   sides = elemtype/100;
+  *sideelemtype = 0;
 
   if(side < 0 && sides > 4) 
     side = -(side+1);
@@ -483,8 +484,8 @@ void GetElementSide(int element,int side,int normal,
     break;
 
   case 820: /* 2nd order brick */
-    *sideelemtype = 408;
     if(side < 4) {
+      *sideelemtype = 408;
       ind[0] = elemind[side];
       ind[1] = elemind[(side+1)%4];
       ind[2] = elemind[(side+1)%4+4];
@@ -495,6 +496,7 @@ void GetElementSide(int element,int side,int normal,
       ind[7] = elemind[12+side];      
     }
     else if(side < 6) {
+      *sideelemtype = 408;
       for(i=0;i<4;i++)
 	ind[i] = elemind[4*(side-4)+i];
       for(i=0;i<4;i++)
@@ -503,8 +505,8 @@ void GetElementSide(int element,int side,int normal,
     break;
 
   case 827: 
-    *sideelemtype = 409;
     if(side < 4) {
+      *sideelemtype = 409;
       ind[0] = elemind[side];
       ind[1] = elemind[(side+1)%4];
       ind[2] = elemind[(side+1)%4+4];
@@ -516,6 +518,7 @@ void GetElementSide(int element,int side,int normal,
       ind[8] = elemind[20+side];
     }
     else {
+      *sideelemtype = 409;
       for(i=0;i<4;i++)
 	ind[i] = elemind[4*(side-4)+i];
       for(i=0;i<4;i++)
@@ -3254,8 +3257,6 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
-  printf("a2\n");
-
 
   maxmaterial = 0;
   for(i=1;i<=data->noelements;i++) 
@@ -3278,8 +3279,6 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
-  printf("a3\n");
-
 
   maxtype = 0;
   for(j=0;j < MAXBOUNDARIES;j++) {
@@ -3287,8 +3286,6 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
     for(i=1; i <= bound[j].nosides; i++) 
       if(maxtype < bound[j].types[i]) maxtype = bound[j].types[i];
   }
-
-  printf("a3 %d\n",maxtype);
 
   for(bndr=0;bndr < MAXBOUNDARIES;bndr++) {
 
@@ -3307,13 +3304,11 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
     vareas = Rvector(1, nosides);
     vnormal = Ivector(1, nosides);
 
-    printf("b1\n");
     if(bound[bndr].ediscont) { 
       vdiscont = Ivector(1, nosides);
       for(i=1; i <= nosides; i++) 
 	vdiscont[i] = 0;
     }
-    printf("b2\n");
 
     for(l=0;l<ncopies[2];l++) {
       for(k=0;k<ncopies[1];k++) {
@@ -7024,16 +7019,19 @@ void ElementsToBoundaryConditions(struct FemType *data,
       if(hit > sidenodes) printf("Strange: elemhits %d vs. elemnodes %d\n",hit,sidenodes);
       if(hit >= sidenodes) elemhits++;
 
-
-      for(side=0;;side++) {
+      for(side=0;side<=100;side++) {
 
 	if(debug) printf("elem1=%d l=%d elem2=%d side=%d\n",elemind,l,elemind2,side);
 
 	GetElementSide(elemind2,side,1,data,&sideind2[0],&sideelemtype2);
 
+	if(debug) printf("elemtype=%d sidelemtype=%d %d\n",
+			 elemtype,sideelemtype,sideelemtype2);
+
+	if(sideelemtype2 == 0 ) break;
 	if(sideelemtype2 < 300 && sideelemtype > 300) break;	
 	if(sideelemtype2 < 200 && sideelemtype > 200) break;		
- 
+
 	sidenodes2 = sideelemtype2 % 100;	
 	if(sidenodes != sidenodes2) continue;
 	if(sidenodes2 == 1 && sidenodes > 1) break;
