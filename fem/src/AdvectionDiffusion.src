@@ -54,27 +54,28 @@
      IMPLICIT NONE
 !------------------------------------------------------------------------------
  
-     TYPE(Solver_t) :: Solver  !< Linear & nonlinear equation solver options
-     TYPE(Model_t), TARGET :: Model            !< All model information (mesh, materials, BCs, etc...)
-     REAL(KIND=dp) :: Timestep               !< Timestep size for time dependent simulations
+     TYPE(Solver_t) :: Solver          !< Linear & nonlinear equation solver options
+     TYPE(Model_t), TARGET :: Model    !< All model information (mesh, materials, BCs, etc...)
+     REAL(KIND=dp) :: Timestep         !< Timestep size for time dependent simulations
      LOGICAL :: TransientSimulation    !< Steady state or transient simulation
  
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-     INTEGER :: i,j,k,m,n,pn,t,iter,istat,bf_id,CoordinateSystem, outbody
+     INTEGER :: i,j,k,m,n,pn,t,tmax,iter,istat,bf_id,CoordinateSystem, outbody
  
      TYPE(Matrix_t),POINTER  :: StiffMatrix
      TYPE(Nodes_t)   :: ElementNodes, ParentNodes
      TYPE(Element_t),POINTER :: CurrentElement, Parent
- 
+     TYPE(Mesh_t), POINTER :: Mesh
+
      REAL(KIND=dp) :: Norm,RelativeChange
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .FALSE., Bubbles, GotIt, AbsoluteMass = .FALSE.
      LOGICAL :: AllocationsDone = .FALSE., ScaledToSolubility = .FALSE.
      LOGICAL :: ErrorWritten
 
-     TYPE(ValueList_t), POINTER :: Material
+     TYPE(ValueList_t), POINTER :: Material, BC, Eq
 
      INTEGER, POINTER :: SpeciesPerm(:), MeshPerm(:)
      REAL(KIND=dp), POINTER :: Species(:),ForceVector(:), MeshVelocity(:), Hwrk(:,:,:)
@@ -137,6 +138,8 @@
 
      CoordinateSystem = CurrentCoordinateSystem()
 
+     Mesh => Solver % Mesh
+
      Species     => Solver % Variable % Values
      SpeciesPerm => Solver % Variable % Perm
 
@@ -144,26 +147,26 @@
 
 ! These are available in Model after LoadRestartFile
 
-     TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
+     TempSol => VariableGet( Mesh % Variables, 'Temperature' )
      IF ( ASSOCIATED( TempSol ) ) THEN
        TempPerm    => TempSol % Perm
        Temperature => TempSol % Values
      END IF
 
-     PhiSol => VariableGet( Solver % Mesh % Variables, 'Potential' )
+     PhiSol => VariableGet( Mesh % Variables, 'Potential' )
      IF ( ASSOCIATED( PhiSol ) ) THEN
        PotentialPerm => PhiSol % Perm
        EPotential    => PhiSol % Values
      END IF
 
-     FlowSol => VariableGet( Solver % Mesh % Variables, 'Flow Solution' )
+     FlowSol => VariableGet( Mesh % Variables, 'Flow Solution' )
      IF ( ASSOCIATED( FlowSol ) ) THEN
        FlowPerm     => FlowSol % Perm
        NSDOFs       =  FlowSol % DOFs
        FlowSolution => FlowSol % Values
      END IF
 
-     MeshSol => VariableGet( Solver % Mesh % Variables, 'Mesh Velocity' )
+     MeshSol => VariableGet( Mesh % Variables, 'Mesh Velocity' )
      NULLIFY( MeshVelocity )
      IF ( ASSOCIATED(MeshSol ) ) THEN
        MDOFs    =  MeshSol % DOFs
@@ -179,7 +182,7 @@
 !    Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone ) THEN
-       N = Solver % Mesh % MaxElementNodes
+       N = Mesh % MaxElementNodes
 
 ! Solve species weakly coupled, allocate accordingly
        ALLOCATE( U( N ),  V( N ), W( N ), &
@@ -224,10 +227,6 @@
 !------------------------------------------------------------------------------
 
      Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
-!#if 0
-!     IF ( .NOT.GotIt ) Stabilize = .FALSE.
-!#endif
-
      Bubbles = ListGetLogical( Solver % Values,'Bubbles',GotIt )
      IF ( .NOT.GotIt ) Bubbles = .TRUE.
 
@@ -248,7 +247,6 @@
      IF ( .NOT.GotIt ) Relax = 1
 
      EquationName = ListGetString( Solver % Values, 'Equation' )
-
 
 !------------------------------------------------------------------------------
 
@@ -276,58 +274,39 @@
 !------------------------------------------------------------------------------
        CALL InitializeToZero( StiffMatrix, ForceVector )
 !------------------------------------------------------------------------------
-!       Mass = 0.0d0
        body_id = -1
        NULLIFY(Material)
 !------------------------------------------------------------------------------
 !      Do the assembly for bulk elements
 !------------------------------------------------------------------------------
-       t = 1
-       DO WHILE( t <= Solver % Mesh % NumberOfBulkElements )
-!------------------------------------------------------------------------------
-!        IF ( MOD(t-1,500) == 0 ) PRINT*,'Element: ',t
 
-          IF ( RealTime() - at0 > 1.0 ) THEN
-             WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-                  (Solver % Mesh % NumberOfBulkElements-t) / &
-                  (1.0*Solver % Mesh % NumberOfBulkElements)), ' % done'
-             
-             CALL Info( 'AdvectionDiffusion', Message, Level=5 )
-             
-             at0 = RealTime()
-          END IF
+       tmax = Solver % NumberOfActiveElements
 
-!!------------------------------------------------------------------------------
-!        Check if this element belongs to a body where species
-!        advection-diffusion should be calculated
-!------------------------------------------------------------------------------
-         CurrentElement => Solver % Mesh % Elements(t)
+       DO t = 1, tmax
+
+         IF ( RealTime() - at0 > 1.0 ) THEN
+           WRITE(Message,'(a,i3,a)' ) '   Assembly: ', &
+               INT(100.0 - 100.0 * (tmax-t) / (1.0*tmax)), ' % done'           
+           CALL Info( 'AdvectionDiffusion', Message, Level=5 )             
+           at0 = RealTime()
+         END IF
+         
+         CurrentElement => GetActiveElement(t)
 !
 !------------------------------------------------------------------------------
          IF ( CurrentElement % BodyId /= body_id ) THEN
 !------------------------------------------------------------------------------
-           DO WHILE( t <= Solver % Mesh % NumberOfBulkElements )
-             IF ( CheckElementEquation( &
-                 Model,CurrentElement,EquationName ) ) EXIT
-             t = t + 1
-             CurrentElement => Solver % Mesh % Elements(t)
-           END DO
-
-           IF ( t > Solver % Mesh % NumberOfBulkElements ) EXIT
-
            body_id = CurrentElement % Bodyid    
-           eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
-                      minv=1,maxv=Model % NumberOfEquations )
-           ConvectionFlag = ListGetString( Model % Equations(eq_id) % Values, &
-                         TRIM(ComponentName(Solver % Variable)) // &
-                         ' Convection', GotIt )
+           eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation')
+           Eq => Model % Equations(eq_id) % Values
+
+           ConvectionFlag = ListGetString( Eq, &
+               TRIM(ComponentName(Solver % Variable)) //' Convection', GotIt )
            IF ( .NOT. GotIt ) &
-             ConvectionFlag = ListGetString( Model % Equations(eq_id) % Values, &
-                           'Convection', GotIt )
+             ConvectionFlag = ListGetString( Eq,'Convection', GotIt )
 
            ScaledToSolubility = .FALSE.
-           ConcentrationUnits = ListGetString( Model % Equations(eq_id) % &
-                Values, 'Concentration Units', GotIt )
+           ConcentrationUnits = ListGetString( Eq, 'Concentration Units', GotIt )
            IF ( .NOT.GotIt ) AbsoluteMass = .FALSE.
            IF (ConcentrationUnits == 'absolute mass') THEN
               AbsoluteMass = .TRUE.
@@ -338,21 +317,19 @@
               AbsoluteMass = .FALSE.
            END IF
 
-           k = ListGetInteger( Model % Bodies( CurrentElement % &
-               Bodyid ) % Values, 'Material', minv=1, maxv=Model % NumberOfMaterials )
-
+           k = ListGetInteger( Model % Bodies( body_id) % Values, 'Material' )
            Material => Model % Materials(k) % Values
 
            HeatSolName = ListGetString( Material, &
                'Temperature Field Variable', GotIt )
            IF ( Gotit ) THEN 
-             TempSol => VariableGet( Solver % Mesh % Variables, &
+             TempSol => VariableGet( Mesh % Variables, &
                  TRIM( HeatSolName ) )
              IF ( ASSOCIATED( TempSol ) ) THEN
                TempPerm     => TempSol % Perm
                Temperature  => TempSol % Values
              ELSE
-               WRITE( Message, * ) 'No temperature  variable ' &
+               WRITE( Message, * ) 'No temperature variable ' &
                    // TRIM( HeatSolName ) // ' available'
                CALL Fatal( 'AdvectionDiffusion', Message )
              END IF
@@ -365,7 +342,7 @@
              PhiSolName = ListGetString( Material, &
                  'EPotential Field Variable', GotIt )
            IF ( Gotit ) THEN
-             PhiSol => VariableGet( Solver % Mesh % Variables, &
+             PhiSol => VariableGet( Mesh % Variables, &
                  TRIM( PhiSolName ) )
              IF ( ASSOCIATED( PhiSol ) ) THEN
                PotentialPerm => PhiSol % Perm
@@ -377,14 +354,14 @@
              END IF
            END IF
 
-           ConvectName = ListGetString( Model % Equations(eq_id) % Values, &
+           ConvectName = ListGetString( Eq, &
                TRIM(ComponentName(Solver % Variable)) // &
                ' Convection Field Variable', GotIt )
            IF ( .NOT. GotIt ) &
              ConvectName = ListGetString( Material, &
                  'Convection Field Variable', GotIt )
            IF ( GotIt ) THEN
-             FlowSol => VariableGet( Solver % Mesh % Variables, &
+             FlowSol => VariableGet( Mesh % Variables, &
                  TRIM( ConvectName ) )
              IF ( ASSOCIATED( FlowSol ) ) THEN
                FlowPerm     => FlowSol % Perm
@@ -428,13 +405,6 @@
 !------------------------------------------------------------------------------
          END IF
 !------------------------------------------------------------------------------
-!        We've actually got an element for which species concentration
-!        is to be calculated
-!------------------------------------------------------------------------------
-!        Set the current element pointer in the model structure to
-!        reflect the element being processed
-!------------------------------------------------------------------------------
-         Model % CurrentElement => Model % Elements(t)
 
          n = CurrentElement % TYPE % NumberOfNodes
          NodeIndexes => CurrentElement % NodeIndexes
@@ -442,9 +412,9 @@
 !------------------------------------------------------------------------------
 !        Get element nodal coordinates
 !------------------------------------------------------------------------------
-         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-         ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-         ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+         ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+         ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+         ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
          IF ( ASSOCIATED( TempSol ) ) THEN
            LocalTemperature(1:n) = Temperature( TempPerm(NodeIndexes) )
          ELSE
@@ -460,11 +430,6 @@
 !------------------------------------------------------------------------------
 !        Get system parameters for element nodal points
 !------------------------------------------------------------------------------
-
-! This used to be a Material property, then Solver, again Material...
-!        Diffusivity(1:n) = ListGetReal( Material, &
-!            Solver % Variable % Name (1:Solver % Variable % NameLen)// &
-!        ' Diffusivity', n, NodeIndexes )
 
          CALL ListGetRealArray( Material,  &
              TRIM(ComponentName(Solver % Variable)) // &
@@ -502,8 +467,8 @@
            IonCharge = 0._dp
          ELSE
            NEConst(1:n) = IonCharge / LocalTemperature(1:n) * &
-                ListGetConstReal( Model % Constants,'Unit Charge') / &
-                ListGetConstReal( Model % Constants,'Boltzmann Constant')
+               ListGetConstReal( Model % Constants,'Unit Charge') / &
+               ListGetConstReal( Model % Constants,'Boltzmann Constant')
          END IF
 
          HeatCapacity(1:n) = ListGetReal( Material,'Heat Capacity', &
@@ -549,23 +514,19 @@
 !------------------------------------------------------------------------------
 
          IF ( ConvectionFlag == 'constant' ) THEN
-           U = ListGetReal( Model % Equations(eq_id) % Values, &
-                TRIM(ComponentName(Solver % Variable)) // &
-                ' Convection Velocity 1',n,NodeIndexes,GotIt )
+           U = ListGetReal( Eq, TRIM(ComponentName(Solver % Variable)) // &
+               ' Convection Velocity 1',n,NodeIndexes,GotIt )
            IF ( .NOT. GotIt ) &
-             U = ListGetReal( Material,'Convection Velocity 1',n,NodeIndexes, GotIt)
-           V = ListGetReal( Model % Equations(eq_id) % Values, &
-                TRIM(ComponentName(Solver % Variable)) // &
-                ' Convection Velocity 2',n,NodeIndexes,GotIt )
+               U = ListGetReal( Material,'Convection Velocity 1',n,NodeIndexes, GotIt)
+           V = ListGetReal( Eq, TRIM(ComponentName(Solver % Variable)) // &
+               ' Convection Velocity 2',n,NodeIndexes,GotIt )
            IF ( .NOT. GotIt ) &
              V = ListGetReal( Material,'Convection Velocity 2',n,NodeIndexes, GotIt)
-           W = ListGetReal( Model % Equations(eq_id) % Values, &
-                TRIM(ComponentName(Solver % Variable)) // &
+           W = ListGetReal( Eq, TRIM(ComponentName(Solver % Variable)) // &
                 ' Convection Velocity 3',n,NodeIndexes,GotIt )
            IF ( .NOT. GotIt ) &
              W = ListGetReal( Material,'Convection Velocity 3',n,NodeIndexes, GotIt)
          ELSE IF ( ConvectionFlag == 'computed' ) THEN
-! Assumed convection velocity from Restart
            DO i=1,n
              k = FlowPerm(NodeIndexes(i))
              IF ( k > 0 ) THEN
@@ -600,13 +561,10 @@
              END IF
            END DO
 
-         ELSE  ! Should we allow conduction only (yes!, juha)
+         ELSE  ! no convection
            U = 0.0d0
            V = 0.0d0
            W = 0.0d0
-
-!          PRINT*,'Convection velocity not defined'
-!          STOP
          END IF
 
 ! Set C1 to density or 1.0 if there's convection or Nernst-Planck migration
@@ -666,7 +624,6 @@
          END IF
              
 
-
 !------------------------------------------------------------------------------
 !      Get element local matrix, and rhs vector
 !------------------------------------------------------------------------------
@@ -706,19 +663,16 @@
          IF ( CoordinateSystem == Cartesian ) THEN
 !------------------------------------------------------------------------------
            CALL DiffuseConvectiveCompose( &
-             LocalMassMatrix, LocalStiffMatrix, LocalForce, Load, &
-              CT, C0, C1, C2, LocalTemperature, LocalPotential, U(1:n), V(1:n), W(1:n), MU, MV, MW, &
-              SoretDiffusivity, NEConst, (CompressibilityModel /= Incompressible), &
-              AbsoluteMass,Stabilize, Bubbles, CurrentElement, n, ElementNodes )
-
+               LocalMassMatrix, LocalStiffMatrix, LocalForce, Load, &
+               CT, C0, C1, C2, LocalTemperature, LocalPotential, U(1:n), V(1:n), W(1:n), MU, MV, MW, &
+               SoretDiffusivity, NEConst, (CompressibilityModel /= Incompressible), &
+               AbsoluteMass,Stabilize, Bubbles, CurrentElement, n, ElementNodes )           
          ELSE
-
            CALL DiffuseConvectiveGenCompose( &
-             LocalMassMatrix, LocalStiffMatrix, LocalForce, Load, &
-              CT, C0, C1, C2, LocalTemperature, LocalPotential, U, V, W, MU, MV, MW, &
-              SoretDiffusivity, NEConst, (CompressibilityModel /= Incompressible), &
-              AbsoluteMass,Stabilize,CurrentElement, n, ElementNodes )
-
+               LocalMassMatrix, LocalStiffMatrix, LocalForce, Load, &
+               CT, C0, C1, C2, LocalTemperature, LocalPotential, U, V, W, MU, MV, MW, &
+               SoretDiffusivity, NEConst, (CompressibilityModel /= Incompressible), &
+               AbsoluteMass,Stabilize,CurrentElement, n, ElementNodes )
          END IF
 
 !------------------------------------------------------------------------------
@@ -744,10 +698,8 @@
          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
           ForceVector, LocalForce, n, 1, SpeciesPerm(NodeIndexes) )
 !------------------------------------------------------------------------------
-         t = t + 1
-!------------------------------------------------------------------------------
-
        END DO     !  Bulk elements
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 !     Mixed bulk - boundary element assembly
@@ -756,44 +708,37 @@
 !------------------------------------------------------------------------------
 
        IF ( ScaledToSolubility ) THEN
-         DO t=Solver % Mesh % NumberOfBulkElements + 1, &
-             Solver % Mesh % NumberOfBulkElements + Solver % Mesh % NumberOfBoundaryElements
+         DO t=Mesh % NumberOfBulkElements + 1, &
+             Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
 
-           CurrentElement => Solver % Mesh % Elements(t)
-!------------------------------------------------------------------------------
-!       the element type 101 (point element) can only be used
-!       to set Dirichlet BCs, so skip 'em.
-!------------------------------------------------------------------------------
-           IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-!------------------------------------------------------------------------------
+           CurrentElement => Mesh % Elements(t)
            DO i=1,Model % NumberOfBCs
              IF ( CurrentElement % BoundaryInfo % Constraint == &
                  Model % BCs(i) % Tag ) THEN
 
-               IF ( .NOT. ListGetLogical( Model % BCs(i) % Values, &
-                   TRIM(ComponentName(Solver % Variable)) &
-                       // ' Solubility Change Boundary', &
-                   GotIt ) )  CYCLE
+               BC => Model % BCs(i) % Values
+               IF ( .NOT. ListGetLogical( BC, TRIM(ComponentName(Solver % Variable)) &
+                   // ' Solubility Change Boundary', GotIt ) )  CYCLE
 
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
 !------------------------------------------------------------------------------
-               Model % CurrentElement => Solver % Mesh % Elements(t)
+               Model % CurrentElement => Mesh % Elements(t)
 !------------------------------------------------------------------------------
                n = CurrentElement % TYPE % NumberOfNodes
                NodeIndexes => CurrentElement % NodeIndexes
 
-               ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-               ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-               ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+               ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+               ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+               ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
 
 !------------------------------------------------------------------------------
 !             Get normal target body. The parent element from the opposite
 !             direction is used for normal derivative calculation
 !------------------------------------------------------------------------------
-               body_id = ListGetInteger( Model % BCs(i) % Values, &
-                   'Normal Target Body', GotIt, minv=1, maxv=Model % NumberOfBodies )
+               body_id = ListGetInteger( BC, &
+                   'Normal Target Body', GotIt )
 
                lbody = 0
                IF ( ASSOCIATED( CurrentElement % BoundaryInfo % Left ) ) &
@@ -853,9 +798,8 @@
                  Parent => CurrentElement % BoundaryInfo % Left
                END IF
                Material => Model % Materials(k) % Values                
-               Ratio = &
-                   ListGetConstReal( Material, &
-                     TRIM(ComponentName(Solver % Variable)) // &
+               Ratio = ListGetConstReal( Material, &
+                   TRIM(ComponentName(Solver % Variable)) // &
                    ' Maximum Solubility', GotIt ) / Ratio
 
                IF ( .NOT. GotIT ) THEN
@@ -890,9 +834,9 @@
 
                pn = Parent % TYPE % NumberOfNodes
                
-               ParentNodes % x(1:pn) = Solver % Mesh % Nodes % x(Parent % NodeIndexes)
-               ParentNodes % y(1:pn) = Solver % Mesh % Nodes % y(Parent % NodeIndexes)
-               ParentNodes % z(1:pn) = Solver % Mesh % Nodes % z(Parent % NodeIndexes)
+               ParentNodes % x(1:pn) = Mesh % Nodes % x(Parent % NodeIndexes)
+               ParentNodes % y(1:pn) = Mesh % Nodes % y(Parent % NodeIndexes)
+               ParentNodes % z(1:pn) = Mesh % Nodes % z(Parent % NodeIndexes)
 !------------------------------------------------------------------------------
 !             Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
@@ -926,16 +870,11 @@
 !     Boundary element assembly
 !------------------------------------------------------------------------------
        ErrorWritten = .FALSE.
-       DO t=Solver % Mesh % NumberOfBulkElements + 1, &
-           Solver % Mesh % NumberOfBulkElements + Solver % Mesh % NumberOfBoundaryElements
+       DO t=Mesh % NumberOfBulkElements + 1, &
+           Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
 
-         CurrentElement => Solver % Mesh % Elements(t)
-!------------------------------------------------------------------------------
-!       the element type 101 (point element) can only be used
-!       to set Dirichlet BCs, so skip 'em.
-!------------------------------------------------------------------------------
-         IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-!------------------------------------------------------------------------------
+         CurrentElement => Mesh % Elements(t)
+
          DO i=1,Model % NumberOfBCs
            IF ( CurrentElement % BoundaryInfo % Constraint == &
                Model % BCs(i) % Tag ) THEN
@@ -944,60 +883,62 @@
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
 !------------------------------------------------------------------------------
-              Model % CurrentElement => Solver % Mesh % Elements(t)
+              Model % CurrentElement => Mesh % Elements(t)
 !------------------------------------------------------------------------------
               n = CurrentElement % TYPE % NumberOfNodes
               NodeIndexes => CurrentElement % NodeIndexes
 
               IF ( ANY( SpeciesPerm( NodeIndexes ) <= 0 ) ) CYCLE
 
-              ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-              ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-              ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+              ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+              ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+              ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
 
               SpeciesTransferCoeff = 0.0D0
               SExt = 0.0D0
               Load = 0.0D0
 
-              SpeciesTransferCoeff(1:n) = ListGetReal( Model % BCs(i) % Values,&
-                   'Mass Transfer Coefficient', n, NodeIndexes, GotIt )
-              IF ( ANY(SpeciesTransferCoeff(1:n) /= 0.0d0) ) THEN
-                 SExt(1:n) = ListGetReal( Model % BCs(i) % Values, &
-                      'External Concentration', n, NodeIndexes, GotIt )
-                 
-                 IF ( .NOT. AbsoluteMass .OR. ScaledToSolubility ) THEN
-                    IF ( .NOT. ErrorWritten ) THEN
-                       CALL Error( 'AdvectionDiffusion', '--------------------' )
-                       CALL Error( 'AdvectionDiffusion', &
-                            'Mass transfer coefficient possible to use only with absolute mass concentrations' )
-                       CALL Error( 'AdvectionDiffusion', &
-                            'Ignoring mass transfer BC' )
-                       CALL Error( 'AdvectionDiffusion', '--------------------' )
-                       ErrorWritten = .TRUE.
-                    END IF
-                    SExt = 0.0d0
-                    SpeciesTransferCoeff = 0.0d0
-                 END IF
-              ELSE
-                 SExt(1:n) = 0.0d0
-              END IF
+              BC => Model % BCs(i) % Values
 
+              SpeciesTransferCoeff(1:n) = ListGetReal( BC, &
+                  'Mass Transfer Coefficient', n, NodeIndexes, GotIt )
+              IF ( GotIt ) THEN
+                SExt(1:n) = ListGetReal( BC, &
+                    'External Concentration', n, NodeIndexes, GotIt )
+                
+                IF ( .NOT. AbsoluteMass .OR. ScaledToSolubility ) THEN
+                  IF ( .NOT. ErrorWritten ) THEN
+                    CALL Error( 'AdvectionDiffusion', '--------------------' )
+                    CALL Error( 'AdvectionDiffusion', &
+                        'Mass transfer coefficient possible to use only with absolute mass concentrations' )
+                    CALL Error( 'AdvectionDiffusion', &
+                        'Ignoring mass transfer BC' )
+                    CALL Error( 'AdvectionDiffusion', '--------------------' )
+                    ErrorWritten = .TRUE.
+                  END IF
+                  SExt = 0.0d0
+                  SpeciesTransferCoeff = 0.0d0
+                END IF
+              ELSE
+                SExt(1:n) = 0.0d0
+              END IF
+              
 !------------------------------------------------------------------------------
 !           BC: -D@c/@n = \alpha(C - Cext)
 !------------------------------------------------------------------------------
               DO j=1,n
-                 Load(j) = Load(j) + SpeciesTransferCoeff(j) * SExt(j)
+                Load(j) = Load(j) + SpeciesTransferCoeff(j) * SExt(j)
               END DO
-
+               
 !------------------------------------------------------------------------------
 !             BC: j_n=-\rho*\alpha*@c/@n = g
 !------------------------------------------------------------------------------
-
-              IF ( ScaledToSolubility .AND. ListGetLogical( Model % &
-                  BCs(i) % Values, 'Physical Units', GotIt ) ) THEN
-
+               
+              IF ( ScaledToSolubility .AND. &
+                  ListGetLogical( BC, 'Physical Units', GotIt ) ) THEN
+                
                 Ratio = ListGetConstReal( Material, &
-                  TRIM(ComponentName(Solver % Variable)) // &
+                    TRIM(ComponentName(Solver % Variable)) // &
                     ' Maximum Solubility', GotIt )
                 IF ( .NOT. GotIT ) THEN
                   WRITE( Message, * ) 'No maximum solubility defined in body : ', &
@@ -1008,7 +949,7 @@
                 Ratio = 1.0d0
               END IF
               Load(1:n) = Load(1:n) + &
-                  ListGetReal( Model % BCs(i) % Values, &
+                  ListGetReal( BC, &
                   TRIM(ComponentName(Solver % Variable)) // &
                   ' Flux', n,NodeIndexes,gotIt ) / Ratio
 !------------------------------------------------------------------------------
@@ -1016,10 +957,10 @@
 !------------------------------------------------------------------------------
               IF ( CoordinateSystem == Cartesian ) THEN
                 CALL DiffuseConvectiveBoundary( LocalStiffMatrix,LocalForce, &
-                  Load,SpeciesTransferCoeff,CurrentElement,n,ElementNodes )
+                    Load,SpeciesTransferCoeff,CurrentElement,n,ElementNodes )
               ELSE
                 CALL DiffuseConvectiveGenBoundary(LocalStiffMatrix,LocalForce,&
-                  Load,SpeciesTransferCoeff,CurrentElement,n,ElementNodes ) 
+                    Load,SpeciesTransferCoeff,CurrentElement,n,ElementNodes ) 
               END IF
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
@@ -1027,11 +968,11 @@
               IF ( TransientSimulation ) THEN
                 LocalMassMatrix = 0.0d0
                 CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-                  LocalForce,dt,n,1,SpeciesPerm(NodeIndexes),Solver )
+                    LocalForce,dt,n,1,SpeciesPerm(NodeIndexes),Solver )
               END IF
-
+              
               CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-                ForceVector, LocalForce, n, 1, SpeciesPerm(NodeIndexes) )
+                  ForceVector, LocalForce, n, 1, SpeciesPerm(NodeIndexes) )
 !------------------------------------------------------------------------------
           END IF ! of currentelement bc == bcs(i)
         END DO ! of i=1,model bcs
@@ -1052,16 +993,13 @@
 !------------------------------------------------------------------------------
       CALL Info( 'AdvectionDiffusion', 'Assembly done', Level=4 )
 
-!------------------------------------------------------------------------------
-!     Solve the system and check for convergence
-!------------------------------------------------------------------------------
       at = CPUTime() - at
       st = CPUTime()
 
 !------------------------------------------------------------------------------
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
-!PRINT*,'Mass before: ',mass
+
       Norm = DefaultSolve()
 
       st = CPUTIme()-st
@@ -1079,72 +1017,25 @@
       WRITE( Message, * ) 'Relative Change : ',RelativeChange
       CALL Info( 'AdvectionDiffusion', Message, Level=4 )
 
-
       IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 
 !------------------------------------------------------------------------------
-    END DO! of the nonlinear iteration
+    END DO ! of the nonlinear iteration
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+! Finally, check if integration of species density over volume requested.
+! This is really old - don't know really what is done
+!------------------------------------------------------------------------------
+    IF( ListCheckPresent( Model % Simulation, 'Species Density') ) THEN        
+      PreviousMass = Mass
+      Mass = VolumeIntegrate( Model, Solver % ActiveElements, 'Species Density' )      
+      PRINT *,'Species Mass: ',Mass
+      IF ( TransientSimulation )  THEN
+        PRINT *,'Mass Gain: ',Mass - PreviousMass
+      END IF
+    END IF
 
-
-!------------------------------------------------------------------------------
-! Check if integration of species density over volume really requested,
-! if not return...
-!------------------------------------------------------------------------------
-      U(1:n) = ListGetReal( Model % Simulation, 'Species Density', &
-                  n, NodeIndexes,GotIt )
-      IF ( .NOT.GotIt ) RETURN
-!------------------------------------------------------------------------------
-
-      IF ( TransientSimulation )  PreviousMass = Mass
-
-! Pick all elements for the volume integration
-!    ElementList= (/ (i, i=1, Solver % Mesh %  NumberOfBulkElements ) /)
-! Pick only the elements where species concentration is calculated
-       body_id = -1
-       NULLIFY(Material)
-       i = 1
-!------------------------------------------------------------------------------
-!      Go through all bulk elements
-!------------------------------------------------------------------------------
-       t = 1
-       DO WHILE( t <= Solver % Mesh % NumberOfBulkElements )
-!------------------------------------------------------------------------------
-!        Check if this element belongs to a body where species
-!        advection-diffusion was calculated
-!------------------------------------------------------------------------------
-         CurrentElement => Solver % Mesh % Elements(t)
-!------------------------------------------------------------------------------
-         IF ( CurrentElement % BodyId /= body_id ) THEN
-!------------------------------------------------------------------------------
-           DO WHILE( t <= Solver % Mesh % NumberOfBulkElements )
-             IF ( CheckElementEquation( &
-                 Model,CurrentElement,EquationName ) ) EXIT
-             t = t + 1
-             CurrentElement => Solver % Mesh % Elements(t)
-           END DO
-
-           IF ( t > Solver % Mesh % NumberOfBulkElements ) EXIT
-
-           body_id = CurrentElement % Bodyid    
-
-         END IF
-!------------------------------------------------------------------------------
-!        We've actually got an element for which species concentration
-!        was calculated
-!------------------------------------------------------------------------------
-         ElementList(i) = t
-         i = i + 1
-         t = t + 1
-           
-       END DO!  Bulk elements
-
-! Integrate only over gas
-!   PRINT*,ElementList(1:i-1)
-    Mass = VolumeIntegrate( Model, ElementList(1:i-1), 'Species Density' )
-    IF ( TransientSimulation )  PRINT*,'Mass Gain: ',Mass - PreviousMass
-    PRINT*,'Species Mass',Mass
 !------------------------------------------------------------------------------
 
 CONTAINS
@@ -1155,9 +1046,9 @@ CONTAINS
 !>  equation. 
 !------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveCompose( MassMatrix,StiffMatrix,ForceVector,  &
-      LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,Temperature,EPotential, &
-         Ux,Uy,Uz,MUx,MUy,MUz,SoretD,NEC,Compressible,AbsoluteMass, &
-           Stabilize,UseBubbles,Element,n,Nodes )
+       LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,Temperature,EPotential, &
+       Ux,Uy,Uz,MUx,MUy,MUz,SoretD,NEC,Compressible,AbsoluteMass, &
+       Stabilize,UseBubbles,Element,n,Nodes )
 !------------------------------------------------------------------------------
 !
 !  REAL(KIND=dp) :: MassMatrix(:,:)
