@@ -5,12 +5,12 @@ Header
 End
 
 Simulation
-  Max Output Level = 3
   Coordinate System = Cartesian 3D
   Simulation Type = Steady State
   Steady State Max Iterations = 1
-! Output File = "elstatics.result"
-! Post File = "elstatics.ep"
+!  Output File = "elstatics.result"
+!  Post File = "elstatics.ep"
+  Coordinate Scaling = 1.0e-6
 End
 
 Constants
@@ -32,15 +32,18 @@ Solver 1
   Variable = Potential
   Variable DOFs = 1
   Procedure = "StatElecSolve" "StatElecSolver"
-  Calculate Electric Field = True
+
+  Calculate Electric Energy = True
+  Calculate Electric Field = False
   Calculate Electric Flux = False
-  Potential Difference = 1.0e6
+
   Linear System Solver = Iterative
   Linear System Iterative Method = BiCGStab
-  Linear System Max Iterations = 200
-  Linear System Convergence Tolerance = 1.0e-07
+  Linear System Max Iterations = 500
+  Linear System Convergence Tolerance = 1.0e-10
   Linear System Preconditioning = ILU1
   Linear System ILUT Tolerance = 1.0e-03
+  Linear System Residual Output = 10
   Nonlinear System Max Iterations = 1
   Nonlinear System Convergence Tolerance = 1.0e-4
   Nonlinear System Newton After Tolerance = 1.0e-3
@@ -55,14 +58,14 @@ Solver 2
 End
 
 Solver 3
-  Exec Solver = Never
+  Exec Solver = After All
   Equation = SaveScalars
   Procedure = "SaveData" "SaveScalars"
-  Filename = "scalars.dat"
+!  Filename = "scalars.dat"
 End
 
 Material 1
-  Relative Permittivity = 1
+  Relative Permittivity = 1.0
 End
 
 Boundary Condition 1
@@ -73,12 +76,13 @@ End
 
 Boundary Condition 2
   Target Boundaries = 3
-  Potential = 1.0e6
+  Potential = 1.0e3
 End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=590600.227643, EPS=1.0e-3\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=584.159\n");
+
 
 !End Of File
 
