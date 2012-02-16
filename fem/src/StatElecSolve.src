@@ -162,7 +162,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL, ALLOCATABLE :: Done(:)
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  TYPE(ValueList_t), POINTER :: Params 
+  TYPE(ValueList_t), POINTER :: Params, BC 
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
       ElementNodes, CalculateFlux, CalculateEnergy, &
@@ -585,6 +585,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
 !------------------------------------------------------------------------------
+          BC => Model % BCs(i) % Values
           Model % CurrentElement => Solver % Mesh % Elements(t)
           n = CurrentElement % TYPE % NumberOfNodes
           NodeIndexes => CurrentElement % NodeIndexes
@@ -593,21 +594,15 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !         Memorize the min and max potential as given by Dirichtlet BCs
 !------------------------------------------------------------------------------          
-          Load(1:n) = ListGetReal(Model % BCs(i) % Values, &
+											 
+          Load(1:n) = ListGetReal( BC, &
              ComponentName(Solver % Variable), n, NodeIndexes, gotIt)
           IF(GotIt) THEN
             MinPotential = MIN(MinPotential, MINVAL(Load(1:n)))
             MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
           END IF
-          
-!------------------------------------------------------------------------------
-!       the element type 101 (point element) can only be used
-!       to set Dirichlet BCs, so skip em.
-!------------------------------------------------------------------------------
-          IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
 
-          FluxBC = ListGetLogical(Model % BCs(i) % Values, &
-              'Electric Flux BC',gotIt)
+          FluxBC = ListGetLogical( BC,'Electric Flux BC',gotIt)
           IF( gotIt .AND. .NOT. FluxBC) CYCLE
           
           ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
@@ -618,9 +613,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !             BC: epsilon@Phi/@n = g
 !------------------------------------------------------------------------------
           Load = 0.0d0
-          Load(1:n) = ListGetReal( Model % BCs(i) % Values,'Electric Flux', &
+          Load(1:n) = ListGetReal( BC,'Electric Flux', &
               n,NodeIndexes,GotIt )
-          IF ( .NOT. GotIt )  Load(1:n) = ListGetReal( Model % BCs(i) % Values, &
+          IF ( .NOT. GotIt )  Load(1:n) = ListGetReal( BC, &
               'Surface Charge Density', n,NodeIndexes,gotIt )
           IF(GotIt) THEN
             FluxBC = .TRUE.
@@ -633,11 +628,11 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
           Alpha = 0.0d0
           Beta = 0.0d0
           
-          Alpha = GetConstReal( Model % BCs(i) % Values, & 
+          Alpha = GetConstReal( BC, &
               'Layer Relative Permittivity', gotit )
           IF(GotIt .OR. FluxBC) THEN
             IF ( Gotit ) THEN
-              LayerH = GetConstReal( Model % BCs(i) % Values, &
+              LayerH = GetConstReal( BC, &
                   'Layer Thickness', gotit )
               IF ( (.NOT. gotit) .OR. LayerH < 1e-12 ) THEN
                 CALL Warn( 'StatElecSolve', &
@@ -646,9 +641,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
               END IF
               Alpha = Alpha / LayerH
             
-              Voltage = GetConstReal( Model % BCs(i) % Values, &
+              Voltage = GetConstReal( BC, &
                   'Electrode Potential', gotit )
-              Beta = GetConstReal( Model % BCs(i) % Values, &
+              Beta = GetConstReal( BC, &
                   'Layer Charge Density', gotit )
               Beta = Alpha*Voltage + 0.5d0*Beta*LayerH / PermittivityOfVacuum            
             END IF
@@ -1131,8 +1126,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
              IF ( Model % BCs(k) % Tag /= Element % BoundaryInfo % Constraint ) CYCLE
 
              n = Element % TYPE % NumberOfNodes
-             
-             Dirichlet(1:n) = GetReal( Model % BCs(k) % Values, & 
+             BC => Model % BCs(k) % Values
+
+             Dirichlet(1:n) = GetReal( BC, &
                    ComponentName(Solver % Variable), GotIt,  Element )
              IF ( .NOT. GotIt )  CYCLE
 
@@ -1534,47 +1530,23 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
    SUBROUTINE StatElecBoundary( BoundaryMatrix, BoundaryVector, &
         LoadVector, Alpha, Beta, Element, n, Nodes )
 !------------------------------------------------------------------------------
-!
-!  REAL(KIND=dp) :: BoundaryVector(:)
-!     OUTPUT: RHS vector
-!
-!  REAL(KIND=dp) :: LoadVector(:)
-!     INPUT: coefficient of the force term
-!
-!  REAL(KIND=dp) :: Alpha, Beta
-!     INPUT: coefficients of the Robin BC: g = alpha * u + beta
-!
-!  TYPE(Element_t) :: Element
-!       INPUT: Structure describing the element (dimension,nof nodes,
-!               interpolation degree, etc...)
-!
-!   INTEGER :: n
-!       INPUT: Number  of element nodes
-!
-!  TYPE(Nodes_t) :: Nodes
-!       INPUT: Element node coordinates
-!
-!------------------------------------------------------------------------------
-
-     REAL(KIND=dp) :: BoundaryMatrix(:,:), BoundaryVector(:), LoadVector(:)
-
-     TYPE(Nodes_t)   :: Nodes
+     REAL(KIND=dp) :: BoundaryMatrix(:,:) 
+     REAL(KIND=dp) :: BoundaryVector(:)  
+     REAL(KIND=dp) :: LoadVector(:) 
+     REAL(KIND=dp) :: Alpha  !< Coefficient of the Robin BC: g = alpha * u + beta
+     REAL(KIND=dp) :: Beta   !< Coefficient of the Robin BC: g = alpha * u + beta
      TYPE(Element_t) :: Element
-
      INTEGER :: n
-
+     TYPE(Nodes_t)   :: Nodes
+!------------------------------------------------------------------------------
      REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
      REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-
      REAL(KIND=dp) :: u,v,w,s,x,y,z
-     REAL(KIND=dp) :: Force, Alpha, Beta
+     REAL(KIND=dp) :: Force
      REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
-
      INTEGER :: t,p,q,N_Integ
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-
      LOGICAL :: stat
 !------------------------------------------------------------------------------
 
@@ -1636,8 +1608,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
  END SUBROUTINE StatElecSolver
 !------------------------------------------------------------------------------
-
-
 
 
 
@@ -2333,4 +2303,3 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   END FUNCTION ElectricInsideResidual
 !------------------------------------------------------------------------------
 
-!==============================================================================

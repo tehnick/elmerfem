@@ -307,16 +307,10 @@
 
         CurrentElement => Solver % Mesh % Elements(t)
 
-
-!------------------------------------------------------------------------------
-!       the element type 101 (point element) can only be used
-!       to set Dirichlet BCs, so skip em.
-!------------------------------------------------------------------------------
-        IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
         DO i=1,Model % NumberOfBCs
           IF ( CurrentElement % BoundaryInfo % Constraint == &
-                 Model % BCs(i) % Tag ) THEN
-
+              Model % BCs(i) % Tag ) THEN
+            
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
@@ -387,7 +381,6 @@
 !     CALL FinishAssembly( Solver,ForceVector )
       CALL DefaultFinishAssembly()
 
- 
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
@@ -694,10 +687,7 @@
        END IF
     END DO
 
-   DEALLOCATE( Nodes % x, &
-       Nodes % y, &
-       Nodes % z, &
-       SumOfWeights)
+   DEALLOCATE( Nodes % x, Nodes % y, Nodes % z, SumOfWeights )
 
 !------------------------------------------------------------------------------
    END SUBROUTINE GeneralCurrent
@@ -793,34 +783,11 @@
    SUBROUTINE StatCurrentBoundary( BoundaryMatrix, BoundaryVector, &
         LoadVector, Element, n, Nodes )
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
-!
-!  REAL(KIND=dp) :: BoundaryVector(:)
-!     OUTPUT: RHS vector
-!
-!  REAL(KIND=dp) :: LoadVector(:)
-!     INPUT: coefficient of the force term
-!
-!  TYPE(Element_t) :: Element
-!       INPUT: Structure describing the element (dimension,nof nodes,
-!               interpolation degree, etc...)
-!
-!   INTEGER :: n
-!       INPUT: Number  of element nodes
-!
-!  TYPE(Nodes_t) :: Nodes
-!       INPUT: Element node coordinates
-!
-!------------------------------------------------------------------------------
-
      REAL(KIND=dp) :: BoundaryMatrix(:,:), BoundaryVector(:), LoadVector(:)
-
      TYPE(Nodes_t)   :: Nodes
      TYPE(Element_t) :: Element
-
      INTEGER :: n
-
+!------------------------------------------------------------------------------
      REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
      REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
