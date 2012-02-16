@@ -136,8 +136,14 @@
 !------------------------------------------------------------------------------
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
-     CoordinateSystem = CurrentCoordinateSystem()
+     CALL Info( 'AdvectionDiffusion', ' ', Level=4 )
+     CALL Info( 'AdvectionDiffusion', &
+         '-------------------------------------', Level=4 )
+     CALL Info( 'AdvectionDiffusion', 'Solving for species transport', Level=4 )
+     CALL Info( 'AdvectionDiffusion', &
+         '-------------------------------------', Level=4 )
 
+     CoordinateSystem = CurrentCoordinateSystem()
      Mesh => Solver % Mesh
 
      Species     => Solver % Variable % Values
@@ -261,15 +267,12 @@
        at  = CPUTime()
        at0 = RealTime()
 
-       CALL Info( 'AdvectionDiffusion', ' ', Level=4 )
-       CALL Info( 'AdvectionDiffusion', ' ', Level=4 )
        CALL Info( 'AdvectionDiffusion', &
              '-------------------------------------', Level=4 )
-       WRITE( Message, * ) 'SPECIES ITERATION', iter
+       WRITE( Message, * ) 'Iteration step: ', iter
        CALL Info( 'AdvectionDiffusion', Message, Level=4 )
        CALL Info( 'AdvectionDiffusion', &
              '-------------------------------------', Level=4 )
-       CALL Info( 'AdvectionDiffusion', ' ', Level=4 )
 
 !------------------------------------------------------------------------------
        CALL InitializeToZero( StiffMatrix, ForceVector )
@@ -281,7 +284,8 @@
 !------------------------------------------------------------------------------
 
        tmax = Solver % NumberOfActiveElements
-
+       CALL Info( 'AdvectionDiffusion','Bulk Assembly')
+ 
        DO t = 1, tmax
 
          IF ( RealTime() - at0 > 1.0 ) THEN
@@ -708,160 +712,165 @@
 !------------------------------------------------------------------------------
 
        IF ( ScaledToSolubility ) THEN
+         CALL Info( 'AdvectionDiffusion', 'Mixed bulk-boundary assembly')
+
+
          DO t=Mesh % NumberOfBulkElements + 1, &
              Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
 
            CurrentElement => Mesh % Elements(t)
+           GotIt = .FALSE.
            DO i=1,Model % NumberOfBCs
-             IF ( CurrentElement % BoundaryInfo % Constraint == &
-                 Model % BCs(i) % Tag ) THEN
+             GotIt = CurrentElement % BoundaryInfo % Constraint == &
+                 Model % BCs(i) % Tag 
+             IF( GotIt ) EXIT
+           END DO
+           IF( .NOT. GotIt ) CYCLE
 
-               BC => Model % BCs(i) % Values
-               IF ( .NOT. ListGetLogical( BC, TRIM(ComponentName(Solver % Variable)) &
-                   // ' Solubility Change Boundary', GotIt ) )  CYCLE
+           BC => Model % BCs(i) % Values
+           IF ( .NOT. ListGetLogical( BC, TRIM(ComponentName(Solver % Variable)) &
+               // ' Solubility Change Boundary', GotIt ) )  CYCLE
 
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
 !------------------------------------------------------------------------------
-               Model % CurrentElement => Mesh % Elements(t)
+           Model % CurrentElement => Mesh % Elements(t)
 !------------------------------------------------------------------------------
-               n = CurrentElement % TYPE % NumberOfNodes
-               NodeIndexes => CurrentElement % NodeIndexes
-
-               ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
-               ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
-               ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+           n = CurrentElement % TYPE % NumberOfNodes
+           NodeIndexes => CurrentElement % NodeIndexes
+           
+           ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+           ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+           ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
 
 !------------------------------------------------------------------------------
 !             Get normal target body. The parent element from the opposite
 !             direction is used for normal derivative calculation
 !------------------------------------------------------------------------------
-               body_id = ListGetInteger( BC, &
-                   'Normal Target Body', GotIt )
-
-               lbody = 0
-               IF ( ASSOCIATED( CurrentElement % BoundaryInfo % Left ) ) &
-                  lbody = CurrentElement % BoundaryInfo % Left % BodyId
-               rbody = 0
-               IF ( ASSOCIATED( CurrentElement % BoundaryInfo % Right ) ) &
-                  rbody = CurrentElement % BoundaryInfo % Right % BodyId
+           body_id = ListGetInteger( BC,'Normal Target Body', GotIt )
+           
+           lbody = 0
+           IF ( ASSOCIATED( CurrentElement % BoundaryInfo % Left ) ) &
+               lbody = CurrentElement % BoundaryInfo % Left % BodyId
+           rbody = 0
+           IF ( ASSOCIATED( CurrentElement % BoundaryInfo % Right ) ) &
+               rbody = CurrentElement % BoundaryInfo % Right % BodyId
 !------------------------------------------------------------------------------
 !             If normal target body not defined check which direction is used
 !             by the NormalVector function
 !------------------------------------------------------------------------------
 
-               IF ( .NOT. GotIt ) THEN
+           IF ( .NOT. GotIt ) THEN
 !------------------------------------------------------------------------------
 !               Force normal to point to lbody
 !------------------------------------------------------------------------------
-                 body_id = lbody
-                 outbody = CurrentElement % BoundaryInfo % OutBody
-                 CurrentElement % BoundaryInfo % OutBody = body_id
-                 Nrm = NormalVector( CurrentElement, ElementNodes, &
-                     CurrentElement % TYPE % NodeU(1), CurrentElement % TYPE % NodeV(1), &
-                     .TRUE. )
+             body_id = lbody
+             outbody = CurrentElement % BoundaryInfo % OutBody
+             CurrentElement % BoundaryInfo % OutBody = body_id
+             
+             Nrm = NormalVector( CurrentElement, ElementNodes, &
+                 CurrentElement % TYPE % NodeU(1), CurrentElement % TYPE % NodeV(1), &
+                 .TRUE. )
 !------------------------------------------------------------------------------
 !               Check which direction NormalVector chooses
 !------------------------------------------------------------------------------
-                 CurrentElement % BoundaryInfo % OutBody = outbody
-                 Nrm2 = NormalVector( CurrentElement, ElementNodes, &
-                     CurrentElement % TYPE % NodeU(1), CurrentElement % TYPE % NodeV(1), &
-                     .TRUE. )
+             CurrentElement % BoundaryInfo % OutBody = outbody
+             Nrm2 = NormalVector( CurrentElement, ElementNodes, &
+                 CurrentElement % TYPE % NodeU(1), CurrentElement % TYPE % NodeV(1), &
+                 .TRUE. )
 !------------------------------------------------------------------------------
 !               Change body_id if Nrm and Nrm2 point to different directions
 !------------------------------------------------------------------------------
-                 IF ( SUM( Nrm(1:3) * Nrm2(1:3) ) < 0 ) body_id = rbody
-               END IF
+             IF ( SUM( Nrm(1:3) * Nrm2(1:3) ) < 0 ) body_id = rbody
+           END IF
 !------------------------------------------------------------------------------
 
-               k = ListGetInteger( Model % Bodies( body_id ) % Values, &
-                   'Material', minv=1, maxv=Model % NumberOfMaterials )
-               Material => Model % Materials(k) % Values                
-
-               Ratio = ListGetConstReal( Material, &
-                   TRIM(ComponentName(Solver % Variable)) // &
-                   ' Maximum Solubility', GotIt )
-
-               IF ( .NOT. GotIT ) THEN
-                 WRITE( Message, * ) 'No maximum solubility defined for material : ', k
-                 CALL Fatal( 'AdvectionDiffusion', Message )
-               END IF
-
-               IF ( lbody == body_id ) THEN
-                 k = ListGetInteger( Model % Bodies( rbody ) % Values, 'Material', &
-                            minv=1,maxv=Model % NumberOfMaterials )
-                 Parent => CurrentElement % BoundaryInfo % Right
-               ELSE
-                 k = ListGetInteger( Model % Bodies(lbody) % Values, 'Material', &
-                     minv=1,maxv=Model % NumberOfMaterials )
-                 Parent => CurrentElement % BoundaryInfo % Left
-               END IF
-               Material => Model % Materials(k) % Values                
-               Ratio = ListGetConstReal( Material, &
-                   TRIM(ComponentName(Solver % Variable)) // &
-                   ' Maximum Solubility', GotIt ) / Ratio
-
-               IF ( .NOT. GotIT ) THEN
-                 WRITE( Message, * ) 'No maximum solubility defined for material : ', k
-                 CALL Fatal( 'AdvectionDiffusion', Message )
-               END IF
-               Ratio = Ratio - 1.0d0
-
+           k = ListGetInteger( Model % Bodies( body_id ) % Values, &
+               'Material', minv=1, maxv=Model % NumberOfMaterials )
+           Material => Model % Materials(k) % Values                
+           
+           Ratio = ListGetConstReal( Material, &
+               TRIM(ComponentName(Solver % Variable)) // &
+               ' Maximum Solubility', GotIt )
+           
+           IF ( .NOT. GotIT ) THEN
+             WRITE( Message, * ) 'No maximum solubility defined for material : ', k
+             CALL Fatal( 'AdvectionDiffusion', Message )
+           END IF
+           
+           IF ( lbody == body_id ) THEN
+             k = ListGetInteger( Model % Bodies( rbody ) % Values, 'Material', &
+                 minv=1,maxv=Model % NumberOfMaterials )
+             Parent => CurrentElement % BoundaryInfo % Right
+           ELSE
+             k = ListGetInteger( Model % Bodies(lbody) % Values, 'Material', &
+                 minv=1,maxv=Model % NumberOfMaterials )
+             Parent => CurrentElement % BoundaryInfo % Left
+           END IF
+           Material => Model % Materials(k) % Values                
+           Ratio = ListGetConstReal( Material, &
+               TRIM(ComponentName(Solver % Variable)) // &
+               ' Maximum Solubility', GotIt ) / Ratio
+           
+           IF ( .NOT. GotIT ) THEN
+             WRITE( Message, * ) 'No maximum solubility defined for material : ', k
+             CALL Fatal( 'AdvectionDiffusion', Message )
+           END IF
+           Ratio = Ratio - 1.0d0
+           
 !------------------------------------------------------------------------------
 !            Get the diffusivity tensor
 !------------------------------------------------------------------------------
-               CALL ListGetRealArray( Material,  &
-                  TRIM(ComponentName(Solver % Variable)) // &
-                   ' Diffusivity', Hwrk, n, NodeIndexes )
-
-               Diffusivity = 0.0d0
-               IF ( SIZE(Hwrk,1) == 1 ) THEN
-                 DO m=1,3
-                   Diffusivity( m,m,1:n ) = Hwrk( 1,1,1:n )
-                 END DO
-               ELSE IF ( SIZE(Hwrk,2) == 1 ) THEN
-                 DO m=1,MIN(3,SIZE(Hwrk,1))
-                   Diffusivity(m,m,1:n) = Hwrk(m,1,1:n)
-                 END DO
-               ELSE
-                 DO m=1,MIN(3,SIZE(Hwrk,1))
-                   DO j=1,MIN(3,SIZE(Hwrk,2))
-                     Diffusivity( m,j,1:n ) = Hwrk(m,j,1:n)
-                   END DO
-                 END DO
-               END IF
-
-               pn = Parent % TYPE % NumberOfNodes
-               
-               ParentNodes % x(1:pn) = Mesh % Nodes % x(Parent % NodeIndexes)
-               ParentNodes % y(1:pn) = Mesh % Nodes % y(Parent % NodeIndexes)
-               ParentNodes % z(1:pn) = Mesh % Nodes % z(Parent % NodeIndexes)
+           CALL ListGetRealArray( Material,  &
+               TRIM(ComponentName(Solver % Variable)) // &
+               ' Diffusivity', Hwrk, n, NodeIndexes )
+           
+           Diffusivity = 0.0d0
+           IF ( SIZE(Hwrk,1) == 1 ) THEN
+             DO m=1,3
+               Diffusivity( m,m,1:n ) = Hwrk( 1,1,1:n )
+             END DO
+           ELSE IF ( SIZE(Hwrk,2) == 1 ) THEN
+             DO m=1,MIN(3,SIZE(Hwrk,1))
+               Diffusivity(m,m,1:n) = Hwrk(m,1,1:n)
+             END DO
+           ELSE
+             DO m=1,MIN(3,SIZE(Hwrk,1))
+               DO j=1,MIN(3,SIZE(Hwrk,2))
+                 Diffusivity( m,j,1:n ) = Hwrk(m,j,1:n)
+               END DO
+             END DO
+           END IF
+           
+           pn = Parent % TYPE % NumberOfNodes
+           
+           ParentNodes % x(1:pn) = Mesh % Nodes % x(Parent % NodeIndexes)
+           ParentNodes % y(1:pn) = Mesh % Nodes % y(Parent % NodeIndexes)
+           ParentNodes % z(1:pn) = Mesh % Nodes % z(Parent % NodeIndexes)
 !------------------------------------------------------------------------------
 !             Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
-               IF ( CoordinateSystem == Cartesian ) THEN
-                 CALL DiffuseConvectiveBBoundary( LocalStiffMatrix, Parent, pn, &
-                     ParentNodes, Ratio, CurrentElement, n, ElementNodes )
-               ELSE
-                 CALL DiffuseConvectiveGenBBoundary(LocalStiffMatrix, Parent, &
-                     pn, ParentNodes, Ratio, CurrentElement,n , ElementNodes ) 
-               END IF
+           IF ( CoordinateSystem == Cartesian ) THEN
+             CALL DiffuseConvectiveBBoundary( LocalStiffMatrix, Parent, pn, &
+                 ParentNodes, Ratio, CurrentElement, n, ElementNodes )
+           ELSE
+             CALL DiffuseConvectiveGenBBoundary(LocalStiffMatrix, Parent, &
+                 pn, ParentNodes, Ratio, CurrentElement,n , ElementNodes ) 
+           END IF
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
 !------------------------------------------------------------------------------
-             IF ( TransientSimulation ) THEN
-               LocalMassMatrix = 0.0d0
-               LocalForce = 0.0d0
-               CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-                   LocalForce,dt,pn,1,SpeciesPerm(Parent % NodeIndexes),Solver )
-             END IF
-
-               CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-                   ForceVector, LocalForce, pn, 1, SpeciesPerm(Parent % NodeIndexes) )
+           IF ( TransientSimulation ) THEN
+             LocalMassMatrix = 0.0d0
+             LocalForce = 0.0d0
+             CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
+                 LocalForce,dt,pn,1,SpeciesPerm(Parent % NodeIndexes),Solver )
+           END IF
+           
+           CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+               ForceVector, LocalForce, pn, 1, SpeciesPerm(Parent % NodeIndexes) )
 !------------------------------------------------------------------------------
-             END IF ! of currentelement bc == bcs(i)
-           END DO ! of i=1,model bcs
          END DO   ! Boundary - bulk element assembly
 !------------------------------------------------------------------------------
        END IF  ! If ScaledToSolubility
@@ -869,6 +878,8 @@
 !------------------------------------------------------------------------------
 !     Boundary element assembly
 !------------------------------------------------------------------------------
+       CALL Info( 'AdvectionDiffusion','Boundary Assembly')
+       
        ErrorWritten = .FALSE.
        DO t=Mesh % NumberOfBulkElements + 1, &
            Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
@@ -991,7 +1002,7 @@
       CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
-      CALL Info( 'AdvectionDiffusion', 'Assembly done', Level=4 )
+      CALL Info( 'AdvectionDiffusion', 'Assembly done')
 
       at = CPUTime() - at
       st = CPUTime()
@@ -1006,9 +1017,9 @@
       totat = totat + at
       totst = totst + st
       WRITE(Message,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Assembly: (s)', at, totat
-      CALL Info( 'AdvectionDiffusion', Message, Level=4 )
+      CALL Info( 'AdvectionDiffusion', Message, Level=5 )
       WRITE(Message,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Solve:    (s)', st, totst
-      CALL Info( 'AdvectionDiffusion', Message, Level=4 )
+      CALL Info( 'AdvectionDiffusion', Message, Level=5 )
 !------------------------------------------------------------------------------
       RelativeChange = Solver % Variable % NonlinChange 
 

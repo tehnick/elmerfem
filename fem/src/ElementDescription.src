@@ -3461,9 +3461,12 @@ END IF
 100  Success = .FALSE.
      WRITE( Message,'(A,I0,A,I0)') 'Degenerate ',dim,'D element: ',Elm % ElementIndex
      CALL Error( 'ElementMetric', Message )
-     WRITE( Message,'(A,G10.3,A,3G10.3)') 'DetG:',DetG,' Coord:',&
-         SUM(x(1:n))/n, SUM(y(1:n))/n, SUM(z(1:n))/n
+     WRITE( Message,'(A,G10.3)') 'DetG:',DetG
      CALL Info( 'ElementMetric', Message, Level=3 )
+     DO i=1,cdim
+       WRITE( Message,'(A,I0,A,3G10.3)') 'Dir: ',i,' Coord:',x(i),y(i),z(i)       
+       CALL Info( 'ElementMetric', Message, Level=3 )
+     END DO
      IF ( cdim < dim ) THEN
        WRITE( Message,'(A,I0,A,I0)') 'Element dim larger than meshdim: ',dim,' vs. ',cdim
        CALL Info( 'ElementMetric', Message, Level=3 )
@@ -4463,7 +4466,7 @@ END IF
 
     INTEGER :: LMat,RMat,n,k
 
-    REAL(KIND=dp) :: x1,y1,z1,LDens,RDens
+    REAL(KIND=dp) :: x1,y1,z1
     REAL(KIND=dp), ALLOCATABLE :: nx(:),ny(:),nz(:)
 !------------------------------------------------------------------------------
 
@@ -4505,6 +4508,7 @@ END IF
     nz(1:n) = CurrentModel % Nodes % z(Element % NodeIndexes)
 
     SELECT CASE( Element % TYPE % ElementCode / 100 )
+      
     CASE(2,4,8)
        x1 = InterpolateInElement( Element, nx, 0.0d0, 0.0d0, 0.0d0 )
        y1 = InterpolateInElement( Element, ny, 0.0d0, 0.0d0, 0.0d0 )
@@ -4525,6 +4529,9 @@ END IF
        x1 = InterpolateInElement( Element, nx, 1.0d0/3, 1.0d0/3, 0.0d0 )
        y1 = InterpolateInElement( Element, ny, 1.0d0/3, 1.0d0/3, 0.0d0 )
        z1 = InterpolateInElement( Element, nz, 1.0d0/3, 1.0d0/3, 0.0d0 )
+    CASE DEFAULT
+       CALL Fatal('CheckNormalDirection','Invalid elementcode for parent element!')   
+
     END SELECT
     x1 = x1 - x
     y1 = y1 - y
@@ -4563,9 +4570,7 @@ END IF
     REAL(KIND=dp) :: Normal(3)
 !------------------------------------------------------------------------------
     LOGICAL :: DoCheck
-
     TYPE(ElementType_t),POINTER :: elt
-
     REAL(KIND=dp) :: u,v,Auu,Auv,Avu,Avv,detA,x,y,z
     REAL(KIND=dp) :: dxdu,dxdv,dydu,dydv,dzdu,dzdv
     REAL(KIND=dp), DIMENSION(:), POINTER :: nx,ny,nz
@@ -4575,8 +4580,14 @@ END IF
     nx => BoundaryNodes % x
     ny => BoundaryNodes % y
     nz => BoundaryNodes % z
+    
+    SELECT CASE ( Boundary % TYPE % DIMENSION )
 
-    IF ( Boundary % TYPE % DIMENSION == 1 ) THEN
+    CASE ( 0 ) 
+      Normal(1) = 1.0_dp
+      Normal(2:3) = 0.0_dp
+
+    CASE ( 1 ) 
       IF( PRESENT( u0 ) ) THEN
         u = u0
       ELSE
@@ -4595,7 +4606,8 @@ END IF
       Normal(1) = -dydu * detA
       Normal(2) =  dxdu * detA
       Normal(3) =  0.0d0
-    ELSE
+    
+    CASE ( 2 ) 
       IF( PRESENT( u0 ) ) THEN
         u = u0
         v = v0
@@ -4626,17 +4638,29 @@ END IF
       Normal(1) = (dydu * dzdv - dydv * dzdu) * detA
       Normal(2) = (dxdv * dzdu - dxdu * dzdv) * detA
       Normal(3) = (dxdu * dydv - dxdv * dydu) * detA
-    END IF
+    
+    CASE DEFAULT
+      CALL Fatal('NormalVector','Invalid dimension for determining normal!')
+      
+    END SELECT
+
 
     DoCheck = .FALSE.
     IF ( PRESENT(Check) ) DoCheck = Check
 
     IF ( DoCheck ) THEN
       SELECT CASE( Boundary % TYPE % ElementCode / 100 ) 
+        
+      CASE(1)
+        x = nx(1)
+        y = nx(1)
+        z = nz(1)
+
       CASE(2,4)
         x = InterpolateInElement( Boundary,nx,0.0d0,0.0d0,0.0d0 )
         y = InterpolateInElement( Boundary,ny,0.0d0,0.0d0,0.0d0 )
         z = InterpolateInElement( Boundary,nz,0.0d0,0.0d0,0.0d0 )
+
       CASE(3)
         x = InterpolateInElement( Boundary,nx,1.0d0/3,1.0d0/3,0.0d0)
         y = InterpolateInElement( Boundary,ny,1.0d0/3,1.0d0/3,0.0d0)
@@ -4644,6 +4668,7 @@ END IF
       END SELECT
 
       CALL CheckNormalDirection( Boundary,Normal,x,y,z )
+
     END IF
 
 !------------------------------------------------------------------------------
@@ -4963,7 +4988,7 @@ END FUNCTION PointFaceDistance
     u = 0._dp
     v = 0._dp
     w = 0._dp
-    IF (Element % Type % Dimension==0) RETURN
+    IF (Element % TYPE % DIMENSION==0) RETURN
 
     n = Element % TYPE % NumberOfNodes
 
