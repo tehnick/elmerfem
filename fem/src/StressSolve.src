@@ -140,7 +140,7 @@
      LOGICAL :: Contact = .FALSE.
      LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
                 ConstantBulkSystem, ConstantBulkMatrix, ConstantBulkMatrixInUse, ConstantSystem, &
-                UpdateSystem
+                UpdateSystem, GotHeatExp
 
      LOGICAL :: AllocationsDone = .FALSE., NormalTangential, HarmonicAnalysis
      LOGICAL :: StabilityAnalysis = .FALSE., ModelLumping, FixDisplacement
@@ -883,7 +883,7 @@ CONTAINS
        END IF
 
        CALL InputTensor( HeatExpansionCoeff, Isotropic(2),  &
-           'Heat Expansion Coefficient', Material, n, NodeIndexes )
+           'Heat Expansion Coefficient', Material, n, NodeIndexes, GotHeatExp )
 
        CALL InputTensor( ElasticModulus, Isotropic(1), &
            'Youngs Modulus', Material, n, NodeIndexes )
@@ -891,8 +891,15 @@ CONTAINS
        PoissonRatio = 0.0d0
        IF ( Isotropic(1) )  PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio' )
 
-       ReferenceTemperature(1:n) = GetReal(Material, &
+       IF( GotHeatExp ) THEN
+         ReferenceTemperature(1:n) = GetReal(Material, &
              'Reference Temperature', Found )
+         CALL GetScalarLocalSolution( LocalTemperature, 'Temperature' )
+         LocalTemperature(1:n) = LocalTemperature(1:n) - &
+             ReferenceTemperature(1:n)
+       ELSE
+         LocalTemperature(1:n) = 0.0_dp
+       END IF
 
        IF ( .NOT. ConstantBulkMatrixInUse ) THEN
          PreStress = 0.0d0
@@ -996,9 +1003,6 @@ CONTAINS
 
        ! Get element local stiffness & mass matrices:
        !---------------------------------------------
-       CALL GetScalarLocalSolution( LocalTemperature, 'Temperature' )
-       LocalTemperature(1:n) = LocalTemperature(1:n) - &
-               ReferenceTemperature(1:n)
 
        IF ( .NOT. ConstantBulkMatrixInUse ) THEN
          CALL GetVectorLocalSolution( NodalDisplacement )
@@ -1476,7 +1480,7 @@ CONTAINS
         Material => GetMaterial()
 
         CALL InputTensor( HeatExpansionCoeff, Isotropic(2),  &
-            'Heat Expansion Coefficient', Material, n, Element % NodeIndexes )
+            'Heat Expansion Coefficient', Material, n, Element % NodeIndexes, GotHeatExp )
 
         CALL InputTensor( ElasticModulus, Isotropic(1), &
                 'Youngs Modulus', Material, n, Element % NodeIndexes )
@@ -1491,9 +1495,13 @@ CONTAINS
         ! -------------------------------------------
         CALL GetVectorLocalSolution( LocalDisplacement, USolver=Solver )
 
-        ReferenceTemperature(1:n) = GetReal(Material, 'Reference Temperature', Found )
-        CALL GetScalarLocalSolution( LocalTemperature, 'Temperature', USolver=Solver )
-        LocalTemperature(1:n) = LocalTemperature(1:n) - ReferenceTemperature(1:n)
+        IF( GotHeatExp ) THEN
+          ReferenceTemperature(1:n) = GetReal(Material, 'Reference Temperature', Found )
+          CALL GetScalarLocalSolution( LocalTemperature, 'Temperature', USolver=Solver )
+          LocalTemperature(1:n) = LocalTemperature(1:n) - ReferenceTemperature(1:n)
+        ELSE
+          LocalTemperature(1:n) = 0.0_dp
+        END IF
 
         ! Integrate local stresses:
         ! -------------------------

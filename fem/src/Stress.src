@@ -889,7 +889,7 @@ MODULE StressLocal
 
      IF ( NormalTangential ) THEN
         Tf=0._dp
-        SELECT CASE( Element % Type % Dimension )
+        SELECT CASE( Element % TYPE % DIMENSION )
         CASE(1)
            Tangent(1) =  Normal(2)
            Tangent(2) = -Normal(1)
@@ -1228,13 +1228,14 @@ MODULE StressLocal
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE InputTensor( Tensor, IsScalar, Name, Material, n, NodeIndexes )
+   SUBROUTINE InputTensor( Tensor, IsScalar, Name, Material, n, NodeIndexes, Found )
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: Tensor(:,:,:)
       INTEGER :: n, NodeIndexes(:)
       LOGICAL :: IsScalar
       CHARACTER(LEN=*) :: Name
       TYPE(ValueList_t), POINTER :: Material
+      LOGICAL, OPTIONAL :: Found
 !------------------------------------------------------------------------------
       LOGICAL :: FirstTime = .TRUE., stat
       REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
@@ -1252,6 +1253,7 @@ MODULE StressLocal
       IsScalar = .TRUE.
 
       CALL ListGetRealArray( Material, Name, Hwrk, n, NodeIndexes, stat )
+      IF( PRESENT( Found ) ) Found = Stat  
       IF ( .NOT. stat ) RETURN
 
       IsScalar = SIZE(HWrk,1) == 1 .AND. SIZE(HWrk,2) == 1
