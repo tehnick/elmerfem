@@ -5,7 +5,7 @@
 ! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
 ! * 
 ! *  This program is free software; you can redistribute it and/or
-! *  modify it under the terms of the GNU General Public License
+! *  modify it under The terms of the GNU General Public License
 ! *  as published by the Free Software Foundation; either version 2
 ! *  of the License, or (at your option) any later version.
 ! * 
@@ -603,9 +603,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
           MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
         END IF
 
-        FluxBC = ListGetLogical( BC,'Electric Flux BC',gotIt)
-        IF( gotIt .AND. .NOT. FluxBC) CYCLE
-        
         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
         ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
         ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
@@ -615,11 +612,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
         Load = 0.0d0
         Load(1:n) = ListGetReal( BC,'Electric Flux', &
-            n,NodeIndexes,GotIt )
-        IF ( .NOT. GotIt )  Load(1:n) = ListGetReal( BC, &
-            'Surface Charge Density', n,NodeIndexes,gotIt )
-        IF(GotIt) THEN
-          FluxBC = .TRUE.
+            n,NodeIndexes,FluxBC )
+        IF ( .NOT. FluxBC )  Load(1:n) = ListGetReal( BC, &
+            'Surface Charge Density', n,NodeIndexes, FluxBC )
+        IF(FluxBC) THEN
           Load(1:n) = Load(1:n) / PermittivityOfVacuum
         END IF
 
@@ -647,7 +643,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
                 'Layer Charge Density', n, NodeIndexes, gotit )
             Beta(1:n) = Alpha(1:n)*LayerV(1:n) + 0.5d0*Beta(1:n)*LayerH(1:n) / PermittivityOfVacuum            
           END IF
-          
+
+!------------------------------------------------------------------------------
+!             BC: -epsilon@Phi/@n = epsilon*Phi*(r \cdot n)/r^2
+!------------------------------------------------------------------------------         
           IF( OpenBC ) THEN
             PermIso(1:n) = GetParentMatProp('Relative Permittivity',&
                 CurrentElement,GotIt)
