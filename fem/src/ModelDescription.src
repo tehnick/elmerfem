@@ -3008,17 +3008,15 @@ CONTAINS
 
     LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists
 
-    REAL(KIND=dp) :: Time,Dummy, MeshScale
+    REAL(KIND=dp) :: Time,Dummy, MeshScale, Coord(3)
     INTEGER :: ii,i,j,k,l,n,m,q,Node,idummy,DOFs,SavedCount,TimeStep, &
          NumberOfNodes, NumberOfElements, ind, nDOFs, MeshDim, Nzeros
     INTEGER, POINTER :: MaskPerm(:), MaskOrder(:)
 !------------------------------------------------------------------------------
 
-
     IF( Model % Mesh % SavesDone == 0 ) THEN
       CALL Info('WriteToPost','Saving results in ElmerPost format to file '//TRIM(PostFile))
     END IF
-
 
     IF ( .NOT. FileNameQualified(PostFile) ) THEN
       IF ( LEN_TRIM(OutputPath) > 0 ) THEN
@@ -3190,7 +3188,7 @@ CONTAINS
       Var => Var % Next
     END DO
 
-    IF ( .NOT.FreeSurfaceFlag ) DOFs=DOFs-3
+    IF ( .NOT.FreeSurfaceFlag ) DOFs = DOFs-3
 
 !------------------------------------------------------------------------------
 ! Write header to output
@@ -3321,7 +3319,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Coordinates
 !------------------------------------------------------------------------------
-!
+
       MeshScale = 1.0_dp
       DO i=1,Model % NumberOfSolvers
         MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
@@ -3343,68 +3341,37 @@ CONTAINS
 
       DO ii=1,NumberOfNodes
 
-         i = ii
-         IF(MaskExists) i = MaskOrder(i)
-
-         IF ( ASSOCIATED(Displacement) ) THEN
-            k = Displacement % Perm(i)
-            l = 0
-            IF ( ASSOCIATED( MeshUpdate ) ) l = MeshUpdate % Perm(i)
-
+        i = ii
+        IF(MaskExists) i = MaskOrder(i)
+        
+        Coord(1) = Model % Nodes % x(i)
+        Coord(2) = Model % Nodes % y(i)
+        Coord(3) = Model % Nodes % z(i)
+        
+        IF ( ASSOCIATED(Displacement) ) THEN
+          k = Displacement % Perm(i)
+          
+          IF ( k > 0 ) THEN
+            DO l=1,Displacement % Dofs
+              Coord(l) = Coord(l) - MeshScale * &
+                  Displacement % Values( Displacement % Dofs * (k-1) + l )
+            END DO
+          ELSE IF( ASSOCIATED( MeshUpdate ) ) THEN
+            k = MeshUpdate % Perm(i)             
             IF ( k > 0 ) THEN
-               k = Displacement % DOFs * (k-1)
-               SELECT CASE( Displacement % DOFs )
-               CASE(1)
-                  WRITE(PostFileUnit,'(3ES17.8E3)') &
-                       Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
-                       Model % Nodes % y(i), Model % Nodes % z(i)
-                  
-               CASE(2)
-                  WRITE(PostFileUnit,'(3ES17.8E3)') &
-                       Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
-                       Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
-                       Model % Nodes % z(i)
-                  
-               CASE(3)
-                  WRITE(PostFileUnit,'(3ES17.8E3)') &
-                       Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
-                       Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
-                       Model % Nodes % z(i) - MeshScale*Displacement % Values(k+3)
-               END SELECT
-
-            ELSE IF ( l > 0 ) THEN
-               k = MeshUpdate % DOFs * (l-1)
-               SELECT CASE( MeshUpdate % DOFs )
-               CASE(1)
-                  WRITE(PostFileUnit,'(3ES17.8E3)') &
-                       Model % Nodes % x(i) - MeshScale*MeshUpdate % Values(k+1), &
-                       Model % Nodes % y(i), Model % Nodes % z(i)
-                  
-               CASE(2)
-                  WRITE(PostFileUnit,'(3ES17.8E3)') &
-                       Model % Nodes % x(i) - MeshScale*MeshUpdate % Values(k+1), &
-                       Model % Nodes % y(i) - MeshScale*MeshUpdate % Values(k+2), &
-                       Model % Nodes % z(i)
-                  
-               CASE(3)
-                  WRITE(PostFileUnit,'(3ES17.8E3)') &
-                       Model % Nodes % x(i) - MeshScale*MeshUpdate % Values(k+1), &
-                       Model % Nodes % y(i) - MeshScale*MeshUpdate % Values(k+2), &
-                       Model % Nodes % z(i) - MeshScale*MeshUpdate % Values(k+3)
-               END SELECT
-            ELSE
-               WRITE(PostFileUnit,'(3ES17.8E3)') Model % Nodes % x(i),Model % Nodes % y(i), &
-                    Model % Nodes % z(i)
-            ENDIF
-         ELSE
-           IF( MeshDim == 2 ) THEN
-             WRITE(PostFileUnit,'(2ES17.8E3,A)') Model % Nodes % x(i),Model % Nodes % y(i),' 0.0'
-           ELSE
-             WRITE(PostFileUnit,'(3ES17.8E3)') Model % Nodes % x(i),Model % Nodes % y(i), &
-                 Model % Nodes % z(i)            
-           END IF
-
-         END IF
+              DO l=1,MeshUpdate % Dofs
+                Coord(l) = Coord(l) - MeshScale * &
+                    MeshUpdate % Values( Displacement % Dofs * (k-1) + l )
+              END DO
+            END IF
+          END IF
+        END IF
+        
+        IF( MeshDim == 3 ) THEN
+          WRITE(PostFileUnit,'(3ES17.8E3)') Coord(1:MeshDim)
+        ELSE 
+          WRITE(PostFileUnit,'(2ES17.8E3,A)') Coord(1:MeshDim),' 0.0'
+        END IF
       END DO
 
 !------------------------------------------------------------------------------
@@ -3551,7 +3518,7 @@ CONTAINS
                END DO
             END IF
         END DO
-     END IF
+      END IF
 !-----------------------------------------------------------------------------
 !     ...then save it to post file.
 !------------------------------------------------------------------------------

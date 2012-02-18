@@ -193,7 +193,6 @@ CONTAINS
     TYPE(Variable_t), POINTER :: NewVariable
 
     REAL(KIND=dp) :: tt, CPUTime, InitValue
-    REAL(KIND=dp), POINTER :: freqv(:,:)
     REAL(KIND=dp), POINTER :: Component(:)
 
     EXTERNAL FlowSolver, HeatSolver, MagneticSolver, StressSolver, MeshSolver
@@ -793,6 +792,7 @@ CONTAINS
         MGAlgebraic,MultigridActive
     REAL(KIND=dp), POINTER :: Component(:)
     REAL(KIND=dp), POINTER :: freqv(:,:)
+    REAL(KIND=dp) :: Freq
     TYPE(Mesh_t),   POINTER :: NewMesh,OldMesh
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Matrix_t), POINTER :: NewMatrix, Oldmatrix, SaveMatrix
@@ -999,33 +999,42 @@ CONTAINS
           Solver % Matrix % MassValues = 0.0d0
         END IF
       ELSE IF ( HarmonicAnal ) THEN
-        freqv => ListGetConstRealArray( Solver % Values, 'Frequency', Found )
-        IF ( Found ) THEN
-          n = SIZE(Freqv,1)
-          Solver % NOFEigenValues = n
-          IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
-            ALLOCATE( Solver % Variable % EigenValues(n) )
-            ALLOCATE( Solver % Variable % EigenVectors(n, &
-                SIZE( Solver % Variable % Values ) ) )
-            
-            Solver % Variable % EigenValues  = 0.0d0
-            Solver % Variable % EigenVectors = 0.0d0
-            
-            DO k=1,Solver % Variable % DOFs
-              str = ComponentName( Solver % Variable % Name, k )
-              Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
-              IF ( ASSOCIATED( Var ) ) THEN
-                Var % EigenValues => Solver % Variable % EigenValues
-                Var % EigenVectors => &
-                    Solver % Variable % EigenVectors(:,k::Solver % Variable % DOFs)
-              END IF
-            END DO
+
+        n = ListGetInteger( Solver % Values,'Harmonic System Values',Found )
+        IF( n > 1 ) THEN
+          freqv => ListGetConstRealArray( Solver % Values, 'Frequency', Found )
+          IF(Found ) THEN
+            IF( SIZE( Freqv,1) < n ) THEN
+              CALL Fatal( 'AddEquation', 'Frequency must be at least same size as > Harmonic System Values <')
+            END IF
+          ELSE
+            CALL Fatal( 'AddEquation', '> Frequency < must be given for harmonic analysis.' )
           END IF
-          ALLOCATE( Solver % Matrix % MassValues(SIZE(Solver % Matrix % Values)) )
-          Solver % Matrix % MassValues = 0.0d0
         ELSE
-          CALL Fatal( 'AddEquation', 'Frequency must be given for harmonic analysis.' )
+          n = 1
         END IF
+
+        Solver % NOFEigenValues = n
+        IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
+          ALLOCATE( Solver % Variable % EigenValues(n) )
+          ALLOCATE( Solver % Variable % EigenVectors(n, &
+              SIZE( Solver % Variable % Values ) ) )
+          
+          Solver % Variable % EigenValues  = 0.0d0
+          Solver % Variable % EigenVectors = 0.0d0
+          
+          DO k=1,Solver % Variable % DOFs
+            str = ComponentName( Solver % Variable % Name, k )
+            Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
+            IF ( ASSOCIATED( Var ) ) THEN
+              Var % EigenValues => Solver % Variable % EigenValues
+              Var % EigenVectors => &
+                  Solver % Variable % EigenVectors(:,k::Solver % Variable % DOFs)
+            END IF
+          END DO
+        END IF
+        ALLOCATE( Solver % Matrix % MassValues(SIZE(Solver % Matrix % Values)) )
+        Solver % Matrix % MassValues = 0.0d0
       END IF
     END IF
 

@@ -247,53 +247,8 @@ CONTAINS
     REAL(KIND=dp) :: w
     TYPE(ValueList_t), POINTER, OPTIONAL :: ValueList
     LOGICAL, OPTIONAL :: Found
-    LOGICAL :: GotIt
-    TYPE(Element_t), POINTER :: Element
-    INTEGER :: elem_id,eq_id
 
-    ! This is rather complicated since it should replace all the various strategies
-    ! that have been used in different solvers.
-    !------------------------------------------------------------------------------
-
-    ! The only way frequency may depend on element is that it sits in equation block
-    !--------------------------------------------------------------------------------
-    IF( PRESENT( ValueList ) ) THEN
-      w = 2 * PI * ListGetCReal( ValueList,'Frequency',GotIt)
-      IF(.NOT. GotIt) w = ListGetCReal( ValueList,'Angular Frequency',GotIt)
-    ELSE
-      GotIt = .FALSE.
-    END IF
-
-
-    ! Normally the constant frequency is given in Simulation (or solver) block
-    !-------------------------------------------------------------------------
-    IF(.NOT. GotIt) w = 2 * PI * ListGetCReal( &
-        CurrentModel % Simulation,'Frequency',GotIt)
-    IF(.NOT. GotIt ) w = ListGetCReal( &
-        CurrentModel % Simulation,'Angular Frequency',GotIt)
-
-    IF(.NOT. GotIt ) w = 2 * PI * ListGetCReal( &
-        CurrentModel % Solver % Values,'Frequency',GotIt)
-    IF(.NOT. GotIt ) w = ListGetCReal( &
-        CurrentModel % Solver % Values,'Angular Frequency',GotIt)
-
-    ! It seems that the equation section is used to allow compliance with ElmerGUI
-    !------------------------------------------------------------------------------
-    IF( .NOT. GotIt ) THEN
-      elem_id = CurrentModel % Solver % ActiveElements(1)
-      Element => CurrentModel % Elements(elem_id)
-      eq_id = ListGetInteger( CurrentModel % Bodies(Element % bodyid) % Values,'Equation')
-      w = 2 * PI * ListGetCReal( &
-          CurrentModel % Equations(eq_id) % Values,'Frequency',GotIt)
-      IF(.NOT. GotIt) w = ListGetCReal( &
-          CurrentModel % Equations(eq_id) % Values,'Angular Frequency',GotIt)
-    END IF
-
-    IF( PRESENT( Found ) ) THEN
-      Found = GotIt
-    ELSE IF(.NOT. GotIt ) THEN
-      CALL Info('GetAngularFrequency','Angular frequency could not be determined!')
-    END IF
+    w = ListGetAngularFrequency( ValueList, Found )
 
   END FUNCTION GetAngularFrequency
 

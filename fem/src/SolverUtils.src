@@ -5608,11 +5608,9 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
     REAL(KIND=dp) :: Omega = 10, norm, TOL=1.0d-6, s, ILUTol
     REAL(KIND=dp), POINTER :: Freqv(:,:)
     REAL(KIND=dp), ALLOCATABLE :: x(:), b(:)
-    REAL(KIND=dp), TARGET :: matfreqv(1,1)
-    REAL(KIND=dp) :: vecfreqv(1)
+    REAL(KIND=dp) :: frequency
+    INTEGER :: Nfrequency
     TYPE(ValueList_t), POINTER :: BC
-    INTEGER, TARGET :: Dnodes(1)
-    INTEGER, POINTER :: NodeIndexes(:)
 
     DO j=1,Solver % Variable % DOFs
       Name = ComponentName( Solver % Variable % Name, j ) 
@@ -5657,28 +5655,31 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
     b(1:2*n:2) = G % RHS(1:n)
     b(2:2*n:2) = G % RHS_im(1:n)
 
-    ! This cumbersome way makes it possible to use the same data structure even in the case
-    ! of simulation mode being scanning     
-    IF( ListGetString( CurrentModel % Simulation,'Simulation Type') == 'scanning') THEN
-      NodeIndexes => Dnodes
-      i = 1
-      NodeIndexes(i) = 1   
-      vecfreqv(1:1) = ListGetReal(Solver % Values,'Frequency',i,NodeIndexes)
-      matfreqv(1,1) = vecfreqv(1)
-      freqv => matfreqv
-      CALL ListAddConstReal( CurrentModel % Simulation,'res: Frequency',matfreqv(1,1))
-    ELSE
+
+    Nfrequency = ListGetInteger( Solver % Values,'Harmonic System Values',Found )
+    IF( Nfrequency > 1 ) THEN
       freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
+    ELSE
+      Frequency = ListGetAngularFrequency( Solver % Values, Found ) / (2*PI)
+      IF( .NOT. Found ) THEN
+        CALL Fatal( 'AddEquation', '> Frequency < must be given for harmonic analysis.' )
+      END IF
+      Nfrequency = 1
     END IF
 
     CALL ListAddLogical( Solver % Values, 'Harmonic Analysis', .FALSE. )
 
-    DO i=1,MIN(SIZE(freqv,1), Solver % NOFEigenValues)
-      WRITE( Message, '(a,i5,e12.3)' ) 'Frequency sweep: ', i, freqv(i,1)
+    DO i=1,MIN(Nfrequency, Solver % NOFEigenValues)
+      IF( Nfrequency > 1 ) THEN
+        Frequency = freqv(i,1)
+        WRITE( Message, '(a,i5,e12.3)' ) 'Frequency sweep: ', i, frequency
+      ELSE
+        WRITE( Message, '(a,e12.3)' ) 'Frequency value: ', frequency
+      END IF
       CALL Info( 'HarmonicSolve', ' ' )
       CALL Info( 'HarmonicSolve', Message )
 
-      omega = 2 * PI * freqv(i,1)
+      omega = 2 * PI * Frequency
       DO k=1,n
         kr = A % Rows(2*(k-1)+1)
         ki = A % Rows(2*(k-1)+2)
