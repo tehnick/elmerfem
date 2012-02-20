@@ -2979,7 +2979,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
      TYPE(Model_t) :: Model
      CHARACTER(LEN=*) :: Name
      LOGICAL :: Found
-!------------------------------------------------------------------------------
      INTEGER :: bc
      
      Found = .FALSE.
@@ -2991,6 +2990,26 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END FUNCTION ListCheckPresentAnyBC
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Check if the keyword is True in any boundary condition.
+!------------------------------------------------------------------------------
+   FUNCTION ListGetLogicalAnyBC( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found, GotIt
+     INTEGER :: bc
+     
+     Found = .FALSE.
+     DO bc = 1,Model % NumberOfBCs
+       Found = ListgetLogical( Model % BCs(bc) % Values, Name, GotIt )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListGetLogicalAnyBC
+!------------------------------------------------------------------------------
+
+
 
 !------------------------------------------------------------------------------
 !> Check if the keyword is present in any body force.
@@ -3000,7 +3019,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
      TYPE(Model_t) :: Model
      CHARACTER(LEN=*) :: Name
      LOGICAL :: Found
-!------------------------------------------------------------------------------
      INTEGER :: bf
      
      Found = .FALSE.
@@ -3013,6 +3031,25 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!> Check if the keyword is True in any body force.
+!------------------------------------------------------------------------------
+   FUNCTION ListGetLogicalAnyBodyForce( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found, GotIt
+     INTEGER :: bf
+     
+     Found = .FALSE.
+     DO bf = 1,Model % NumberOfBodyForces
+       Found = ListGetLogical( Model % BodyForces(bf) % Values, Name, GotIt )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListGetLogicalAnyBodyForce
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
 !> Check if the keyword is present in any material.
 !------------------------------------------------------------------------------
    FUNCTION ListCheckPresentAnyMaterial( Model, Name ) RESULT(Found)
@@ -3020,7 +3057,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
      TYPE(Model_t) :: Model
      CHARACTER(LEN=*) :: Name
      LOGICAL :: Found
-!------------------------------------------------------------------------------
      INTEGER :: mat
      
      Found = .FALSE.
@@ -3032,6 +3068,62 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END FUNCTION ListCheckPresentAnyMaterial
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Check if the keyword is True in any material.
+!------------------------------------------------------------------------------
+   FUNCTION ListGetLogicalAnyMaterial( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found, GotIt
+     INTEGER :: mat
+     
+     Found = .FALSE.
+     DO mat = 1,Model % NumberOfMaterials
+       Found = ListGetLogical( Model % Materials(mat) % Values, Name, GotIt )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListGetLogicalAnyMaterial
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Check if the keyword is present in any equation.
+!------------------------------------------------------------------------------
+   FUNCTION ListCheckPresentAnyEquation( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found
+     INTEGER :: eq
+     
+     Found = .FALSE.
+     DO eq = 1,Model % NumberOfEquations
+       Found = ListCheckPresent( Model % Equations(eq) % Values, Name )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListCheckPresentAnyEquation
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Check if the keyword is True in any equation.
+!------------------------------------------------------------------------------
+   FUNCTION ListGetLogicalAnyEquation( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found, GotIt
+     INTEGER :: eq
+     
+     Found = .FALSE.
+     DO eq = 1,Model % NumberOfEquations
+       Found = ListGetLogical( Model % Equations(eq) % Values, Name, GotIt )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListGetLogicalAnyEquation
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
