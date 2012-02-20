@@ -3197,15 +3197,19 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   ELSE
     MaxModes = ListGetInteger( Params,'Number of EigenModes',GotIt)
     IF(.NOT. GotIt) MaxModes = ListGetInteger( Params,'Eigen System Values',GotIt)
+    IF(.NOT. GotIt) THEN
+      DO i=1,Model % NumberOfSolvers
+        MaxModes = MAX( MaxModes, &
+            ListGetInteger( Model % Solvers(i) % Values,'Eigen System Values', GotIt ) )
+        MaxModes = MAX( MaxModes, &
+            ListGetInteger( Model % Solvers(i) % Values,'Harmonic System Values', GotIt ) )       
+      END DO
+    END IF     
   END IF
 
   EigenAnalysis = ListGetLogical( Params,'Eigen Analysis',GotIt)
   IF( EigenAnalysis ) THEN
-    IF( MaxModes == 0 ) THEN
-      CALL Fatal('VtuOutputSolver','Give > Number of EigenModes < or > Active EigenModes < !')
-    ELSE
-      CALL Info('VtuOutputSolver','Saving each eigenmode to different file')
-    END IF
+    CALL Info('VtuOutputSolver','Saving each eigenmode to different file')
     FileIndex = 1
   END IF
 
