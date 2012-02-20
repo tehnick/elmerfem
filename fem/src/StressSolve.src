@@ -39,18 +39,27 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
-  SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
+!> Initialization for the primary solver: StressSolver. 
+!------------------------------------------------------------------------------
+SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
+    IMPLICIT NONE
 
     TYPE(Model_t)  :: Model
     TYPE(Solver_t) :: Solver
     REAL(KIND=dp) :: DT
     LOGICAL :: Transient
 !------------------------------------------------------------------------------
-    INTEGER :: dim
+    INTEGER :: dim,i
     TYPE(ValueList_t), POINTER :: SolverParams
+    LOGICAL :: Found, CalculateStrains, CalcPrincipalAngle, CalcPrincipalAll, &
+        CalcStressAll, CalcStress
+    CHARACTER(LEN=MAX_NAME_LEN) :: eqname
 !------------------------------------------------------------------------------
+
+!    PRINT *,'Running StressSolver_Init'
+
     SolverParams => GetSolverParams()
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       dim = CoordinateSystemDimension()
@@ -58,11 +67,77 @@
       CALL ListAddString( SolverParams, 'Variable', 'Displacement' )
     END IF
     CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
+
+
+    CalculateStrains = GetLogical(SolverParams, 'Calculate Strains', Found)
+    CalcPrincipalAngle = GetLogical(SolverParams, 'Calculate PAngle', Found)
+    CalcPrincipalAll = GetLogical(SolverParams, 'Calculate Principal', Found)
+    CalcStressAll = GetLogical( SolverParams, 'Calculate Stresses',Found )
+    IF(CalcPrincipalAngle) CalcPrincipalAll = .TRUE. ! can't calculate angle without principal
+    IF(CalcPrincipalAll)   CalcStressAll = .TRUE. ! can't calculate principal without components
+    IF(CalculateStrains)   CalcStressAll = .TRUE. ! can't calculate principal without components
+    
+    eqname = GetString( SolverParams, 'Equation' )
+    CalcStress = .FALSE.
+    DO i=1,Model % NumberOfEquations
+      IF ( .NOT. GetLogical(Model % Equations(i) % Values,eqname,Found) ) CYCLE
+      
+      CalcStress = CalcStress .OR. GetLogical( &
+          Model % Equations(i) % Values, 'Calculate Stresses', Found )
+      
+      IF ( .NOT. Found .AND. CalcStressAll ) THEN
+        CALL ListAddLogical( &
+            Model % Equations(i) % Values, 'Calculate Stresses', .TRUE. )
+      END IF
+    END DO
+
+    IF ( CalcStress .OR. CalcStressAll ) THEN
+      PRINT *,'Adding > Stress < and > vonMises < variables'
+      CALL ListAddString( SolverParams,&
+          NextFreeKeyword('Exported Variable ',SolverParams), &
+          'Stress[Stress_xx:1 Stress_yy:1 Stress_zz:1 Stress_xy:1 Stress_xz:1 Stress_yz:1]' )
+      CALL ListAddString( SolverParams,&
+          NextFreeKeyword('Exported Variable ',SolverParams), &
+          'vonMises' )
+      
+      IF(CalcPrincipalAll) THEN
+        CALL ListAddString( SolverParams,&
+            NextFreeKeyword('Exported Variable ',SolverParams), &
+            'Principal Stress[Principal Stress:3]' )
+        CALL ListAddString( SolverParams,&
+            NextFreeKeyword('Exported Variable ',SolverParams), &
+            'Tresca' )
+        
+        IF(CalcPrincipalAngle) THEN
+          CALL ListAddString( SolverParams,&
+              NextFreeKeyword('Exported Variable ',SolverParams), &
+              '-dofs 9 Principal Angle' )
+        END IF ! PrincipalAngle
+      END IF !CalcPrincipalAll      
+    END IF ! CalcStress or CalcStressAll
+    
+    IF(CalculateStrains) THEN
+      CALL ListAddString( SolverParams,&
+          NextFreeKeyword('Exported Variable ',SolverParams), &
+          'Strain[Strain_xx:1 Strain_yy:1 Strain_zz:1 Strain_xy:1 Strain_xz:1 Strain_yz:1]' )
+      IF(CalcPrincipalAll) THEN
+        CALL ListAddString( SolverParams,&
+            NextFreeKeyword('Exported Variable ',SolverParams), &
+            'Principal Strain[Principal Strain:3]' )
+      END IF
+    END IF
+
+
 !------------------------------------------------------------------------------
   END SUBROUTINE StressSolver_Init
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Solves the elastic displacement assuming linear stress-strain relationship.
+!> The solver is burdened with a plethora of different options. For example,
+!> various kinds of stresses may be computed. Also some basic features for
+!> model lumping and contact analysis exist.
 !------------------------------------------------------------------------------
    SUBROUTINE StressSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -75,27 +150,8 @@
 
     IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for one timestep
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
      TYPE(Model_t)  :: Model
      TYPE(Solver_t), TARGET :: Solver
-
      LOGICAL ::  Transient
      REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------
@@ -325,67 +381,46 @@
 
              Var => VariableGet( Solver % Mesh % Variables, 'Stress' )
              IF ( .NOT. ASSOCIATED( Var ) ) THEN
-               ALLOCATE( NodalStress ( 6*n ) )
-!               NodalStress = 0.0d0
-               CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                           'Stress', 6, NodalStress, DisplPerm )
+               CALL Fatal('StressSolver','Variable > Stress < does not exits!')
              END IF
 
              Var => VariableGet( Solver % Mesh % Variables, 'VonMises' )
              IF ( .NOT. ASSOCIATED( Var ) ) THEN
-               ALLOCATE( VonMises( n ) )
-               CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                           'VonMises', 1, VonMises, DisplPerm )
+               CALL Fatal('StressSolver','Variable > vonMises < does not exits!')
              END IF
+             
+             IF(CalcPrincipalAll) THEN
+               Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress' )
+               IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                 CALL Fatal('StressSolver','Variable > Principal Stress < does not exits!')
+               END IF
 
-                   IF(CalcPrincipalAll) THEN
-                         Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress' )
-                         IF ( .NOT. ASSOCIATED( Var ) ) THEN
-                               ALLOCATE( PrincipalStress ( 3*n ) )
-                               PrincipalStress = 0.0d0
-                               CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                                                'Principal Stress', 3, PrincipalStress, DisplPerm )
-                         END IF 
-                         Var => VariableGet( Solver % Mesh % Variables, 'Tresca' )
-                         IF ( .NOT. ASSOCIATED( Var ) ) THEN
-                           ALLOCATE( Tresca( n ) )
-                           CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                                             'Tresca', 1, Tresca, DisplPerm )
-                         END IF
-                        
-                         IF(CalcPrincipalAngle) THEN
-                              Var => VariableGet( Solver % Mesh % Variables, 'Principal Angle' )
-                              IF ( .NOT. ASSOCIATED( Var ) ) THEN
-                               ALLOCATE( PrincipalAngle ( 9*n ) )
-                               PrincipalAngle = 0.0d0
-                               CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                                                'Principal Angle', 9, PrincipalAngle, DisplPerm )
-                         END IF
-                         END IF ! PrincipalAngle
-                   END IF !CalcPrincipalAll
+               Var => VariableGet( Solver % Mesh % Variables, 'Tresca' )
+               IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                 CALL Fatal('StressSolver','Variable > Tresca < does not exits!')
+               END IF
+               
+               IF(CalcPrincipalAngle) THEN
+                 Var => VariableGet( Solver % Mesh % Variables, 'Principal Angle' )                 
+                 IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                   CALL Fatal('StressSolver','Variable > Principal Angle < does not exits!')
+                 END IF
+               END IF ! PrincipalAngle
+             END IF !CalcPrincipalAll             
+           END IF ! CalcStress or CalcStressAll
 
-          END IF ! CalcStress or CalcStressAll
-
-                  IF(CalculateStrains) THEN
-                  Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
-                  IF ( .NOT. ASSOCIATED( Var ) ) THEN
-                    ALLOCATE( NodalStrain ( 6*n ) )
-      !               NodalStrain = 0.0d0
-                    CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                      'Strain', 6, NodalStrain, DisplPerm )
-                  END IF
-                        IF(CalcPrincipalAll) THEN
-                         Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
-                         IF ( .NOT. ASSOCIATED( Var ) ) THEN
-                               ALLOCATE( PrincipalStrain ( 3*n ) )
-                               PrincipalStrain = 0.0d0
-                               CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                                                'Principal Strain', 3, PrincipalStrain, DisplPerm )
-                         END IF                        
-                        END IF
-                  END IF !Calculate strains
-
-
+           IF(CalculateStrains) THEN
+             Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
+             IF ( .NOT. ASSOCIATED( Var ) ) THEN
+               CALL Fatal('StressSolver','Variable > Strain < does not exits!')
+             END IF
+             IF(CalcPrincipalAll) THEN
+               Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
+               IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                 CALL Fatal('StressSolver','Variable > Principal Strain < does not exits!')
+               END IF
+             END IF
+           END IF !Calculate strains
 
           Contact = GetLogical( SolverParams, 'Contact', Found )
           IF( Contact ) THEN
