@@ -2595,18 +2595,19 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
   REAL (KIND=DP), ALLOCATABLE ::  Values(:), Basis(:)
   REAL (KIND=dp) :: daxisx, daxisy, daxisz, x, y, z, eps, IntersectEpsilon, DetEpsilon, &
-	f1, f2, fn, weight
-  REAL (KIND=DP), POINTER :: PointCoordinates(:,:), PointFluxes(:,:), PointWeight(:)
+	f0, f1, f2, fn, q, weight
+  REAL (KIND=DP), POINTER :: PointCoordinates(:,:), PointFluxes(:,:), PointWeight(:), Isosurf(:)
   LOGICAL :: Stat, GotIt, SubroutineVisited = .FALSE., FileAppend, CalculateFlux, &
       SaveAxis(3), Inside, MovingMesh, IntersectEdge, OptimizeOrder, Found, GotVar, &
       SkipBoundaryInfo
   INTEGER :: i,j,k,ivar,l,n,m,t,DIM,mat_id, TimesVisited=0, SaveThis, PrevDoneTime=-1, &
       Side, SaveNodes, SaveNodes2, node, NoResults, LocalNodes, NoVar, &
       No, axis, maxboundary, NoDims, MeshDim, NoLines, NoAxis, Line, NoFaces, &
-      NoEigenValues, IntersectCoordinate, ElemCorners, ElemDim, FluxBody, istat
-  INTEGER, POINTER :: NodeIndexes(:), SavePerm(:), InvPerm(:), BoundaryIndex(:)
+      NoEigenValues, IntersectCoordinate, ElemCorners, ElemDim, FluxBody, istat, &
+      i1, i2
+  INTEGER, POINTER :: NodeIndexes(:), SavePerm(:), InvPerm(:), BoundaryIndex(:), IsosurfPerm(:)
   TYPE(Solver_t), POINTER :: ParSolver
-  TYPE(Variable_t), POINTER :: Var
+  TYPE(Variable_t), POINTER :: Var, IsosurfVar
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Material, SolverParams
   TYPE(Nodes_t) :: ElementNodes, LineNodes
@@ -2626,7 +2627,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   CALL Info('SaveLine','-----------------------------------------', Level=4 )
-  CALL Info('SaveLine','Saving data on given lines',Level=4)
+  CALL Info('SaveLine','Saving data on specified lines',Level=4)
 
 
   SolverParams => GetSolverParams()
@@ -2772,7 +2773,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
     
   ALLOCATE( Values(NoResults), STAT=istat )
   IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 2') 
-
+ 
  
   CALL Info( 'SaveLine', '------------------------------------------', Level=4 )
   WRITE( Message, * ) 'Saving line data to file ', TRIM(SideFile)
@@ -2817,13 +2818,15 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
      CALL MakePermUsingMask( Model,Solver,Mesh,MaskName, &
           OptimizeOrder, SavePerm, SaveNodes, RequireLogical = .TRUE. )
-
-     IF( ListGetLogical( SolverParams,'Calculate Weights',GotIt ) ) THEN
-       CALL CalculateNodalWeights( Solver, .TRUE., SavePerm, TRIM(MaskName)//' Weights')
+     
+     IF( SaveNodes > 0 ) THEN
+       IF( ListGetLogical( SolverParams,'Calculate Weights',GotIt ) ) THEN
+         CALL CalculateNodalWeights( Solver, .TRUE., SavePerm, TRIM(MaskName)//' Weights')
+       END IF
+       
+       WRITE( Message, * ) 'Number of nodes in specified boundary ', SaveNodes
+       CALL Info('SaveLine',Message)
      END IF
-
-     WRITE( Message, * ) 'Number of nodes in specified boundary ', SaveNodes
-     CALL Info('SaveLine',Message)
   END IF
   PrevMaskName = MaskName
 
@@ -2887,6 +2890,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
        END IF
        IF(.NOT. Found) CYCLE
        
+       MaxBoundary = MAX( MaxBoundary, k ) 
        BoundaryIndex( SavePerm(NodeIndexes) ) = k
 
        IF( .NOT. CalculateFlux ) CYCLE
@@ -2922,11 +2926,9 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
        END DO
        DEALLOCATE(PointWeight)
      END IF
-     MaxBoundary = MAXVAL(BoundaryIndex)
      
      ! Save the nodes      
-     !---------------
-     
+     !---------------     
      DO t = 1, SaveNodes    
        
        node = InvPerm(t)
@@ -3030,6 +3032,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
         END IF
       END IF
             
+      MaxBoundary = MaxBoundary + 1
+
       DO t = 1,NoFaces        
         IF(DIM == 2 .OR. IntersectEdge) THEN
           CurrentElement => Mesh % Edges(t)
@@ -3064,7 +3068,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
         
         IF( .NOT. SkipBoundaryInfo ) THEN
           IF(TransientSimulation) WRITE(10,'(I6)',ADVANCE='NO') Solver % DoneTime
-          WRITE(10,'(I6,I4,I8)',ADVANCE='NO') TimesVisited,maxboundary+Line,NodeIndexes(i)
+          WRITE(10,'(I6,I4,I8)',ADVANCE='NO') TimesVisited,MaxBoundary,NodeIndexes(i)
         END IF
         
         No = 0
@@ -3114,6 +3118,166 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
     
     WRITE( Message, * ) 'Number of nodes in specified lines ', SaveNodes2
     CALL Info('SaveLine',Message)
+  END IF
+
+
+  !---------------------------------------------------------------------------
+  ! Save data in the intersections isocurves and element edges.
+  !---------------------------------------------------------------------------
+
+  IF( ListGetLogical( SolverParams,'Save Isocurves',Found) ) THEN
+
+    IF( DIM == 3 ) THEN
+      CALL Fatal('SaveLine','Isocurves can only be saved in 2D')
+    END IF
+
+    ALLOCATE( LineTag(Mesh % NumberOfNodes), STAT=istat )
+    IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 6') 
+        
+    IF(.NOT. SubroutineVisited) THEN 
+      CALL FindMeshEdges( Mesh, .FALSE.)
+    END IF
+    
+    NoFaces = Mesh % NumberOfEdges
+    Line = 0
+
+    DO WHILE( .TRUE. ) 
+      
+      Line = Line + 1
+      LineTag = .FALSE.
+      SaveNodes2 = 0
+ 
+      WRITE (Name,'(A,I0)') 'IsoSurface Variable ',Line
+      VarName = ListGetString( SolverParams, Name, GotVar )
+      
+      WRITE (Name,'(A,I0)') 'IsoSurface Value ',Line
+      f0 = ListGetCReal( SolverParams, Name, Found )
+
+      IF( GotVar ) THEN
+        IsosurfVar => VariableGet( Mesh % Variables, VarName )
+        IF( .NOT. ASSOCIATED( IsosurfVar ) ) THEN
+          CALL Warn('SaveLine','Isosurface variable not given: '//TRIM(VarName))
+          EXIT
+        END IF
+        IsosurfPerm => IsosurfVar % Perm
+        Isosurf => IsosurfVar % Values       
+      ELSE
+        IF( Line == 1 ) THEN
+          CALL Warn('SaveLine','No > Isosurface Variable 1 < defined!')
+          EXIT
+        END IF
+        IF(.NOT. Found ) EXIT
+      END IF
+      
+      WRITE( Message, * ) 'Finding nodes on isocurve: ',Line
+      CALL Info('SaveLine',Message)
+      
+      f1 = MINVAL( Isosurf ) 
+      f2 = MAXVAL( Isosurf ) 
+      IF( f0 <= f1 .OR. f0 >= f2 ) THEN
+        CALL Warn('SaveLine','Isosurface value not within range!')        
+        PRINT *,'Range:',f1,f2,'f0:',f0
+        CYCLE
+      END IF
+
+      
+      MaxBoundary = MaxBoundary + 1
+
+      DO t = 1,NoFaces        
+
+        CurrentElement => Mesh % Edges(t)
+        
+        n = CurrentElement % TYPE % NumberOfNodes
+        NodeIndexes => CurrentElement % NodeIndexes
+        
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = 0.0d0
+
+        i1 = IsosurfPerm( NodeIndexes(1) )
+        IF( i1 == 0 ) CYCLE
+        f1 = Isosurf( i1 ) - f0
+
+        i2 = IsosurfPerm( NodeIndexes(2) )
+        IF( i2 == 0 ) CYCLE
+        f2 = Isosurf( i2 ) - f0 
+
+        ! There is an intersection if the value
+        IF( f1 * f2 >= 0.0_dp ) CYCLE 
+        
+        q = ABS( f2 ) / ( ABS(f1) + ABS(f2) )
+
+        Basis(1:n) = 0.0_dp
+        Basis(1) = q
+        Basis(2) = 1-q
+
+        IF( Basis(1) > Basis(2) ) THEN
+          k = NodeIndexes(1)
+        ELSE
+          k = Nodeindexes(2)
+          q = 1-q
+        END IF
+
+        IF( q > 0.999 ) THEN
+          IF( LineTag(k) ) CYCLE
+          LineTag(k) = .TRUE.
+        END IF
+        SaveNodes2 = SaveNodes2 + 1
+        
+        IF( .NOT. SkipBoundaryInfo ) THEN
+          IF(TransientSimulation) WRITE(10,'(I6)',ADVANCE='NO') Solver % DoneTime
+          WRITE(10,'(I6,I4,I8)',ADVANCE='NO') TimesVisited,MaxBoundary,k
+        END IF
+        
+        No = 0
+        Values = 0.0d0
+        
+        DO ivar = 1,NoVar
+          Var => VariableGetN( ivar ) 
+          
+          IF (ASSOCIATED (Var % EigenVectors)) THEN
+            NoEigenValues = SIZE(Var % EigenValues) 
+            DO j=1,NoEigenValues
+              DO k=1,n
+                l = NodeIndexes(k)
+                IF ( ASSOCIATED(Var % Perm) ) l = Var % Perm(l)
+                IF(l > 0) THEN 
+                  DO i=1,Var % DOFs
+                    Values(No+(j-1)*Var%Dofs+i) = Values(No+(j-1)*Var%Dofs+i) + &
+                        Basis(k) * (Var % EigenVectors(j,Var%Dofs*(l-1)+i))
+                  END DO
+                END IF
+              END DO
+            END DO
+            No = No + Var % Dofs * NoEigenValues
+          ELSE                  
+            No = No + 1
+            DO k=1,n
+              l = NodeIndexes(k)
+              IF ( ASSOCIATED(Var % Perm) ) l = Var % Perm(l)
+              IF(l > 0) Values(No) = Values(No) + Basis(k) * (Var % Values(l))
+            END DO
+          END IF
+        END DO
+        
+        IF ( CalculateFlux ) Values(No+1:No+3) = 0.0
+        
+        IF(NoResults > 0) THEN
+          DO i=1,NoResults-1
+            WRITE(10,'(ES20.11E3)',ADVANCE='NO') Values(i)
+          END DO
+          WRITE(10,'(ES20.11E3)') Values(NoResults)
+        END IF
+        
+      END DO
+
+      WRITE( Message, * ) 'Number of nodes in isocurve: ', SaveNodes2
+      CALL Info('SaveLine',Message)
+         
+    END DO
+    
+    DEALLOCATE( LineTag )
+    
   END IF
   CLOSE(10)
   DEALLOCATE( Values )
