@@ -205,7 +205,15 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
   ! Figure out angular frequency and save it for SaveScalars:
   !----------------------------------------------------------
-  IF(.NOT. GotFrequency ) AngularFrequency = GetAngularFrequency()
+  IF(.NOT. GotFrequency ) THEN 
+    AngularFrequency = GetAngularFrequency(Found = GotFrequency )
+  END IF
+
+  IF(.NOT. GotFrequency ) THEN
+    CALL Fatal('HelmholtzSolver','Could not fugure out Frquency!')
+  END IF
+
+
   CALL ListAddConstReal( Model % Simulation, 'res: Frequency', AngularFrequency /(2*PI) )
 
 
@@ -526,6 +534,7 @@ CONTAINS
           CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,X,Y,Z )
           s = s * SqrtMetric
        END IF
+
 !------------------------------------------------------------------------------
 !      The source term and the coefficient of the time derivative and 
 !      diffusion terms at the integration point
@@ -618,11 +627,12 @@ CONTAINS
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,Impedance1,Impedance2,L1,L2
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),X,Y,Z
     REAL(KIND=dp) :: Normal(3), Velo(3), NormVelo, TangVelo(3), Rho
+    REAL(KIND=dp) :: Metric(3,3),SqrtMetric,Symb(3,3,3),dSymb(3,3,3,3)
     COMPLEX(KIND=dp) :: A, B, Admittance
     LOGICAL :: Stat
     INTEGER :: i,p,q,t,dim,CoordSys
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
-
+ 
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
 !------------------------------------------------------------------------------
@@ -649,6 +659,14 @@ CONTAINS
               Basis, dBasisdx ) 
 
        s = s * SqrtElementMetric
+
+       IF ( CoordSys /= Cartesian ) THEN
+          X = SUM( Nodes % X(1:n) * Basis(1:n) )
+          Y = SUM( Nodes % Y(1:n) * Basis(1:n) )
+          Z = SUM( Nodes % Z(1:n) * Basis(1:n) )
+          CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,X,Y,Z )
+          s = s * SqrtMetric
+       END IF
 
        Normal = Normalvector(Element, Nodes, U, V, .TRUE.)
 
