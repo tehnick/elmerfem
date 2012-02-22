@@ -4694,7 +4694,7 @@ PRINT *,'NoPeriodic',NoPeriodic
       
       IF( VisitedTimes == 1 .OR. NumberFilesBySteps ) THEN
         OPEN (10, FILE=FileName )
-        WRITE( 10, '()', ADVANCE='no' ) ! delete old contents
+        WRITE( 10, '(A)', ADVANCE='no' ) ' ' ! delete old contents
       ELSE
         OPEN (10, FILE=FileName,POSITION='APPEND' )
       END IF
@@ -4710,18 +4710,21 @@ PRINT *,'NoPeriodic',NoPeriodic
     SUBROUTINE WriteParticleLine( Dim, No )
       INTEGER :: Dim, No
       
+      WRITE( 10,'(ES12.4)', ADVANCE = 'NO' ) time
+      
       IF( NumberFilesBySteps ) THEN
-        WRITE( 10,'()', ADVANCE = 'NO' ) time, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
+        WRITE( 10,'(I6)', ADVANCE = 'NO' ) No
       ELSE IF( NumberFilesByParticles ) THEN
-        WRITE( 10,'()', ADVANCE = 'NO' ) time, VisitedTimes, Coord(No,1:Dim), Velo(No,1:dim), Dist(No) 
+        WRITE( 10,'(I6)', ADVANCE = 'NO' ) VisitedTimes
       ELSE       
-        WRITE( 10,'()', ADVANCE = 'NO' ) time, VisitedTimes, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
+        WRITE( 10,'(2I6)', ADVANCE = 'NO' ) VisitedTimes, No
       END IF
-        
-      IF( GotDistVar ) WRITE (10,'()',ADVANCE='NO') PartDistVar % Values(No)
-      IF( GotTimeVar ) WRITE (10,'()',ADVANCE='NO') PartTimeVar % Values(No)
-      WRITE(10,*) ' '
 
+      WRITE( 10,'(7ES12.4)', ADVANCE = 'NO' ) Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
+       
+      IF( GotDistVar ) WRITE (10,'(ES12.4)',ADVANCE='NO') PartDistVar % Values(No)
+      IF( GotTimeVar ) WRITE (10,'(ES12.4)',ADVANCE='NO') PartTimeVar % Values(No)
+      WRITE(10,'(A)') ' '
 
     END SUBROUTINE WriteParticleLine
     
