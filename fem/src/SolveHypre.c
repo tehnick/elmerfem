@@ -367,7 +367,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
   int *ILUn, int *BILU,
   int *hypre_method, int *hypre_intpara, double *hypre_dppara,
   int *verbosityPtr,
-  void** ContainerPtr
+  int** ContainerPtr
  )
 {
    int i, j, k, *rcols;
@@ -403,7 +403,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 
    Container = (ElmerHypreContainer*)malloc(sizeof(ElmerHypreContainer));
 
-   *ContainerPtr=(void*)(Container);
+   *ContainerPtr=(int*)(Container);
 
 st  = realtime_();
 
@@ -725,7 +725,7 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
  (
   int *nrows, int *globaldofs, int *owner,  double *xvec,
   double *rhsvec, int *Rounds, double *TOL,
-  int *verbosityPtr, void** ContainerPtr
+  int *verbosityPtr, int** ContainerPtr
  )
 {
 
@@ -861,7 +861,7 @@ if (Container==NULL)
 */
 
 /* destroy HYPRE data structure stored in a fortran environment */
-void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(void** ContainerPtr)
+void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(int** ContainerPtr)
    {
    ElmerHypreContainer* Container = (ElmerHypreContainer*)(*ContainerPtr);
    if (Container==0) return;

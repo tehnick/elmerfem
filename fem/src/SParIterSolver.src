@@ -1249,6 +1249,8 @@ END SUBROUTINE ZeroSplittedMatrix
 SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
             RHSVec, Solver, SParMatrixDesc )
 
+  USE, intrinsic :: iso_c_binding                
+
   TYPE (ParallelInfo_t) :: ParallelInfo
   TYPE (Matrix_t) :: SourceMatrix
   REAL(KIND=dp), DIMENSION(:) :: XVec, RHSVec
@@ -1265,6 +1267,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   TYPE (GlueTableT), POINTER :: GT
 
   CHARACTER(LEN=MAX_NAME_LEN) :: Prec, IterativeMethod
+  CHARACTER(LEN=MAX_NAME_LEN) :: XmlFile
   REAL(KIND=dp) :: TOL, hypre_dppara(5) = 0
   INTEGER :: ILUn, BILU, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob, &
       hypre_solver, hypre_pre, hypremethod,  &
@@ -1278,6 +1281,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   LOGICAL :: NeedMass, NeedDamp, NeedPrec,Found
   LOGICAL :: NewSetup
   INTEGER :: verbosity
+  
+  INTEGER :: nrows, ncols, nnz
 
 #ifdef HAVE_HYPRE
     INTERFACE
@@ -1298,24 +1303,22 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
            Owner, ILUn, BILU, &
            hypremethod, hypre_intpara, hypre_dppara, &
            verbosity, hypreContainer)
-        USE Types, only: AddrInt
         USE, intrinsic :: iso_c_binding
-        INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
-                   PE, Owner(n), Rounds, ILUn, BILU, hypremethod, &
+        INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), GDOFs(n), &
+                   PE, Owner(n), ILUn, BILU, hypremethod, &
                    symmetry, maxlevel, hypre_intpara(10), verbosity
         REAL(KIND=c_double) :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter, &
                             hypre_dppara(5)
-        INTEGER(KIND=AddrInt) :: hypreContainer
+        INTEGER(KIND=C_INTPTR_T) :: hypreContainer
       END SUBROUTINE SolveHYPRE1
 
       !! solve linear system with same matrix as in SolveHYPRE1
       SUBROUTINE SolveHYPRE2( n, GDOFs, &
            Owner, Xvec, RHSVec, Rounds, TOL, verbosity, hypreContainer)
         USE, intrinsic :: iso_c_binding
-        USE Types, only: AddrInt
         INTEGER(KIND=c_int) :: n, GDOFs(n), Owner(n), Rounds, verbosity
         REAL(KIND=c_double) :: Xvec(n),RHSvec(n),TOL
-        INTEGER(KIND=AddrInt) :: hypreContainer
+        INTEGER(KIND=C_INTPTR_T) :: hypreContainer
       END SUBROUTINE SolveHYPRE2
 
       !! note: SolveHYPRE3 does not yet exist, it would update the matrix
@@ -1324,9 +1327,53 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       !! destroy the data structures (should be called when the matrix has
       !! to be updated and SolveHYPRE1 has to be called again).
       SUBROUTINE SolveHYPRE4(hypreContainer)
-        USE Types, only: AddrInt
-        INTEGER(KIND=AddrInt) :: hypreContainer
+        USE, intrinsic :: iso_c_binding
+        INTEGER(KIND=C_INTPTR_T) :: hypreContainer
       END SUBROUTINE SolveHYPRE4
+
+    END INTERFACE
+#endif
+
+#ifdef HAVE_TRILINOS
+    INTERFACE
+      !! create Trilinos matrix and setup solver/preconditioner
+      SUBROUTINE SolveTrilinos1( n, nnz, Rows, Cols, Vals, &
+           GDOFs, Owner, &
+           xmlfilename, verbosity, triliContainer, ierr) bind(C,name='SolveTrilinos1')
+        
+        USE, intrinsic :: iso_c_binding
+        
+        INTEGER(KIND=c_int) :: n ! number of nodes belonging to local elements
+        INTEGER(KIND=c_int) :: nnz   ! number of local nonzeros
+        INTEGER(KIND=c_int) :: Rows(n+1), Cols(nnz), GDOFs(n), &
+                   PE, Owner(n)
+        REAL(KIND=c_double) :: Vals(nnz)
+        INTEGER(KIND=c_int) :: verbosity
+        CHARACTER(c_char) :: xmlfilename
+        INTEGER(KIND=C_INTPTR_T) :: triliContainer
+        INTEGER(KIND=C_INT) :: ierr
+      END SUBROUTINE SolveTrilinos1
+
+      !! solve linear system with same matrix as in SolveHYPRE1
+      SUBROUTINE SolveTrilinos2( n, Xvec, RHSVec, Rounds, TOL, &
+      verbosity, triliContainer, ierr) &
+                bind(C,name='SolveTrilinos2')
+        USE, intrinsic :: iso_c_binding
+        INTEGER(KIND=c_int) :: n, Rounds, verbosity
+        REAL(KIND=c_double) :: Xvec(n),RHSvec(n),TOL
+        INTEGER(KIND=C_INTPTR_T) :: triliContainer
+        INTEGER(KIND=C_INT) :: ierr
+      END SUBROUTINE SolveTrilinos2
+
+      !! note: SolveTrilinos3 does not yet exist, it would update the matrix
+      !!       but not the preconditioner.
+
+      !! destroy the data structures (should be called when the matrix has
+      !! to be updated and SolveTrilinos1 has to be called again).
+      SUBROUTINE SolveTrilinos4(triliContainer) bind(C,name='SolveTrilinos4')
+        USE, intrinsic :: iso_c_binding
+        INTEGER(KIND=C_INTPTR_T) :: triliContainer
+      END SUBROUTINE SolveTrilinos4
 
     END INTERFACE
 #endif
@@ -1503,6 +1550,115 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       
       DEALLOCATE( Owner, Aperm )
 
+      ALLOCATE( VecEPerNB( ParEnv % PEs ) )
+      VecEPerNB = 0
+      DO i = 1, SourceMatrix % NumberOfRows
+         IF ( SIZE(ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) THEN
+            IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
+               DO j = 1, SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+                  IF (ParallelInfo % NeighbourList(i) % Neighbours(j)/=ParEnv % MyPE) THEN
+                     nbind = ParallelInfo % NeighbourList(i) % Neighbours(j) + 1
+                     VecEPerNB(nbind) = VecEPerNB(nbind) + 1
+
+                     SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
+                     SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                       ParallelInfo % GlobalDOFs(i)
+                  END IF
+               END DO
+            END IF
+         END IF
+      END DO
+
+      CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
+      DEALLOCATE( VecEPerNB )
+
+      RETURN
+   END IF
+#endif
+
+#ifdef HAVE_TRILINOS
+    IF (ListGetLogical(CurrentModel % Solver % Values,  &
+           'Linear System Use Trilinos', Found )) THEN
+
+      ! we attempt to read Trilinos settings from an XML file,
+      ! which is their usual way of getting parameters. If no 
+      ! file is given, we use default settings and issue a    
+      ! warning.
+      xmlfile = ListGetString( Solver % Values, & 
+          'Trilinos Parameter File', Found )
+      if (.not. Found) then
+        xmlfile = 'none'
+      end if
+      xmlfile = TRIM(xmlfile)//C_NULL_CHAR
+
+      ! tolerance and max iter are taken from the Elmer
+      ! internal list to overrule the settings inthe XML file
+      TOL = ListGetConstReal( Solver % Values, &
+           'Linear System Convergence Tolerance', Found )
+      IF ( .NOT. Found ) TOL=-1.0
+
+      Rounds = ListGetInteger( Solver % Values, &
+           'Linear System Max Iterations', Found )
+      IF ( .NOT. Found ) Rounds=-1
+
+
+      ! I think nrows == ncols here?
+      n = SourceMatrix%NumberOfRows ! number of nodes of local elements
+      nnz = SourceMatrix%Rows(n+1) ! number of local nonzeros
+      
+        verbosity=99 !TODO: get this from the simulation verbosity or something
+        NewSetup=ListGetLogical( Solver % Values, 'Linear System Refactorize',Found ) 
+        if (NewSetup) then
+          if (SourceMatrix % Trilinos/=0) then
+            CALL SolveTrilinos4(SourceMatrix % Trilinos)
+          end if
+        end if
+        ! setup solver/preconditioner
+        if (SourceMatrix % Trilinos==0) then
+
+          ALLOCATE( Owner(n))
+          Owner = 0
+          DO i=1,n
+            IF (ParallelInfo % NeighbourList(i) % Neighbours(1)== ParEnv % MyPE) THEN
+              Owner(i) = 1
+            END IF
+          END DO
+
+          CALL SolveTrilinos1(n, nnz, & 
+                SourceMatrix % Rows, &
+                SourceMatrix % Cols, &
+                SourceMatrix % Values, &
+                ParallelInfo%GlobalDofs, Owner, &
+                xmlfile, verbosity, SourceMatrix % Trilinos, ierr)     
+
+          DEALLOCATE( Owner )
+          if (ierr<0) then
+            call Fatal('SParIterSolver','Failed to construct Trilinos solver')
+          else if (ierr>0) then
+            call Warn('SParIterSolver','Warning issued when trying to construct Trilinos solver')          
+          end if
+        end if
+        ! solve using previously computed Trilinos data structures.
+        ! NOTE: this is only correct if the matrix has not changed,
+        ! otherwise we should use the SolveTrilinos3 function, which is
+        ! not implemented, yet. This function will not update the matrix
+        ! in the solver and thus solve an old system if A has changed. 
+        CALL SolveTrilinos2( n, Xvec, RHSvec, &
+                Rounds, TOL, verbosity, SourceMatrix % Trilinos, ierr)
+      
+      IF (ierr<0) THEN
+        call Fatal('SParIterSolver',&
+               'Linear system solve using Trilinos caused an error');
+      ELSE IF (ierr>0) THEN
+        IF (ListGetLogical(Solver%Values,'Linear System Abort Not Converged',Found)) THEN
+          CALL Fatal('SParIterSolver', &
+                'Linear system solve using Trilinos issued a warning');
+        ELSE
+          CALL Error('SParIterSolver', &
+                'Linear system solve using Trilinos issued a warning');
+        END IF
+      END IF
+      
       ALLOCATE( VecEPerNB( ParEnv % PEs ) )
       VecEPerNB = 0
       DO i = 1, SourceMatrix % NumberOfRows

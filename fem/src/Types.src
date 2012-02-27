@@ -46,6 +46,7 @@ MODULE Types
  
    USE Messages
    USE iso_varying_string
+   USE iso_c_binding
 
    INTEGER, PARAMETER :: MAX_NAME_LEN = 128, MAX_STRING_LEN=2048
 
@@ -158,7 +159,10 @@ MODULE Types
     INTEGER(KIND=AddrInt) :: Cholmod=0
 #endif
 #ifdef HAVE_HYPRE
-    INTEGER(KIND=AddrInt) :: Hypre=0
+    INTEGER(KIND=C_INTPTR_T) :: Hypre=0
+#endif
+#ifdef HAVE_TRILINOS
+    INTEGER(KIND=C_INTPTR_T) :: Trilinos=0
 #endif
     INTEGER(KIND=AddrInt) :: SpMV=0
 
