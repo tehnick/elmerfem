@@ -629,7 +629,7 @@ void SolveTrilinos4(int** ContainerPtr)
   // nullify the pointer in fortran
   if (Container == containerListHead.get())
     {
-    containerListHead=Teuchos::null;
+    containerListHead=Container->next_;
     }
 
   *ContainerPtr=0;
