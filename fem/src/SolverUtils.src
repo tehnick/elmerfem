@@ -5602,7 +5602,7 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
     TYPE(Matrix_t), TARGET :: G
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), POINTER :: BMatrix, A => NULL()
-    INTEGER :: Rounds = 1000,i,j,k,n, ILUn, kr, ki, DOFs
+    INTEGER :: Rounds = 1000,i,j,k,n, ILUn, kr, ki, DOFs, ne, niter
     LOGICAL :: stat, Found, OptimizeBW, DirectLinearSolver,Real_given,Imag_given
     CHARACTER(LEN=MAX_NAME_LEN) :: Name
     REAL(KIND=dp) :: Omega = 10, norm, TOL=1.0d-6, s, ILUTol
@@ -5668,8 +5668,11 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
     END IF
 
     CALL ListAddLogical( Solver % Values, 'Harmonic Analysis', .FALSE. )
+    niter = MIN(Nfrequency,Solver % NOFEigenValues)
+    ne=Solver % NofEigenValues
+    Solver % NofEigenValues=0
 
-    DO i=1,MIN(Nfrequency, Solver % NOFEigenValues)
+    DO i=1,niter
       IF( Nfrequency > 1 ) THEN
         Frequency = freqv(i,1)
         WRITE( Message, '(a,i5,e12.3)' ) 'Frequency sweep: ', i, frequency
@@ -5717,6 +5720,7 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
       END DO
     END DO
 
+    Solver % NOFEigenValues = ne
     CALL ListAddLogical( Solver % Values, 'Harmonic Analysis', .TRUE. )
 
     DEALLOCATE( x, b )
