@@ -6564,7 +6564,7 @@ CONTAINS
     IF ( .NOT. ASSOCIATED( Params ) ) RETURN
     Mesh => AllocateMesh()
 
-    CALL Info('CreateLineMesh','Starting')
+    CALL Info('CreateLineMesh','Creating 1D mesh on-the-fly')
 
 !   Read in the parameters defining a uniform 1D mesh
 !--------------------------------------------------------------    
@@ -6605,7 +6605,6 @@ CONTAINS
       z(i) = Coord(3)
     END DO
     
-    CALL Info('CreateLineMesh','Nodes created')
 
 !   Define elements
 !   -------------------------------
@@ -6638,9 +6637,7 @@ CONTAINS
       
       Element % BodyId = BodyId
     END DO
-
-    CALL Info('CreateLineMesh','Elements created')
-
+    
 !   Update new mesh node count:
 !   ---------------------------
 
@@ -6650,9 +6647,11 @@ CONTAINS
     Mesh % MaxElementNodes = 1 + Order
     Mesh % MaxElementDOFs = 1 + Order
 
- 
-    PRINT *,'NoNodes:',NoNodes
-    PRINT *,'NoElements:',NoElements
+    WRITE(Message,'(A,I0)') 'Number of elements created: ',NoElements
+    CALL Info('CreateLineMesh',Message)
+
+    WRITE(Message,'(A,I0)') 'Number of nodes created: ',NoNodes
+    CALL Info('CreateLineMesh',Message)
  
     CALL Info('CreateLineMesh','All done')
 
