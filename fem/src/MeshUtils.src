@@ -1271,7 +1271,7 @@ END SUBROUTINE GetMaxDefs
     BMesh2 % MaxElementNodes = 0
     DO i=1, Mesh % NumberOfBoundaryElements
        Element => Elements(i)
-       IF ( dim>1 .AND. Element % Type % ElementCode < 200 ) CYCLE
+       IF ( dim>1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
 
        n = Element % TYPE % NumberOfNodes
        Constraint = Element % BoundaryInfo % Constraint
@@ -6553,11 +6553,12 @@ CONTAINS
     TYPE(Mesh_t), POINTER :: Mesh
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: x(:),y(:),z(:)
-    INTEGER :: i, j, k, n, NoNodes, NoElements, ActiveDirection, Order
+    INTEGER :: i, j, k, n, NoNodes, NoElements, ActiveDirection, Order, BodyId
     LOGICAL :: Found
     TYPE(Element_t), POINTER :: Element
     TYPE(ElementType_t),POINTER :: elmt
     REAL(KIND=dp) :: MeshVector(3), Length, Coord(3)
+    CHARACTER(LEN=MAX_NAME_LEN) :: MeshName
 
 !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Params ) ) RETURN
@@ -6571,8 +6572,13 @@ CONTAINS
     NoElements = ListGetInteger( Params,'1D Number Of Elements',minv=1)
     Length = ListGetConstReal( Params,'1D Mesh Length')    
     ActiveDirection = ListGetInteger( Params,'1D Active Direction',minv=-3,maxv=3)
-
+    BodyId = ListGetInteger( Params,'1D Body Id',minv=1)
+    MeshName = ListGetString( Params,'1D Mesh Name',Found)
+    IF(.NOT. Found) MeshName = '1d_mesh'
     
+    Mesh % Name = MeshName
+    Mesh % OutputActive = .FALSE.
+
 !   Compute the resulting mesh parameters
 !--------------------------------------------------------------
     NoNodes = NoElements + 1 + NoElements * (Order - 1)    
@@ -6629,6 +6635,8 @@ CONTAINS
         Element % NodeIndexes(2) = 2*i+1
         Element % NodeIndexes(3) = 2*i
       END IF
+      
+      Element % BodyId = BodyId
     END DO
 
     CALL Info('CreateLineMesh','Elements created')
