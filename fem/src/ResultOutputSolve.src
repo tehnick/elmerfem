@@ -223,7 +223,6 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
   Model % Variables => ModelVariables
 
-
   SubroutineVisited = .TRUE.
 
 END SUBROUTINE ResultOutputSolver
@@ -3062,6 +3061,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   ELSE
     nTime = nTime + 1
   END IF
+
   FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
   FileIndex = nTime + FileIndexOffset
 
@@ -3227,7 +3227,8 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
 
 
-
+  ! Write the Vtu file with all the data
+  !--------------------------------------------------------------------------
   IF( NumberOfNodes > 0 ) THEN
     IF ( Parallel ) THEN
       IF( NoFileindex ) THEN
@@ -3248,6 +3249,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
         WRITE( VtuFile,'(A,A,I0,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
       END IF
     END IF
+
     CALL Info('VtuOutputSolver','Saving to file: '//TRIM(VtuFile))
     CALL WriteVtuFile( VtuFile, Model, FixedMesh )
   END IF
@@ -4094,11 +4096,15 @@ CONTAINS
 
   SUBROUTINE WritePvdFile( PvdFile, DataSetFile, nTime, Model )
     CHARACTER(LEN=*), INTENT(IN) :: PvdFile, DataSetFile
-    INTEGER :: nTime
+    INTEGER :: nTime, RecLen
     TYPE(Model_t) :: Model     
     INTEGER, PARAMETER :: VtuUnit = 58
+    INTEGER :: n
     REAL(KIND=dp) :: time
     CHARACTER :: lf
+    CHARACTER(LEN=MAX_NAME_LEN) :: Str
+
+    SAVE RecLen
 
     lf = CHAR(10)
 
@@ -4108,26 +4114,37 @@ CONTAINS
     time = GetTime()
 
     IF( nTime == 1 ) THEN
-      OPEN( UNIT=VtuUnit, FILE=PvdFile, form = 'formatted', STATUS='UNKNOWN', &
-          ACCESS='DIRECT', ACTION='WRITE', RECL=82)
+      ! Find the maximum record length (modulo four)
+      WRITE( Str,'(A)') '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian"><Collection>'
+      n = LEN_TRIM( Str ) 
+
+      WRITE( Str,'(A,ES12.3,A)') '<DataSet timestep="',time,&
+        '" group="" part="0" file="'//TRIM(DataSetFile)//'"/>'
+      n = MAX( LEN_TRIM( Str ), n ) 
+      
+      RecLen = ((n/4)+1)*4
+      PRINT *,'Record Length: ',RecLen
+     
+      OPEN( UNIT=VtuUnit, FILE=PvdFile, form = 'formatted', STATUS='REPLACE', &
+          ACCESS='DIRECT', ACTION='WRITE', RECL=RecLen)
+      WRITE( Str,'(A)') '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian"><Collection>'
+     
       IF ( LittleEndian() ) THEN
-        WRITE( VtuUnit,'(A)',REC=1) '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian">'//lf
+        WRITE( VtuUnit,'(A)',REC=1) '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian"><Collection>'//lf
       ELSE
-        WRITE( VtuUnit,'(A)',REC=1) '<VTKFile type="Collection" version="0.1" byte_order="BigEndian">'//lf
-      END IF
-      WRITE( VtuUnit,'(A)',REC=2) '  <Collection>'//lf
+        WRITE( VtuUnit,'(A)',REC=1) '<VTKFile type="Collection" version="0.1" byte_order="BigEndian"><Collection>'//lf
+      END IF     
     ELSE
       OPEN( UNIT=VtuUnit, FILE=PvdFile, form = 'formatted', STATUS='OLD', &
-          ACCESS='DIRECT', ACTION='READWRITE', RECL=82)     
+          ACCESS='DIRECT', ACTION='READWRITE', RECL=RecLen)     
     END IF
 
-    WRITE( VtuUnit,'(A,ES12.3,A)',REC=nTime+2) '    <DataSet timestep="',time,&
+    WRITE( VtuUnit,'(A,ES12.3,A)',REC=nTime+1) '<DataSet timestep="',time,&
         '" group="" part="0" file="'//TRIM(DataSetFile)//'"/>'//lf
-    WRITE( VtuUnit,'(A)',REC=nTime+3) '  </Collection>'//lf
-    WRITE( VtuUnit,'(A)',REC=nTime+4) '</VTKFile>'//lf
+    WRITE( VtuUnit,'(A)',REC=nTime+2) '</Collection></VTKFile>'//lf
 
     CLOSE( VtuUnit )
-  
+
   END SUBROUTINE WritePvdFile
 
 
