@@ -3027,7 +3027,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   INTEGER, SAVE :: nTime = 0
   LOGICAL :: GotIt, Parallel, FixedMesh
   CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
-  CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
+  CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile, PvdFile, DataSetFile
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Variable_t), POINTER :: Var
   INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
@@ -3226,6 +3226,8 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL WritePvtuFile( PvtuFile, Model )
   END IF
 
+
+
   IF( NumberOfNodes > 0 ) THEN
     IF ( Parallel ) THEN
       IF( NoFileindex ) THEN
@@ -3249,6 +3251,21 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL Info('VtuOutputSolver','Saving to file: '//TRIM(VtuFile))
     CALL WriteVtuFile( VtuFile, Model, FixedMesh )
   END IF
+
+  ! For transient simulation write a holder for the timesteps
+  !-----------------------------------------------------------
+  IF( GetLogical( Params,'Vtu Time Collection', GotIt ) ) THEN
+    IF( TransientSimulation .AND. .NOT. NoFileIndex ) THEN
+      WRITE( PvdFile,'(A,A,".pvd")' ) TRIM(Dir),TRIM(FilePrefix)
+      IF( Parallel ) THEN
+        DataSetFile = PvtuFile
+      ELSE
+        DataSetFile = VtuFile
+      END IF
+      CALL WritePvdFile( PvdFile, DataSetFile, nTime, Model )
+    END IF
+  END IF
+
 
   IF( EigenAnalysis ) THEN
     FileIndex = FileIndex + 1
@@ -4073,6 +4090,45 @@ CONTAINS
   
   END SUBROUTINE WriteVtuFile
     
+
+
+  SUBROUTINE WritePvdFile( PvdFile, DataSetFile, nTime, Model )
+    CHARACTER(LEN=*), INTENT(IN) :: PvdFile, DataSetFile
+    INTEGER :: nTime
+    TYPE(Model_t) :: Model     
+    INTEGER, PARAMETER :: VtuUnit = 58
+    REAL(KIND=dp) :: time
+    CHARACTER :: lf
+
+    lf = CHAR(10)
+
+    IF( ParEnv % PEs > 1 ) THEN
+      IF( ParEnv % MyPE > 0 ) RETURN
+    END IF
+    time = GetTime()
+
+    IF( nTime == 1 ) THEN
+      OPEN( UNIT=VtuUnit, FILE=PvdFile, form = 'formatted', STATUS='UNKNOWN', &
+          ACCESS='DIRECT', ACTION='WRITE', RECL=82)
+      IF ( LittleEndian() ) THEN
+        WRITE( VtuUnit,'(A)',REC=1) '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian">'//lf
+      ELSE
+        WRITE( VtuUnit,'(A)',REC=1) '<VTKFile type="Collection" version="0.1" byte_order="BigEndian">'//lf
+      END IF
+      WRITE( VtuUnit,'(A)',REC=2) '  <Collection>'//lf
+    ELSE
+      OPEN( UNIT=VtuUnit, FILE=PvdFile, form = 'formatted', STATUS='OLD', &
+          ACCESS='DIRECT', ACTION='READWRITE', RECL=82)     
+    END IF
+
+    WRITE( VtuUnit,'(A,ES12.3,A)',REC=nTime+2) '    <DataSet timestep="',time,&
+        '" group="" part="0" file="'//TRIM(DataSetFile)//'"/>'//lf
+    WRITE( VtuUnit,'(A)',REC=nTime+3) '  </Collection>'//lf
+    WRITE( VtuUnit,'(A)',REC=nTime+4) '</VTKFile>'//lf
+
+    CLOSE( VtuUnit )
+  
+  END SUBROUTINE WritePvdFile
 
 
   SUBROUTINE WritePvtuFile( VtuFile, Model )
