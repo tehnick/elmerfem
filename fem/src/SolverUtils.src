@@ -3604,6 +3604,45 @@ END FUNCTION SearchNodeL
   END SUBROUTINE BackRotateNTSystem
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+  FUNCTION GetSolutionRotation(A,n) RESULT(rotated)
+!------------------------------------------------------------------------------
+    INTEGER :: n
+    LOGICAL :: rotated
+    REAL(KIND=dp) :: A(3,3)
+!------------------------------------------------------------------------------
+    INTEGER :: k,dim
+!------------------------------------------------------------------------------
+    dim = CoordinateSystemDimension()
+
+    Rotated=.FALSE.
+
+    A=0._dp
+    A(1,1)=1._dp
+    A(2,2)=1._dp
+    A(3,3)=1._dp
+    IF (NormalTangentialNOFNodes<=0) RETURN
+
+    k = BoundaryReorder(n)
+    IF (k>0) THEN
+      Rotated = .TRUE.
+      IF (dim==2) THEN
+        A(1,1)= BoundaryNormals(k,1)
+        A(1,2)=-BoundaryNormals(k,2)
+        A(2,1)= BoundaryNormals(k,2)
+        A(2,2)= BoundaryNormals(k,1)
+      ELSE
+        A(:,1)=BoundaryNormals(k,:)
+        A(:,2)=BoundaryTangent1(k,:)
+        A(:,3)=BoundaryTangent2(k,:)
+      END IF
+    END IF
+!------------------------------------------------------------------------------
+  END FUNCTION GetSolutionRotation
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
   FUNCTION ComputeNorm(Solver, nin, values) RESULT (Norm)
 !------------------------------------------------------------------------------
