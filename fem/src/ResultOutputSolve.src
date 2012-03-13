@@ -4112,6 +4112,10 @@ CONTAINS
       IF( ParEnv % MyPE > 0 ) RETURN
     END IF
     time = GetTime()
+    IF( GetLogical( Params,'Vtu time previous') ) THEN
+      time = time - GetTimestepSize()
+    END IF
+
 
     IF( nTime == 1 ) THEN
       ! Find the maximum record length (modulo four)
@@ -4127,8 +4131,7 @@ CONTAINS
      
       OPEN( UNIT=VtuUnit, FILE=PvdFile, form = 'formatted', STATUS='REPLACE', &
           ACCESS='DIRECT', ACTION='WRITE', RECL=RecLen)
-      WRITE( Str,'(A)') '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian"><Collection>'
-     
+
       IF ( LittleEndian() ) THEN
         WRITE( VtuUnit,'(A)',REC=1) '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian"><Collection>'//lf
       ELSE
