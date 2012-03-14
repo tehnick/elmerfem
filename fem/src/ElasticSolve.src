@@ -45,6 +45,7 @@
     USE Adaptive
     USE DefUtils
     USE MaterialModels
+    USE StressLocal
 
     IMPLICIT NONE
 
@@ -66,27 +67,29 @@
      TYPE(Nodes_t) :: ElementNodes,ParentNodes,FlowNodes
      TYPE(Element_t),POINTER :: CurrentElement, ParentElement, FlowElement
 
-     REAL(KIND=dp) :: RelativeChange,UNorm,Gravity(3), &
-         Tdiff,Normal(3),NewtonTol,s,TOL(1)
+     REAL(KIND=dp) :: RelativeChange, UNorm, Gravity(3), TransformMatrix(3,3), &
+         Tdiff,Normal(3),NewtonTol,s,TOL(1), UnitNorm
 
      INTEGER :: NewtonIter,NonlinearIter, FlowNOFNodes
 
      TYPE(Variable_t), POINTER :: StressSol, TempSol, FlowSol, Var
 
-     REAL(KIND=dp), POINTER :: Temperature(:),Pressure(:),Displacement(:), &
+     REAL(KIND=dp), POINTER :: Temperature(:),Pressure(:),Displacement(:), UWrk(:,:), &
           Work(:,:), ForceVector(:), Velocity(:,:), FlowSolution(:), SaveValues(:), &
-          NodalStrain(:), NodalStress(:)          
+          NodalStrain(:), NodalStress(:), VonMises(:), &
+          PrincipalStress(:), PrincipalStrain(:), Tresca(:), &   ! needed for principal strain calculation
+          PrincipalAngle(:), PrincipalAngleComp(:), &            ! needed for principal angle calculation
+          PrincipalStressComp(:), PrincipalStrainComp(:)          
 
      INTEGER,POINTER :: TempPerm(:),StressPerm(:),PressPerm(:),NodeIndexes(:), &
           FlowPerm(:),AdjacentNodes(:)
 
      INTEGER :: StressType
-     LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE.
-     LOGICAL :: LinearModel = .FALSE., MeshDisplacementActive, &
-          NeoHookeanMaterial = .FALSE.
+     LOGICAL :: GotForceBC, GotIt, NewtonLinearization = .FALSE., Isotropic = .TRUE., &
+          RotateModuli, LinearModel = .FALSE., MeshDisplacementActive, NeoHookeanMaterial = .FALSE.
 
      INTEGER :: body_id,bf_id,eq_id,CoordinateSystem
-     LOGICAL :: PlaneStress, CalculateStrains, CalcStressAll
+     LOGICAL :: PlaneStress, CalculateStrains, CalcStressAll, CalcPrincipalAll, CalcPrincipalAngle
 !
      LOGICAL :: AllocationsDone = .FALSE.
 
@@ -100,7 +103,7 @@
 
      REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
           LocalDampMatrix(:,:),LoadVector(:,:),InertialLoad(:,:), Viscosity(:),LocalForce(:), &
-          LocalTemperature(:),ElasticModulus(:),PoissonRatio(:), Density(:), &
+          LocalTemperature(:),ElasticModulus(:,:,:),PoissonRatio(:), Density(:), &
           Damping(:), HeatExpansionCoeff(:,:,:),Alpha(:,:),Beta(:), &
           ReferenceTemperature(:),BoundaryDispl(:),LocalDisplacement(:,:), PrevSOL(:)
 
@@ -109,7 +112,8 @@
           LocalTemperature,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
           ElasticModulus, PoissonRatio,Density,Damping,HeatExpansionCoeff, &
           LocalDisplacement, Velocity, Pressure, PrevSOL, CalculateStrains, CalcStressAll, &
-          NodalStrain, NodalStress
+          NodalStrain, NodalStress, VonMises, PrincipalStress, PrincipalStrain, Tresca, &
+          PrincipalAngle, PrincipalAngleComp, CalcPrincipalAngle, CalcPrincipalAll
 !-----------------------------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
@@ -220,7 +224,7 @@
                  HeatExpansionCoeff( 3,3,N ), &
                  LocalTemperature( N ), &
                  Pressure( N ), Velocity( 3,N ), &
-                 ElasticModulus( N ), PoissonRatio( N ), &
+                 ElasticModulus( 6,6,N ), PoissonRatio( N ), &
                  Density( N ), Damping( N ), &
                  LocalForce( STDOFs*N ), Viscosity( N ), &
                  LocalMassMatrix(  STDOFs*N,STDOFs*N ),  &
@@ -236,41 +240,82 @@
        !----------------------------------------------------------------
        ! Check whether strains and stresses are computed...
        !----------------------------------------------------------------
+
        IF ( .NOT. AllocationsDone ) THEN       
-          CalculateStrains = GetLogical(SolverParams, 'Calculate Strains', GotIt )         
-          CalcStressAll = GetLogical( SolverParams, 'Calculate Stresses', GotIt )          
+         CalculateStrains = GetLogical(SolverParams, 'Calculate Strains', GotIt )    
+         CalcPrincipalAngle = GetLogical(SolverParams, 'Calculate PAngle', GotIt )
+         CalcPrincipalAll = GetLogical(SolverParams, 'Calculate Principal', GotIt )     
+         CalcStressAll = GetLogical(SolverParams, 'Calculate Stresses', GotIt )          
        END IF
 
+       IF(CalcPrincipalAngle) CalcPrincipalAll = .TRUE. ! can't calculate angle without principal
+       IF(CalcPrincipalAll)   CalcStressAll = .TRUE. ! can't calculate principal without components
+       IF(CalculateStrains)   CalcStressAll = .TRUE. ! can't calculate principal without components
+
        IF( CalculateStrains) THEN
-          n = SIZE( Displacement ) / STDOFs
-          Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
-          IF ( .NOT. ASSOCIATED( Var ) ) THEN
-             ALLOCATE( NodalStrain( 6*n ) )
-             NodalStrain = 0.0d0
-             CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+         n = SIZE( Displacement ) / STDOFs
+         Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
+         IF ( .NOT. ASSOCIATED( Var ) ) THEN
+           ALLOCATE( NodalStrain( 6*n ) )
+           NodalStrain = 0.0d0
+           CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
                   'Strain', 6, NodalStrain, StressPerm )
-          END IF
-          !IF (CalcPrincipalAll) THEN
-          !   Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
-          !   IF ( .NOT. ASSOCIATED( Var ) ) THEN
-          !      ALLOCATE( PrincipalStrain ( 3*n ) )
-          !      PrincipalStrain = 0.0d0
-          !      CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-          !           'Principal Strain', 3, PrincipalStrain, DisplPerm )
-          !   END IF
-          !END IF
+         END IF
+         IF (CalcPrincipalAll) THEN
+           Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
+           IF ( .NOT. ASSOCIATED( Var ) ) THEN
+             ALLOCATE( PrincipalStrain ( 3*n ) )
+             PrincipalStrain = 0.0d0
+             CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                     'Principal Strain', 3, PrincipalStrain, StressPerm )
+           END IF
+         END IF
        END IF
 
        IF( CalcStressAll) THEN
-          n = SIZE( Displacement ) / STDOFs
-          Var => VariableGet( Solver % Mesh % Variables, 'Stress' )
-          IF ( .NOT. ASSOCIATED( Var ) ) THEN
-             ALLOCATE( NodalStress( 6*n ) )
-             NodalStress = 0.0d0
-             CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+         n = SIZE( Displacement ) / STDOFs
+         Var => VariableGet( Solver % Mesh % Variables, 'Stress' )
+         IF ( .NOT. ASSOCIATED( Var ) ) THEN
+           ALLOCATE( NodalStress( 6*n ) )
+           NodalStress = 0.0d0
+           CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
                   'Stress', 6, NodalStress, StressPerm )
-          END IF
-       END IF
+         END IF
+
+         Var => VariableGet( Solver % Mesh % Variables, 'VonMises' )
+         IF ( .NOT. ASSOCIATED( Var ) ) THEN
+           ALLOCATE( VonMises( n ) )
+           CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                       'VonMises', 1, VonMises, StressPerm )
+         END IF
+
+         IF(CalcPrincipalAll) THEN
+           Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress' )
+           IF ( .NOT. ASSOCIATED( Var ) ) THEN
+             ALLOCATE( PrincipalStress ( 3*n ) )
+             PrincipalStress = 0.0d0
+             CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                                 'Principal Stress', 3, PrincipalStress, StressPerm )
+           END IF 
+           Var => VariableGet( Solver % Mesh % Variables, 'Tresca' )
+           IF ( .NOT. ASSOCIATED( Var ) ) THEN
+             ALLOCATE( Tresca( n ) )
+             CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                              'Tresca', 1, Tresca, StressPerm )
+           END IF
+         
+           IF(CalcPrincipalAngle) THEN
+           Var => VariableGet( Solver % Mesh % Variables, 'Principal Angle' )
+             IF ( .NOT. ASSOCIATED( Var ) ) THEN
+               ALLOCATE( PrincipalAngle ( 9*n ) )
+               PrincipalAngle = 0.0d0
+               CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                              'Principal Angle', 9, PrincipalAngle, StressPerm )
+             END IF
+           END IF ! PrincipalAngle
+         END IF !CalcPrincipalAll
+
+       END IF !CalcStressAll
 
 !------------------------------------------------------------------------------
        AllocationsDone = .TRUE.
@@ -316,17 +361,29 @@
 !------------------------------------------------------------------------------
 
      IF (CalculateStrains) THEN
-        Var => VariableGet( Solver % Mesh % Variables, 'Strain', .TRUE. )
-        NodalStrain => Var % Values
-        !IF(CalcPrincipalAll) THEN
-        !   Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
-        !   PrincipalStrain => Var % Values
-        !END IF
+       Var => VariableGet( Solver % Mesh % Variables, 'Strain', .TRUE. )
+       NodalStrain => Var % Values
+       IF(CalcPrincipalAll) THEN
+         Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
+         PrincipalStrain => Var % Values
+       END IF
      END IF
 
      IF (CalcStressAll) THEN
-        Var => VariableGet( Solver % Mesh % Variables, 'Stress', .TRUE. )
-        NodalStress => Var % Values
+       Var => VariableGet( Solver % Mesh % Variables, 'Stress', .TRUE. )
+       NodalStress => Var % Values
+       Var => VariableGet( Solver % Mesh % Variables, 'VonMises', .TRUE. )
+       VonMises => Var % Values
+       IF(CalcPrincipalAll) THEN
+         Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
+         PrincipalStrain => Var % Values
+         Var => VariableGet( Solver % Mesh % Variables, 'Tresca', .TRUE. )
+         Tresca => Var % Values
+         IF(CalcPrincipalAngle) THEN
+           Var=>VariableGet( Solver % Mesh % Variables, 'Principal Angle', .TRUE.)
+           PrincipalAngle => Var % Values
+         END IF
+       END IF
      END IF
 !------------------------------------------------------------------------------
 
@@ -386,10 +443,20 @@
                    minv=1, maxv=Model % NumberOFMaterials )
          Material => Model % Materials(k) % Values
 
-         ElasticModulus(1:n) = ListGetReal( Material, &
-              'Youngs Modulus',n,NodeIndexes )
+!         ElasticModulus(1:n) = ListGetReal( Material, &
+!              'Youngs Modulus',n,NodeIndexes )
 
-         PoissonRatio(1:n) = ListGetReal( Material, &
+         IF (NeoHookeanMaterial) THEN
+            Isotropic = .TRUE.
+            ElasticModulus(1,1,1:n) = ListGetReal( Material, &
+                 'Youngs Modulus', n, NodeIndexes, GotIt )
+         ELSE
+            CALL InputTensor( ElasticModulus, Isotropic, &
+                 'Youngs Modulus', Material, n, NodeIndexes )        
+         END IF
+
+         PoissonRatio = 0.0d0
+         IF (Isotropic) PoissonRatio(1:n) = ListGetReal( Material, &
               'Poisson Ratio',n,NodeIndexes )
 
          Density(1:n) = ListGetReal( Material, &
@@ -405,7 +472,45 @@
          END DO
 
          ReferenceTemperature(1:n) = ListGetReal( Material, &
-            'Reference Temperature',n,NodeIndexes,gotIt )
+              'Reference Temperature',n,NodeIndexes,gotIt )
+
+         !------------------------------------------------------------------------------
+         ! Check whether the rotation transformation of elastic moduli is necessary...
+         !------------------------------------------------------------------------------
+         RotateModuli = GetLogical( Material, 'Rotate Elasticity Tensor', GotIt )
+         IF ( RotateModuli ) THEN
+            RotateModuli = .FALSE.
+            DO i=1,3
+               IF( i == 1 ) THEN
+                  CALL GetConstRealArray( Material, UWrk, &
+                       'Material Coordinates Unit Vector 1', GotIt, CurrentElement )
+               ELSE IF( i == 2 ) THEN
+                  CALL GetConstRealArray( Material, UWrk, &
+                       'Material Coordinates Unit Vector 2', GotIt, CurrentElement )
+               ELSE                
+                  CALL GetConstRealArray( Material, UWrk, &
+                       'Material Coordinates Unit Vector 3', GotIt, CurrentElement )
+               END IF
+
+               IF( GotIt ) THEN
+                  UnitNorm = SQRT( SUM( Uwrk(1:3,1)**2 ) )
+                  IF( UnitNorm < EPSILON( UnitNorm ) ) THEN
+                     CALL Fatal('ElasticSolve','Given > Materia Coordinate Unit Vector < too short!')
+                  END IF
+                  TransformMatrix(i,1:3) = Uwrk(1:3,1) / UnitNorm  
+                  RotateModuli = .TRUE.
+               ELSE 
+                  TransformMatrix(i,1:3) = 0.0_dp
+                  TransformMatrix(i,i) = 1.0_dp
+               END IF
+            END DO
+
+            IF( .NOT. RotateModuli  ) THEN
+               CALL Fatal( 'ElasticSolve', &
+                    'No unit vectors found but > Rotate Elasticity Tensor < set True?' )
+            END IF
+         END IF
+
 
 !------------------------------------------------------------------------------
 !        Set body forces
@@ -475,16 +580,17 @@
 
             IF (NeoHookeanMaterial) THEN            
 
-               CALL NeoHookeanStressCompose( LocalMassMatrix, LocalDampMatrix, &
+               CALL NeoHookeanLocalMatrix( LocalMassMatrix, LocalDampMatrix, &
                     LocalStiffMatrix, LocalForce, LoadVector, InertialLoad, ElasticModulus, &
                     PoissonRatio,Density,Damping,PlaneStress,HeatExpansionCoeff, &
                     LocalTemperature,CurrentElement,n,ElementNodes,LocalDisplacement )
 
             ELSE
-               CALL StressCompose( LocalMassMatrix, LocalDampMatrix, &
+               CALL LocalMatrix( LocalMassMatrix, LocalDampMatrix, &
                     LocalStiffMatrix,LocalForce, LoadVector, InertialLoad, ElasticModulus, &
                     PoissonRatio,Density,Damping,PlaneStress,HeatExpansionCoeff, &
-                    LocalTemperature,CurrentElement,n,ElementNodes,LocalDisplacement )
+                    LocalTemperature,CurrentElement,n,ElementNodes,LocalDisplacement, &
+                    Isotropic, RotateModuli, TransformMatrix)
             END IF
          ELSE
             CALL StressGeneralCompose( LocalMassMatrix, LocalDampMatrix, &
@@ -510,7 +616,7 @@
 !                LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
 !                StressPerm(NodeIndexes), Solver )
               CALL Default2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
-	        LocalStiffMatrix, LocalForce )
+                LocalStiffMatrix, LocalForce )
 
          END IF
 !------------------------------------------------------------------------------
@@ -686,7 +792,7 @@
           END IF
 
            IF ( CoordinateSystem == Cartesian ) THEN
-             CALL StressBoundary( LocalStiffMatrix,LocalForce, LoadVector,   &
+             CALL LocalBoundaryMatrix( LocalStiffMatrix,LocalForce, LoadVector,   &
               Alpha,Beta,LocalDisplacement, CurrentElement,n,ElementNodes,   &
                ParentElement, ParentElement % TYPE % NumberOfNodes,          &
                 ParentNodes, FlowElement, FlowNOFNodes, FlowNodes,Velocity,  &
@@ -726,7 +832,7 @@
 
 !------------------------------------------------------------------------------
 
-      CALL Info( 'ElasticSolve', 'Set boundaries done', Level=4 )
+      CALL Info( 'ElasticSolve', 'BCs are now set', Level=4 )
 
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
@@ -756,10 +862,10 @@
        IF (CalculateStrains) THEN
           Var => VariableGet( Solver % Mesh % Variables, 'Strain', .TRUE. )
           NodalStrain => Var % Values
-          !IF(CalcPrincipalAll) THEN
-          !   Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
-          !   PrincipalStrain => Var % Values
-          !END IF
+          IF(CalcPrincipalAll) THEN
+             Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
+             PrincipalStrain => Var % Values
+          END IF
        END IF
 
        IF (CalcStressAll) THEN
@@ -767,8 +873,8 @@
           NodalStress => Var % Values
        END IF       
       
-       CALL ComputeStressAndStrain( Displacement, NodalStrain, NodalStress, StressPerm, &
-            CalculateStrains, CalcStressAll, NeoHookeanMaterial)
+       CALL ComputeStressAndStrain( Displacement, NodalStrain, NodalStress, VonMises, StressPerm, &
+            CalculateStrains, CalcStressAll, NeoHookeanMaterial, PrincipalStress, PrincipalStrain, Tresca, PrincipalAngle)
 
     END IF
 
@@ -883,20 +989,20 @@
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE StressCompose( MassMatrix,DampMatrix,StiffMatrix,ForceVector, &
-        LoadVector, InertialLoad, NodalYoung, NodalPoisson, NodalDensity, NodalDamping, &
+   SUBROUTINE LocalMatrix( MassMatrix,DampMatrix,StiffMatrix,ForceVector, &
+        LoadVector, InertialLoad, ElasticModulus, NodalPoisson, NodalDensity, NodalDamping, &
         PlaneStress,NodalHeatExpansion, NodalTemperature, Element,n,Nodes, &
-        NodalDisplacement )
+        NodalDisplacement, Isotropic, RotateModuli, TransformMatrix )
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:),DampMatrix(:,:), &
-          NodalHeatExpansion(:,:,:)
+          NodalHeatExpansion(:,:,:), ElasticModulus(:,:,:)
      REAL(KIND=dp) :: NodalTemperature(:),NodalDensity(:), &
                 NodalDamping(:),LoadVector(:,:), InertialLoad(:,:)
-     REAL(KIND=dp) :: NodalDisplacement(:,:)
-     REAL(KIND=dp), DIMENSION(:) :: ForceVector,NodalPoisson,NodalYoung
+     REAL(KIND=dp) :: NodalDisplacement(:,:), TransformMatrix(3,3)
+     REAL(KIND=dp), DIMENSION(:) :: ForceVector, NodalPoisson
 
-     LOGICAL :: PlaneStress
+     LOGICAL :: PlaneStress, Isotropic, RotateModuli
 
      TYPE(Element_t) :: Element
      TYPE(Nodes_t) :: Nodes
@@ -909,8 +1015,9 @@
 
      REAL(KIND=dp) :: Force(3), InertialForce(3), NodalLame1(n),NodalLame2(n),Density, &
           Damping,Lame1,Lame2
-     REAL(KIND=dp) :: Grad(3,3),Identity(3,3),DetDefG,CofG(3,3),TrueForce(3)
+     REAL(KIND=dp) :: Grad(3,3),Identity(3,3),DetDefG,CofG(3,3),TrueForce(3), G(6,6)
      REAL(KIND=dp) ::  DefG(3,3), Strain(3,3), Stress2(3,3), Stress1(3,3)
+
      REAL(KIND=dp) :: dDefG(3,3),dStrain(3,3),dStress2(3,3),dStress1(3,3)
      REAL(KIND=dp) :: dDefGU(3,3),dStrainU(3,3),dStress2U(3,3),dStress1U(3,3)
 
@@ -932,15 +1039,19 @@
 
      dim = CoordinateSystemDimension()
 
-     IF ( PlaneStress ) THEN
-       NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) /  &
-            ( (1.0d0 - NodalPoisson(1:n)**2) )
-     ELSE
-       NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) /  &
-          (  (1.0d0 + NodalPoisson(1:n)) * (1.0d0 - 2.0d0*NodalPoisson(1:n)) )
+     IF (Isotropic) THEN 
+        IF ( PlaneStress ) THEN
+           NodalLame1(1:n) = ElasticModulus(1,1,1:n) * NodalPoisson(1:n) /  &
+                ( (1.0d0 - NodalPoisson(1:n)**2) )
+        ELSE
+           NodalLame1(1:n) = ElasticModulus(1,1,1:n) * NodalPoisson(1:n) /  &
+                (  (1.0d0 + NodalPoisson(1:n)) * (1.0d0 - 2.0d0*NodalPoisson(1:n)) )
+        END IF
+
+        NodalLame2(1:n) = ElasticModulus(1,1,1:n)  / ( 2* (1.0d0 + NodalPoisson(1:n)) )
      END IF
 
-     NodalLame2(1:n) = NodalYoung(1:n)  / ( 2* (1.0d0 + NodalPoisson(1:n)) )
+
 
      ForceVector = 0.0D0
      StiffMatrix = 0.0D0
@@ -990,109 +1101,187 @@
         Force(i) = SUM( LoadVector(i,1:n)*Basis )
         InertialForce(i) = SUM( InertialLoad(i,1:n)*Basis )
       END DO
-!
-!     Lame parameters at the integration point
-!
-      Lame1 = SUM( NodalLame1(1:n)*Basis )
-      Lame2 = SUM( NodalLame2(1:n)*Basis )
-      Density = SUM( NodalDensity(1:n)*Basis )
-      Damping = SUM( NodalDamping(1:n)*Basis )
-!
-!     Temperature at the integration point
-!
-!      Temperature = SUM( NodalTemperature(1:n)*Basis )
-!
-!     Heat expansion tensor values at the integration point
-!
-!      DO i=1,3
-!        DO j=1,3
-!          HeatExpansion(i,j) = SUM( NodalHeatExpansion(i,j,1:n)*Basis )
-!        END DO
-!      END DO
 
-!===========================================================================
-!
-!                       S T I F F N E S S   M A T R I X 
-!
-!                                    A N D
-!
-!                   R E S I D U A L   F O R C E   V E C T O R
-!
-!===========================================================================
+      IF (Isotropic) THEN
+         !-------------------------------------------------
+         ! Lame parameters at the integration point
+         !------------------------------------------------
+         Lame1 = SUM( NodalLame1(1:n)*Basis )
+         Lame2 = SUM( NodalLame2(1:n)*Basis )
+         Density = SUM( NodalDensity(1:n)*Basis )
+         Damping = SUM( NodalDamping(1:n)*Basis )
 
-!      The current solution:
-!      ---------------------
-       Grad = MATMUL(NodalDisplacement(:,1:n),dBasisdx)
-       DefG = Identity + Grad
-       Strain = (TRANSPOSE(Grad)+Grad+MATMUL(TRANSPOSE(Grad),Grad))/2.0D0
-       Stress2 = 2.0D0*Lame2*Strain + Lame1*TRACE(Strain,dim)*Identity
-       Stress1 = MATMUL(DefG,Stress2)
+         !------------------------------------------------------------------
+         ! Deformation gradient etc. evaluated using the current solution:
+         !------------------------------------------------------------------
+         Grad = MATMUL(NodalDisplacement(:,1:n),dBasisdx)
+         DefG = Identity + Grad
+         Strain = (TRANSPOSE(Grad)+Grad+MATMUL(TRANSPOSE(Grad),Grad))/2.0D0
+         Stress2 = 2.0D0*Lame2*Strain + Lame1*TRACE(Strain,dim)*Identity
+         Stress1 = MATMUL(DefG,Stress2)
 
-       SELECT CASE( dim )
-          CASE( 1 )
-          DetDefG = DefG(1,1)
-          CASE( 2 )
-          DetDefG = DefG(1,1)*DefG(2,2) - DefG(1,2)*DefG(2,1)
-          CASE( 3 )
-          DetDefG = DefG(1,1) * ( DefG(2,2)*DefG(3,3) - DefG(2,3)*DefG(3,2) ) + &
-                    DefG(1,2) * ( DefG(2,3)*DefG(3,1) - DefG(2,1)*DefG(3,3) ) + &
-                    DefG(1,3) * ( DefG(2,1)*DefG(3,2) - DefG(2,2)*DefG(3,1) )
-       END SELECT
+         SELECT CASE( dim )
+         CASE( 1 )
+            DetDefG = DefG(1,1)
+         CASE( 2 )
+            DetDefG = DefG(1,1)*DefG(2,2) - DefG(1,2)*DefG(2,1)
+         CASE( 3 )
+            DetDefG = DefG(1,1) * ( DefG(2,2)*DefG(3,3) - DefG(2,3)*DefG(3,2) ) + &
+                 DefG(1,2) * ( DefG(2,3)*DefG(3,1) - DefG(2,1)*DefG(3,3) ) + &
+                 DefG(1,3) * ( DefG(2,1)*DefG(3,2) - DefG(2,2)*DefG(3,1) )
+         END SELECT
 
-!      Gateaux derivatives of the solution with respect to the displacement:
-!      ---------------------------------------------------------------------
-       dDefGU = Grad
-       dStrainU = (MATMUL(TRANSPOSE(DefG),dDefGU) &
-            + MATMUL(TRANSPOSE(dDefGU),DefG))/2.0D0
-       dStress2U = 2.0D0*Lame2*dStrainU + Lame1*TRACE(dStrainU,dim)*Identity
-       dStress1U = MATMUL(dDefGU,Stress2) + MATMUL(DefG,dStress2U)
+         !-----------------------------------------------------------------------
+         !  Gateaux derivatives of the solution with respect to the displacement:
+         !  ---------------------------------------------------------------------
+         dDefGU = Grad
+         dStrainU = (MATMUL(TRANSPOSE(DefG),dDefGU) &
+              + MATMUL(TRANSPOSE(dDefGU),DefG))/2.0D0
+         dStress2U = 2.0D0*Lame2*dStrainU + Lame1*TRACE(dStrainU,dim)*Identity
+         dStress1U = MATMUL(dDefGU,Stress2) + MATMUL(DefG,dStress2U)
 
-!      Loop over the test functions (stiffness matrix):
-!      ------------------------------------------------
-       DO p = 1,N
-          DO i = 1,dim
+         !----------------------------------------------------------------------------
+         ! Loop over the test functions (stiffness matrix for Newton linearization):
+         ! ---------------------------------------------------------------------------
+         DO p = 1,N
+            DO i = 1,dim
+               !------------------------------------------------------------------------
+               !  Gateaux derivatives of the solution with respect to the test functions:
+               ! -----------------------------------------------------------------------
+               dDefG = 0.0D0; dDefG(i,:) = dBasisdx(p,:)
+               dStrain = (MATMUL(TRANSPOSE(DefG),dDefG) &
+                    + MATMUL(TRANSPOSE(dDefG),DefG))/2.0D0
+               dStress2 = 2.0D0*Lame2*dStrain + Lame1*TRACE(dStrain,dim)*Identity
+               dStress1 = MATMUL(dDefG,Stress2) + MATMUL(DefG,dStress2)
 
-!            Gateaux derivatives of the solution with respect to the test functions:
-!            -----------------------------------------------------------------------
-             dDefG = 0.0D0; dDefG(i,:) = dBasisdx(p,:)
-             dStrain = (MATMUL(TRANSPOSE(DefG),dDefG) &
-                  + MATMUL(TRANSPOSE(dDefG),DefG))/2.0D0
-             dStress2 = 2.0D0*Lame2*dStrain + Lame1*TRACE(dStrain,dim)*Identity
-             dStress1 = MATMUL(dDefG,Stress2) + MATMUL(DefG,dStress2)
+               ForceVector(dim*(p-1)+i) = ForceVector(dim*(p-1)+i) &
+                    +(Basis(p)*Force(i)*DetDefG &
+                    +Basis(p)*InertialForce(i)*Density &
+                    -DOT_PRODUCT(dBasisdx(p,:),Stress1(i,:)) &
+                    +DOT_PRODUCT(dBasisdx(p,:),dStress1U(i,:)))*s
 
-             ForceVector(dim*(p-1)+i) = ForceVector(dim*(p-1)+i) &
-                  +(Basis(p)*Force(i)*DetDefG &
-                   +Basis(p)*InertialForce(i)*Density &
-                   -DOT_PRODUCT(dBasisdx(p,:),Stress1(i,:)) &
-                   +DOT_PRODUCT(dBasisdx(p,:),dStress1U(i,:)))*s
+               !---------------------------------
+               ! Loop over the basis functions:
+               ! --------------------------------
+               DO q = 1,N
+                  DO j = 1,dim
 
-!            Loop over the basis functions:
-!            ------------------------------
-             DO q = 1,N
-                DO j = 1,dim
+                     GradBasis = 0.0D0; GradBasis(j,:) = dBasisdx(q,:)
 
-                   GradBasis = 0.0D0; GradBasis(j,:) = dBasisdx(q,:)
+                     StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
+                          = StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
+                          + DOT_PRODUCT(dBasisdx(q,:),dStress1(j,:))*s
 
-!                  Newton iteration:
-!                  -----------------
-                   StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
-                        = StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
-                        + DOT_PRODUCT(dBasisdx(q,:),dStress1(j,:))*s
-!                        + DDOT_PRODUCT(dStress1,GradBasis,3)*s
+                  END DO
+               END DO
+            END DO
+         END DO
 
-!                  Fixed point iteration:
-!                  ----------------------
-!                   dDefG = 0.0D0; dDefG(j,:) = dBasisdx(q,:)
-!                   dStrain = (MATMUL(TRANSPOSE(DefG),dDefG) &
-!                        + MATMUL(TRANSPOSE(dDefG),DefG))/2.0D0
-!                   StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
-!                        = StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
-!                        + DDOT_PRODUCT(dStrain,dStress2,dim)*s
+      ELSE
+         ! print *, 'anisotropy active...'
+         !--------------------------------------------------------------------------
+         ! Anisotropic material is handled in this branch. 
+         !-------------------------------------------------------------------------
+         IF (dim /= 3 ) &
+              CALL Fatal( 'ElasticSolve',  'Material anistropy implemented only for 3-d' )
 
-                END DO
-             END DO
-          END DO
-       END DO
+         G = 0.0d0
+         DO i=1,SIZE(ElasticModulus,1)
+            DO j=1,SIZE(ElasticModulus,2)
+               G(i,j) = SUM( Basis(1:n) * ElasticModulus(i,j,1:n) )
+            END DO
+         END DO
+
+         IF ( RotateModuli ) THEN
+            CALL RotateElasticityMatrix( G, TransformMatrix, dim )
+         END IF
+            
+         !-------------------------------------------------------------------------
+         ! Compute the formulation variables for the current solution iterate
+         !--------------------------------------------------------------------
+         Grad = MATMUL(NodalDisplacement(:,1:n),dBasisdx)
+         DefG = Identity + Grad
+         Strain = (TRANSPOSE(Grad)+Grad+MATMUL(TRANSPOSE(Grad),Grad))/2.0D0
+
+         SELECT CASE( dim )
+         CASE( 1 )
+            DetDefG = DefG(1,1)
+         CASE( 2 )
+            DetDefG = DefG(1,1)*DefG(2,2) - DefG(1,2)*DefG(2,1)
+         CASE( 3 )
+            DetDefG = DefG(1,1) * ( DefG(2,2)*DefG(3,3) - DefG(2,3)*DefG(3,2) ) + &
+                 DefG(1,2) * ( DefG(2,3)*DefG(3,1) - DefG(2,1)*DefG(3,3) ) + &
+                 DefG(1,3) * ( DefG(2,1)*DefG(3,2) - DefG(2,2)*DefG(3,1) )
+         END SELECT
+
+         !-------------------------------------------------------------
+         ! The second Piola-Kirchhoff stress for the current iterate
+         !--------------------------------------------------------------
+         CALL Strain2Stress(Stress2, Strain, G, dim, .FALSE.)         
+         !--------------------------------------------------
+         ! The first Piola-Kirchhoff stress
+         !--------------------------------------------------
+         Stress1 = MATMUL(DefG,Stress2)
+
+         !-----------------------------------------------------------------
+         ! dStress2U will be the derivative term Dg(F_k)[grad u_k] with
+         ! g the response function giving the second Piola-Kirchhoff stress
+         ! in terms of the deformation gradient F
+         !------------------------------------------------------------------
+         dDefGU = Grad
+         dStrainU = (MATMUL(TRANSPOSE(DefG),Grad) &
+              + MATMUL(TRANSPOSE(Grad),DefG))/2.0D0
+         CALL Strain2Stress(dStress2U, dStrainU, G, dim, .FALSE.)    
+         !-------------------------------------------------------------
+         ! dStress1U presents the derivative term DS(F_k)[grad u_k] with
+         ! S the first  Piola-Kirchhoff stress
+         !-------------------------------------------------------------
+         dStress1U = MATMUL(Grad,Stress2) + MATMUL(DefG,dStress2U)
+
+         !---------------------------------------------------------
+         ! Newton iteration:
+         !------------------------------------------------
+         DO p = 1,N
+            DO i = 1,dim
+               !------------------------------------------------------------------------
+               ! Grad will now be the velocity gradient corresponding to the velocity
+               ! test function
+               ! -----------------------------------------------------------------------
+               Grad = 0.0d0
+               Grad(i,:) = dBasisdx(p,:)
+
+               !---------------------------------------------------------------------
+               ! dStress2 will correspond to the term (G*)dStrainU, with G* the adjoint
+               ! of the elasticity tensor and the strain field dStrainU defined as 
+               ! follows: 
+               !------------------------------------------------------------------
+               dStrainU = (MATMUL(TRANSPOSE(DefG),Grad) &
+                    + MATMUL(TRANSPOSE(Grad),DefG))/2.0D0
+               CALL Strain2Stress(dStress2, dStrainU, TRANSPOSE(G), dim, .FALSE.)                  
+
+               !-------------------------------------------------------------
+               ! Then dStress1 relates to having an equivalent expression for
+               ! the derivative DS(u_k)[grad u_{k+1}] with S the first  
+               ! Piola-Kirchhoff stress.
+               !-------------------------------------------------------------
+               dStress1 = MATMUL(Grad,Stress2) + MATMUL(DefG,dStress2)
+
+               ForceVector(dim*(p-1)+i) = ForceVector(dim*(p-1)+i) &
+                    +(Basis(p)*Force(i)*DetDefG &
+                    +Basis(p)*InertialForce(i)*Density &
+                    -DOT_PRODUCT(dBasisdx(p,:),Stress1(i,:)) &
+                    +DOT_PRODUCT(dBasisdx(p,:),dStress1U(i,:)))*s
+
+               DO q = 1,N
+                  DO j = 1,dim
+                     StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
+                          = StiffMatrix(dim*(p-1)+i,dim*(q-1)+j) &
+                          + DOT_PRODUCT(dBasisdx(q,:),dStress1(j,:))*s
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
 
 
 !      Integrate mass matrix:
@@ -1117,23 +1306,23 @@
 
 !------------------------------------------------------------------------------
 
-  END SUBROUTINE StressCompose
+  END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE NeoHookeanStressCompose( MassMatrix,DampMatrix,StiffMatrix,ForceVector, &
+  SUBROUTINE NeoHookeanLocalMatrix( MassMatrix,DampMatrix,StiffMatrix,ForceVector, &
        LoadVector, InertialLoad, NodalYoung, NodalPoisson, NodalDensity, NodalDamping, &
        PlaneStress,NodalHeatExpansion, NodalTemperature, Element,n,Nodes, &
        NodalDisplacement )
 !------------------------------------------------------------------------------
     
     REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:),DampMatrix(:,:), &
-         NodalHeatExpansion(:,:,:)
+         NodalHeatExpansion(:,:,:), NodalYoung(:,:,:)
     REAL(KIND=dp) :: NodalTemperature(:),NodalDensity(:), &
          NodalDamping(:),LoadVector(:,:), InertialLoad(:,:)
     REAL(KIND=dp) :: NodalDisplacement(:,:)
-    REAL(KIND=dp), DIMENSION(:) :: ForceVector,NodalPoisson,NodalYoung
+    REAL(KIND=dp), DIMENSION(:) :: ForceVector,NodalPoisson
 
     LOGICAL :: PlaneStress
 
@@ -1172,14 +1361,14 @@
     dim = CoordinateSystemDimension()
 
     IF ( PlaneStress ) THEN
-       NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) /  &
+       NodalLame1(1:n) = NodalYoung(1,1,1:n) * NodalPoisson(1:n) /  &
             ( (1.0d0 - NodalPoisson(1:n)**2) )
     ELSE
-       NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) /  &
+       NodalLame1(1:n) = NodalYoung(1,1,1:n) * NodalPoisson(1:n) /  &
             (  (1.0d0 + NodalPoisson(1:n)) * (1.0d0 - 2.0d0*NodalPoisson(1:n)) )
     END IF
 
-    NodalLame2(1:n) = NodalYoung(1:n)  / ( 2* (1.0d0 + NodalPoisson(1:n)) )
+    NodalLame2(1:n) = NodalYoung(1,1,1:n)  / ( 2* (1.0d0 + NodalPoisson(1:n)) )
 
     ForceVector = 0.0D0
     StiffMatrix = 0.0D0
@@ -1358,7 +1547,7 @@
     END DO
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE NeoHookeanStressCompose
+  END SUBROUTINE NeoHookeanLocalMatrix
 !------------------------------------------------------------------------------
 
 
@@ -1372,11 +1561,11 @@
         NodalDisplacement )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:),DampMatrix(:,:), &
-          NodalHeatExpansion(:,:,:)
+          NodalHeatExpansion(:,:,:), NodalYoung(:,:,:)
      REAL(KIND=dp) :: NodalTemperature(:),NodalDensity(:), &
                 NodalDamping(:),LoadVector(:,:)
      REAL(KIND=dp) :: NodalDisplacement(:,:)
-     REAL(KIND=dp), DIMENSION(:) :: ForceVector,NodalPoisson,NodalYoung
+     REAL(KIND=dp), DIMENSION(:) :: ForceVector,NodalPoisson
 
      LOGICAL :: PlaneStress
 
@@ -1426,14 +1615,14 @@
      END IF
 
      IF ( PlaneStress ) THEN
-       NodalLame1(1:n) = NodalYoung * NodalPoisson /  &
+       NodalLame1(1:n) = NodalYoung(1,1,:) * NodalPoisson /  &
             ( (1.0d0 - NodalPoisson**2) )
      ELSE
-       NodalLame1(1:n) = NodalYoung * NodalPoisson /  &
+       NodalLame1(1:n) = NodalYoung(1,1,:) * NodalPoisson /  &
           (  (1.0d0 + NodalPoisson) * (1.0d0 - 2.0d0*NodalPoisson) )
      END IF
 
-     NodalLame2(1:n) = NodalYoung  / ( 2* (1.0d0 + NodalPoisson) )
+     NodalLame2(1:n) = NodalYoung(1,1,:)  / ( 2* (1.0d0 + NodalPoisson) )
 
      ForceVector = 0.0D0
      StiffMatrix = 0.0D0
@@ -1965,7 +2154,7 @@
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE StressBoundary( BoundaryMatrix,BoundaryVector,LoadVector, &
+ SUBROUTINE LocalBoundaryMatrix( BoundaryMatrix,BoundaryVector,LoadVector, &
    NodalAlpha,NodalBeta,NodalDisplacement,Element,n,Nodes, &
      Parent,pn,ParentNodes,Flow,fn,FlowNodes,Velocity,Pressure,NodalViscosity, &
      NodalDensity, CompressibilityDefined )
@@ -2165,7 +2354,7 @@
   END DO
 
 !------------------------------------------------------------------------------
- END SUBROUTINE StressBoundary
+ END SUBROUTINE LocalBoundaryMatrix
 !------------------------------------------------------------------------------
 
 
@@ -2361,10 +2550,12 @@
 
 
 !--------------------------------------------------------------------------------
- SUBROUTINE ComputeStressAndStrain( Displacement, NodalStrain, NodalStress, Perm , &
-      CalculateStrains, CalcStressAll, NeoHookeanMaterial)
+ SUBROUTINE ComputeStressAndStrain( Displacement, NodalStrain, NodalStress, VonMises, Perm , &
+      CalculateStrains, CalcStressAll, NeoHookeanMaterial, PrincipalStress, PrincipalStrain, &
+      Tresca, PrincipalAngle)
 !--------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Displacement(:), NodalStrain(:), NodalStress(:)  
+   REAL(KIND=dp) :: Displacement(:), NodalStrain(:), NodalStress(:), VonMises(:), &
+    PrincipalStress(:), PrincipalStrain(:), Tresca(:), PrincipalAngle(:) 
    INTEGER, POINTER :: Perm(:)
    LOGICAL :: CalculateStrains, CalcStressAll, NeoHookeanMaterial
 !--------------------------------------------------------------------------------
@@ -2381,13 +2572,22 @@
         NodalLame1(:), NodalLame2(:)
 
    LOGICAL :: FirstTime = .TRUE., Found, OptimizeBW, GlobalBubbles, Stat, &
-        Factorize,  FoundFactorize, FreeFactorize, FoundFreeFactorize, PlaneStress
+        Factorize,  FoundFactorize, FreeFactorize, FoundFreeFactorize, PlaneStress, &
+        Isotropic
    INTEGER :: dim, n, nd, elem, i, j, k, l, p, q, t, Ind(9)
    REAL(KIND=dp) :: Strain(3,3), Stress(3,3), Stress2(3,3), Grad(3,3), DefG(3,3), Identity(3,3), &
-        InvC(3,3), InvDefG(3,3), u, v, w, Weight, detJ, res, Lame1, Lame2, DetDefG
+        InvC(3,3), InvDefG(3,3), u, v, w, Weight, detJ, res, Lame1, Lame2, DetDefG, G(6,6)
 
    SAVE StSolver, Permutation, FirstTime, ForceG, SForceG, Nodes, StressTemp
 !--------------------------------------------------------------------------------
+
+   ! These variables are needed for Principal stress calculation
+   ! they are quite small and allocated even if principal stress calculation
+   ! is not requested
+   REAL(KIND=dp) :: PriCache(3,3), PriTmp, PriW(3),PriWork(102)
+   INTEGER       :: PriN=3, PriLWork=102, PriInfo=0
+   REAL(KIND=dp) :: PriAngT1=0, PriAngT2=0, PriAngV(3)=0
+
    dim = CoordinateSystemDimension()   
  
    Identity = 0.0D0
@@ -2468,18 +2668,69 @@
       !--------------------------------------------------------------------
       Equation => GetEquation()
       Material => GetMaterial()
-      PlaneStress = GetLogical( Equation, 'Plane Stress', Found )
-      PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio' )
-      ElasticModulus(1:n) = GetReal( Material, 'Youngs Modulus' )
 
-      IF ( PlaneStress ) THEN
-         NodalLame1(1:n) = ElasticModulus(1:n) * PoissonRatio(1:n) /  &
-              ( (1.0d0 - PoissonRatio(1:n)**2) )
+      IF (NeoHookeanMaterial) THEN
+         Isotropic = .TRUE.
+         ElasticModulus(1,1,1:n) = ListGetReal( Material, &
+              'Youngs Modulus', n, Indeces, Found )
       ELSE
-         NodalLame1(1:n) = ElasticModulus(1:n) * PoissonRatio(1:n) /  &
-              (  (1.0d0 + PoissonRatio(1:n)) * (1.0d0 - 2.0d0*PoissonRatio(1:n)) )
+         CALL InputTensor( ElasticModulus, Isotropic, &
+              'Youngs Modulus', Material, n, Indeces )        
       END IF
-      NodalLame2(1:n) = ElasticModulus(1:n)  / ( 2* (1.0d0 + PoissonRatio(1:n)) )
+
+      !------------------------------------------------------------------------------
+      ! Check whether the rotation transformation of elastic moduli is necessary...
+      !------------------------------------------------------------------------------
+      RotateModuli = GetLogical( Material, 'Rotate Elasticity Tensor', Found )
+      IF ( RotateModuli .AND. (.NOT. Isotropic) ) THEN
+         RotateModuli = .FALSE.
+         DO i=1,3
+            IF( i == 1 ) THEN
+               CALL GetConstRealArray( Material, UWrk, &
+                    'Material Coordinates Unit Vector 1', Found, Element )
+            ELSE IF( i == 2 ) THEN
+               CALL GetConstRealArray( Material, UWrk, &
+                    'Material Coordinates Unit Vector 2', Found, Element )
+            ELSE                
+               CALL GetConstRealArray( Material, UWrk, &
+                    'Material Coordinates Unit Vector 3', Found, Element )
+            END IF
+
+            IF( Found ) THEN
+               UnitNorm = SQRT( SUM( Uwrk(1:3,1)**2 ) )
+               IF( UnitNorm < EPSILON( UnitNorm ) ) THEN
+                  CALL Fatal('ElasticSolve','Given > Materia Coordinate Unit Vector < too short!')
+               END IF
+               TransformMatrix(i,1:3) = Uwrk(1:3,1) / UnitNorm  
+               RotateModuli = .TRUE.
+            ELSE 
+               TransformMatrix(i,1:3) = 0.0_dp
+               TransformMatrix(i,i) = 1.0_dp
+            END IF
+         END DO
+
+         IF( .NOT. RotateModuli  ) THEN
+            CALL Fatal( 'ElasticSolve', &
+                 'No unit vectors found but > Rotate Elasticity Tensor < set True?' )
+         END IF
+      END IF
+
+      PoissonRatio = 0.0d0
+      IF (Isotropic) THEN
+         PoissonRatio(1:n) = ListGetReal( Material, &
+              'Poisson Ratio', n, Indeces )
+
+         PlaneStress = GetLogical( Equation, 'Plane Stress', Found )
+
+         IF ( PlaneStress ) THEN
+            NodalLame1(1:n) = ElasticModulus(1,1,1:n) * PoissonRatio(1:n) /  &
+                 ( (1.0d0 - PoissonRatio(1:n)**2) )
+         ELSE
+            NodalLame1(1:n) = ElasticModulus(1,1,1:n) * PoissonRatio(1:n) /  &
+                 (  (1.0d0 + PoissonRatio(1:n)) * (1.0d0 - 2.0d0*PoissonRatio(1:n)) )
+         END IF
+         NodalLame2(1:n) = ElasticModulus(1,1,1:n)  / ( 2* (1.0d0 + PoissonRatio(1:n)) )
+      END IF
 
 
       IntegStuff = GaussPoints( Element )      
@@ -2499,9 +2750,22 @@
               Basis, dBasisdx ) 
          Weight = Weight * detJ
  
-         Lame1 = SUM( NodalLame1(1:n)*Basis(1:n) )
-         Lame2 = SUM( NodalLame2(1:n)*Basis(1:n) )
-        
+         IF (Isotropic) THEN
+            Lame1 = SUM( NodalLame1(1:n)*Basis(1:n) )
+            Lame2 = SUM( NodalLame2(1:n)*Basis(1:n) )
+         ELSE
+            G = 0.0d0
+            DO i=1,SIZE(ElasticModulus,1)
+               DO j=1,SIZE(ElasticModulus,2)
+                  G(i,j) = SUM( Basis(1:n) * ElasticModulus(i,j,1:n) )
+               END DO
+            END DO
+
+            IF ( RotateModuli ) THEN
+               CALL RotateElasticityMatrix( G, TransformMatrix, dim )
+            END IF
+         END IF
+
          Grad = 0.0d0
          Grad = MATMUL( LocalDisplacement(1:dim,1:nd), dBasisdx(1:nd,1:dim) )
          DefG = Identity + Grad
@@ -2533,7 +2797,11 @@
             Stress2 = Lame1/2.0d0 * (DetDefG - 1.0d0) * (DetDefG + 1.0d0) * InvC + &
                  Lame2 * (Identity - InvC)
          ELSE
-            Stress2 = 2.0D0*Lame2*Strain + Lame1*TRACE(Strain,dim)*Identity        
+            IF (.NOT. Isotropic) THEN
+               CALL Strain2Stress(Stress2, Strain, G, dim, .FALSE.) 
+            ELSE
+               Stress2 = 2.0D0*Lame2*Strain + Lame1*TRACE(Strain,dim)*Identity
+            END IF
          END IF
          Stress =  1.0d0/DetDefG * MATMUL( MATMUL(DefG,Stress2), TRANSPOSE(DefG) )
 
@@ -2650,6 +2918,135 @@
    ELSE
       CALL ListAddLogical( SolverParams, 'Linear System Free Factorization', FreeFactorize )
    END IF
+
+
+   ! Von Mises stress from the component nodal values:
+   ! -------------------------------------------------
+   VonMises = 0
+   DO i=1,SIZE( Perm )
+      IF ( Perm(i) <= 0 ) CYCLE
+
+      p = 0
+      DO j=1,3
+         DO k=1,3
+           p = p + 1
+           q = 6 * (Perm(i)-1) + IND(p)
+           Stress(j,k) = NodalStress(q)
+         END DO
+      END DO
+
+      Stress(:,:) = Stress(:,:) - TRACE(Stress(:,:),3) * Identity/3
+
+      DO j=1,3
+         DO k=1,3
+           VonMises(Perm(i)) = VonMises(Perm(i)) + Stress(j,k)**2
+         END DO
+      END DO
+   END DO
+
+   VonMises = SQRT( 3.0d0 * VonMises / 2.0d0 )
+
+   !Principal stresses and Tresca
+   IF(CalcPrincipalAll) THEN
+     DO i=1,SIZE( Perm )
+       IF ( Perm(i) <= 0 ) CYCLE       
+       !Stresses: 
+       p = 0
+       DO j=1,3
+         DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
+           p = p+1
+           q = 6 * (Perm(i)-1) + IND(p)
+           PriCache(j,k) = NodalStress(q)
+         END DO
+       END DO
+       !Use lapack function to do solve eigenvalues (i.e. principal stresses)
+       CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
+       IF (PriInfo /= 0) THEN !error in dsyev
+         PriW = 0; !we probably should put NaN in error
+       END IF              
+
+       DO l=1,3
+         ! eigenvalues are returned in opposite order 
+         PrincipalStress(3 * (Perm(i)-1 )+l) = PriW(4-l)                        
+       END DO
+
+       IF (CalcPrincipalAngle) THEN
+         !DSYEV has changed the vector, so well copy it again from NodalStress
+         p=0
+         DO j=1,3
+           DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
+              p = p+1
+              q = 6 * (Perm(i)-1) + IND(p)
+              PriCache(j,k) = NodalStress(q)
+           END DO
+         END DO
+
+         DO k=1,3 ! for all principal stresses
+           ! This is where things get _very_ heary. The code below
+           ! solves the following equation system:
+           !   (s11-p)v1 + s12*v2 + s13*v3=0
+           !   s12*v1    + (s22-p)*v2 + s23*v3=0
+           !   v1**2 + v2**2 + v3**2 = 1
+           !   where v1...3 are the directional cosines of the primary stresses,
+           !   sij are the stress matrix components and
+           !   p   is the primary stress in question  
+           ! The code is practically unreadable.
+           ! This code unit has been tested with the non-trivial
+           ! known solutions from following textbooks:
+           !   Pennala, E. 1992. Lujuusopin Perusteet
+           !   Shames, I. H., Cozzarelli, F., A. Elastic and inelastic stress analysis
+           PriAngT1 =( PriCache(1,2) + &
+              ((PriCache(2,2)-PriW(4-k)) * (PriCache(1,1)-PriW(4-k))) / &
+              (-PriCache(1,2) ) ) / & 
+             (((PriCache(2,2)-PriW(4-k))*PriCache(1,3))/&
+               PriCache(1,2) - PriCache(2,3) )
+           PriAngT2 =(PriCache(1,1)-PriW(4-k))/(PriCache(1,2)) + &
+                  PriAngT1*PriCache(1,3)/PriCache(1,2)
+           PriAngV(1) = (1/(1+PriAngT1**2 + PriAngT2**2))**0.5
+           PriAngV(2) = -PriAngT2 * PriAngV(1)
+           PriAngV(3) = PriAngT1 * PriAngV(1)
+
+           PrincipalAngle(9 * (Perm(i)-1 ) +3*(k-1) + 1)    = &
+                       (ACOS(PriAngV(1)) ) !angle in radians *360/6.28
+           PrincipalAngle(9 * (Perm(i)-1 ) +3*(k-1) + 2) = &
+                       (ACOS(PriAngV(2)) ) !angle in radians *360/6.28
+           PrincipalAngle(9 * (Perm(i)-1 ) +3*(k-1) + 3) = &
+                       (ACOS(PriAngV(3)) ) !angle in radians *360/6.28                              
+         END DO
+       END IF
+
+       !Tresca                        
+       Tresca(Perm(i)) = (PrincipalStress(3*(Perm(i)-1) +1) - &
+                    PrincipalStress(3*(Perm(i)-1) +2))/2
+       PriTmp = (PrincipalStress(3*(Perm(i)-1) +2) - &
+                    PrincipalStress(3*(Perm(i)-1) +3))/2
+       IF (PriTmp > Tresca(Perm(i)) ) Tresca(Perm(i)) = PriTmp
+
+       PriTmp = (PrincipalStress(3*(Perm(i)-1) +1) - &
+                    PrincipalStress(3*(Perm(i)-1) +3))/2
+       IF (PriTmp > Tresca(Perm(i)) ) Tresca(Perm(i)) = PriTmp
+       
+       !Strain:
+       IF(CalculateStrains)THEN
+         p = 0
+         DO j=1,3
+           DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
+             p = p+1
+             q = 6 * (Perm(i)-1) + IND(p)
+             PriCache(j,k) = NodalStrain(q)
+           END DO
+         END DO
+   
+         !Use lapack function to do solve eigenvalues
+         CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
+         IF(PriInfo /= 0) PriW = 0;
+         DO l=1,3
+           ! eigenvalues are returned in opposite order 
+           PrincipalStrain(3 * (Perm(i)-1 )+l) = PriW(4-l)
+         END DO
+       END IF ! CalculateStrains
+     END DO
+   END IF ! Calculate Principal
 
    DEALLOCATE( Indeces, &
         LocalDisplacement, &
