@@ -1,14 +1,14 @@
-SUBDIRS=view3d viewaxis binio
+SUBDIRS=view3d viewaxis binio . modules
 
 OBJ_EXT=.$(OBJEXT)
 SHL_EXT=.$(SHLEXT)
 LIB_EXT=.$(LIBEXT)
 EXE_EXT=$(EXEEXT)
 
-include make.bin
+include make.lib
 include make.dep
 
-NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT) ResultToResult$(EXE_EXT)
 MPI_TARGETS=ElmerSolver_mpi$(EXE_EXT)
 
 
@@ -88,8 +88,6 @@ endif
 endif
 
 
-$(BINARIES) $(BINARIES_ODD): libelmersolver$(SHL_EXT)
-
 $(SOLVEROBJS): mpif
 
 if USE_MPI
@@ -144,7 +142,6 @@ install-data-local:
 	@echo "Installing solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
 	mkdir -p $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
-	$(CP) `ls -f *$(SHL_EXT) | grep -v libelmersolver` $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 	$(CP) elements.def $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 	$(CP) SOLVER.KEYWORDS $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 
