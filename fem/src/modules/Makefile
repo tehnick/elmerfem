@@ -62,14 +62,14 @@ BLAS_LIBS = -lblas
 BOURNE_SHELL = sh
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2 -fPIC -I/wrk/jpr/ff/include
+CFLAGS = -g -O0 -fPIC -I/wrk/jpr/ff/include
 CP = cp
 CPICFLAG = -fPIC
 CPP = /lib/cpp
 CPPFLAGS = 
 CXX = g++
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -O -fPIC
+CXXFLAGS = -g -O0 -fPIC
 CXXPICFLAG = -fPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -86,10 +86,10 @@ EXEEXT =
 EXTRA_LIBS = 
 F77 = gfortran
 FC = gfortran
-FCFLAGS = -O -fPIC -I. -Ibinio
+FCFLAGS = -g -O0 -fPIC -I. -Ibinio
 FCLIBS =  -L/home/wrk/jpr/gcc-4.5/bin/../lib/gcc/i686-pc-linux-gnu/4.7.0 -L/home/wrk/jpr/gcc-4.5/bin/../lib/gcc -L/home/wrk/jpr/gcc-4.5/bin/../lib/gcc/i686-pc-linux-gnu/4.7.0/../../.. -lgfortran -lm -lquadmath
 FCPPFLAGS =  -DCONTIG=",CONTIGUOUS" -P -traditional-cpp -I. -I/wrk/jpr/ff/include -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -O -fPIC -I.
+FFLAGS = -g -O0 -fPIC -I.
 FLIBS =  -L/home/wrk/jpr/gcc-4.5/bin/../lib/gcc/i686-pc-linux-gnu/4.7.0 -L/home/wrk/jpr/gcc-4.5/bin/../lib/gcc -L/home/wrk/jpr/gcc-4.5/bin/../lib/gcc/i686-pc-linux-gnu/4.7.0/../../.. -lgfortran -lm -lquadmath
 FORTRAN_CPP_FLAG = 
 FPICFLAG = -fPIC
@@ -161,7 +161,7 @@ STDCXX_LIBS =  -L/home/wrk/jpr/gcc-4.5/bin/../lib/gcc/i686-pc-linux-gnu/4.7.0 -L
 STRIP = 
 TEMPLATE_AR = 
 TEMPLATE_ARFLAGS = 
-TESTS_FCFLAGS = -O -fPIC -I. -Ibinio -I.
+TESTS_FCFLAGS = -g -O0 -fPIC -I. -Ibinio -I.
 UMFPACK_LIBS = -lumfpack -lamd
 UNIX_MATH_LIB = -lm
 VERSION = 6.1
@@ -170,9 +170,9 @@ abs_srcdir = /wrk/jpr/ff/test/fem/src/modules
 abs_top_builddir = /wrk/jpr/ff/test/fem
 abs_top_srcdir = /wrk/jpr/ff/test/fem
 ac_ct_CC = gcc
-ac_ct_CXX = g++
-ac_ct_F77 = gfortran
-ac_ct_FC = gfortran
+ac_ct_CXX = 
+ac_ct_F77 = 
+ac_ct_FC = 
 am__include = include
 am__leading_dot = .
 am__quote = 
@@ -492,10 +492,10 @@ SUFFIXES: .f90 .so .src
 #	$(FC) $(AM_FCFLAGS)  $(FCFLAGS) $(FORTRAN_CPP_FLAG) $(FCPPFLAGS) -c $<
 
 #.$(OBJEXT).$(SHLEXT):
-#	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) -L. -lelmersolver
+#	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) -L.. -lelmersolver
 
 #EliminatePeriodic.$(SHLEXT): EliminateDirichlet$(OBJ_EXT) EliminatePeriodic$(OBJ_EXT)
-#	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT) -L. -lelmersolver
+#	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT) -L.. -lelmersolver
 
 .$(OBJEXT).$(SHLEXT): 
 	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)

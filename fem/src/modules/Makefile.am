@@ -32,10 +32,10 @@ endif
 if USE_WINDOWS_COMPILER
 
 .$(OBJEXT).$(SHLEXT):
-	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) -L. -lelmersolver
+	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) -L.. -lelmersolver
 
 EliminatePeriodic.$(SHLEXT): EliminateDirichlet$(OBJ_EXT) EliminatePeriodic$(OBJ_EXT)
-	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT) -L. -lelmersolver
+	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT) -L.. -lelmersolver
 
 
 else

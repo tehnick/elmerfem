@@ -2004,7 +2004,7 @@ case "$ac_cv_fc_mangling" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1459: -1- AC_DEFUN([ACX_FC_CONTIG], [
+m4trace:acx_elmer.m4:1464: -1- AC_DEFUN([ACX_FC_CONTIG], [
 AC_PREREQ(2.50)
 AC_REQUIRE([ACX_LANG_COMPILER_MS])
 AC_LANG_PUSH(Fortran)
@@ -2014,10 +2014,15 @@ AC_COMPILE_IFELSE(
           integer, pointer, contiguous :: x(:)
         end program test_contiguous ],
 [ acx_cv_fc_contig=yes ], [ acx_cv_fc_contig=no ] )
-AC_MSG_RESULT([...$acx_cv_fc_contig])
+AC_MSG_RESULT([$acx_cv_fc_contig])
 AC_LANG_POP(Fortran)
+if test "$acx_cv_fc_contig" ==  yes ; then
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG=\",CONTIGUOUS\""
+else
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG=\"\""
+fi
 ])
-m4trace:acx_elmer.m4:1480: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
+m4trace:acx_elmer.m4:1485: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
 
 INCLUDE_MODULE_FLAG="-I"
 
@@ -2036,7 +2041,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1571: -1- AC_DEFUN([ACX_PIC_FLAGS], [
+m4trace:acx_elmer.m4:1576: -1- AC_DEFUN([ACX_PIC_FLAGS], [
 dnl 
 dnl Host specific stuff
 dnl fixme: if 64 bits, then start looking for pic flags, not by default?
@@ -2126,7 +2131,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1777: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1782: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -2331,7 +2336,7 @@ fi
 AC_SUBST(SH_EXPALL_FLAG)
 
 ])
-m4trace:acx_elmer.m4:1835: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1840: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -2385,7 +2390,7 @@ esac
 
 AM_CONDITIONAL(IBM_AIX, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1873: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1878: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2421,7 +2426,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:2047: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:2052: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -2587,7 +2592,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:2069: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
+m4trace:acx_elmer.m4:2074: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
 AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
@@ -2599,7 +2604,7 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
-m4trace:acx_elmer.m4:2093: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+m4trace:acx_elmer.m4:2098: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
                 [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
        choke me
@@ -2620,7 +2625,7 @@ else
 fi
 AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_platform_def" = "WIN32")
 ])
-m4trace:acx_elmer.m4:2124: -1- AC_DEFUN([ACX_FC_MODFILE], [AC_CACHE_CHECK(for *.mod-file naming convention, modfilename,
+m4trace:acx_elmer.m4:2129: -1- AC_DEFUN([ACX_FC_MODFILE], [AC_CACHE_CHECK(for *.mod-file naming convention, modfilename,
 [
 mkdir conftestdir
 cd conftestdir
@@ -2644,7 +2649,7 @@ if test ""$modfilename = "" ; then
 fi
 ])
 ])
-m4trace:acx_elmer.m4:2157: -1- AC_DEFUN([ACX_FC_PUT_MODULE_FLAG], [AC_CACHE_CHECK(for option to tell ${FC-fc} where to put *.mod-files,
+m4trace:acx_elmer.m4:2162: -1- AC_DEFUN([ACX_FC_PUT_MODULE_FLAG], [AC_CACHE_CHECK(for option to tell ${FC-fc} where to put *.mod-files,
 modput_opt,
 [
 mkdir conftestdir
@@ -2864,187 +2869,190 @@ m4trace:configure.in:54: -1- m4_pattern_allow([^ENABLE_DYNAMIC_LINKING$])
 m4trace:configure.in:54: -1- m4_pattern_allow([^SHL_EXTENSION$])
 m4trace:configure.in:54: -1- m4_pattern_allow([^SH_EXPALL_FLAG$])
 m4trace:configure.in:61: -1- m4_pattern_allow([^RPATH_ELMER$])
-m4trace:acx_mpi.m4:186: -1- AC_DEFUN([ACX_MPI], [
-AC_PREREQ(2.50) dnl for AC_LANG_CASE
+m4trace:acx_mpi.m4:189: -1- AC_DEFUN([ACX_MPI], [
+  AC_PREREQ(2.50) dnl for AC_LANG_CASE
 
-dnl ac_mpi_save_LIBS=$LIBS
-acx_mpi_ok=disabled
+  dnl ac_mpi_save_LIBS=$LIBS
+  acx_mpi_ok=disabled
 
-echo $host
-case  $host in 
- rs6000-ibm-aix* | powerpc-ibm-aix*)
-     acx_mpi_try_c_compile=no
- ;;
-esac
-
-
-dnl Letting user specify MPI-Library directories
-AC_ARG_WITH(mpi,
-  [  --with-mpi[=yes]  Use mpi (by default disabled)],
-     acx_mpi_ok=no, acx_mpi_ok=disabled)
-
-AC_MSG_CHECKING([for mpi-directory])
-AC_ARG_WITH(mpi_dir,
-  [  --with-mpi-dir=MPIDIR   give the path for MPI [/usr/local/mpich]],
-  acx_mpi_ok=no; mpi_dir="$withval", mpi_dir="/usr/local/mpich")
-AC_MSG_RESULT([$mpi_dir])
-AC_SUBST([mpi_dir])
-
-AC_MSG_CHECKING([for mpi-lib-directory])
-AC_ARG_WITH(mpi_lib_dir,
-  [  --with-mpi-lib-dir=dir  give the path for MPI-libraries [MPI_DIR/lib]],
-  acx_mpi_ok=no; mpi_lib_dir="$withval", mpi_lib_dir="$mpi_dir/lib")
-AC_MSG_RESULT([$mpi_lib_dir])
-AC_SUBST([mpi_lib_dir])
-
-AC_MSG_CHECKING([for mpi-inc-directory])
-AC_ARG_WITH(mpi_inc_dir,
-  [  --with-mpi-inc-dir=dir  give the path for MPI-include-files [MPI_DIR/include]],
-  acx_mpi_ok=no; mpi_inc_dir="$withval", mpi_inc_dir="$mpi_dir/include")
-AC_MSG_RESULT([$mpi_inc_dir])
-AC_SUBST([mpi_inc_dir])
-
-AC_MSG_CHECKING([for mpi-library])
-AC_ARG_WITH(mpi_library,
-  [  --with-mpi-library=library  give MPI-libraray-files []],
-  acx_mpi_ok=no; mpi_library="$withval", mpi_library="")
-AC_MSG_RESULT([$mpi_library])
-AC_SUBST([mpi_library])
-
-AC_MSG_CHECKING([for mpi-include])
-AC_ARG_WITH(mpi_include,
-  [  --with-mpi-include=include  give MPI-include-files []],
-  acx_mpi_ok=no; mpi_include="$withval", mpi_include="")
-AC_MSG_RESULT([$mpi_include])
-AC_SUBST([mpi_include])
+  acx_mpi_try_c_compile=yes
+  case  $host in 
+   rs6000-ibm-aix* | powerpc-ibm-aix*)
+       acx_mpi_try_c_compile=no
+   ;;
+  esac
 
 
+  dnl Letting user specify MPI-Library directories
+  AC_ARG_WITH(mpi,
+    [  --with-mpi[=yes]  Use mpi (by default disabled)],
+       acx_mpi_ok=no, acx_mpi_ok=disabled)
 
-if test "$acx_mpi_ok" != disabled; then
+  AC_MSG_CHECKING([for mpi-directory])
+  AC_ARG_WITH(mpi_dir,
+    [  --with-mpi-dir=MPIDIR   give the path for MPI []],
+    acx_mpi_ok=no; mpi_dir="$withval", mpi_dir="")
+  AC_MSG_RESULT([$mpi_dir])
+  AC_SUBST([mpi_dir])
 
-# Checking for MPIrun-executable name (depends on variables $mpi_dir)
-
-#
-# 
-#
-#AC_MSG_CHECKING([for the mpirun command])
-#mpirun_cmd="Not found"
-#if test -x "$mpi_dir/bin/mpirun" ; then
-#  mpirun_cmd="mpirun"
-#elif test -x "$mpi_dir/bin/mprun" ; then
-#  mpirun_cmd="mprun"
-#fi
-#AC_MSG_RESULT($mpirun_cmd)
-#AC_SUBST(mpirun_cmd)
-
-# MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
-
-if test "mpi_library" == ""; then
-
-AC_MSG_CHECKING([for MPI library])
-case "$host" in
-  *-ibm-aix*)                # IBM/SP2 machines
-    # checking whether to use signal-based MPI
-
-    AC_MSG_CHECKING([whether to use signal-based MPI library])
-    AC_MSG_RESULT([$PACX_SIGNAL])
-    if test "x$PACX_SIGNAL" = "xyes" ; then
-      if test -f "$mpi_lib_dir/libmpi.a" ; then
-        lib_mpi="-lmpi"
-      elif test -f "$mpi_lib_dir/libmpi.so" ; then
-        lib_mpi="-lmpi"
-      elif test -f "$mpi_lib_dir/libmpich.a" ; then
-        lib_mpi="-lmpich"
-      else
-        AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
-      fi
-    else
-      if test -f "$mpi_lib_dir/libmpi_r.a" ; then
-         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
-      elif test -f "/usr/lpp/ppe.poe//lib/libmpi_r.a" ; then
-	 mpi_dir="/usr/lpp/ppe.poe/"
-	 mpi_lib_dir="$mpi_dir/lib"
-	 mpi_inc_dir="$mpi_dir/include/thread64"
-         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
-      else
-         AC_MSG_ERROR([libmpi_r not found; check path for MPI package...])
-      fi
+  AC_MSG_CHECKING([for mpi-lib-directory])
+  AC_ARG_WITH(mpi_lib_dir,
+    [  --with-mpi-lib-dir=dir  give the path for MPI-libraries [MPI_DIR/lib]],
+    acx_mpi_ok=no; mpi_lib_dir="$withval", 
+    if test "$mpi_dir" != ""; then
+     mpi_lib_dir="$mpi_dir/lib"
     fi
-    AC_MSG_RESULT(found $lib_mpi)
-  ;;
-  *)                         # All other machines
-    if test -f "$mpi_lib_dir/libmpi.a" ; then
-      lib_mpi="-lmpi"
-    elif test -f "$mpi_lib_dir/libmpi.so" ; then
-      lib_mpi="-lmpi"
-    elif test -f "$mpi_lib_dir/libmpich.a" ; then
-      lib_mpi="-lmpich"
-    else
-      AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+    )
+  AC_MSG_RESULT([$mpi_lib_dir])
+  AC_SUBST([mpi_lib_dir])
+
+  AC_MSG_CHECKING([for mpi-inc-directory])
+  AC_ARG_WITH(mpi_inc_dir,
+    [  --with-mpi-inc-dir=dir  give the path for MPI-include-files [MPI_DIR/include]],
+    acx_mpi_ok=no; mpi_inc_dir="$withval", 
+    if test "$mpi_dir" != ""; then
+     mpi_inc_dir="$mpi_dir/include"
     fi
-    AC_MSG_RESULT(found $lib_mpi)
-  ;;
-esac
-else
- lib_mpi=$mpi_library
-fi
+  )
+  AC_MSG_RESULT([$mpi_inc_dir])
+  AC_SUBST([mpi_inc_dir])
 
-echo "ss: ", $lib_mpi
+  AC_MSG_CHECKING([for mpi-library])
+  AC_ARG_WITH(mpi_library,
+    [  --with-mpi-library=library  give MPI-libraray-files []],
+    acx_mpi_ok=no; mpi_library="$withval", mpi_library="")
+  AC_MSG_RESULT([$mpi_library])
+  AC_SUBST([mpi_library])
 
-if test "$MPI_LIBS" == ""; then
-  MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
-fi
+  AC_MSG_CHECKING([for mpi-include])
+  AC_ARG_WITH(mpi_include,
+    [  --with-mpi-include=include  give MPI-include-files []],
+    acx_mpi_ok=no; mpi_include="$withval", mpi_include="")
+  AC_MSG_RESULT([$mpi_include])
+  AC_SUBST([mpi_include])
 
-AC_SUBST(lib_mpi)
+  if test "$acx_mpi_ok" != disabled; then
 
-# Compilation of a MPI program (depends on above macro)
-if test "$acx_mpi_try_c_compile" != "no"; then
-	AC_LANG_PUSH(C)
+    # MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
+    if test "mpi_library" == ""; then
+
+      AC_MSG_CHECKING([for MPI library])
+      case "$host" in
+        *-ibm-aix*)                # IBM/SP2 machines
+          # checking whether to use signal-based MPI
+
+          AC_MSG_CHECKING([whether to use signal-based MPI library])
+          AC_MSG_RESULT([$PACX_SIGNAL])
+          if test "x$PACX_SIGNAL" = "xyes" ; then
+            if test -f "$mpi_lib_dir/libmpi.a" ; then
+              lib_mpi="-lmpi"
+            elif test -f "$mpi_lib_dir/libmpi.so" ; then
+              lib_mpi="-lmpi"
+            elif test -f "$mpi_lib_dir/libmpich.a" ; then
+              lib_mpi="-lmpich"
+            else
+              AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+            fi
+          else
+            if test -f "$mpi_lib_dir/libmpi_r.a" ; then
+               lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+            elif test -f "/usr/lpp/ppe.poe/lib/libmpi_r.a" ; then
+               mpi_dir="/usr/lpp/ppe.poe/"
+               mpi_lib_dir="$mpi_dir/lib"
+               mpi_inc_dir="$mpi_dir/include/thread64"
+               lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+            else
+               AC_MSG_ERROR([libmpi_r not found; check path for MPI package...])
+            fi
+          fi
+          AC_MSG_RESULT(found $lib_mpi)
+        ;;
+        *)                         # All other machines
+          if test -f "$mpi_lib_dir/libmpi.a" ; then
+            lib_mpi="-lmpi"
+          elif test -f "$mpi_lib_dir/libmpi.so" ; then
+            lib_mpi="-lmpi"
+          elif test -f "$mpi_lib_dir/libmpich.a" ; then
+            lib_mpi="-lmpich"
+          else
+            AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+          fi
+          AC_MSG_RESULT(found $lib_mpi)
+        ;;
+      esac
+    else
+     lib_mpi=$mpi_library
+    fi
+
+    if test "$MPI_LIBS" == ""; then
+      if test "$mpi_lib_dir" != ""; then
+        MPI_LIBS="-L$mpi_lib_dir"
+      fi
+      MPI_LIBS="$MPI_LIBS $lib_mpi"
+    fi
+
+    AC_SUBST(lib_mpi)
+
+    # Compilation of a MPI program (depends on above macro)
+    if test "$acx_mpi_try_c_compile" != "no"; then
+	AC_LANG_PUSH(Fortran 77)
 	AC_MSG_CHECKING([for compilation of an MPI program])
-	old_CFLAGS=${CFLAGS}
+	old_FFLAGS=${FFLAGS}
 	old_LIBS=${LIBS}
-	CFLAGS="-I$mpi_inc_dir $mpi_include"
-	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
-	AC_TRY_COMPILE([#include <mpi.h>],
-	[{
-	  MPI_Finalize();
-	  exit(0);
-	}],[AC_MSG_RESULT([seems ok])
+	FFLAGS="$mpi_include"
+        if test "$mpi_inc_dir" != ""; then
+	  FFLAGS="-I$mpi_inc_dir $FFLAGS"
+        fi
+	LIBS="$lib_mpi $SYS_LDFLAGS"
+        if test "$mpi_inc_dir" != ""; then
+	  LIBS="-L$mpi_lib_dir $LIBS"
+        fi
+	AC_COMPILE_IFELSE(
+	[        PROGRAM test
+                 INCLUDE "mpif.h"
+                 CALL MPI_Finalize(ierr)
+                 END
+	],[AC_MSG_RESULT([seems ok])
 	    AC_DEFINE([HAVE_MPI],[1],[...])
 	    acx_mpi_ok=yes],
 	[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])])
 
-	CFLAGS=${old_CFLAGS}
+	FFLAGS=${old_FFLAGS}
 	LIBS=${old_LIBS}
-	AC_LANG_POP(C)
-else
-	acx_mpi_ok=yes
-fi
+	AC_LANG_POP(Fortran 77)
+    else
+  	acx_mpi_ok=yes
+    fi
 
-MPI_INCLUDE=""
-MPI_INCLUDE_DIR=""
+    MPI_INCLUDE=""
+    MPI_INCLUDE_DIR=""
 
-if test "$mpi_include" == ""; then
-  AC_CHECK_FILE($mpi_inc_dir/mpif.h, 
-  [acx_mpif_h_found=yes
-   MPI_INCLUDE_DIR=$mpi_inc_dir], 
-  [acx_mpif_h_found=no
-   MPI_INCLUDE_DIR=""])
-else
-   MPI_INCLUDE=$mpi_include
-fi
+    if test "$mpi_include" == ""; then
+      if test "$acx_mpi_ok" != yes; then
+        AC_CHECK_FILE($mpi_inc_dir/mpif.h, 
+        [acx_mpif_h_found=yes
+         MPI_INCLUDE_DIR=$mpi_inc_dir], 
+        [acx_mpif_h_found=no
+         MPI_INCLUDE_DIR=""])
+      else
+        acx_mpif_h_found=yes
+        MPI_INCLUDE_DIR=$mpi_inc_dir 
+      fi
+    else
+       MPI_INCLUDE=$mpi_include
+    fi
 
-else  
-   # use local mpif.h
-   acx_mpif_h_found=no
-   MPI_LIBS=""
-fi
+  else  
+     # use local mpif.h
+     acx_mpif_h_found=no
+     MPI_LIBS=""
+  fi
 
-AC_SUBST(MPI_LIBS)
-AC_SUBST(MPI_INCLUDE_DIR)
+  AC_SUBST(MPI_LIBS)
+  AC_SUBST(MPI_INCLUDE_DIR)
 
 ])
-m4trace:acx_mpi.m4:202: -1- AC_DEFUN([ACX_MPI_COMPILERS], [
+m4trace:acx_mpi.m4:205: -1- AC_DEFUN([ACX_MPI_COMPILERS], [
 MPI_F90=
 acx_mpi_f90_compilers="mpf90 mpxlf90"
 
@@ -3057,7 +3065,7 @@ done
 
 AC_SUBST(MPI_F90)
 ])
-m4trace:acx_mpi.m4:235: -1- AC_DEFUN([AC_CHECK_MPI_VERSION], [AC_CACHE_CHECK([version of MPI implementation], [ac_cv_mpi_version],
+m4trace:acx_mpi.m4:238: -1- AC_DEFUN([AC_CHECK_MPI_VERSION], [AC_CACHE_CHECK([version of MPI implementation], [ac_cv_mpi_version],
   [ old_CFLAGS=${CFLAGS}
     old_LIBS=${LIBS}
     CFLAGS="-I$mpi_inc_dir"
@@ -3086,7 +3094,7 @@ int main (){
     rm -f conftestval
   ])
 ])
-m4trace:acx_mpi.m4:299: -1- AC_DEFUN([AC_CHECK_FORTRAN_MPI_DATATYPE], [
+m4trace:acx_mpi.m4:302: -1- AC_DEFUN([AC_CHECK_FORTRAN_MPI_DATATYPE], [
   AC_CACHE_CHECK([whether MPI has (opt.) Fortran [$1]], [ac_cv_have_mpi_fortran_[$1]],
   [
     AC_LANG_PUSH([Fortran 77])
@@ -3149,13 +3157,9 @@ m4trace:configure.in:80: -1- m4_pattern_allow([^mpi_inc_dir$])
 m4trace:configure.in:80: -1- m4_pattern_allow([^mpi_library$])
 m4trace:configure.in:80: -1- m4_pattern_allow([^mpi_include$])
 m4trace:configure.in:80: -1- m4_pattern_allow([^lib_mpi$])
-m4trace:configure.in:80: -1- _m4_warn([obsolete], [The macro `AC_TRY_COMPILE' is obsolete.
-You should run autoupdate.], [autoconf/general.m4:2368: AC_TRY_COMPILE is expanded from...
-acx_mpi.m4:186: ACX_MPI is expanded from...
-configure.in:80: the top level])
 m4trace:configure.in:80: -1- m4_pattern_allow([^HAVE_MPI$])
 m4trace:configure.in:80: -1- _m4_warn([cross], [cannot check for file existence when cross compiling], [autoconf/general.m4:2505: AC_CHECK_FILE is expanded from...
-acx_mpi.m4:186: ACX_MPI is expanded from...
+acx_mpi.m4:189: ACX_MPI is expanded from...
 configure.in:80: the top level])
 m4trace:configure.in:80: -1- m4_pattern_allow([^MPI_LIBS$])
 m4trace:configure.in:80: -1- m4_pattern_allow([^MPI_INCLUDE_DIR$])
@@ -3441,177 +3445,177 @@ else
         $2
 fi
 ])
-m4trace:configure.in:99: -1- ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
-m4trace:configure.in:99: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
-You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
-autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_blas.m4:206: ACX_BLAS is expanded from...
-configure.in:99: the top level])
-m4trace:configure.in:99: -1- m4_pattern_allow([^BLAS_LIBS$])
-m4trace:configure.in:99: -2- m4_pattern_allow([^HAVE_BLAS$])
-m4trace:configure.in:100: -1- ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
-m4trace:configure.in:100: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
-You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
-autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_lapack.m4:135: ACX_LAPACK is expanded from...
-configure.in:100: the top level])
-m4trace:configure.in:100: -1- m4_pattern_allow([^LAPACK_LIBS$])
-m4trace:configure.in:100: -2- m4_pattern_allow([^HAVE_LAPACK$])
-m4trace:configure.in:101: -1- ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
+m4trace:configure.in:101: -1- ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 m4trace:configure.in:101: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:230: ACX_HUTI is expanded from...
+acx_blas.m4:206: ACX_BLAS is expanded from...
 configure.in:101: the top level])
-m4trace:configure.in:101: -1- m4_pattern_allow([^HUTI_LIBS$])
-m4trace:configure.in:101: -2- m4_pattern_allow([^HAVE_HUTI$])
-m4trace:configure.in:102: -1- ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
+m4trace:configure.in:101: -1- m4_pattern_allow([^BLAS_LIBS$])
+m4trace:configure.in:101: -2- m4_pattern_allow([^HAVE_BLAS$])
+m4trace:configure.in:102: -1- ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 m4trace:configure.in:102: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:342: ACX_EIOF is expanded from...
+acx_lapack.m4:135: ACX_LAPACK is expanded from...
 configure.in:102: the top level])
-m4trace:configure.in:102: -1- m4_pattern_allow([^EIOF_LIBS$])
-m4trace:configure.in:102: -2- m4_pattern_allow([^HAVE_EIOF$])
-m4trace:configure.in:103: -1- ACX_ARPACK([], [AC_MSG_ERROR([We need arpack!])])
+m4trace:configure.in:102: -1- m4_pattern_allow([^LAPACK_LIBS$])
+m4trace:configure.in:102: -2- m4_pattern_allow([^HAVE_LAPACK$])
+m4trace:configure.in:103: -1- ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
 m4trace:configure.in:103: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:485: ACX_ARPACK is expanded from...
+acx_elmer.m4:230: ACX_HUTI is expanded from...
 configure.in:103: the top level])
-m4trace:configure.in:103: -1- m4_pattern_allow([^ARPACK_LIBS$])
-m4trace:configure.in:103: -2- m4_pattern_allow([^HAVE_ARPACK$])
-m4trace:configure.in:104: -1- ACX_PARPACK([], [AC_MSG_WARN([No parallel arpack found.])])
+m4trace:configure.in:103: -1- m4_pattern_allow([^HUTI_LIBS$])
+m4trace:configure.in:103: -2- m4_pattern_allow([^HAVE_HUTI$])
+m4trace:configure.in:104: -1- ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
 m4trace:configure.in:104: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:544: ACX_PARPACK is expanded from...
+acx_elmer.m4:342: ACX_EIOF is expanded from...
 configure.in:104: the top level])
-m4trace:configure.in:104: -1- m4_pattern_allow([^PARPACK_LIBS$])
-m4trace:configure.in:104: -2- m4_pattern_allow([^HAVE_PARPACK$])
-m4trace:configure.in:105: -1- ACX_HYPRE([], [AC_MSG_WARN([HYPRE not found, some functionaly will be disabled.])])
+m4trace:configure.in:104: -1- m4_pattern_allow([^EIOF_LIBS$])
+m4trace:configure.in:104: -2- m4_pattern_allow([^HAVE_EIOF$])
+m4trace:configure.in:105: -1- ACX_ARPACK([], [AC_MSG_ERROR([We need arpack!])])
 m4trace:configure.in:105: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:707: ACX_HYPRE is expanded from...
+acx_elmer.m4:485: ACX_ARPACK is expanded from...
 configure.in:105: the top level])
-m4trace:configure.in:105: -1- m4_pattern_allow([^HYPRE_LIBS$])
-m4trace:configure.in:105: -2- m4_pattern_allow([^HAVE_HYPRE$])
-m4trace:configure.in:106: -1- ACX_MUMPS([], [AC_MSG_WARN([MUMPS not found, some functionaly will be disabled.])])
+m4trace:configure.in:105: -1- m4_pattern_allow([^ARPACK_LIBS$])
+m4trace:configure.in:105: -2- m4_pattern_allow([^HAVE_ARPACK$])
+m4trace:configure.in:106: -1- ACX_PARPACK([], [AC_MSG_WARN([No parallel arpack found.])])
 m4trace:configure.in:106: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:795: ACX_MUMPS is expanded from...
+acx_elmer.m4:544: ACX_PARPACK is expanded from...
 configure.in:106: the top level])
-m4trace:configure.in:106: -1- m4_pattern_allow([^MUMPS_LIBS$])
-m4trace:configure.in:106: -2- m4_pattern_allow([^HAVE_MUMPS$])
-m4trace:configure.in:107: -1- ACX_UMFPACK([], [AC_MSG_WARN([UMFPACK not found, some functionaly will be disabled.])])
+m4trace:configure.in:106: -1- m4_pattern_allow([^PARPACK_LIBS$])
+m4trace:configure.in:106: -2- m4_pattern_allow([^HAVE_PARPACK$])
+m4trace:configure.in:107: -1- ACX_HYPRE([], [AC_MSG_WARN([HYPRE not found, some functionaly will be disabled.])])
 m4trace:configure.in:107: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:626: ACX_UMFPACK is expanded from...
+acx_elmer.m4:707: ACX_HYPRE is expanded from...
 configure.in:107: the top level])
-m4trace:configure.in:107: -1- m4_pattern_allow([^UMFPACK_LIBS$])
-m4trace:configure.in:107: -2- m4_pattern_allow([^HAVE_UMFPACK$])
-m4trace:configure.in:108: -1- ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
+m4trace:configure.in:107: -1- m4_pattern_allow([^HYPRE_LIBS$])
+m4trace:configure.in:107: -2- m4_pattern_allow([^HAVE_HYPRE$])
+m4trace:configure.in:108: -1- ACX_MUMPS([], [AC_MSG_WARN([MUMPS not found, some functionaly will be disabled.])])
 m4trace:configure.in:108: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1251: ACX_MATC is expanded from...
+acx_elmer.m4:795: ACX_MUMPS is expanded from...
 configure.in:108: the top level])
-m4trace:configure.in:108: -1- m4_pattern_allow([^MATC_LIBS$])
-m4trace:configure.in:108: -2- m4_pattern_allow([^HAVE_MATC$])
-m4trace:configure.in:119: -1- ACX_FORTRAN_CPP
-m4trace:configure.in:119: -1- m4_pattern_allow([^FORTRAN_CPP_FLAG$])
-m4trace:configure.in:121: -1- AM_CONDITIONAL([USE_MPI], [test "$acx_mpi_ok" = "yes"])
-m4trace:configure.in:121: -1- m4_pattern_allow([^USE_MPI_TRUE$])
-m4trace:configure.in:121: -1- m4_pattern_allow([^USE_MPI_FALSE$])
-m4trace:configure.in:121: -1- _AM_SUBST_NOTMAKE([USE_MPI_TRUE])
-m4trace:configure.in:121: -1- _AM_SUBST_NOTMAKE([USE_MPI_FALSE])
-m4trace:configure.in:122: -1- AM_CONDITIONAL([USE_CPP], [test "$acx_fortran_cpp_ok" != "yes"])
-m4trace:configure.in:122: -1- m4_pattern_allow([^USE_CPP_TRUE$])
-m4trace:configure.in:122: -1- m4_pattern_allow([^USE_CPP_FALSE$])
-m4trace:configure.in:122: -1- _AM_SUBST_NOTMAKE([USE_CPP_TRUE])
-m4trace:configure.in:122: -1- _AM_SUBST_NOTMAKE([USE_CPP_FALSE])
-m4trace:configure.in:123: -1- AM_CONDITIONAL([USE_LOCAL_MPIF_H], [test "$acx_mpif_h_found" = "no"])
-m4trace:configure.in:123: -1- m4_pattern_allow([^USE_LOCAL_MPIF_H_TRUE$])
-m4trace:configure.in:123: -1- m4_pattern_allow([^USE_LOCAL_MPIF_H_FALSE$])
-m4trace:configure.in:123: -1- _AM_SUBST_NOTMAKE([USE_LOCAL_MPIF_H_TRUE])
-m4trace:configure.in:123: -1- _AM_SUBST_NOTMAKE([USE_LOCAL_MPIF_H_FALSE])
-m4trace:configure.in:146: -1- ACX_COMPILER_FIXES
-m4trace:configure.in:146: -1- m4_pattern_allow([^SH_LDFLAGS$])
-m4trace:configure.in:146: -1- m4_pattern_allow([^SH_LD$])
-m4trace:configure.in:148: -1- ACX_FC_MODFILE
-m4trace:configure.in:149: -1- AM_CONDITIONAL([UPPERCASEMODS], [test $modfilename = "MODULENAME.mod"])
-m4trace:configure.in:149: -1- m4_pattern_allow([^UPPERCASEMODS_TRUE$])
-m4trace:configure.in:149: -1- m4_pattern_allow([^UPPERCASEMODS_FALSE$])
-m4trace:configure.in:149: -1- _AM_SUBST_NOTMAKE([UPPERCASEMODS_TRUE])
-m4trace:configure.in:149: -1- _AM_SUBST_NOTMAKE([UPPERCASEMODS_FALSE])
-m4trace:configure.in:150: -1- ACX_FC_PUT_MODULE_FLAG
-m4trace:configure.in:150: -1- m4_pattern_allow([^modput_opt$])
-m4trace:configure.in:156: -1- m4_pattern_allow([^SIZEOF_OFF_T$])
-m4trace:configure.in:167: -1- m4_pattern_allow([^SIZEOF_LONG$])
-m4trace:configure.in:183: -1- AM_CONDITIONAL([MAC_OSX], [0])
-m4trace:configure.in:183: -1- m4_pattern_allow([^MAC_OSX_TRUE$])
-m4trace:configure.in:183: -1- m4_pattern_allow([^MAC_OSX_FALSE$])
-m4trace:configure.in:183: -1- _AM_SUBST_NOTMAKE([MAC_OSX_TRUE])
-m4trace:configure.in:183: -1- _AM_SUBST_NOTMAKE([MAC_OSX_FALSE])
-m4trace:configure.in:189: -1- AM_CONDITIONAL([MAC_OSX], [1])
-m4trace:configure.in:189: -1- m4_pattern_allow([^MAC_OSX_TRUE$])
-m4trace:configure.in:189: -1- m4_pattern_allow([^MAC_OSX_FALSE$])
-m4trace:configure.in:189: -1- _AM_SUBST_NOTMAKE([MAC_OSX_TRUE])
-m4trace:configure.in:189: -1- _AM_SUBST_NOTMAKE([MAC_OSX_FALSE])
-m4trace:configure.in:241: -1- m4_pattern_allow([^TESTS_FCFLAGS$])
-m4trace:configure.in:242: -1- m4_pattern_allow([^INCLUDE_MODULE_FLAG$])
-m4trace:configure.in:243: -1- m4_pattern_allow([^MESHGEN2D_LIBS$])
-m4trace:configure.in:244: -1- m4_pattern_allow([^FPICFLAG$])
-m4trace:configure.in:245: -1- m4_pattern_allow([^CPICFLAG$])
-m4trace:configure.in:246: -1- m4_pattern_allow([^CXXPICFLAG$])
-m4trace:configure.in:247: -1- m4_pattern_allow([^SHLEXT$])
-m4trace:configure.in:248: -1- m4_pattern_allow([^SHLLIB$])
-m4trace:configure.in:249: -1- m4_pattern_allow([^SHLBIN$])
-m4trace:configure.in:250: -1- m4_pattern_allow([^SHLEXT_VER$])
-m4trace:configure.in:251: -1- m4_pattern_allow([^SHLLIB_VER$])
-m4trace:configure.in:252: -1- m4_pattern_allow([^SHLBIN_VER$])
-m4trace:configure.in:253: -1- m4_pattern_allow([^SHLLINKEXT$])
-m4trace:configure.in:254: -1- m4_pattern_allow([^DLFCN_DIR$])
-m4trace:configure.in:255: -1- m4_pattern_allow([^SH_LD$])
-m4trace:configure.in:256: -1- m4_pattern_allow([^SH_LD2$])
-m4trace:configure.in:257: -1- m4_pattern_allow([^EXTRA_LIBS$])
-m4trace:configure.in:258: -1- m4_pattern_allow([^SH_LDFLAGS$])
-m4trace:configure.in:259: -1- m4_pattern_allow([^SH_LINKING_TO_FLAGS$])
-m4trace:configure.in:260: -1- m4_pattern_allow([^DL_LD$])
-m4trace:configure.in:261: -1- m4_pattern_allow([^DL_LDFLAGS$])
-m4trace:configure.in:262: -1- m4_pattern_allow([^MKOCTFILE_DL_LDFLAGS$])
-m4trace:configure.in:263: -1- m4_pattern_allow([^SONAME_FLAGS$])
-m4trace:configure.in:264: -1- m4_pattern_allow([^NO_OCT_FILE_STRIP$])
-m4trace:configure.in:265: -1- m4_pattern_allow([^RLD_FLAG$])
-m4trace:configure.in:266: -1- m4_pattern_allow([^TEMPLATE_AR$])
-m4trace:configure.in:267: -1- m4_pattern_allow([^TEMPLATE_ARFLAGS$])
-m4trace:configure.in:268: -1- m4_pattern_allow([^library_path_var$])
-m4trace:configure.in:269: -1- m4_pattern_allow([^FCPPFLAGS$])
-m4trace:configure.in:270: -1- m4_pattern_allow([^LIBEXT$])
-m4trace:configure.in:271: -1- m4_pattern_allow([^UNIX_MATH_LIB$])
-m4trace:configure.in:272: -1- m4_pattern_allow([^LIBSOLVER_DEPS$])
-m4trace:configure.in:273: -1- m4_pattern_allow([^RM$])
-m4trace:configure.in:274: -1- m4_pattern_allow([^CP$])
-m4trace:configure.in:275: -1- m4_pattern_allow([^LN$])
-m4trace:configure.in:276: -1- m4_pattern_allow([^MV$])
-m4trace:configure.in:277: -1- m4_pattern_allow([^F77$])
-m4trace:configure.in:278: -1- m4_pattern_allow([^CPP$])
-m4trace:configure.in:279: -1- m4_pattern_allow([^FC$])
-m4trace:configure.in:280: -1- m4_pattern_allow([^MKDIR$])
-m4trace:configure.in:281: -1- m4_pattern_allow([^SOLVER_LIBS$])
-m4trace:configure.in:282: -1- m4_pattern_allow([^STDCXX_LIBS$])
-m4trace:configure.in:283: -1- m4_pattern_allow([^SOLVER_MPI_LIBS$])
-m4trace:configure.in:284: -1- m4_pattern_allow([^LIBS$])
-m4trace:configure.in:285: -1- m4_pattern_allow([^FCFLAGS$])
-m4trace:configure.in:286: -1- m4_pattern_allow([^OFF_KIND$])
-m4trace:configure.in:287: -1- m4_pattern_allow([^LONG_KIND$])
-m4trace:configure.in:289: -1- m4_pattern_allow([^ELMER_SOLVER_HOME$])
-m4trace:configure.in:313: -1- _m4_warn([obsolete], [AC_OUTPUT should be used without arguments.
+m4trace:configure.in:108: -1- m4_pattern_allow([^MUMPS_LIBS$])
+m4trace:configure.in:108: -2- m4_pattern_allow([^HAVE_MUMPS$])
+m4trace:configure.in:109: -1- ACX_UMFPACK([], [AC_MSG_WARN([UMFPACK not found, some functionaly will be disabled.])])
+m4trace:configure.in:109: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
+You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
+autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
+acx_elmer.m4:626: ACX_UMFPACK is expanded from...
+configure.in:109: the top level])
+m4trace:configure.in:109: -1- m4_pattern_allow([^UMFPACK_LIBS$])
+m4trace:configure.in:109: -2- m4_pattern_allow([^HAVE_UMFPACK$])
+m4trace:configure.in:110: -1- ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
+m4trace:configure.in:110: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
+You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
+autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
+acx_elmer.m4:1251: ACX_MATC is expanded from...
+configure.in:110: the top level])
+m4trace:configure.in:110: -1- m4_pattern_allow([^MATC_LIBS$])
+m4trace:configure.in:110: -2- m4_pattern_allow([^HAVE_MATC$])
+m4trace:configure.in:121: -1- ACX_FORTRAN_CPP
+m4trace:configure.in:121: -1- m4_pattern_allow([^FORTRAN_CPP_FLAG$])
+m4trace:configure.in:123: -1- AM_CONDITIONAL([USE_MPI], [test "$acx_mpi_ok" = "yes"])
+m4trace:configure.in:123: -1- m4_pattern_allow([^USE_MPI_TRUE$])
+m4trace:configure.in:123: -1- m4_pattern_allow([^USE_MPI_FALSE$])
+m4trace:configure.in:123: -1- _AM_SUBST_NOTMAKE([USE_MPI_TRUE])
+m4trace:configure.in:123: -1- _AM_SUBST_NOTMAKE([USE_MPI_FALSE])
+m4trace:configure.in:124: -1- AM_CONDITIONAL([USE_CPP], [test "$acx_fortran_cpp_ok" != "yes"])
+m4trace:configure.in:124: -1- m4_pattern_allow([^USE_CPP_TRUE$])
+m4trace:configure.in:124: -1- m4_pattern_allow([^USE_CPP_FALSE$])
+m4trace:configure.in:124: -1- _AM_SUBST_NOTMAKE([USE_CPP_TRUE])
+m4trace:configure.in:124: -1- _AM_SUBST_NOTMAKE([USE_CPP_FALSE])
+m4trace:configure.in:125: -1- AM_CONDITIONAL([USE_LOCAL_MPIF_H], [test "$acx_mpif_h_found" = "no"])
+m4trace:configure.in:125: -1- m4_pattern_allow([^USE_LOCAL_MPIF_H_TRUE$])
+m4trace:configure.in:125: -1- m4_pattern_allow([^USE_LOCAL_MPIF_H_FALSE$])
+m4trace:configure.in:125: -1- _AM_SUBST_NOTMAKE([USE_LOCAL_MPIF_H_TRUE])
+m4trace:configure.in:125: -1- _AM_SUBST_NOTMAKE([USE_LOCAL_MPIF_H_FALSE])
+m4trace:configure.in:148: -1- ACX_COMPILER_FIXES
+m4trace:configure.in:148: -1- m4_pattern_allow([^SH_LDFLAGS$])
+m4trace:configure.in:148: -1- m4_pattern_allow([^SH_LD$])
+m4trace:configure.in:150: -1- ACX_FC_MODFILE
+m4trace:configure.in:151: -1- AM_CONDITIONAL([UPPERCASEMODS], [test $modfilename = "MODULENAME.mod"])
+m4trace:configure.in:151: -1- m4_pattern_allow([^UPPERCASEMODS_TRUE$])
+m4trace:configure.in:151: -1- m4_pattern_allow([^UPPERCASEMODS_FALSE$])
+m4trace:configure.in:151: -1- _AM_SUBST_NOTMAKE([UPPERCASEMODS_TRUE])
+m4trace:configure.in:151: -1- _AM_SUBST_NOTMAKE([UPPERCASEMODS_FALSE])
+m4trace:configure.in:152: -1- ACX_FC_PUT_MODULE_FLAG
+m4trace:configure.in:152: -1- m4_pattern_allow([^modput_opt$])
+m4trace:configure.in:158: -1- m4_pattern_allow([^SIZEOF_OFF_T$])
+m4trace:configure.in:169: -1- m4_pattern_allow([^SIZEOF_LONG$])
+m4trace:configure.in:185: -1- AM_CONDITIONAL([MAC_OSX], [0])
+m4trace:configure.in:185: -1- m4_pattern_allow([^MAC_OSX_TRUE$])
+m4trace:configure.in:185: -1- m4_pattern_allow([^MAC_OSX_FALSE$])
+m4trace:configure.in:185: -1- _AM_SUBST_NOTMAKE([MAC_OSX_TRUE])
+m4trace:configure.in:185: -1- _AM_SUBST_NOTMAKE([MAC_OSX_FALSE])
+m4trace:configure.in:191: -1- AM_CONDITIONAL([MAC_OSX], [1])
+m4trace:configure.in:191: -1- m4_pattern_allow([^MAC_OSX_TRUE$])
+m4trace:configure.in:191: -1- m4_pattern_allow([^MAC_OSX_FALSE$])
+m4trace:configure.in:191: -1- _AM_SUBST_NOTMAKE([MAC_OSX_TRUE])
+m4trace:configure.in:191: -1- _AM_SUBST_NOTMAKE([MAC_OSX_FALSE])
+m4trace:configure.in:243: -1- m4_pattern_allow([^TESTS_FCFLAGS$])
+m4trace:configure.in:244: -1- m4_pattern_allow([^INCLUDE_MODULE_FLAG$])
+m4trace:configure.in:245: -1- m4_pattern_allow([^MESHGEN2D_LIBS$])
+m4trace:configure.in:246: -1- m4_pattern_allow([^FPICFLAG$])
+m4trace:configure.in:247: -1- m4_pattern_allow([^CPICFLAG$])
+m4trace:configure.in:248: -1- m4_pattern_allow([^CXXPICFLAG$])
+m4trace:configure.in:249: -1- m4_pattern_allow([^SHLEXT$])
+m4trace:configure.in:250: -1- m4_pattern_allow([^SHLLIB$])
+m4trace:configure.in:251: -1- m4_pattern_allow([^SHLBIN$])
+m4trace:configure.in:252: -1- m4_pattern_allow([^SHLEXT_VER$])
+m4trace:configure.in:253: -1- m4_pattern_allow([^SHLLIB_VER$])
+m4trace:configure.in:254: -1- m4_pattern_allow([^SHLBIN_VER$])
+m4trace:configure.in:255: -1- m4_pattern_allow([^SHLLINKEXT$])
+m4trace:configure.in:256: -1- m4_pattern_allow([^DLFCN_DIR$])
+m4trace:configure.in:257: -1- m4_pattern_allow([^SH_LD$])
+m4trace:configure.in:258: -1- m4_pattern_allow([^SH_LD2$])
+m4trace:configure.in:259: -1- m4_pattern_allow([^EXTRA_LIBS$])
+m4trace:configure.in:260: -1- m4_pattern_allow([^SH_LDFLAGS$])
+m4trace:configure.in:261: -1- m4_pattern_allow([^SH_LINKING_TO_FLAGS$])
+m4trace:configure.in:262: -1- m4_pattern_allow([^DL_LD$])
+m4trace:configure.in:263: -1- m4_pattern_allow([^DL_LDFLAGS$])
+m4trace:configure.in:264: -1- m4_pattern_allow([^MKOCTFILE_DL_LDFLAGS$])
+m4trace:configure.in:265: -1- m4_pattern_allow([^SONAME_FLAGS$])
+m4trace:configure.in:266: -1- m4_pattern_allow([^NO_OCT_FILE_STRIP$])
+m4trace:configure.in:267: -1- m4_pattern_allow([^RLD_FLAG$])
+m4trace:configure.in:268: -1- m4_pattern_allow([^TEMPLATE_AR$])
+m4trace:configure.in:269: -1- m4_pattern_allow([^TEMPLATE_ARFLAGS$])
+m4trace:configure.in:270: -1- m4_pattern_allow([^library_path_var$])
+m4trace:configure.in:271: -1- m4_pattern_allow([^FCPPFLAGS$])
+m4trace:configure.in:272: -1- m4_pattern_allow([^LIBEXT$])
+m4trace:configure.in:273: -1- m4_pattern_allow([^UNIX_MATH_LIB$])
+m4trace:configure.in:274: -1- m4_pattern_allow([^LIBSOLVER_DEPS$])
+m4trace:configure.in:275: -1- m4_pattern_allow([^RM$])
+m4trace:configure.in:276: -1- m4_pattern_allow([^CP$])
+m4trace:configure.in:277: -1- m4_pattern_allow([^LN$])
+m4trace:configure.in:278: -1- m4_pattern_allow([^MV$])
+m4trace:configure.in:279: -1- m4_pattern_allow([^F77$])
+m4trace:configure.in:280: -1- m4_pattern_allow([^CPP$])
+m4trace:configure.in:281: -1- m4_pattern_allow([^FC$])
+m4trace:configure.in:282: -1- m4_pattern_allow([^MKDIR$])
+m4trace:configure.in:283: -1- m4_pattern_allow([^SOLVER_LIBS$])
+m4trace:configure.in:284: -1- m4_pattern_allow([^STDCXX_LIBS$])
+m4trace:configure.in:285: -1- m4_pattern_allow([^SOLVER_MPI_LIBS$])
+m4trace:configure.in:286: -1- m4_pattern_allow([^LIBS$])
+m4trace:configure.in:287: -1- m4_pattern_allow([^FCFLAGS$])
+m4trace:configure.in:288: -1- m4_pattern_allow([^OFF_KIND$])
+m4trace:configure.in:289: -1- m4_pattern_allow([^LONG_KIND$])
+m4trace:configure.in:291: -1- m4_pattern_allow([^ELMER_SOLVER_HOME$])
+m4trace:configure.in:316: -1- _m4_warn([obsolete], [AC_OUTPUT should be used without arguments.
 You should run autoupdate.], [])
-m4trace:configure.in:313: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.in:313: -1- m4_pattern_allow([^LTLIBOBJS$])
-m4trace:configure.in:313: -1- _AC_AM_CONFIG_HEADER_HOOK([$ac_file])
-m4trace:configure.in:313: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS
+m4trace:configure.in:316: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.in:316: -1- m4_pattern_allow([^LTLIBOBJS$])
+m4trace:configure.in:316: -1- _AC_AM_CONFIG_HEADER_HOOK([$ac_file])
+m4trace:configure.in:316: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS

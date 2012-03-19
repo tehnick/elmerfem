@@ -8,7 +8,7 @@ EXE_EXT=$(EXEEXT)
 include make.lib
 include make.dep
 
-NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT) ResultToResult$(EXE_EXT)
+NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 MPI_TARGETS=ElmerSolver_mpi$(EXE_EXT)
 
 
@@ -169,7 +169,7 @@ if USE_MPI
 endif
 
 clean-local:
-	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi GebhardtFactors ResultToResult ViewFactors
+	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi GebhardtFactors ViewFactors
 
 
 bin_PROGRAMS = SC2Elmer 
