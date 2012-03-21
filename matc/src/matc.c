@@ -609,10 +609,10 @@ VARIABLE *com_pointw(sub, ptr)  double (*sub)(); VARIABLE *ptr;
 &  var_temp_new(), *(sub)()
 ^=====================================================================*/
 {
-  VARIABLE *res;     /*  pointer to result structure */
+  VARIABLE *res,*ptr2; /*  pointer to result structure */
 
-  double *a, *b;     /* pointer to matrices */
-  int n, m;          /* matrix dimensions   */
+  double *a, *a2, *a3, *b; /* pointer to matrices */
+  int n, m, sz;            /* matrix dimensions   */
 
   int i;             /* loop index          */
 
@@ -622,12 +622,44 @@ VARIABLE *com_pointw(sub, ptr)  double (*sub)(); VARIABLE *ptr;
   n = NROW(ptr); m = NCOL(ptr);
   res = var_temp_new(TYPE(ptr) ,n , m);
 
-  n *= m;
+  sz = n*m;
   a = MATR(ptr); b = MATR(res);
+  
   /* 
       ...to action.
   */
-  for(i = 0; i < n; i++) *b++ = (*sub)(*a++);
+  ptr2 = NEXT(ptr);
+  if(ptr2)
+  {
+    if(n!=NROW(ptr2)||m!=NCOL(ptr2))
+    {
+      error("Pointwise function arguments must all be of same size.");
+    }
+    a2   = MATR(ptr2);
+
+    ptr2 = NEXT(ptr2);
+    if(ptr2)
+    {
+      if(n!=NROW(ptr2)||m!=NCOL(ptr2))
+      {
+         error("Pointwise function arguments must all be of same size,");
+      }
+      if(NEXT(ptr2))
+      {
+        error("Currently at most three arguments for pointwise functions allowd,sorry.");
+      }
+      a3 = MATR(ptr2);
+      for(i = 0; i < sz; i++) *b++ = (*sub)(*a++,*a2++,*a3++);
+    }
+    else
+    {
+      for(i = 0; i < sz; i++) *b++ = (*sub)(*a++,*a2++);
+    }
+  }
+  else
+  {
+    for(i = 0; i < sz; i++) *b++ = (*sub)(*a++);
+  }
 
   return res;
 }

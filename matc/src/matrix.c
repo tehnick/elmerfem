@@ -536,6 +536,7 @@ void mtr_com_init()
   com_init( "asin"   , TRUE,  TRUE,  (VARIABLE *(*)())asin   , 1, 1, "r=asin(x)" );
   com_init( "acos"   , TRUE,  TRUE,  (VARIABLE *(*)())acos   , 1, 1, "r=acos(x)" );
   com_init( "atan"   , TRUE,  TRUE,  (VARIABLE *(*)())atan   , 1, 1, "r=atan(x)" );
+  com_init( "atan2"  , TRUE,  TRUE,  (VARIABLE *(*)())atan2  , 2, 2, "r=atan2(y,x)" );
   com_init( "sinh"   , TRUE,  TRUE,  (VARIABLE *(*)())sinh   , 1, 1, "r=sinh(x)" );
   com_init( "cosh"   , TRUE,  TRUE,  (VARIABLE *(*)())cosh   , 1, 1, "r=cosh(x)" );
   com_init( "tanh"   , TRUE,  TRUE,  (VARIABLE *(*)())tanh   , 1, 1, "r=tanh(x)" );
