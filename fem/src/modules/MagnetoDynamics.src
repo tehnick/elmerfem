@@ -3080,6 +3080,17 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
          "Magnetic Flux Density E[Magnetic Flux Density re E:3 Magnetic Flux Density im E:3]" )
   END IF
 
+  IF (GetLogical(Solver % Values,'Calculate Magnetic Vector Potential',Found)) THEN
+    i = i + 1
+    IF ( vdofs==1 ) THEN
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+            "Magnetic Vector Potential E[Magnetic Vector Potential E:3]" )
+    ELSE
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+            "Magnetic Vector Potential E[Magnetic Vector Potential re E:3 Magnetic Vector Potential im E:3]" )
+    END IF
+  END IF
+
   IF (GetLogical(Solver % Values,'Calculate Magnetic Field Strength',Found)) THEN
     i = i + 1
     IF ( vdofs==1 ) THEN
@@ -3206,6 +3217,17 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
     "Magnetic Flux Density[Magnetic Flux Density re:3 Magnetic Flux Density im:3]" )
   END IF
 
+  IF (GetLogical(SolverParams,'Calculate Magnetic Vector Potential',Found)) THEN
+    i = i + 1
+    IF ( Var  % DOFs==1 ) THEN
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+            "Magnetic Vector Potential[Magnetic Vector Potential:3]" )
+    ELSE
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+      "Magnetic Vector Potential[Magnetic Vector Potential re:3 Magnetic Vector Potential im:3]")
+    END IF
+  END IF
+
   IF (GetLogical(SolverParams,'Calculate Magnetic Field Strength',Found)) THEN
     i = i + 1
     IF ( Var  % DOFs==1 ) THEN
@@ -3283,7 +3305,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
   
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: s,u,v,w,WBasis(32,3), SOL(2,32), PSOL(32), R(32), C(32), Norm
-   REAL(KIND=dp) :: RotWBasis(32,3), Basis(32), dBasisdx(32,3), B(2,3), E(2,3)
+   REAL(KIND=dp) :: RotWBasis(32,3), Basis(32), dBasisdx(32,3), B(2,3), E(2,3),VP_ip(2,3)
    REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
    COMPLEX(KIND=dp) ::  Magnetization(3,32), MG_ip(3)
 
@@ -3292,8 +3314,8 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    INTEGER, PARAMETER :: ind1(6) = [1,2,3,1,2,1]
    INTEGER, PARAMETER :: ind2(6) = [1,2,3,2,3,3]
 
-   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH
-   TYPE(Variable_t), POINTER :: EL_MFD, EL_MFS, EL_CD, EL_EF, EL_MST, EL_JH
+   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH, VP
+   TYPE(Variable_t), POINTER :: EL_MFD, EL_MFS, EL_CD, EL_EF, EL_MST, EL_JH, EL_VP
 
    INTEGER :: Active,i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs,dim
 
@@ -3322,6 +3344,9 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    MFS => VariableGet( Mesh % Variables, 'Magnetic Field Strength')
    EL_MFS => VariableGet( Mesh % Variables, 'Magnetic Field Strength E')
 
+   VP => VariableGet( Mesh % Variables, 'Magnetic Vector Potential')
+   EL_VP => VariableGet( Mesh % Variables, 'Magnetic Vector Potential E')
+
    Pname = GetString(GetSolverParams(), 'Potential Variable')
    DO i=1,Model % NumberOfSolvers
      pSolver => Model % Solvers(i)
@@ -3347,6 +3372,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
    DOFs = 3 
    IF ( ASSOCIATED(MFS)) DOFs=DOFs+3
+   IF ( ASSOCIATED(VP))  DOFs=DOFs+3
    IF ( ASSOCIATED(CD))  DOFs=DOFs+3
    IF ( ASSOCIATED(EF))  DOFs=DOFs+3
    IF ( ASSOCIATED(MST)) DOFs=DOFs+6
@@ -3409,7 +3435,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        CALL GetReluctivity(Material,R,n)
      END IF
 
-      dim = CoordinateSystemDimension()
+     dim = 3
 
      ! Calculate "on nodes on elements" fields:
      ! ----------------------------------------
@@ -3472,6 +3498,16 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
              END DO
            END IF
          END IF
+       END IF
+
+       IF(ASSOCIATED(EL_VP)) THEN
+         DO l=1,vDOFs
+           VP_ip(1,:)=MATMUL(SOL(l,np+1:nd),WBasis(1:nd-np,:))
+           DO k=1,dim
+             EL_VP % Values( EL_VP % DOFs*(EL_VP % Perm( &
+               Element % DGIndexes(j))-1)+dim*(l-1)+k) = VP_ip(1,k)
+           END DO
+         END DO
        END IF
 
        IF (ASSOCIATED(EL_EF)) THEN
@@ -3583,6 +3619,12 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          END DO
        END IF
 
+       IF( ASSOCIATED(VP) ) THEN
+         DO l=1,vDOFs
+           VP_ip(l,:)=MATMUL(SOL(l,np+1:nd),WBasis(1:nd-np,:))
+         END DO
+       END IF
+
        s = IP % s(j) * detJ
 
        Power = Power + SUM(E**2)*C_ip*s
@@ -3604,6 +3646,12 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
              FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*(R_ip*B(2,:)-AIMAG(MG_ip))*Basis(p)
              k = k+3
            END IF
+         END IF
+         IF ( ASSOCIATED(VP)) THEN
+           DO l=1,vDOFs
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*VP_ip(l,:)*Basis(p)
+             k = k+3
+           END DO
          END IF
          IF ( ASSOCIATED(EF)) THEN
            DO l=1,vDOFs
@@ -3696,6 +3744,16 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        Solver % Variable % Values=0
        Norm = DefaultSolve()
        MFS % Values(i::3*vDOFs) = Solver % Variable % Values
+     END DO
+   END IF
+
+   IF ( ASSOCIATED(VP) ) THEN
+     DO i=1,3*vDOFs
+       DOFs = DOFs+1
+       Solver % Matrix % RHS => Gforce(:,DOFs)
+       Solver % Variable % Values=0
+       Norm = DefaultSolve()
+       VP % Values(i::3*vDOFs) = Solver % Variable % Values
      END DO
    END IF
 
