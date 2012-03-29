@@ -1061,15 +1061,16 @@ CONTAINS
 
 
 !> Returns the number of element degrees of freedom
-  FUNCTION GetElementDOFs( Indexes, UElement, USolver )  RESULT(NB)
+  FUNCTION GetElementDOFs( Indexes, UElement, USolver,NotDG )  RESULT(NB)
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      INTEGER :: Indexes(:)
+     LOGICAL, OPTIONAL  ::  NotDG
 
      TYPE(Solver_t),  POINTER :: Solver
      TYPE(Element_t), POINTER :: Element, Parent, Edge, Face
 
-     LOGICAL :: Found, GB
+     LOGICAL :: Found, GB, DGdisable
      INTEGER :: nb,i,j,k,id,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs, Ind
 
      Element => GetCurrentElement(UElement)
@@ -1082,7 +1083,10 @@ CONTAINS
 
      NB = 0
 
-     IF ( ListGetLogical( Solver % Values, 'Discontinuous Galerkin', Found ) ) THEN
+     DGDisable=.FALSE.
+     IF (PRESENT(NotDG)) DGDisable=NotDG
+
+     IF ( .NOT.DGDisable .AND. ListGetLogical( Solver % Values, 'Discontinuous Galerkin', Found ) ) THEN
         DO i=1,Element % DGDOFs
            NB = NB + 1
            Indexes(NB) = Element % DGIndexes(i)
@@ -1291,9 +1295,9 @@ CONTAINS
      END IF
 
      sz1 = SIZE(Solver % Mesh % Nodes % x)
-     IF ( sz1 > Solver % Mesh % NumberOfNodes ) THEN
+     IF (sz1 > Solver % Mesh % NumberOfNodes) THEN
         Indexes => GetIndexStore()
-        nd = GetElementDOFs( Indexes )
+        nd = GetElementDOFs(Indexes,Element,NotDG=.TRUE.)
         DO i=n+1,nd
            IF ( Indexes(i)>0 .AND. Indexes(i)<=sz1 ) THEN
              ElementNodes % x(i) = Solver % Mesh % Nodes % x(Indexes(i))
