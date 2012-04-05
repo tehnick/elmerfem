@@ -2821,7 +2821,7 @@ CONTAINS
                  801, MPI_COMM_WORLD, status, ierr )
 
              DO j=1,n
-               k = SearchNodeL( Mesh % ParallelInfo, gbuff(j) )
+               k = SearchNodeL( Mesh % ParallelInfo, gbuff(j), Mesh % NumberOfNodes )
                IF ( k>0 ) THEN
                  IF ( BoundaryReorder(k)<= 0 ) THEN
                    NumberOfBoundaryNodes = NumberOfBoundaryNodes + 1
@@ -3141,7 +3141,7 @@ CONTAINS
                     902, MPI_COMM_WORLD, status, ierr )
 
                DO j=1,n
-                 k = SearchNodeL( Mesh % ParallelInfo, gbuff(j) )
+                 k = SearchNodeL( Mesh % ParallelInfo, gbuff(j), Mesh % NumberOfNodes )
                  IF ( k>0 ) THEN
                    n_comp(k) = n_comp(k)+1
                    l = BoundaryReorder(k)
@@ -3213,13 +3213,13 @@ CONTAINS
 !> Index to Nodes structure. Return value -1 means QueriedNode was
 !> not found.
 !------------------------------------------------------------------------------
-FUNCTION SearchNodeL( ParallelInfo, QueriedNode ) RESULT(Indx)
+FUNCTION SearchNodeL( ParallelInfo, QueriedNode,n ) RESULT(Indx)
 
   USE Types
   IMPLICIT NONE
 
   TYPE (ParallelInfo_t) :: ParallelInfo
-  INTEGER :: QueriedNode, Indx
+  INTEGER :: QueriedNode, Indx,n
 
   ! Local variables
 
@@ -3228,7 +3228,7 @@ FUNCTION SearchNodeL( ParallelInfo, QueriedNode ) RESULT(Indx)
 !------------------------------------------------------------------------------
 
   Indx = -1
-  Upper = SIZE(ParallelInfo % GlobalDOFs)
+  Upper = n
   Lower = 1
 
   ! Handle the special case
