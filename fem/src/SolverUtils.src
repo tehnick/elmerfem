@@ -5411,7 +5411,7 @@ END SUBROUTINE VariableNameParser
     IF( .NOT. ASSOCIATED(ExpVariable)) CYCLE
     
     WRITE(Message,*) 'Trying to set values for variable: '//TRIM(Var_name)
-    CALL Info('UpdateExportedVariables',Message)
+    CALL Info('UpdateExportedVariables',Message,Level=6)
   
     IF( .NOT. AllocationsDone) THEN      
       m = CurrentModel % NumberOFBodyForces
@@ -5441,7 +5441,8 @@ END SUBROUTINE VariableNameParser
       DO bf_id=1,CurrentModel % NumberOFBodyForces
         IF( ListCheckPresent( &
             CurrentModel % BodyForces(bf_id) % Values,TmpName ) ) THEN
-          CALL Info('UpdateExportedVariables','Found a proper definition for state variable')
+          CALL Info('UpdateExportedVariables',&
+              'Found a proper definition for state variable',Level=6)
           Solution = ListGetCReal( CurrentModel % BodyForces(bf_id) % Values,TmpName)
           EXIT
         END IF
@@ -5479,8 +5480,7 @@ END SUBROUTINE VariableNameParser
       
       IF ( .NOT. ANY( ActivePart ) ) CYCLE
 
-      CALL Info('UpdateExportedVariables','Found a proper definition in body forces')
-
+      CALL Info('UpdateExportedVariables','Found a proper definition in body forces',Level=6)
 
       DO t = 1, Solver % NumberOfActiveElements 
         Element => CurrentModel % Elements(Solver % ActiveElements(t) )
