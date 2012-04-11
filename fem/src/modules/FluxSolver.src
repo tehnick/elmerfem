@@ -584,7 +584,8 @@ END SUBROUTINE FluxSolver
     END IF
 
 
-    VarName = GetString(SolverParams,'Target Variable',GotIt )
+    VarName = GetString(SolverParams,'Flux Variable',GotIt )
+    IF(.NOT. GotIt) VarName = GetString(SolverParams,'Target Variable',GotIt )
     IF(.NOT. gotIt) THEN
       CALL Warn('FluxSolver','> Target Variable < not given, using Temperature')
       VarName = 'Temperature'
@@ -597,7 +598,7 @@ END SUBROUTINE FluxSolver
 
     IF( CalculateFlux ) THEN
       FluxName = TRIM(VarName)//' Flux'
-      CALL Info('FluxSolver_init','Saving flux to: '//FluxName) 
+      CALL Info('FluxSolver_init','Saving flux to: '//TRIM(FluxName), Level=5) 
       IF(dim == 2) THEN
         CALL ListAddString( SolverParams,&
             NextFreeKeyword('Exported Variable',SolverParams),&
