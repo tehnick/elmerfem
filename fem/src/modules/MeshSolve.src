@@ -480,7 +480,7 @@
      END DO
 
      IF ( nb == 0 ) THEN
-       DO p=nd-Element % BDOFs+1,nd
+       DO p=MAX(n+1,nd-Element % BDOFs+1),nd
          DO i=1,dim
             j = (p-1)*dim + i
             STIFF( j,: ) = 0.0d0
@@ -574,7 +574,7 @@
    END DO
  
    IF ( nb == 0 ) THEN
-     DO p=nd-Element % BDOFs+1,nd
+     DO p=MAX(n+1,nd-Element % BDOFs+1),nd
        DO i=1,dim
           j = (p-1)*dim + i
           STIFF( j,: ) = 0.0d0
