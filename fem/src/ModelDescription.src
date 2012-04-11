@@ -46,6 +46,7 @@ MODULE ModelDescription
     USE MeshUtils
     USE ElementDescription
     USE BinIO
+    USE Messages
  
     IMPLICIT NONE
 
@@ -108,10 +109,12 @@ CONTAINS
     ProcName(j) = CHAR(0)
 
     q = 0
-    IF ( OutputPE/=0 ) q=1
-
-    IF ( PRESENT(Quiet) ) THEN
-       IF ( Quiet ) q = 1
+    IF ( OutputPE/=0 ) THEN
+      q=1
+    ELSE IF( PRESENT(Quiet) ) THEN
+      IF ( Quiet ) q = 1
+    ELSE
+      IF ( .NOT. OutputLevelMask(4) ) q = 1
     END IF
 
     a = 1
@@ -276,7 +279,8 @@ CONTAINS
            IF ( Name(k:k) == '"' ) k = k + 1
            IF ( Name(k:k+5) == 'ignore' )  CheckAbort = 0
            IF ( Name(k:k+3) == 'warn' )    CheckAbort = 1
-           IF ( Name(k:k+4) == 'abort' )   CheckAbort = 2
+           IF ( Name(k:k+5) == 'silent' )  CheckAbort = 2
+           IF ( Name(k:k+4) == 'abort' )   CheckAbort = 3
         ELSE IF ( Name(1:7) == 'echo on' ) THEN
            Echo = .TRUE.
         ELSE IF ( Name(1:8) == 'echo off' ) THEN
@@ -341,7 +345,6 @@ CONTAINS
       Model % BodyForces => NULL()
       Model % Boundaries => NULL()
     END IF
-
 
 !------------------------------------------------------------------------------
     IF ( .NOT. ScanOnly ) THEN
@@ -840,7 +843,7 @@ CONTAINS
 !         --------------------------------------------------------
           hash => HashCreate( 50,4 )
           IF ( .NOT. ASSOCIATED( hash ) ) THEN
-             IF ( CheckAbort <= 1 ) THEN
+             IF ( CheckAbort <= 2 ) THEN
                CALL Warn( 'Model Input', 'Can not create the hash table for SOLVER.KEYWORDS.' )
                CALL Warn( 'Model Input', 'keyword checking disabled.' )
                CheckAbort = 0
@@ -865,7 +868,7 @@ CONTAINS
              ALLOCATE( VALUE, STAT=istat )
 
              IF ( istat /= 0 ) THEN
-                IF ( CheckAbort <= 1 ) THEN
+                IF ( CheckAbort <= 2 ) THEN
                   CALL Warn( 'Model Input', 'Can not allocate the hash table entry for SOLVER.KEYWORDS.' )
                   CALL Warn( 'Model Input', ' keyword checking disabled.' )
                   CheckAbort = 0
@@ -879,7 +882,7 @@ CONTAINS
 
              lstat = HashAdd( hash, str1, VALUE )
              IF ( .NOT. lstat ) THEN
-                IF ( CheckAbort <= 1 ) THEN
+                IF ( CheckAbort <= 2 ) THEN
                    CALL Warn( 'Model Input', 'Hash table build error. Keyword checking disabled.' )
                    CheckAbort = 0
                    RETURN
@@ -941,8 +944,8 @@ CONTAINS
 
        IF ( PRESENT( ReturnType ) ) ReturnType = .FALSE.
 
-       IF ( .NOT.ASSOCIATED(VALUE) .AND. (CheckAbort <= 1 .OR. FreeNames) ) THEN
-          IF ( .NOT. ScanOnly ) THEN
+       IF ( .NOT.ASSOCIATED(VALUE) .AND. (CheckAbort <= 2 .OR. FreeNames) ) THEN
+          IF ( .NOT. ( ScanOnly .OR. CheckAbort == 2) ) THEN
             WRITE( Message, * ) 'Unlisted keyword: [', TRIM(name), &
                       '] in section: [', TRIM(Section), ']'
             CALL Info( 'Model Input', Message )
@@ -970,7 +973,7 @@ CONTAINS
 
 10     CONTINUE
 
-       IF ( CheckAbort <= 1 ) THEN
+       IF ( CheckAbort <= 2 ) THEN
           CALL Warn( 'Model Input', 'Keyword check requested, but SOLVER.KEYWORDS' // &
                  ' database not available.' )
        ELSE
@@ -1642,8 +1645,10 @@ TYPE(valuelist_t), POINTER :: lst
 !     END IF
 !   END DO
 
+    CALL InitializeOutputLevel()
+
     Transient=ListGetString(Model % Simulation, &
-                     'Simulation Type',Found)=='transient'
+        'Simulation Type',Found)=='transient'
 
     Def_Dofs = -1; Def_Dofs(1)=1
 
@@ -2016,6 +2021,50 @@ TYPE(valuelist_t), POINTER :: lst
        Mesh => Mesh % Next
     END DO
 !------------------------------------------------------------------------------
+
+  CONTAINS
+    
+    !------------------------------------------------------------------------------
+    !      Initialize the log file output system for Messages
+    !------------------------------------------------------------------------------
+    SUBROUTINE InitializeOutputLevel( )
+      
+      INTEGER, POINTER :: OutputMask(:)
+    
+       
+      MinOutputLevel = ListGetInteger( CurrentModel % Simulation, &
+          'Min Output Level', GotIt )
+      
+      MaxOutputLevel = ListGetInteger( CurrentModel % Simulation, &
+          'Max Output Level', GotIt )
+      
+      IF ( .NOT. GotIt ) MaxOutputLevel = 32
+      
+      OutputMask => ListGetIntegerArray( CurrentModel % Simulation, &
+          'Output Level', GotIt )
+      
+      IF ( GotIt ) THEN
+        DO i=1,SIZE(OutputMask)
+          OutputLevelMask(i-1) = OutputMask(i) /= 0
+        END DO
+      END IF
+      
+      DO i=0,31
+        OutputLevelMask(i) = OutputLevelMask(i) .AND. &
+            i >= MinOutputLevel .AND. i <= MaxOutputLevel
+      END DO
+      
+      OutputPrefix = ListGetLogical( CurrentModel % Simulation, &
+          'Output Prefix', GotIt )
+      IF ( .NOT. GotIt ) OutputPrefix = .FALSE.
+      
+      OutputCaller = ListGetLogical( CurrentModel % Simulation, &
+          'Output Caller', GotIt )
+      IF ( .NOT. GotIt ) OutputCaller = .TRUE.
+      
+    END SUBROUTINE InitializeOutputLevel
+
+
   END FUNCTION LoadModel
 !------------------------------------------------------------------------------
 

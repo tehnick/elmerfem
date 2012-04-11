@@ -1,4 +1,3 @@
-
 !/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
@@ -310,7 +309,6 @@ CONTAINS
         END IF
       END IF
       IF( .NOT. IsProcedure ) THEN      
-!       CALL AddSolverProcedure( Solver, FlowSolver )
         CALL ListAddString(SolverParams, 'Procedure', 'FlowSolve FlowSolver',.FALSE.)
       END IF
       InitValue = 1.0d-6
@@ -326,7 +324,6 @@ CONTAINS
             'Electric Current[Electric Current:3]')                  
       END IF
       IF( .NOT. IsProcedure ) THEN      
-!       CALL AddSolverProcedure( Solver, MagneticSolver )
         CALL ListAddString(SolverParams, 'Procedure', 'MagneticSolve MagneticSolver',.FALSE.)
       END IF
       !------------------------------------------------------------------------------      
@@ -342,7 +339,6 @@ CONTAINS
         END IF
       END IF
       IF( .NOT. IsProcedure ) THEN      
-!       CALL AddSolverProcedure( Solver, StressSolver )
         CALL ListAddString(SolverParams, 'Procedure', 'StressSolve StressSolver',.FALSE.)
       END IF
       !------------------------------------------------------------------------------
@@ -371,7 +367,6 @@ CONTAINS
       END IF
 
       IF( .NOT. IsProcedure ) THEN      
-!       CALL AddSolverProcedure( Solver, MeshSolver )
         CALL ListAddString(SolverParams, 'Procedure', 'MeshSolve MeshSolver',.FALSE.)
       END IF
       !------------------------------------------------------------------------------
@@ -384,7 +379,6 @@ CONTAINS
       END IF
       
       IF( .NOT. IsProcedure ) THEN
-!       CALL AddSolverProcedure( Solver, HeatSolver )
         CALL ListAddString(SolverParams, 'Procedure', 'HeatSolve HeatSolver',.FALSE.)
       END IF
 
@@ -566,12 +560,7 @@ CONTAINS
         END IF
         
         IF( ListGetLogical( SolverParams,'Radiation Solver',Found ) ) THEN
-          !        eq = ListGetString( CurrentModel % Simulation, 'Gebhardt Factors',Found )
-          !        IF ( Found ) THEN
-          !          CALL LoadGebhardtFactors( Solver % Mesh,eq )
-          !        ELSE
           CALL RadiationFactors( Solver, .TRUE.)
-          !        END IF
         END IF
         
         BandwidthOptimize = ListGetLogical( SolverParams, &
@@ -808,7 +797,7 @@ CONTAINS
     !------------------------------------------------------------------------------
     Solver % DoneTime = 0
     IF ( .NOT. ASSOCIATED( Solver % Variable ) ) RETURN
-    IF ( .NOT. ASSOCIATED(Solver % Variable % Values) ) RETURN
+    IF ( .NOT. ASSOCIATED( Solver % Variable % Values ) ) RETURN
     !------------------------------------------------------------------------------
 	
     !------------------------------------------------------------------------------
@@ -1161,6 +1150,21 @@ CONTAINS
          Solver % MultiGridSolver = ListGetString(Solver % Values, &
              'Linear System Solver', Found ) == 'multigrid'
          Solver % MultiGridLevel  = Solver % MultiGridTotal
+       END IF
+
+       ! Set the default verbosity of the iterative solvers accordingly with the 
+       ! global verbosity.
+       !-----------------------------------------------------------------------------
+       IF( .NOT. ListCheckPresent( Solver % Values,'Linear System Residual Output') ) THEN
+         k = 1
+         IF( .NOT. OutputLevelMask(4) ) THEN
+           k = 0
+         ELSE IF( .NOT. OutputLevelMask(5) ) THEN
+           k = 10
+         END IF
+         IF( k /= 1 ) THEN
+           CALL ListAddInteger( Solver % Values,'Linear System Residual Output',k)
+         END IF
        END IF
      END IF
      
@@ -1734,7 +1738,7 @@ CONTAINS
       RETURN
     END IF
 
-    ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.,quiet=.FALSE.)
+    ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.)
     IF ( ProcPntr == 0 ) THEN
       CALL Fatal('BlockSystemAssembly','Assembly routine not found: '//TRIM(ProcName))
     ELSE

@@ -65,6 +65,7 @@ CONTAINS
 
      LOGICAL :: nadv, nadv1 = .FALSE.
      INTEGER :: n
+     INTEGER, PARAMETER :: DefLevel = 4
      SAVE nadv1
 
 !-----------------------------------------------------------------------
@@ -73,6 +74,10 @@ CONTAINS
 
      IF ( PRESENT( Level ) ) THEN
        IF ( .NOT. OutputLevelMask(Level) ) RETURN
+     ELSE
+       ! The default level of info
+       !-------------------------------------------
+       IF( .NOT. OutputLevelMask(DefLevel) ) RETURN
      END IF
 
      nadv = .FALSE.

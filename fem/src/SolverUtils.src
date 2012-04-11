@@ -2305,6 +2305,8 @@ CONTAINS
     LoadName = TRIM(Name) // ' Load'
     nlen = LEN_TRIM(LoadName)
     
+    CALL Info('SetNodalLoads','Checking loads for: '//TRIM(Name),Level=10)
+
     n = MAX(Model % NumberOfBCs, Model % NumberOFBodyForces) 
     ALLOCATE( ActivePart(n), ActivePartAll(n) )
 
@@ -2329,6 +2331,7 @@ CONTAINS
     END DO
 
     IF ( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN
+      CALL Info('SetNodalLoads','Setting nodal loads on boundaries: '//TRIM(Name),Level=9)
       ALLOCATE(DoneLoad( SIZE(b)/NDOFs) )
       DoneLoad = .FALSE.
 
@@ -2368,6 +2371,7 @@ CONTAINS
     END DO
 
     IF ( ANY( ActivePart ) .OR. ANY(ActivePartAll) ) THEN
+      CALL Info('SetNodalLoads','Setting nodal loads on bulk: '//TRIM(Name),Level=9)
       IF(.NOT. ALLOCATED(DoneLoad)) ALLOCATE(DoneLoad( SIZE(b)/NDOFs) )      
       DoneLoad = .FALSE.
 
@@ -2438,6 +2442,7 @@ CONTAINS
       END IF
       
       IF(NodesFound) THEN           
+        CALL Info('SetNodalLoads','Setting nodal loads on target nodes: '//TRIM(Name),Level=9)
         NodeIndexes => ListGetIntegerArray( Model % BCs(BC) % Values,'Target Nodes')
         n = SIZE(NodeIndexes)
         ValueList => Model % BCs(BC) % Values

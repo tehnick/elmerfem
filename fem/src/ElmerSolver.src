@@ -81,8 +81,7 @@
      INTEGER :: TimeIntervals,interval,timestep, &
        TotalTimesteps,SavedSteps,CoupledMaxIter,CoupledMinIter
 
-     INTEGER, POINTER, SAVE :: Timesteps(:),OutputIntervals(:), &
-                 OutputMask(:),ActiveSolvers(:)
+     INTEGER, POINTER, SAVE :: Timesteps(:),OutputIntervals(:), ActiveSolvers(:)
      REAL(KIND=dp), POINTER, SAVE :: TimestepSizes(:,:)
 
      INTEGER(KIND=AddrInt) :: ControlProcedure
@@ -104,8 +103,9 @@
      REAL(KIND=dp) :: RealTime,tt
 
      LOGICAL :: FirstLoad = .TRUE., FirstTime=.TRUE.
+     LOGICAL :: Silent, Version, GotModelName
 
-     INTEGER :: iargc
+     INTEGER :: iargc, NoArgs
 
      !
      ! If parallel execution requested, initialize parallel environment:
@@ -119,66 +119,77 @@
        ! Print banner to output:
 #include "../config.h"
        ! -----------------------
-       CALL Info( 'MAIN', ' ', Level=3 )
-       CALL Info( 'MAIN', '=============================================================',Level=3 )
-       CALL Info( 'MAIN', 'ElmerSolver finite element software, Welcome!                ',Level=3 )
-!_L_M_E_R  S_O_L_V_E_R, W_E_L_C_O_M_E     ',  Level=3  )
-!       CALL Info( 'MAIN', 'E_L_M_E_R  S_O_L_V_E_R, W_E_L_C_O_M_E     ',  Level=3  )
-       CALL Info( 'MAIN', 'This program is free software; you can redistribute it and/or',Level=3 )
-       CALL Info( 'MAIN', 'modify it under the terms of the GNU General Public License'  ,Level=3 )
-       CALL Info( 'MAIN', 'Copyright 1st April 1995 - , CSC - IT Center for Science Ltd.',Level=3 )
-       CALL Info( 'MAIN', 'Webpage http://www.csc.fi/elmer, Email elmeradm@csc.fi       ',Level=3 )
-       CALL Info( 'MAIN', 'Library version: ' // VERSION &
-#ifdef REVISION
-                    // ' (Rev: ' // REVISION // ')' , Level=3 )
-#else
-                    , Level=3 )
-#endif
-       IF ( ParEnv % PEs > 1 ) &
-         CALL Info( 'MAIN', ' Running in parallel using ' // &
-          TRIM(i2s(ParEnv % PEs)) // ' tasks.', Level=3 )
-#ifdef HAVE_HYPRE
-       CALL Info( 'MAIN', ' HYPRE library linked in.', Level=3 )
-#endif
-#ifdef HAVE_TRILINOS
-       CALL Info( 'MAIN', ' Trilinos library linked in.', Level=3 )
-#endif
-#ifdef HAVE_MUMPS
-       CALL Info( 'MAIN', ' MUMPS library linked in.', Level=3 )
-#endif
-#ifdef HAVE_CHOLMOD
-       CALL Info( 'MAIN', ' CHOLMOD library linked in.', Level=3 )
-#endif
-#ifdef HAVE_SUPERLU
-       CALL Info( 'MAIN', ' SUPERLU library linked in.', Level=3 )
-#endif
-#ifdef HAVE_PARDISO
-       CALL Info( 'MAIN', ' PARDISO library linked in.', Level=3 )
-#endif
-       CALL Info( 'MAIN', '=============================================================',Level=3 )
-
-       IF ( IARGC() > 0 ) THEN
-         CALL getarg( 1,OptionString )
-         IF ( OptionString=='-v' .OR. OptionString == '--version' ) RETURN
+       NoArgs = IARGC() 
+       ! Info Level is always true until the model has been read!
+       ! This makes it possible to cast something 
+       Silent = .FALSE.
+       Version = .FALSE.
+       IF( NoArgs > 0 ) THEN 
+         DO i = 1, NoArgs 
+           CALL getarg( i,OptionString )
+           Silent = Silent .OR. &
+               ( OptionString=='-s' .OR. OptionString=='--silent' ) 
+           Version = Version .OR. &
+               ( OptionString=='-v' .OR. OptionString == '--version' )
+         END DO
        END IF
 
+       IF( .NOT. Silent ) THEN
+         CALL Info( 'MAIN', ' ')
+         CALL Info( 'MAIN', '=============================================================')
+         CALL Info( 'MAIN', 'ElmerSolver finite element software, Welcome!                ')
+         CALL Info( 'MAIN', 'This program is free software; you can redistribute it and/or')
+         CALL Info( 'MAIN', 'modify it under the terms of the GNU General Public License'  )
+         CALL Info( 'MAIN', 'Copyright 1st April 1995 - , CSC - IT Center for Science Ltd.')
+         CALL Info( 'MAIN', 'Webpage http://www.csc.fi/elmer, Email elmeradm@csc.fi       ')
+         CALL Info( 'MAIN', 'Library version: ' // VERSION &
+#ifdef REVISION
+             // ' (Rev: ' // REVISION // ')' )
+#else
+         )
+#endif
+         IF ( ParEnv % PEs > 1 ) &
+             CALL Info( 'MAIN', ' Running in parallel using ' // &
+             TRIM(i2s(ParEnv % PEs)) // ' tasks.')
+#ifdef HAVE_HYPRE
+         CALL Info( 'MAIN', ' HYPRE library linked in.')
+#endif
+#ifdef HAVE_TRILINOS
+         CALL Info( 'MAIN', ' Trilinos library linked in.')
+#endif
+#ifdef HAVE_MUMPS
+         CALL Info( 'MAIN', ' MUMPS library linked in.')
+#endif
+#ifdef HAVE_CHOLMOD
+         CALL Info( 'MAIN', ' CHOLMOD library linked in.')
+#endif
+#ifdef HAVE_SUPERLU
+         CALL Info( 'MAIN', ' SUPERLU library linked in.')
+#endif
+#ifdef HAVE_PARDISO
+         CALL Info( 'MAIN', ' PARDISO library linked in.')
+#endif
+         CALL Info( 'MAIN', '=============================================================')
+       END IF
+
+       IF( Version ) RETURN
+       
        CALL InitializeElementDescriptions
        FirstTime = .FALSE.
      END IF
 
-     !
-     ! Read input file name:
-     !----------------------
-     IF ( ParEnv % PEs <= 1 ) THEN
-       IF ( IARGC() > 0 ) THEN
-         CALL getarg( 1,ModelName )
-         IF ( IARGC() > 1 ) CALL getarg( 2,eq )
-       ELSE
-         OPEN( 1, File='ELMERSOLVER_STARTINFO', STATUS='OLD', ERR=10 )
-         READ(1,'(a)') ModelName
-         CLOSE(1)
+     ! Read input file name either as an argument, or from the default file:
+     !----------------------------------------------------------------------
+     GotModelName = .FALSE.
+     IF ( ParEnv % PEs <= 1 .AND. NoArgs > 0 ) THEN
+       CALL getarg( 1,ModelName )
+       IF( ModelName(1:1) /= '-') THEN 
+         GotModelName = .TRUE.
+         IF ( NoArgs > 1 ) CALL getarg( 2,eq )
        END IF
-     ELSE
+     END IF
+         
+     IF( .NOT. GotModelName ) THEN
        OPEN( 1, File='ELMERSOLVER_STARTINFO', STATUS='OLD', ERR=10 )
        READ(1,'(a)') ModelName
        CLOSE(1)
@@ -200,19 +211,22 @@
        IF ( initialize==2 ) GOTO 1
 
        IF ( FirstLoad ) THEN
-          CALL Info( 'MAIN', ' ', Level = 3 )
-          CALL Info( 'MAIN', ' ', Level = 3 )
-          CALL Info( 'MAIN', '-----------------------', Level = 3 )
-          CALL Info( 'MAIN', 'Reading Model ... ', Level = 3 )
+         IF( .NOT. Silent ) THEN
+           CALL Info( 'MAIN', ' ')
+           CALL Info( 'MAIN', ' ')
+           CALL Info( 'MAIN', '-------------------------------------')
+           CALL Info( 'MAIN', 'Reading Model: '//TRIM( ModelName) )
+         END IF
 
-          INQUIRE(Unit=InFileUnit, Opened=GotIt)
-          IF ( gotIt ) CLOSE(inFileUnit)
-
-          OPEN( Unit=InFileUnit, Action='Read',File=ModelName,Status='OLD',ERR=20 )
-          CurrentModel => LoadModel( ModelName,.FALSE.,ParEnv % PEs,ParEnv % MyPE )
-
-          CALL Info( 'MAIN', 'Done               ', Level = 3 )
-          CALL Info( 'MAIN', '-----------------------', Level = 3 )
+         INQUIRE(Unit=InFileUnit, Opened=GotIt)
+         IF ( gotIt ) CLOSE(inFileUnit)
+         
+         OPEN( Unit=InFileUnit, Action='Read',File=ModelName,Status='OLD',ERR=20 )
+         CurrentModel => LoadModel( ModelName,.FALSE.,ParEnv % PEs,ParEnv % MyPE )
+         
+         IF(.NOT. Silent ) THEN
+            CALL Info( 'MAIN', '-------------------------------------')
+          END IF 
        ELSE
          IF ( Initialize==3 ) THEN
            INQUIRE(Unit=InFileUnit, Opened=GotIt)
@@ -241,40 +255,6 @@
        eq = ListGetString( CurrentModel % Simulation, 'Simulation Type', GotIt )
        Scanning  = eq == 'scanning'
        Transient = eq == 'transient'
-
-!------------------------------------------------------------------------------
-!      Initialize the log file output system
-!------------------------------------------------------------------------------
-       MinOutputLevel = ListGetInteger( CurrentModel % Simulation, &
-                  'Min Output Level', GotIt )
-
-       MaxOutputLevel = ListGetInteger( CurrentModel % Simulation, &
-                 'Max Output Level', GotIt )
-
-       IF ( .NOT. GotIt ) MaxOutputLevel = 32
-
-       OutputMask => ListGetIntegerArray( CurrentModel % Simulation, &
-                    'Output Level', GotIt )
-
-       IF ( GotIt ) THEN
-          DO i=1,SIZE(OutputMask)
-             OutputLevelMask(i-1) = OutputMask(i) /= 0
-          END DO
-       END IF
-
-       DO i=0,31
-          OutputLevelMask(i) = OutputLevelMask(i) .AND. &
-           i >= MinOutputLevel .AND. i <= MaxOutputLevel
-       END DO
-
-       OutputPrefix = ListGetLogical( CurrentModel % Simulation, &
-                      'Output Prefix', GotIt )
-       IF ( .NOT. GotIt ) OutputPrefix = .FALSE.
-
-       OutputCaller = ListGetLogical( CurrentModel % Simulation, &
-                      'Output Caller', GotIt )
-       IF ( .NOT. GotIt ) OutputCaller = .TRUE.
-!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 !      Figure out what (flow,heat,stress,...) should be computed, and get
@@ -458,12 +438,12 @@
 !------------------------------------------------------------------------------
 !    THIS IS THE END (...,at last, the end, my friend,...)
 !------------------------------------------------------------------------------
-     IF ( Initialize /= 1 ) CALL Info( 'ElmerSolver', '*** Elmer Solver: ALL DONE ***' )
+     IF ( Initialize /= 1 ) CALL Info( 'ElmerSolver', '*** Elmer Solver: ALL DONE ***',Level=3 )
 
      IF ( Initialize <=0 ) CALL FreeModel(CurrentModel)
 
      IF ( ParEnv % PEs>1 )  CALL ParallelFinalize()
-     CALL Info('ElmerSolver','The end')
+     CALL Info('ElmerSolver','The end',Level=3)
 
      RETURN
 
