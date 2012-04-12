@@ -560,6 +560,14 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
           END IF
         END IF
 
+        !-------------------------------------------------------------------------------
+        ! Switch to using the rotated variables (again)
+        !-------------------------------------------------------------------------------
+        IF (Iter > 1) THEN
+          j = Solver % Matrix % NumberOfRows
+          Solver % Variable % Values(1:j) = RotatedVarValues(1:j)
+        END IF
+
         IF (Parallel) THEN
            IF ( .NOT. ASSOCIATED(Solver % Matrix % ParMatrix) ) &
                 CALL ParallelInitMatrix( Solver, Solver % Matrix )
@@ -627,11 +635,9 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         !------------------------------------------------------------------------------------------
         IF (Iter > 1) THEN
            !--------------------------------------------------------------------------------------
-           ! We need the previous solver variable values corresponding to the rotated variables
-           ! to compute the current residual.
+           ! The rotated variables are used to compute the current residual.
            !--------------------------------------------------------------------------------------
            j = Solver % Matrix % NumberOfRows
-           Solver % Variable % Values(1:j) = RotatedVarValues(1:j)
            CALL Mymv( Solver % Matrix, Solver % Variable % Values, Residual, .TRUE.)
            Residual(1:j) = Solver % Matrix % RHS(1:j) - Residual(1:j)
 
@@ -656,6 +662,8 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                DEALLOCATE( TempMb )             
                DEALLOCATE( TempRHS )
              END IF
+             CALL BackRotateNTSystem( Solver % Variable % Values, Solver % Variable % Perm, &
+                  Solver % Variable % DOFs )
              EXIT
            END IF
         !---------------------------------------------------------------------
