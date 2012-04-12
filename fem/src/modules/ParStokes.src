@@ -511,53 +511,53 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         ! initializations...
         !-------------------------------------------------------------------------------
         IF ( DoScaling ) THEN
-          IF ( DoEquilibration ) THEN
-            !CALL OptimalMatrixScaling( Solver % Matrix, VelocitySolver % Matrix, &
-            !     PressureSolver % Matrix, dim, Solver % Matrix % RHS, Parallel )
-            CALL RowEquilibration(Solver%Matrix,Solver%Matrix%RHS,Parallel)
-          ELSE
-            CALL ScaleLinearSystem(Solver,Solver%Matrix,Solver%Matrix%RHS)
-          END IF
-          ! store the scaling for the blocks A and Q
-          j = PressureSolver % Matrix % NumberOfRows
-          IF (.not. allocated(RowScalingP)) THEN
-            ALLOCATE(RowScalingP(j))
-          END IF
-          RowScalingP=1.0_dp
-          IF (.not. allocated(RowScalingA)) THEN
-            ALLOCATE(RowScalingA(AMatrix%NumberOfRows))
-          END IF
-          RowScalingA=1.0_dp
-          ! for row equilibration we do not scale the A and Q matrices
-          ! so that their symmetry is not destroyed, instead we scale 
-          ! the RHS back to the symmetric scaling
-          IF (DoEquilibration) THEN
-            DO i=1,j
-              RowScalingP(i) = 1.0_dp/Solver%Matrix%DiagScaling((dim+1)*i)
-              DO p=1,dim
-                RowScalingA( dim*(i-1)+p ) = &
-                            1.0_dp/Solver%Matrix%DiagScaling( (dim+1)*(i-1)+p )
+           IF ( DoEquilibration ) THEN
+              !CALL OptimalMatrixScaling( Solver % Matrix, VelocitySolver % Matrix, &
+              !     PressureSolver % Matrix, dim, Solver % Matrix % RHS, Parallel )
+              CALL RowEquilibration(Solver%Matrix,Solver%Matrix%RHS,Parallel)
+           ELSE
+              CALL ScaleLinearSystem(Solver,Solver%Matrix,Solver%Matrix%RHS)
+           END IF
+           ! store the scaling for the blocks A and Q
+           j = PressureSolver % Matrix % NumberOfRows
+           IF (.not. allocated(RowScalingP)) THEN
+              ALLOCATE(RowScalingP(j))
+           END IF
+           RowScalingP=1.0_dp
+           IF (.not. allocated(RowScalingA)) THEN
+              ALLOCATE(RowScalingA(AMatrix%NumberOfRows))
+           END IF
+           RowScalingA=1.0_dp
+           ! for row equilibration we do not scale the A and Q matrices
+           ! so that their symmetry is not destroyed, instead we scale 
+           ! the RHS back to the symmetric scaling
+           IF (DoEquilibration) THEN
+              DO i=1,j
+                 RowScalingP(i) = 1.0_dp/Solver%Matrix%DiagScaling((dim+1)*i)
+                 DO p=1,dim
+                    RowScalingA( dim*(i-1)+p ) = &
+                         1.0_dp/Solver%Matrix%DiagScaling( (dim+1)*(i-1)+p )
+                 END DO
               END DO
-            END DO
-          ELSE
-          IF (.not. associated(PMatrix%DiagScaling)) THEN
-            ALLOCATE(PMatrix%DiagScaling(j))
-          END IF
-          PMatrix%DiagScaling(:)=1.0_dp
-          IF (.not. allocated(RowScalingA)) THEN
-            ALLOCATE(AMatrix%DiagScaling(AMatrix%NumberOfRows))
-          END IF
-          AMatrix%DiagScaling(:)=1.0_dp
-            DO i=1,j
-              PMatrix%DiagScaling(i) = Solver%Matrix%DiagScaling((dim+1)*i)
-              DO p=1,dim
-                AMatrix%DiagScaling( dim*(i-1)+p ) = &
-                            Solver%Matrix%DiagScaling( (dim+1)*(i-1)+p )
+           ELSE
+              IF (.not. associated(PMatrix%DiagScaling)) THEN
+                 ALLOCATE(PMatrix%DiagScaling(j))
+              END IF
+              PMatrix%DiagScaling(:)=1.0_dp
+              IF (.NOT. ASSOCIATED(AMatrix % DiagScaling)) THEN
+                 ALLOCATE(AMatrix%DiagScaling(AMatrix%NumberOfRows))
+              END IF
+              AMatrix%DiagScaling(:)=1.0_dp
+              DO i=1,j
+                 PMatrix%DiagScaling(i) = Solver%Matrix%DiagScaling((dim+1)*i)
+                 DO p=1,dim
+                    AMatrix%DiagScaling( dim*(i-1)+p ) = &
+                         Solver%Matrix%DiagScaling( (dim+1)*(i-1)+p )
+                 END DO
               END DO
-            END DO
-            CALL ScaleLinearSystem( VelocitySolver, AMatrix, DiagScaling=AMatrix%DiagScaling)
-            CALL ScaleLinearSystem( PressureSolver, PMatrix, DiagScaling=PMatrix%DiagScaling)
-          END IF
+              CALL ScaleLinearSystem( VelocitySolver, AMatrix, DiagScaling=AMatrix%DiagScaling)
+              CALL ScaleLinearSystem( PressureSolver, PMatrix, DiagScaling=PMatrix%DiagScaling)
+           END IF
         END IF
 
         !-------------------------------------------------------------------------------
