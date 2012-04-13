@@ -156,7 +156,7 @@ CONTAINS
 !-------------------------------------------------------------------------------
   SUBROUTINE List_ToCRSMatrix(A)
 !-------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
+    TYPE(Matrix_t) :: A
     
     TYPE(ListMatrix_t), POINTER :: L(:)   
     INTEGER :: i,j,n
@@ -211,6 +211,7 @@ CONTAINS
     A % Cols => Cols
     A % Values => Values  
   
+    A % Ordered=.FALSE.
     CALL CRS_SortMatrix( A )
 
     CALL List_FreeMatrix( SIZE(L), L )
@@ -220,6 +221,33 @@ CONTAINS
 
 !-------------------------------------------------------------------------------
   END SUBROUTINE List_ToCRSMatrix
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+!> Convert CRS matrix to list matrix
+!-------------------------------------------------------------------------------
+  SUBROUTINE List_ToListMatrix(A)
+!-------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+    
+    TYPE(ListMatrix_t), POINTER :: L(:)   
+    INTEGER :: i,j,n
+    TYPE(ListMatrixEntry_t), POINTER :: P
+    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
+    REAL(KIND=dp), POINTER :: Values(:)
+
+    L => List_AllocateMatrix(A % NumberOfRows)
+    DO i=1,A % NumberOfRows
+      DO j=A % Rows(i+1)-1,A % Rows(i),-1
+        CALL List_SetMatrixElement(A % ListMatrix,i,A % Cols(j),A % Values(j))
+      END DO
+    END DO
+    DEALLOCATE(A % Rows, A % Cols, A % Diag, A % Values)
+    CALL Info('ListToCRSMatrix','Matrix format changed from CRS to List', Level=5)
+
+!-------------------------------------------------------------------------------
+  END SUBROUTINE List_ToListMatrix
 !-------------------------------------------------------------------------------
 
 
@@ -431,6 +459,68 @@ CONTAINS
    END SUBROUTINE List_MoveRow
 !-------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  SUBROUTINE List_GlueLocalMatrix( A,N,Dofs,Indexes,LocalMatrix )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Add a set of values (.i.e. element stiffness matrix) to a CRS format
+!    matrix. For this matrix the entries are ordered so that 1st for one
+!    dof you got all nodes, and then for second etc. 
+!
+!  ARGUMENTS:
+!
+!  TYPE(Matrix_t) :: Lmat
+!     INOUT: Structure holding matrix, values are affected in the process
+!
+!  INTEGER :: Nrow, Ncol
+!     INPUT: Number of nodes in element, or other dofs
+!
+!  INTEGER :: row0, col0
+!     INPUT: Offset of the matrix resulting from other blocks
+!
+!  INTEGER :: row0, col0
+!     INPUT: Offset of the matrix resulting from other blocks
+!
+!  INTEGER :: RowInds, ColInds
+!     INPUT: Permutation of the rows and column dofs
+!
+!  REAL(KIND=dp) :: LocalMatrix(:,:)
+!     INPUT: A (Nrow x RowDofs) x ( Ncol x ColDofs) matrix holding the values to be
+!            added to the CRS format matrix
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+ 
+     REAL(KIND=dp) :: LocalMatrix(:,:)
+     INTEGER :: N,DOFs, Indexes(:)
+     TYPE(ListMatrix_t), POINTER :: A(:)
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+
+     REAL(KIND=dp) :: Value
+     INTEGER :: i,j,k,l,c,Row,Col
+     
+     DO i=1,n
+       IF (Indexes(i)<=0) CYCLE
+       DO k=0,Dofs-1
+         Row = Dofs*Indexes(i)-k
+         DO j=1,n
+           IF (Indexes(j)<=0) CYCLE
+           DO l=0,Dofs-1
+             Col = Dofs * Indexes(j) - l
+             Value = LocalMatrix(Dofs*i-k,Dofs*j-l)
+             CALL List_AddToMatrixElement(A,Row,Col,Value)
+           END DO
+         END DO
+
+       END DO
+     END DO
+   END SUBROUTINE List_GlueLocalMatrix
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
    SUBROUTINE List_GlueLocalSubMatrix( List,row0,col0,Nrow,Ncol, &
@@ -500,3 +590,5 @@ CONTAINS
 END MODULE ListMatrix
 
 !> \} ElmerLib
+
+

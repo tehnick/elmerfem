@@ -62,7 +62,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE Band_ZeroMatrix(A)
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A   !< Structure holding matrix
+    TYPE(Matrix_t) :: A   !< Structure holding matrix
 
     A % Values = 0.0D0
     IF ( ASSOCIATED( A % MassValues ) ) A % MassValues = 0.0d0
@@ -76,7 +76,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE Band_ZeroRow( A,n )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    TYPE(Matrix_t) :: A  !< Structure holding matrix
     INTEGER :: n                  !< Row number to be zerod
 !------------------------------------------------------------------------------
  
@@ -99,7 +99,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE Band_AddToMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    TYPE(Matrix_t) :: A  !< Structure holding matrix
     INTEGER :: i  !< row number of the matrix element
     INTEGER :: j  !< column number of the matrix element
     REAL(KIND=dp) :: value  !< Value to be added
@@ -124,7 +124,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE Band_SetMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    TYPE(Matrix_t) :: A  !< Structure holding matrix
     INTEGER :: i  !< row number of the matrix element
     INTEGER :: j  !< column number of the matrix element
     REAL(KIND=dp) :: value  !< Value to be set
@@ -143,7 +143,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   FUNCTION Band_GetMatrixElement( A,i,j ) RESULT ( value )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    TYPE(Matrix_t) :: A  !< Structure holding matrix
     INTEGER :: i  !< row number of the matrix element
     INTEGER :: j  !< column number of the matrix element
     REAL(KIND=dp) :: value  !< Value to be obtained
@@ -164,7 +164,7 @@ CONTAINS
 !------------------------------------------------------------------------------ 
      REAL(KIND=dp) :: LocalMatrix(:,:)  !< A (N x Dofs) x ( N x Dofs) matrix holding the values to be
                                         !! added to the Band format matrix
-     TYPE(Matrix_t), POINTER :: A   !< Structure holding matrix, values are affected in the process
+     TYPE(Matrix_t) :: A   !< Structure holding matrix, values are affected in the process
      INTEGER :: N                   !< Number of nodes in element
      INTEGER :: Dofs                !< Number of degrees of freedom for one node
      INTEGER :: Indeces(:)          !< Maps element node numbers to global (or partition) node numbers
@@ -224,7 +224,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE SBand_SetDirichlet( A, b, n, Value )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix, values are affected in the process
+    TYPE(Matrix_t) :: A  !< Structure holding matrix, values are affected in the process
     REAL(KIND=dp) :: b(:)         !< RHS vector
     REAL(KIND=dp), INTENT(IN) :: Value        !< Value for the unknown
     INTEGER, INTENT(IN) :: n                  !< Ordered number of the unkown (i.e. matrix row and column number)
@@ -294,7 +294,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     REAL(KIND=dp), DIMENSION(*) :: u  !< vector to be multiplied
     REAL(KIND=dp), DIMENSION(*) :: v  !< result vector
-    TYPE(Matrix_t), POINTER :: A      !< Structure holding the matrix
+    TYPE(Matrix_t) :: A      !< Structure holding the matrix
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: Values(:)
 
