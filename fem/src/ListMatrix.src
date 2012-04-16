@@ -215,6 +215,7 @@ CONTAINS
     CALL CRS_SortMatrix( A )
 
     CALL List_FreeMatrix( SIZE(L), L )
+    A % ListMatrix => Null()
 
     A % FORMAT = MATRIX_CRS
     CALL Info('ListToCRSMatrix','Matrix format changed from List to CRS', Level=5)
@@ -233,9 +234,6 @@ CONTAINS
     
     TYPE(ListMatrix_t), POINTER :: L(:)   
     INTEGER :: i,j,n
-    TYPE(ListMatrixEntry_t), POINTER :: P
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
-    REAL(KIND=dp), POINTER :: Values(:)
 
     L => List_AllocateMatrix(A % NumberOfRows)
     DO i=1,A % NumberOfRows
@@ -243,6 +241,8 @@ CONTAINS
         CALL List_SetMatrixElement(A % ListMatrix,i,A % Cols(j),A % Values(j))
       END DO
     END DO
+    A % FORMAT = MATRIX_LIST
+
     DEALLOCATE(A % Rows, A % Cols, A % Diag, A % Values)
     CALL Info('ListToCRSMatrix','Matrix format changed from CRS to List', Level=5)
 
@@ -307,6 +307,37 @@ CONTAINS
      List(k1) % Degree = List(k1) % Degree + 1
 !-------------------------------------------------------------------------------
    END FUNCTION List_GetMatrixIndex
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+   SUBROUTINE List_DeleteMatrixElement(List,k1,k2)
+!-------------------------------------------------------------------------------
+     INTEGER :: k1,k2
+     TYPE(ListMatrix_t) :: List(:)
+!-------------------------------------------------------------------------------
+     TYPE(ListMatrixEntry_t), POINTER :: Clist,Prev
+
+     Prev => Null()
+     Clist => List(k1) % Head
+     DO WHILE(ASSOCIATED(Clist))
+       IF (Clist % Index >= k2) EXIT
+       Prev  => Clist
+       Clist => Clist % Next
+     END DO
+     IF (.NOT.ASSOCIATED(Clist)) RETURN
+
+     IF (Clist % Index /= k2) RETURN
+
+     IF (ASSOCIATED(Prev)) THEN
+       Prev % Next => Clist % Next
+     ELSE
+       List(k1) % Head => Clist % Next
+     END IF
+     DEALLOCATE(Clist)
+     List(k1) % Degree = List(k1) % Degree-1
+!-------------------------------------------------------------------------------
+   END SUBROUTINE List_DeleteMatrixElement
 !-------------------------------------------------------------------------------
 
 
