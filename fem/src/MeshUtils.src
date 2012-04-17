@@ -1207,23 +1207,23 @@ END SUBROUTINE GetMaxDefs
     TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,l,m,n,n1,n2,k1,k2, Constraint, DIM
+    INTEGER :: i,j,k,l,m,n,n1,n2,k1,k2, Constraint, DIM, NoBothActive
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element, Elements(:)
-    LOGICAL :: GotIt, GotRotate
+    LOGICAL :: GotIt, GotRotate, ThisActive, TargetActive, ConstantNormals
     INTEGER, POINTER :: NodeIndexes(:), Perm1(:), Perm2(:), &
                  InvPerm1(:), InvPerm2(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2
+    TYPE(Nodes_t) :: ElementNodes
     REAL(KIND=dp), POINTER :: PArray(:,:) => NULL()
     REAL(KIND=dp) :: x(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
-           TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist, alpha
-
-    REAL(KIND=dp) :: scl_x, scl_y, scl_z
-    REAL(KIND=dp) :: xmin_1, xmax_1, ymin_1, ymax_1, zmin_1, zmax_1
-    REAL(KIND=dp) :: xmin_2, xmax_2, ymin_2, ymax_2, zmin_2, zmax_2
+           TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist, alpha, Angles(3), &
+           x1_min(3), x1_max(3), x2_min(3), x2_max(3), x2r_min(3), x2r_max(3), scl(3), &
+           ds, s1, Normal1(3), Normal2(3), Dot1Min, Dot2Min, Normal2r(3)
 
     SAVE Parray
 !------------------------------------------------------------------------------
+
 
     DIM = CoordinateSystemDimension()
 
@@ -1245,9 +1245,9 @@ END SUBROUTINE GetMaxDefs
     END DO
 
     IF ( n1 <= 0 .OR. n2 <= 0 ) RETURN
+    CALL Info('PeriodicProjector','Starting to build',Level=8)
 
 
-!
 !   Initialize mesh structures for boundaries, this
 !   is for getting the mesh projector:
 !   ------------------------------------------------
@@ -1258,7 +1258,13 @@ END SUBROUTINE GetMaxDefs
     CALL AllocateVector( BMesh2 % Elements,n2 )
     CALL AllocateVector( Perm1, Mesh % NumberOfNodes )
     CALL AllocateVector( Perm2, Mesh % NumberOfNodes )
+ 
+    N = Mesh % MaxElementNodes
 
+    CALL AllocateVector( ElementNodes % x, n )
+    CALL AllocateVector( ElementNodes % y, n )
+    CALL AllocateVector( ElementNodes % z, n )
+ 
 !
 !   Fill in the mesh element structures with the
 !   boundary elements:
@@ -1269,36 +1275,81 @@ END SUBROUTINE GetMaxDefs
     Perm2 = 0
     BMesh1 % MaxElementNodes = 0
     BMesh2 % MaxElementNodes = 0
+    Dot1Min = HUGE( Dot1Min ) 
+    Dot2Min = HUGE( Dot2Min )
+
     DO i=1, Mesh % NumberOfBoundaryElements
        Element => Elements(i)
-       IF ( dim>1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
+       IF ( dim > 1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
 
-       n = Element % TYPE % NumberOfNodes
        Constraint = Element % BoundaryInfo % Constraint
+       
+       ThisActive = ( Model % BCs(This) % Tag == Constraint )
+       TargetActive = ( Model % BCs(Trgt) % Tag == Constraint ) 
 
-       IF ( Model % BCs(This) % Tag == Constraint ) THEN
-          n1 = n1 + 1
-          BMesh1 % MaxElementNodes = MAX( BMesh1 % MaxElementNodes, n )
-          BMesh1 % Elements(n1) = Elements(i)
-          CALL AllocateVector(BMesh1 % Elements(n1) % NodeIndexes,n )
-          BMesh1 % Elements(n1) % NodeIndexes =  Elements(i) % NodeIndexes
-          NULLIFY( BMesh1 % Elements(n1) % EdgeIndexes )
-          NULLIFY( BMesh1 % Elements(n1) % FaceIndexes )
-          Perm1( Elements(i) % NodeIndexes ) = 1
+       IF( ThisActive .OR. TargetActive ) THEN
+         n = Element % TYPE % NumberOfNodes
+         Model % CurrentElement => Element
+         NodeIndexes => Element % NodeIndexes
+
+         ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes(1:n))
+         ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes(1:n))
+         ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes(1:n))           
+
+! Currently check is not enforced since at this stage CurrentModel % Nodes does not exist!
+! This means that there may be a 180 error in the directions. 
+! Therefore an angle smaller than 180 is always chosen.
+         Normal = NormalVector( Element, ElementNodes, Check = .FALSE. ) 
+
+         IF( ThisActive .AND. TargetActive ) THEN
+           NoBothActive = NoBothActive + 1
+         END IF
        END IF
 
-       IF ( Model % BCs(Trgt) % Tag == Constraint ) THEN
-          n2 = n2 + 1
-          BMesh2 % MaxElementNodes = MAX( BMesh2 % MaxElementNodes, n )
-          BMesh2 % Elements(n2) = Elements(i)
-          CALL AllocateVector(BMesh2 % Elements(n2) % NodeIndexes,n )
-          BMesh2 % Elements(n2) % NodeIndexes =  Elements(i) % NodeIndexes
-          NULLIFY( BMesh2 % Elements(n2) % EdgeIndexes )
-          NULLIFY( BMesh2 % Elements(n2) % FaceIndexes )
-          Perm2( Elements(i) % NodeIndexes ) = 1
+       IF ( ThisActive ) THEN
+         IF( n1 == 0 ) THEN
+           Normal1 = Normal
+         ELSE
+           Dot1min = MIN( Dot1Min, SUM( Normal * Normal1 ) )
+         END IF
+
+         n1 = n1 + 1
+         BMesh1 % MaxElementNodes = MAX( BMesh1 % MaxElementNodes, n )
+         BMesh1 % Elements(n1) = Elements(i)
+         CALL AllocateVector(BMesh1 % Elements(n1) % NodeIndexes,n )
+         BMesh1 % Elements(n1) % NodeIndexes =  Elements(i) % NodeIndexes
+         NULLIFY( BMesh1 % Elements(n1) % EdgeIndexes )
+         NULLIFY( BMesh1 % Elements(n1) % FaceIndexes )
+         Perm1( Elements(i) % NodeIndexes ) = 1
+       END IF
+
+       IF ( TargetActive ) THEN
+         IF( n2 == 0 ) THEN
+           Normal2 = Normal
+         ELSE
+           Dot2min = MIN( Dot2Min, SUM( Normal * Normal2 ) )
+         END IF
+               
+         n2 = n2 + 1
+         BMesh2 % MaxElementNodes = MAX( BMesh2 % MaxElementNodes, n )
+         BMesh2 % Elements(n2) = Elements(i)
+         CALL AllocateVector(BMesh2 % Elements(n2) % NodeIndexes,n )
+         BMesh2 % Elements(n2) % NodeIndexes =  Elements(i) % NodeIndexes
+         NULLIFY( BMesh2 % Elements(n2) % EdgeIndexes )
+         NULLIFY( BMesh2 % Elements(n2) % FaceIndexes )
+         Perm2( Elements(i) % NodeIndexes ) = 1
        END IF
     END DO
+    
+    IF( NoBothActive > 0 ) THEN
+      WRITE(Message,'(A,I0)') 'Nodes belonging to both Master and Target: ',NoBothActive
+      CALL Warn('PeriodicProjector',Message)
+    END IF
 
+    ConstantNormals = ( 1 - Dot1Min < 1.0d-6 ) .AND. ( 1 - Dot2Min < 1.0e-6 )     
+    
+
+ 
     BMesh1 % NumberOfBulkElements = n1
     BMesh2 % NumberOfBulkElements = n2
 
@@ -1308,157 +1359,340 @@ END SUBROUTINE GetMaxDefs
 !   -----------------------------------------
     BMesh2 % NumberOfNodes = COUNT( Perm2==1 )
     BMesh1 % NumberOfNodes = COUNT( Perm1==1 )
-
+    
+   
     IF (BMesh1 % NumberOfNodes==0 .OR. BMesh2 % NumberOfNOdes==0) THEN
+      CALL Warn('PeriodicProjector','No active nodes on periodic boundary!')
+      
       DO i=1,BMesh1 % NumberOfBulkElements
-         DEALLOCATE( BMesh1 % Elements(i) % NodeIndexes )
+        DEALLOCATE( BMesh1 % Elements(i) % NodeIndexes )
       END DO
-
+      
       DO i=1,BMesh2 % NumberOfBulkElements
-         DEALLOCATE( BMesh2 % Elements(i) % NodeIndexes )
+        DEALLOCATE( BMesh2 % Elements(i) % NodeIndexes )
       END DO
 
       DEALLOCATE( BMesh1 % Elements, BMesh2 % Elements )
       DEALLOCATE( Perm1, Perm2, BMesh1, BMesh2 )
       RETURN
+    ELSE
+      WRITE(Message,'(A,I0,A,I0)') 'Number of periodic nodes: ',&
+          BMesh1 % NumberOfNodes, ', ',BMesh2 % NumberOfNOdes
+      CALL Info('PeriodicProjector',Message,Level=8)    
     END IF
-
+    
     ALLOCATE( BMesh1 % Nodes )
     CALL AllocateVector( BMesh1 % Nodes % x, BMesh1 % NumberOfNodes ) 
     CALL AllocateVector( BMesh1 % Nodes % y, BMesh1 % NumberOfNodes ) 
     CALL AllocateVector( BMesh1 % Nodes % z, BMesh1 % NumberOfNodes )
-
+    
     ALLOCATE( BMesh2 % Nodes )
     CALL AllocateVector( BMesh2 % Nodes % x, BMesh2 % NumberOfNodes ) 
     CALL AllocateVector( BMesh2 % Nodes % y, BMesh2 % NumberOfNodes ) 
     CALL AllocateVector( BMesh2 % Nodes % z, BMesh2 % NumberOfNodes )
-
+    
     CALL AllocateVector( InvPerm1, BMesh1 % NumberOfNodes )
     CALL AllocateVector( InvPerm2, BMesh2 % NumberOfNodes )
 
-    xmin_1 =  HUGE(dp); ymin_1 =  HUGE(dp); zmin_1 =  HUGE(dp)
-    xmin_2 =  HUGE(dp); ymin_2 =  HUGE(dp); zmin_2 =  HUGE(dp)
-
-    xmax_1 = -HUGE(dp); ymax_1 = -HUGE(dp); zmax_1 = -HUGE(dp)
-    xmax_2 = -HUGE(dp); ymax_2 = -HUGE(dp); zmax_2 = -HUGE(dp)
 
 
+       
+    x1_min = HUGE( dp ); x1_max = -HUGE( dp )
+    x2_min = HUGE( dp ); x2_max = -HUGE( dp )
+    x2r_min = HUGE( dp ); x2r_max = -HUGE( dp )
+    
 ! Initialize the mapping matrices
     x = 0.0d0
     Identity = 0.0d0
     DO i=1,4
        Identity(i,i) = 1.0d0
     END DO
-
+    
     TrsMatrix = Identity
     RotMatrix = Identity
     SclMatrix = Identity
-
+    
 !   Rotations:
 !   These are called first since they are not accounted for in the 
 !   automatic scaling and translation.
 !   ---------
     Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                   'Periodic BC Rotate', GotRotate )
+        'Periodic BC Rotate', GotRotate )
+    IF( GotRotate ) THEN
+      Angles(1:3) = Parray(1:3,1)      
+    ELSE IF( .NOT. ConstantNormals ) THEN
+      CALL Warn('PeriodicProjector','Normals are not constant, cannot test for rotation!')
+    ELSE
+      Angles = 0.0_dp
+      
+      Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
+      PRINT *,'Alpha:',Alpha
+      
+      IF( Alpha > EPSILON( Alpha ) ) THEN
+        DO i=1,3
+          IF( ABS ( Normal1(i) - Normal2(i) ) < EPSILON( ds ) ) THEN
+            GotRotate = .TRUE.            
+            WRITE(Message,'(A,I0,A,ES12.3)') &
+                'Rotation around axis ',i,' in degs ',Alpha 
+            Angles(i) = Alpha
+            EXIT
+          END IF
+        END DO        
+        IF(.NOT. GotRotate ) THEN
+          CALL Warn('PeriodicProjector','could not define rotation axis, improve algorithm!')
+        END IF
+      END IF
+    END IF
 
     IF ( GotRotate ) THEN
+      WRITE(Message,'(A,3ES12.3)') 'Rotating target with: ',Angles
+      CALL Info('PeriodicProjector',Message,Level=8)    
+      
+      DO i=1,SIZE(Parray,1)
+        Alpha = Angles(i) * PI / 180
+        IF( ABS(Alpha) < TINY(Alpha) ) CYCLE 
+        TrfMatrix = Identity
 
-       DO i=1,SIZE(Parray,1)
-          Alpha = Parray(i,1) * PI / 180
-          IF( ABS(Alpha) < TINY(Alpha) ) CYCLE 
-          TrfMatrix = Identity
+        SELECT CASE(i)
+        CASE(1)
+          TrfMatrix(2,2) =  COS(Alpha)
+          TrfMatrix(2,3) = -SIN(Alpha) 
+          TrfMatrix(3,2) =  SIN(Alpha)
+          TrfMatrix(3,3) =  COS(Alpha)
+        CASE(2)
+          TrfMatrix(1,1) =  COS(Alpha)
+          TrfMatrix(1,3) = -SIN(Alpha)
+          TrfMatrix(3,1) =  SIN(Alpha)
+          TrfMatrix(3,3) =  COS(Alpha)
+        CASE(3)
+          TrfMatrix(1,1) =  COS(Alpha)
+          TrfMatrix(1,2) = -SIN(Alpha)
+          TrfMatrix(2,1) =  SIN(Alpha)
+          TrfMatrix(2,2) =  COS(Alpha)
+        END SELECT
+        
+        RotMatrix = MATMUL( RotMatrix, TrfMatrix )
+      END DO
+           
+      ! Check the rotated normal vector of the first Target element. 
+      ! This is mainly done for debugging purposes. 
+      !--------------------------------------------------------------
+      IF( ConstantNormals ) THEN
+        DO i=1, Mesh % NumberOfBoundaryElements
+          Element => Elements(i)
+          IF ( dim > 1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
+          
+          Constraint = Element % BoundaryInfo % Constraint
+          
+          IF ( Model % BCs(Trgt) % Tag /= Constraint ) CYCLE
+          
+          n = Element % TYPE % NumberOfNodes
+          Model % CurrentElement => Element
+          NodeIndexes => Element % NodeIndexes
+          
+          ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes(1:n))
+          ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes(1:n))
+          ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes(1:n))           
+          
+          DO j=1,n
+            k = NodeIndexes(j)
+            x(1) = Mesh % Nodes % x(k)
+            x(2) = Mesh % Nodes % y(k)
+            x(3) = Mesh % Nodes % z(k)      
+            x(4) = 1.0_dp
+            
+            x = MATMUL( RotMatrix, x )   
+            
+            ElementNodes % x(j) = x(1)
+            ElementNodes % y(j) = x(2)
+            ElementNodes % z(j) = x(3)
+          END DO
+          
+          Normal2r = NormalVector( Element, ElementNodes, Check = .FALSE. ) 
+          EXIT
+        END DO
 
-          SELECT CASE(i)
-            CASE(1)
-               TrfMatrix(2,2) =  COS(Alpha)
-               TrfMatrix(2,3) = -SIN(Alpha) 
-               TrfMatrix(3,2) =  SIN(Alpha)
-               TrfMatrix(3,3) =  COS(Alpha)
-            CASE(2)
-               TrfMatrix(1,1) =  COS(Alpha)
-               TrfMatrix(1,3) = -SIN(Alpha)
-               TrfMatrix(3,1) =  SIN(Alpha)
-               TrfMatrix(3,3) =  COS(Alpha)
-            CASE(3)
-               TrfMatrix(1,1) =  COS(Alpha)
-               TrfMatrix(1,2) = -SIN(Alpha)
-               TrfMatrix(2,1) =  SIN(Alpha)
-               TrfMatrix(2,2) =  COS(Alpha)
-           END SELECT
-         
-           RotMatrix = MATMUL( RotMatrix, TrfMatrix )
-       END DO
+        WRITE(Message,'(A,3ES12.3)') 'Master normal: ',Normal1
+        CALL Info('PeriodicProjector',Message,Level=8)    
+
+        WRITE(Message,'(A,3ES12.3)') 'Initial Target normal: ',Normal2
+        CALL Info('PeriodicProjector',Message,Level=8)    
+        
+        WRITE(Message,'(A,3ES12.3)') 'Rotated Target normal: ',Normal1
+        CALL Info('PeriodicProjector',Message,Level=8)    
+      
+        Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
+        WRITE(Message,'(A,ES12.5)') 'Angle between Master and initial Target: ',Alpha
+        CALL Info('PeriodicProjector',Message,Level=8)    
+
+        Alpha = ACOS( SUM( Normal1 * Normal2r ) ) * 180 / PI
+        WRITE(Message,'(A,ES12.5)') 'Angle between Master and rotated Target: ',Alpha
+        CALL Info('PeriodicProjector',Message,Level=5)    
+
+        IF( ABS( Alpha ) > 1.0e-2 .AND. ABS( Alpha - 180 ) > 1.0e-2 ) THEN
+          CALL Warn('PeriodicProjector','Rotation may be incorrect!')
+        END IF
+
+      END IF
+
     END IF
+
 
     k1 = 0; k2 = 0
     DO i=1,Mesh % NumberOfNodes
-       IF ( Perm1(i) > 0 ) THEN
-          k1 = k1 + 1
-          Perm1(i) = k1
-          InvPerm1(k1) = i
-          BMesh1 % Nodes % x(k1)  = Mesh % Nodes % x(i)
-          BMesh1 % Nodes % y(k1)  = Mesh % Nodes % y(i)
-          BMesh1 % Nodes % z(k1)  = Mesh % Nodes % z(i)
+      IF ( Perm1(i) > 0 ) THEN
+        k1 = k1 + 1
+        Perm1(i) = k1
+        InvPerm1(k1) = i
 
-          xmin_1 = MIN( xmin_1, Mesh % Nodes % x(i) )
-          ymin_1 = MIN( ymin_1, Mesh % Nodes % y(i) )
-          zmin_1 = MIN( zmin_1, Mesh % Nodes % z(i) )
-
-          xmax_1 = MAX( xmax_1, Mesh % Nodes % x(i) )
-          ymax_1 = MAX( ymax_1, Mesh % Nodes % y(i) )
-          zmax_1 = MAX( zmax_1, Mesh % Nodes % z(i) )
-       END IF
-
-       IF ( Perm2(i) > 0 ) THEN
-          k2 = k2 + 1
-          Perm2(i) = k2
-          InvPerm2(k2) = i
-
-          x(1) = Mesh % Nodes % x(i)
-          x(2) = Mesh % Nodes % y(i)
-          x(3) = Mesh % Nodes % z(i)
- 
-          IF( GotRotate ) THEN
-            x = MATMUL( RotMatrix, x )
-          END IF 
-
-          BMesh2 % Nodes % x(k2)  = x(1)
-          BMesh2 % Nodes % y(k2)  = x(2)
-          BMesh2 % Nodes % z(k2)  = x(3)
-
-          xmin_2 = MIN( xmin_2, x(1) )
-          ymin_2 = MIN( ymin_2, x(2) ) 
-          zmin_2 = MIN( zmin_2, x(3) )
-
-          xmax_2 = MAX( xmax_2, x(1) )
-          ymax_2 = MAX( ymax_2, x(2) )
-          zmax_2 = MAX( zmax_2, x(3) )
-       END IF
+        BMesh1 % Nodes % x(k1) = Mesh % Nodes % x(i)
+        BMesh1 % Nodes % y(k1) = Mesh % Nodes % y(i)
+        BMesh1 % Nodes % z(k1) = Mesh % Nodes % z(i)
+        
+        x(1) = Mesh % Nodes % x(i)
+        x(2) = Mesh % Nodes % y(i)
+        x(3) = Mesh % Nodes % z(i)
+        
+        DO j = 1,3
+          x1_min(j) = MIN( x1_min(j), x(j) )
+          x1_max(j) = MAX( x1_max(j), x(j) )
+        END DO
+      END IF
+      
+      IF ( Perm2(i) > 0 ) THEN
+        k2 = k2 + 1
+        Perm2(i) = k2
+        InvPerm2(k2) = i
+        
+        x(1) = Mesh % Nodes % x(i)
+        x(2) = Mesh % Nodes % y(i)
+        x(3) = Mesh % Nodes % z(i)
+      
+        DO j = 1,3
+          x2_min(j) = MIN( x2_min(j), x(j) )
+          x2_max(j) = MAX( x2_max(j), x(j) )
+        END DO
+        
+        IF( GotRotate ) THEN
+          x(4) = 1.0_dp
+          x = MATMUL( RotMatrix, x )
+          DO j = 1,3
+            x2r_min(j) = MIN( x2r_min(j), x(j) )
+            x2r_max(j) = MAX( x2r_max(j), x(j) )
+          END DO
+        END IF
+        
+        BMesh2 % Nodes % x(k2) = x(1)
+        BMesh2 % Nodes % y(k2) = x(2)
+        BMesh2 % Nodes % z(k2) = x(3)
+      END IF
     END DO
 
-
-    scl_x = xmax_2 - xmin_2
-    IF ( ABS(scl_x) > AEPS ) THEN
-      scl_x = (xmax_1 - xmin_1) / scl_x
-    ELSE
-      scl_x = 1.0_dp
+    WRITE(Message,'(A,3ES12.3)') 'Minimum values for this periodic BC:  ',x1_min
+    CALL Info('PeriodicProjector',Message,Level=8)    
+    WRITE(Message,'(A,3ES12.3)') 'Minimum values for target periodic BC:',x2_min
+    CALL Info('PeriodicProjector',Message,Level=8)    
+    IF( GotRotate ) THEN
+      WRITE(Message,'(A,3ES12.3)') 'Minimum values for rotated target:    ',x2r_min
+      CALL Info('PeriodicProjector',Message,Level=8)    
+    END IF
+     
+    WRITE(Message,'(A,3ES12.3)') 'Maximum values for this periodic BC:  ',x1_max
+    CALL Info('PeriodicProjector',Message,Level=8)    
+    WRITE(Message,'(A,3ES12.3)') 'Maximum values for target periodic BC:',x2_max
+    CALL Info('PeriodicProjector',Message,Level=8)    
+    IF( GotRotate ) THEN
+      WRITE(Message,'(A,3ES12.3)') 'Maximum values for rotated target:    ',x2r_max
+      CALL Info('PeriodicProjector',Message,Level=8)    
     END IF
 
-    scl_y = ymax_2 - ymin_2
-    IF ( ABS(scl_y) > AEPS ) THEN
-      scl_y = (ymax_1 - ymin_1) / scl_y
-    ELSE
-      scl_y = 1.0_dp
+    WRITE(Message,'(A,3ES12.3)') 'Bounding box for this periodic BC:  ',x1_max-x1_min
+    CALL Info('PeriodicProjector',Message,Level=8)    
+    WRITE(Message,'(A,3ES12.3)') 'Bounding box for target periodic BC:',x2_max-x2_min
+    CALL Info('PeriodicProjector',Message,Level=8)    
+    IF( GotRotate ) THEN
+      WRITE(Message,'(A,3ES12.3)') 'Bounding box for rotated target:    ',x2r_max-x2r_min
+      CALL Info('PeriodicProjector',Message,Level=8)    
     END IF
 
-    scl_z = zmax_2 - zmin_2
-    IF ( ABS(scl_z) > AEPS ) THEN
-      scl_z = (zmax_1 - zmin_1) / scl_z
+    IF( .NOT. GotRotate ) THEN
+      x2r_min = x2_min
+      x2r_max = x2_max
+    END IF
+    
+   
+
+!   Scales:
+!   -------
+    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
+                   'Periodic BC Scale', Gotit )
+
+    IF ( GotIt ) THEN
+      DO i=1,SIZE(Parray,1)
+        SclMatrix(i,i) = Parray(i,1)
+      END DO
     ELSE
-      scl_z = 1.0_dp
+      ! Define scaling so that the bounding box that includes the boundaries 
+      ! is of same size.
+      !----------------------------------------------------------------------
+      
+      DO i=1,3
+        scl(i) = x2r_max(i) - x2r_min(i)
+          
+        IF( ABS( scl(i) ) > AEPS ) THEN
+          scl(i) = ( x1_max(i) - x1_min(i) ) / scl(i)
+        END IF
+
+        SclMatrix(i,i) = scl(i)
+      END DO
+
+      WRITE(Message,'(A,3ES12.3)') 'Scaling: ',scl
+      CALL Info('PeriodicProjector',Message)
     END IF
 
+
+!   Transform the target boundary on top of this
+!   boundary (hopefully):
+!   --------------------------------------------
+
+!   NULLIFY( PArray )
 !
+!   Translations:
+!   -------------
+    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
+                 'Periodic BC Translate', Gotit )
+
+    ! Define translations so that the lower left corner is the same
+    IF ( .NOT. gotit ) THEN
+      DO i=1,3
+        TrsMatrix(4,i) = x1_min(i) - scl(i) * x2r_min(i)
+      END DO
+      WRITE(Message,'(A,3ES12.3)') 'Translation: ',TrsMatrix(4,1:3)
+      CALL Info('PeriodicProjector',Message)
+    ELSE
+      DO i=1,SIZE(Parray,1)
+         TrsMatrix(4,i) = Parray(i,1)
+      END DO
+    END IF
+
+    TrfMatrix = MATMUL( SclMatrix, TrsMatrix )
+
+
+!    If whole transf. matrix given, it will override
+!    all the other settings:
+!    ------------------------------------------------
+     Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
+                  'Periodic BC Matrix', Gotit )
+     IF ( GotIt ) THEN
+       DO i=1,SIZE(Parray,1)
+         DO j=1,SIZE(Parray,2)
+           TrfMatrix(i,j) = Parray(j,i)
+         END DO
+       END DO
+     END IF
+
+
+
 !   Renumber the element node pointers to use
 !   only boundary nodes:
 !   -----------------------------------------
@@ -1472,66 +1706,6 @@ END SUBROUTINE GetMaxDefs
            Perm2(BMesh2 % Elements(i) % NodeIndexes)
     END DO
 
-!
-!   Transform the target boundary on top of this
-!   boundary (hopefully):
-!   --------------------------------------------
-
-!   NULLIFY( PArray )
-!
-!   Translations:
-!   -------------
-    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                 'Periodic BC Translate', Gotit )
-
-    IF ( .NOT. gotit ) THEN
-      TrsMatrix(4,1) = xmin_1 - scl_x*xmin_2
-      TrsMatrix(4,2) = ymin_1 - scl_y*ymin_2
-      TrsMatrix(4,3) = zmin_1 - scl_z*zmin_2
-      WRITE(Message,'(A,3ES10.3)') 'Translation: ',TrsMatrix(4,1:3)
-      CALL Info('PeriodicProjector',Message)
-    ELSE
-      DO i=1,SIZE(Parray,1)
-         TrsMatrix(4,i) = Parray(i,1)
-      END DO
-    END IF
-!
-!   Scales:
-!   -------
-    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                   'Periodic BC Scale', Gotit )
-
-    IF ( GotIt ) THEN
-      DO i=1,SIZE(Parray,1)
-        SclMatrix(i,i) = Parray(i,1)
-      END DO
-    ELSE
-      SclMatrix(1,1) = scl_x
-      SclMatrix(2,2) = scl_y
-      SclMatrix(3,3) = scl_z
-      WRITE(Message,'(A,3ES10.3)') 'Scaling: ',scl_x,scl_y,scl_z
-      CALL Info('PeriodicProjector',Message)
-    END IF
-
-
-    TrfMatrix = MATMUL( SClMatrix, TrsMatrix )
-
-!    If whole transf. matrix given, it will override
-!    all the other settings:
-!    ------------------------------------------------
-     Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                  'Periodic BC Matrix', Gotit )
-
-     IF ( GotIt ) THEN
-        DO i=1,SIZE(Parray,1)
-           DO j=1,SIZE(Parray,2)
-              TrfMatrix(i,j) = Parray(j,i)
-           END DO
-        END DO
-     END IF
-
-!    IF ( ASSOCIATED(Parray) ) DEALLOCATE( Parray )
-!
 !    Now transform the coordinates:
 !    ------------------------------
      DO i=1,BMesh2 % NumberOfNodes
@@ -1558,13 +1732,11 @@ END SUBROUTINE GetMaxDefs
         END DO
      END DO
 
-!DO i=1,SIZE(Projector % Values)
-!IF ( ABS(Projector % Values(i))   < 1.0d-12 ) Projector % Values(i) = 0.0d0
-!IF ( ABS(Projector % Values(i)-1) < 1.0d-12 ) Projector % Values(i) = 1.0d0
-!END DO
 !
 !    Deallocate mesh structures:
 !    ---------------------------
+     DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z )
+
      DO i=1,BMesh1 % NumberOfBulkElements
         DEALLOCATE( BMesh1 % Elements(i) % NodeIndexes )
      END DO
