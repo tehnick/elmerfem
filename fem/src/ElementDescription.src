@@ -4475,6 +4475,7 @@ END IF
     k = Boundary % BoundaryInfo % OutBody
 
     LeftElement => Boundary % BoundaryInfo % Left
+
     IF ( ASSOCIATED(LeftELement) ) THEN
        RightElement => Boundary % BoundaryInfo % Right
 
@@ -4502,13 +4503,15 @@ END IF
     IF ( .NOT. ASSOCIATED(Element) ) RETURN
 
     n = Element % TYPE % NumberOfNodes
+
     ALLOCATE( nx(n), ny(n), nz(n) )
+
     nx(1:n) = CurrentModel % Nodes % x(Element % NodeIndexes)
     ny(1:n) = CurrentModel % Nodes % y(Element % NodeIndexes)
     nz(1:n) = CurrentModel % Nodes % z(Element % NodeIndexes)
 
     SELECT CASE( Element % TYPE % ElementCode / 100 )
-      
+
     CASE(2,4,8)
        x1 = InterpolateInElement( Element, nx, 0.0d0, 0.0d0, 0.0d0 )
        y1 = InterpolateInElement( Element, ny, 0.0d0, 0.0d0, 0.0d0 )
@@ -4982,7 +4985,8 @@ END FUNCTION PointFaceDistance
 !------------------------------------------------------------------------------
     INTEGER, PARAMETER :: MaxIter = 50
     INTEGER :: i,n
-    REAL(KIND=dp) :: r,s,t,delta(3),J(3,3),J1(3,2),det,swap
+    REAL(KIND=dp) :: r,s,t,delta(3),prevdelta(3),J(3,3),J1(3,2),det,swap,acc,err
+    LOGICAL :: Converged
 !------------------------------------------------------------------------------
 
     u = 0._dp
@@ -4996,7 +5000,8 @@ END FUNCTION PointFaceDistance
 !   IF (ASSOCIATED(Element % PDefs)) THEN
 !      CALL Fatal('GlobalToLocal','P elements not supported yet!')
 !   END IF
-
+    acc = EPSILON(1.0_dp)
+    Converged = .FALSE.
 
 !------------------------------------------------------------------------------
     DO i=1,Maxiter
@@ -5005,8 +5010,14 @@ END FUNCTION PointFaceDistance
       s = InterpolateInElement(Element,ElementNodes % y(1:n),u,v,w) - y
       t = InterpolateInElement(Element,ElementNodes % z(1:n),u,v,w) - z
 
-      IF ( r**2 + s**2 + t**2 < EPSILON(1.0_dp) ) EXIT
+      err = r**2 + s**2 + t**2 
 
+      IF ( err < acc ) THEN
+        Converged = .TRUE.
+        EXIT
+      END IF
+
+      prevdelta = delta
       delta = 0.d0
 
       SELECT CASE( Element % TYPE % DIMENSION )
@@ -5061,20 +5072,43 @@ END FUNCTION PointFaceDistance
 
       END SELECT
 
+      ! If the iteration does not proceed try with some relaxation
+      IF( i > 10 ) THEN
+        delta = 0.5_dp * delta 
+      END IF
+
       u = u - delta(1)
       v = v - delta(2)
       w = w - delta(3)
+
+      ! If the same values is suggested over and over again, then exit
+      ! This may be a sign that the node is off-plane and cannot be 
+      ! described within the element.
+      IF( SUM( ABS( delta - prevdelta ) ) < TINY( err ) ) THEN
+        EXIT
+      END IF
+
 !------------------------------------------------------------------------------
     END DO
 !------------------------------------------------------------------------------
 
-    IF ( i > MaxIter ) THEN
-      CALL Warn( 'GlobalToLocal', 'did not converge.')
-      PRINT *,'dim',Element % TYPE % DIMENSION,'delta',delta,'uvw',u,v,w
-      PRINT *,'rst',r,s,t,EPSILON(1.0_dp) 
-      PRINT *,'x:',x,ElementNodes % x
-      PRINT *,'y:',y,ElementNodes % y
-      PRINT *,'z:',z,ElementNodes % z
+    IF ( .NOT. Converged ) THEN        
+      IF( err > SQRT( acc ) ) THEN
+        IF( i > MaxIter ) THEN
+          CALL Warn( 'GlobalToLocal', 'did not converge.')
+          PRINT *,'rst',r,s,t,EPSILON(1.0_dp) 
+          PRINT *,'err',i,err,acc,SQRT(acc)
+          PRINT *,'delta',delta
+          PRINT *,'prevdelta',prevdelta
+          PRINT *,'dim',Element % TYPE % DIMENSION,'delta',delta,'uvw',u,v,w
+          PRINT *,'x:',x,ElementNodes % x
+          PRINT *,'y:',y,ElementNodes % y
+          PRINT *,'z:',z,ElementNodes % z
+        ELSE
+          CALL Warn( 'GlobalToLocal', 'Node may be out of element')
+          PRINT *,'rst',r,s,t,EPSILON(1.0_dp)           
+        END IF
+      END IF
     END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE GlobalToLocal
