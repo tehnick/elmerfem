@@ -40,7 +40,8 @@
 !> \{
 
 !------------------------------------------------------------------------------
-!>  Module containing a the control for iterative solvers for linear systems.
+!> Module containing a the control for iterative solvers for linear systems
+!> that come with the Elmer suite.
 !------------------------------------------------------------------------------
 MODULE IterSolve
 
@@ -62,6 +63,7 @@ MODULE IterSolve
    INTEGER, PARAMETER, PRIVATE :: ITER_BiCGStab2    =           370
    INTEGER, PARAMETER, PRIVATE :: ITER_SGS          =           380
    INTEGER, PARAMETER, PRIVATE :: ITER_JACOBI       =           390
+   INTEGER, PARAMETER, PRIVATE :: ITER_RICHARDSON   =           391
    INTEGER, PARAMETER, PRIVATE :: ITER_BICGSTABL    =           400
    INTEGER, PARAMETER, PRIVATE :: ITER_GCR          =           410
 
@@ -136,8 +138,13 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 !> The routine that decides which linear system solver to call, and calls it.
+!> There are two main sources of iterations within Elmer.
+!> 1) The old HUTiter C++ library that includes the most classic iterative Krylov
+!>    methods.
+!> 2) The internal MODULE IterativeMethods that includes some classic iterative
+!>    methods and also some more recent Krylov methods. 
 !------------------------------------------------------------------------------
-  RECURSIVE SUBROUTINE IterSolver( A,x,b,SolverParam,ndim,DotF, &
+  RECURSIVE SUBROUTINE IterSolver( A,x,b,Solver,ndim,DotF, &
               NormF,MatvecF,PrecF,StopcF )
 !------------------------------------------------------------------------------
 
@@ -145,7 +152,7 @@ CONTAINS
     IMPLICIT NONE
 
 !------------------------------------------------------------------------------
-    TYPE(Solver_t) :: SolverParam
+    TYPE(Solver_t) :: Solver
     REAL(KIND=dp), DIMENSION(:) CONTIG :: x,b
     TYPE(Matrix_t), POINTER :: A, Adiag
     INTEGER, OPTIONAL :: ndim
@@ -156,57 +163,60 @@ CONTAINS
 !   external stopfun
     REAL(KIND=dp), ALLOCATABLE :: work(:,:)
     INTEGER :: k,N,ipar(50),wsize,istat,IterType,PCondType,ILUn,Blocks
+    LOGICAL :: Internal
 
     REAL(KIND=dp) :: ILUT_TOL
     LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize
+    TYPE(ValueList_t), POINTER :: Params
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 
     EXTERNAL MultigridPrec
 
     INTEGER  :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, &
-                HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+        HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
     EXTERNAL :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, &
-                HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
-
+        HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+    
     INTEGER  :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, &
-                HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+        HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
     EXTERNAL :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, &
-                HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
-
+        HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    
     REAL(KIND=dp) :: ddot, dnrm2, dznrm2
     EXTERNAL :: ddot, dnrm2, dznrm2
-
+    
     COMPLEX(KIND=dp) :: zdotc
     EXTERNAL :: zdotc
-
-
+    
+    
     INTEGER(KIND=Addrint) :: dotProc, normProc, pcondProc, &
-            pcondrProc=0, mvProc, AddrFunc, iterProc, StopcProc
-
+        pcondrProc=0, mvProc, AddrFunc, iterProc, StopcProc
+    
     INTERFACE
-       SUBROUTINE VankaCreate(A,Solver)
-          USE Types
-          TYPE(Matrix_t) :: A
-          TYPE(Solver_t) :: Solver
-       END SUBROUTINE VankaCreate
-
-       SUBROUTINE VankaPrec(u,v,ipar)
-          USE Types
-          INTEGER :: ipar(*)
-          REAL(KIND=dp) :: u(*),v(*)
-       END SUBROUTINE VankaPrec
+      SUBROUTINE VankaCreate(A,Solver)
+        USE Types
+        TYPE(Matrix_t) :: A
+        TYPE(Solver_t) :: Solver
+      END SUBROUTINE VankaCreate
+      
+      SUBROUTINE VankaPrec(u,v,ipar)
+        USE Types
+        INTEGER :: ipar(*)
+        REAL(KIND=dp) :: u(*),v(*)
+      END SUBROUTINE VankaPrec
     END INTERFACE
 !------------------------------------------------------------------------------
     N = A % NumberOfRows
     IF ( PRESENT(ndim) ) n=ndim
-
+    
     ipar = 0
     dpar = 0.0D0
-
+    
 !------------------------------------------------------------------------------
-    str = ListGetString( SolverParam % Values,'Linear System Iterative Method' )
-
+    Params => Solver % Values
+    str = ListGetString( Params,'Linear System Iterative Method' )
+    
     IF ( str(1:9) == 'bicgstab2' ) THEN
       IterType = ITER_BiCGStab2
     ELSE IF ( str(1:9) == 'bicgstabl' ) THEN
@@ -225,6 +235,8 @@ CONTAINS
       IterType = ITER_SGS
     ELSE IF ( str(1:6) == 'jacobi' ) THEN
       IterType = ITER_jacobi
+    ELSE IF ( str(1:10) == 'richardson' ) THEN
+      IterType = ITER_richardson
     ELSE IF ( str(1:3) == 'gcr' ) THEN
       IterType = ITER_GCR
     ELSE
@@ -233,368 +245,365 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     HUTI_WRKDIM = 0
-    wsize = HUTI_WRKDIM
-
+    Internal = .FALSE.
+    
     SELECT CASE ( IterType )
-      CASE (ITER_BiCGStab)
-        HUTI_WRKDIM = HUTI_BICGSTAB_WORKSIZE
-        wsize = HUTI_WRKDIM
-
-      CASE (ITER_BiCGStab2)
-        HUTI_WRKDIM = HUTI_BICGSTAB_2_WORKSIZE
-        wsize = HUTI_WRKDIM
-
-      CASE (ITER_TFQMR)
-        HUTI_WRKDIM = HUTI_TFQMR_WORKSIZE
-        wsize = HUTI_WRKDIM
-
-      CASE (ITER_CG)
-        HUTI_WRKDIM = HUTI_CG_WORKSIZE
-        wsize = HUTI_WRKDIM
-
-      CASE (ITER_CGS)
-        HUTI_WRKDIM = HUTI_CGS_WORKSIZE
-        wsize = HUTI_WRKDIM
-          
-      CASE (ITER_GMRES)
-
-        HUTI_GMRES_RESTART = ListGetInteger( SolverParam % Values, &
-             'Linear System GMRES Restart',  GotIt ) 
-        IF ( .NOT. GotIT ) HUTI_GMRES_RESTART = 10
-        HUTI_WRKDIM = HUTI_GMRES_WORKSIZE + HUTI_GMRES_RESTART
-        wsize = HUTI_WRKDIM
-
-      /*******  Solvers from IterativeMethods.src ******/
-      CASE (ITER_SGS)
-        HUTI_WRKDIM = 1
-        wsize = HUTI_WRKDIM
-        HUTI_SGSPARAM = ListGetConstReal( SolverParam % Values,'SGS Overrelaxation Factor',&
-            GotIt,minv=0.0_dp,maxv=2.0_dp)
-        IF(.NOT. GotIt) HUTI_SGSPARAM = 1.8
-
-      CASE (ITER_Jacobi)
-        HUTI_WRKDIM = 1
-        wsize = HUTI_WRKDIM
-
-      CASE (ITER_GCR)
-        HUTI_WRKDIM = 1
-        wsize = HUTI_WRKDIM
-        HUTI_GCR_RESTART = ListGetInteger( SolverParam % Values, &
-             'Linear System GCR Restart',  GotIt ) 
-        IF ( .NOT. GotIT ) HUTI_GCR_RESTART = ListGetInteger( SolverParam % Values, &
-         'Linear System Max Iterations', minv=1 )
-
-      CASE (ITER_BICGSTABL)
-        HUTI_WRKDIM = 1
-        wsize = HUTI_WRKDIM
-        HUTI_BICGSTABL_L = ListGetInteger( SolverParam % Values,'BiCGstabl polynomial degree',&
-            GotIt,minv=2)
-        IF(.NOT. GotIt) HUTI_BICGSTABL_L = 2
-
-     END SELECT
+      
+      ! Solvers from HUTiter
+      !-------------------------------------------------------       
+    CASE (ITER_BiCGStab)
+      HUTI_WRKDIM = HUTI_BICGSTAB_WORKSIZE
+      
+    CASE (ITER_BiCGStab2)
+      HUTI_WRKDIM = HUTI_BICGSTAB_2_WORKSIZE
+      
+    CASE (ITER_TFQMR)
+      HUTI_WRKDIM = HUTI_TFQMR_WORKSIZE
+      
+    CASE (ITER_CG)
+      HUTI_WRKDIM = HUTI_CG_WORKSIZE
+      
+    CASE (ITER_CGS)
+      HUTI_WRKDIM = HUTI_CGS_WORKSIZE
+      
+    CASE (ITER_GMRES)
+      HUTI_GMRES_RESTART = ListGetInteger( Params,&
+          'Linear System GMRES Restart',  GotIt ) 
+      IF ( .NOT. GotIT ) HUTI_GMRES_RESTART = 10
+      HUTI_WRKDIM = HUTI_GMRES_WORKSIZE + HUTI_GMRES_RESTART
+      
+      ! Solvers from IterativeMethods.src
+      !-------------------------------------------------------       
+    CASE (ITER_SGS)
+      HUTI_WRKDIM = 1
+      HUTI_SGSPARAM = ListGetConstReal( Params,'SGS Overrelaxation Factor',&
+          GotIt,minv=0.0_dp,maxv=2.0_dp)
+      IF(.NOT. GotIt) HUTI_SGSPARAM = 1.8
+      Internal = .TRUE.
+      
+    CASE (ITER_Jacobi, ITER_Richardson)
+      HUTI_WRKDIM = 1
+      Internal = .TRUE.
+      
+    CASE (ITER_GCR)
+      HUTI_WRKDIM = 1
+      HUTI_GCR_RESTART = ListGetInteger( Params, &
+          'Linear System GCR Restart',  GotIt ) 
+      IF ( .NOT. GotIT ) HUTI_GCR_RESTART = ListGetInteger( Params, &
+          'Linear System Max Iterations', minv=1 )
+      Internal = .TRUE.
+      
+    CASE (ITER_BICGSTABL)
+      HUTI_WRKDIM = 1
+      HUTI_BICGSTABL_L = ListGetInteger( Params,'BiCGstabl polynomial degree',&
+          GotIt,minv=2)
+      IF(.NOT. GotIt) HUTI_BICGSTABL_L = 2
+      Internal = .TRUE.
+      
+    END SELECT
 !------------------------------------------------------------------------------
-          
-     IF (PRESENT(StopcF)) THEN
-       StopcProc = StopcF
-       HUTI_STOPC = HUTI_USUPPLIED_STOPC
-     ELSE
-       StopcProc = AddrFunc(Stopc)
-       HUTI_STOPC = HUTI_TRESID_SCALED_BYB
-     END IF
-     HUTI_NDIM  = N
-
-     HUTI_DBUGLVL  = ListGetInteger( SolverParam % Values, &
-           'Linear System Residual Output', GotIt )
-     IF ( .NOT.Gotit ) HUTI_DBUGLVL = 1
-
-     IF ( Parenv % myPE /= 0 ) HUTI_DBUGLVL=0
-!    IF ( .NOT. OutputLevelMask(6) )  HUTI_DBUGLVL = 0
-
-     HUTI_MAXIT = ListGetInteger( SolverParam % Values, &
-         'Linear System Max Iterations', minv=1 )
- 
-     ALLOCATE( work(N,wsize),stat=istat )
-     IF ( istat /= 0 ) THEN
-       CALL Fatal( 'IterSolve', 'Memory allocation failure.' )
-     END IF
-
-     IF ( ALL(x == 0.0) ) x = 1.0d-8
-     HUTI_INITIALX = HUTI_USERSUPPLIEDX
-
-     HUTI_TOLERANCE = ListGetCReal( SolverParam % Values, &
-          'Linear System Convergence Tolerance' )
-
-     HUTI_MAXTOLERANCE = ListGetCReal( SolverParam % Values, &
-             'Linear System Divergence Tolerance', GotIt)
-     IF(.NOT. GotIt) HUTI_MAXTOLERANCE = HUGE(HUTI_MAXTOLERANCE) 
-
-
+    
+    wsize = HUTI_WRKDIM
+    
+    
+    IF (PRESENT(StopcF)) THEN
+      StopcProc = StopcF
+      HUTI_STOPC = HUTI_USUPPLIED_STOPC
+    ELSE
+      StopcProc = AddrFunc(Stopc)
+      HUTI_STOPC = HUTI_TRESID_SCALED_BYB
+    END IF
+    HUTI_NDIM  = N
+    
+    HUTI_DBUGLVL  = ListGetInteger( Params, &
+        'Linear System Residual Output', GotIt )
+    IF ( .NOT.Gotit ) HUTI_DBUGLVL = 1
+    
+    IF ( Parenv % myPE /= 0 ) HUTI_DBUGLVL=0
+    
+    HUTI_MAXIT = ListGetInteger( Params, &
+        'Linear System Max Iterations', minv=1 )
+    
+    ALLOCATE( work(N,wsize),stat=istat )
+    IF ( istat /= 0 ) THEN
+      CALL Fatal( 'IterSolve', 'Memory allocation failure.' )
+    END IF
+    
+    IF ( ALL(x == 0.0) ) x = 1.0d-8
+    HUTI_INITIALX = HUTI_USERSUPPLIEDX
+    
+    HUTI_TOLERANCE = ListGetCReal( Params, &
+        'Linear System Convergence Tolerance' )
+    
+    HUTI_MAXTOLERANCE = ListGetCReal( Params, &
+        'Linear System Divergence Tolerance', GotIt)
+    IF(.NOT. GotIt) HUTI_MAXTOLERANCE = HUGE(HUTI_MAXTOLERANCE) 
+    
+    
 !------------------------------------------------------------------------------
 
-
-     IF ( .NOT. PRESENT(PrecF) ) THEN
-       str = ListGetString( SolverParam % Values, &
-        'Linear System Preconditioning',gotit )
-       IF ( .NOT.gotit ) str = 'none'
-
-       A % Cholesky = ListGetLogical( SolverParam % Values, &
-           'Linear System Symmetric ILU', Gotit )
-
-       IF ( str(1:4) == 'none' ) THEN
-         PCondType = PRECOND_NONE
-       ELSE IF ( str(1:8) == 'diagonal' ) THEN
-         PCondType = PRECOND_DIAGONAL
-       ELSE IF ( str(1:4) == 'ilut' ) THEN
-         ILUT_TOL = ListGetCReal( SolverParam % Values, &
-             'Linear System ILUT Tolerance',GotIt )
-         PCondType = PRECOND_ILUT
-       ELSE IF ( str(1:3) == 'ilu' ) THEN
-         ILUn = NINT(ListGetCReal( SolverParam % Values, &
+    
+    IF ( .NOT. PRESENT(PrecF) ) THEN
+      str = ListGetString( Params, &
+          'Linear System Preconditioning',gotit )
+      IF ( .NOT.gotit ) str = 'none'
+      
+      A % Cholesky = ListGetLogical( Params, &
+          'Linear System Symmetric ILU', Gotit )
+      
+      IF ( str(1:4) == 'none' ) THEN
+        PCondType = PRECOND_NONE
+      ELSE IF ( str(1:8) == 'diagonal' ) THEN
+        PCondType = PRECOND_DIAGONAL
+      ELSE IF ( str(1:4) == 'ilut' ) THEN
+        ILUT_TOL = ListGetCReal( Params, &
+            'Linear System ILUT Tolerance',GotIt )
+        PCondType = PRECOND_ILUT
+      ELSE IF ( str(1:3) == 'ilu' ) THEN
+        ILUn = NINT(ListGetCReal( Params, &
             'Linear System ILU Order', gotit ))
-         IF ( .NOT.gotit ) &
-           ILUn = ICHAR(str(4:4)) - ICHAR('0')
-         IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
-         PCondType = PRECOND_ILUn
-       ELSE IF ( str(1:4) == 'bilu' ) THEN
-         ILUn = ICHAR(str(5:5)) - ICHAR('0')
-         IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
-         IF( SolverParam % Variable % Dofs == 1) THEN
-           CALL Warn('IterSolver','BILU for one dofs is equal to ILU!')
-           PCondType = PRECOND_ILUn
-         ELSE
-           PCondType = PRECOND_BILUn
-         END IF
-       ELSE IF ( str(1:9) == 'multigrid' ) THEN
-         PCondType = PRECOND_MG
-       ELSE IF ( str(1:5) == 'vanka' ) THEN
-         PCondType = PRECOND_VANKA
-       ELSE
-         PCondType = PRECOND_NONE
-         CALL Warn( 'IterSolve', 'Unknown preconditioner type, feature disabled.' )
-       END IF
-
-       IF ( .NOT. ListGetLogical( SolverParam % Values, 'No Precondition Recompute',GotIt ) ) THEN
-          n = ListGetInteger( SolverParam % Values, 'Linear System Precondition Recompute', GotIt )
-          IF ( n <= 0 ) n = 1
-
-          Refactorize = ListGetLogical( SolverParam % Values, 'Linear System Refactorize', Gotit )
-          IF ( .NOT. Gotit ) Refactorize = .TRUE.
-
-          IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize.AND.MOD(A % SolveCount, n)==0) ) THEN
-             IF ( A % FORMAT == MATRIX_CRS ) THEN
-               IF ( A % COMPLEX ) THEN
-                  IF ( PCondType == PRECOND_ILUn ) THEN
-                     Condition = CRS_ComplexIncompleteLU(A,ILUn)
-                  ELSE IF ( PCondType == PRECOND_ILUT ) THEN
-                     Condition = CRS_ComplexILUT( A,ILUT_TOL )
+        IF ( .NOT.gotit ) &
+            ILUn = ICHAR(str(4:4)) - ICHAR('0')
+        IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
+        PCondType = PRECOND_ILUn
+      ELSE IF ( str(1:4) == 'bilu' ) THEN
+        ILUn = ICHAR(str(5:5)) - ICHAR('0')
+        IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
+        IF( Solver % Variable % Dofs == 1) THEN
+          CALL Warn('IterSolver','BILU for one dofs is equal to ILU!')
+          PCondType = PRECOND_ILUn
+        ELSE
+          PCondType = PRECOND_BILUn
+        END IF
+      ELSE IF ( str(1:9) == 'multigrid' ) THEN
+        PCondType = PRECOND_MG
+      ELSE IF ( str(1:5) == 'vanka' ) THEN
+        PCondType = PRECOND_VANKA
+      ELSE
+        PCondType = PRECOND_NONE
+        CALL Warn( 'IterSolve', 'Unknown preconditioner type, feature disabled.' )
+      END IF
+      
+      IF ( .NOT. ListGetLogical( Params, 'No Precondition Recompute',GotIt ) ) THEN
+        n = ListGetInteger( Params, 'Linear System Precondition Recompute', GotIt )
+        IF ( n <= 0 ) n = 1
+        
+        Refactorize = ListGetLogical( Params, 'Linear System Refactorize', Gotit )
+        IF ( .NOT. Gotit ) Refactorize = .TRUE.
+        
+        IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize.AND.MOD(A % SolveCount, n)==0) ) THEN
+          IF ( A % FORMAT == MATRIX_CRS ) THEN
+            IF ( A % COMPLEX ) THEN
+              IF ( PCondType == PRECOND_ILUn ) THEN
+                Condition = CRS_ComplexIncompleteLU(A,ILUn)
+              ELSE IF ( PCondType == PRECOND_ILUT ) THEN
+                Condition = CRS_ComplexILUT( A,ILUT_TOL )
+              END IF
+            ELSE
+              SELECT CASE(PCondType)
+              CASE(PRECOND_ILUn)
+                Condition = CRS_IncompleteLU(A,ILUn)
+              CASE(PRECOND_ILUT)
+                Condition = CRS_ILUT( A,ILUT_TOL )
+              CASE(PRECOND_BILUn)
+                Blocks = Solver % Variable % Dofs
+                IF ( Blocks <= 1 ) THEN
+                  Condition = CRS_IncompleteLU(A,ILUn)
+                ELSE
+                  IF( .NOT. ASSOCIATED( A % ILUValues ) ) THEN
+                    Adiag => AllocateMatrix()
+                    CALL CRS_BlockDiagonal(A,Adiag,Blocks)
+                    Condition = CRS_IncompleteLU(Adiag,ILUn)
+                    A % ILURows   => Adiag % ILURows
+                    A % ILUCols   => Adiag % ILUCols
+                    A % ILUValues => Adiag % ILUValues
+                    A % ILUDiag   => Adiag % ILUDiag                 
+                    IF (ILUn > 0) THEN
+                      DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Diag, Adiag % Values)
+                    END IF
+                    DEALLOCATE( Adiag )
+                  ELSE
+                    Condition = CRS_IncompleteLU(A,ILUn)
                   END IF
-               ELSE
-                 SELECT CASE(PCondType)
-                 CASE(PRECOND_ILUn)
-                   Condition = CRS_IncompleteLU(A,ILUn)
-                 CASE(PRECOND_ILUT)
-                   Condition = CRS_ILUT( A,ILUT_TOL )
-                 CASE(PRECOND_BILUn)
-                   Blocks = SolverParam % Variable % Dofs
-                   IF ( Blocks <= 1 ) THEN
-                     Condition = CRS_IncompleteLU(A,ILUn)
-                   ELSE
-  	           IF( .NOT. ASSOCIATED( A % ILUValues ) ) THEN
-                       Adiag => AllocateMatrix()
-                       CALL CRS_BlockDiagonal(A,Adiag,Blocks)
-                       Condition = CRS_IncompleteLU(Adiag,ILUn)
-                       A % ILURows   => Adiag % ILURows
-                       A % ILUCols   => Adiag % ILUCols
-                       A % ILUValues => Adiag % ILUValues
-                       A % ILUDiag   => Adiag % ILUDiag                 
-                       IF (ILUn > 0) THEN
-                         DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Diag, Adiag % Values)
-                       END IF
-                       DEALLOCATE( Adiag )
-                     ELSE
-                       Condition = CRS_IncompleteLU(A,ILUn)
-                     END IF
-                   END IF
-                 CASE(PRECOND_VANKA)
-!                  CALL VankaCreate( A, SolverParam )
-                 END SELECT
-               END IF
-             ELSE
-               IF ( PCondType == PRECOND_ILUn ) THEN
-                 CALL Warn( 'IterSolve', 'No ILU Preconditioner for Band Matrix format,' )
-                 CALL Warn( 'IterSolve', 'using Diagonal preconditioner instead...' )
-                 PCondType = PRECOND_DIAGONAL
-               END IF
-             END IF
+                END IF
+              CASE(PRECOND_VANKA)
+                !                  CALL VankaCreate( A, SolverParam )
+              END SELECT
+            END IF
+          ELSE
+            IF ( PCondType == PRECOND_ILUn ) THEN
+              CALL Warn( 'IterSolve', 'No ILU Preconditioner for Band Matrix format,' )
+              CALL Warn( 'IterSolve', 'using Diagonal preconditioner instead...' )
+              PCondType = PRECOND_DIAGONAL
+            END IF
           END IF
-       END IF
-     END IF
-
-     A % SolveCount = A % SolveCount + 1
+        END IF
+      END IF
+    END IF
+    
+    A % SolveCount = A % SolveCount + 1
 !------------------------------------------------------------------------------
 
-     AbortNotConverged = ListGetLogical( SolverParam % Values, &
-          'Linear System Abort Not Converged', GotIt )
-     IF ( .NOT. GotIt ) AbortNotConverged = .TRUE.
+    AbortNotConverged = ListGetLogical( Params, &
+        'Linear System Abort Not Converged', GotIt )
+    IF ( .NOT. GotIt ) AbortNotConverged = .TRUE.
 
 !------------------------------------------------------------------------------
-     FirstCall = .TRUE.
+    FirstCall = .TRUE.
+    
+    IF ( PRESENT(MatvecF) ) THEN
+      mvProc = MatvecF
+    ELSE
+      IF ( .NOT. A % COMPLEX ) THEN
+        mvProc = AddrFunc( CRS_MatrixVectorProd )
+      ELSE
+        mvProc = AddrFunc( CRS_ComplexMatrixVectorProd )
+      END IF
+    END IF
+    
+    IF ( PRESENT(dotF) ) THEN
+      dotProc = dotF
+    ELSE
+      dotProc =0
+    END IF
+    
+    IF ( PRESENT(normF) ) THEN
+      normProc = normF
+    ELSE
+      normProc = 0
+    END IF
+    
+    
+    IF ( PRESENT(PrecF) ) THEN
+      pcondProc = PrecF
+    ELSE
+      SELECT CASE( PCondType )
+      CASE (PRECOND_NONE)
+        pcondProc = AddrFunc( pcond_dummy )
+        
+      CASE (PRECOND_DIAGONAL)
+        IF ( .NOT. A % COMPLEX ) THEN
+          pcondProc = AddrFunc( CRS_DiagPrecondition )
+        ELSE
+          pcondProc = AddrFunc( CRS_ComplexDiagPrecondition )
+        END IF
+        
+      CASE (PRECOND_ILUn, PRECOND_ILUT, PRECOND_BILUn )
+        IF ( .NOT. A % COMPLEX ) THEN
+          pcondProc = AddrFunc( CRS_LUPrecondition )
+        ELSE
+          pcondProc = AddrFunc( CRS_ComplexLUPrecondition )
+        END IF
+        
+      CASE (PRECOND_MG)
+        pcondProc = AddrFunc( MultiGridPrec )
+        
+      CASE (PRECOND_VANKA)
+        pcondProc = AddrFunc( VankaPrec )
+        
+      CASE DEFAULT
+        pcondProc = 0
+      END SELECT
+    END IF
+    
 
-     IF ( PRESENT(MatvecF) ) THEN
-       mvProc = MatvecF
-     ELSE
-       IF ( .NOT. A % COMPLEX ) THEN
-         mvProc = AddrFunc( CRS_MatrixVectorProd )
-       ELSE
-         mvProc = AddrFunc( CRS_ComplexMatrixVectorProd )
-       END IF
-     END IF
+    IF ( .NOT. A % COMPLEX ) THEN
+      SELECT CASE ( IterType )
 
-     IF ( PRESENT(dotF) ) THEN
-       dotProc = dotF
-     ELSE
-       dotProc =0
-     END IF
+       ! Solvers from HUTiter libdary 
+       !-------------------------------------------------------       
+      CASE (ITER_BiCGStab)
+        iterProc = AddrFunc( HUTI_D_BICGSTAB )
+      CASE (ITER_BiCGStab2)
+        iterProc = AddrFunc( HUTI_D_BICGSTAB_2 )
+      CASE (ITER_TFQMR)
+        iterProc = AddrFunc( HUTI_D_TFQMR )
+      CASE (ITER_CG)
+        iterProc = AddrFunc( HUTI_D_CG )
+      CASE (ITER_CGS)
+        iterProc = AddrFunc( HUTI_D_CGS )
+      CASE (ITER_GMRES)
+        iterProc = AddrFunc( HUTI_D_GMRES )
+        
+        ! Solvers from IterativeMethods.src 
+        !-------------------------------------------------------
+      CASE (ITER_SGS)
+        iterProc = AddrFunc( itermethod_sgs )
+      CASE (ITER_JACOBI)
+        iterProc = AddrFunc( itermethod_jacobi )
+      CASE (ITER_RICHARDSON)
+        iterProc = AddrFunc( itermethod_richardson )
+      CASE (ITER_GCR)
+        iterProc = AddrFunc( itermethod_gcr )
+      CASE (ITER_BICGSTABL)
+        iterProc = AddrFunc( itermethod_bicgstabl )
+        
+      END SELECT
+      
+      IF( Internal ) THEN
+        IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
+        IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
+        IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )        
+      END IF
+      
+    ELSE
+      HUTI_NDIM = HUTI_NDIM / 2
+      SELECT CASE ( IterType )
 
-     IF ( PRESENT(normF) ) THEN
-       normProc = normF
-     ELSE
-       normProc = 0
-     END IF
-
-
-     IF ( PRESENT(PrecF) ) THEN
-       pcondProc = PrecF
-     ELSE
-       SELECT CASE( PCondType )
-         CASE (PRECOND_NONE)
-           pcondProc = AddrFunc( pcond_dummy )
-
-         CASE (PRECOND_DIAGONAL)
-           IF ( .NOT. A % COMPLEX ) THEN
-             pcondProc = AddrFunc( CRS_DiagPrecondition )
-           ELSE
-             pcondProc = AddrFunc( CRS_ComplexDiagPrecondition )
-           END IF
-
-         CASE (PRECOND_ILUn, PRECOND_ILUT, PRECOND_BILUn )
-           IF ( .NOT. A % COMPLEX ) THEN
-             pcondProc = AddrFunc( CRS_LUPrecondition )
-           ELSE
-             pcondProc = AddrFunc( CRS_ComplexLUPrecondition )
-           END IF
-
-         CASE (PRECOND_MG)
-           pcondProc = AddrFunc( MultiGridPrec )
-
-         CASE (PRECOND_VANKA)
-           pcondProc = AddrFunc( VankaPrec )
-
-         CASE DEFAULT
-           pcondProc = 0
-       END SELECT
-     END IF
-
-     IF ( .NOT. A % COMPLEX ) THEN
-       SELECT CASE ( IterType )
-       CASE (ITER_BiCGStab)
-          iterProc = AddrFunc( HUTI_D_BICGSTAB )
-       CASE (ITER_BiCGStab2)
-          iterProc = AddrFunc( HUTI_D_BICGSTAB_2 )
-       CASE (ITER_TFQMR)
-          iterProc = AddrFunc( HUTI_D_TFQMR )
-       CASE (ITER_CG)
-          iterProc = AddrFunc( HUTI_D_CG )
-       CASE (ITER_CGS)
-          iterProc = AddrFunc( HUTI_D_CGS )
-       CASE (ITER_GMRES)
-          iterProc = AddrFunc( HUTI_D_GMRES )
-
-     /*******  Solvers from IterativeMethods.src ******/
-
-       CASE (ITER_SGS)
-         iterProc = AddrFunc( itermethod_sgs )
-         IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
-         IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
-         ! Eliminate the MOD(i,0) problem in later testing
-         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
-
-       CASE (ITER_JACOBI)
-         iterProc = AddrFunc( itermethod_jacobi )
-         IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
-         IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
-         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
-
-       CASE (ITER_GCR)
-         iterProc = AddrFunc( itermethod_gcr )
-         IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
-         IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
-         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
-
-       CASE (ITER_BICGSTABL)
-         iterProc = AddrFunc( itermethod_bicgstabl )
-         IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
-         IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
-         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
-
-       END SELECT
-
-     ELSE
-       HUTI_NDIM = HUTI_NDIM / 2
-       SELECT CASE ( IterType )
-       CASE (ITER_BiCGStab)
-          iterProc = AddrFunc( HUTI_Z_BICGSTAB )
-       CASE (ITER_BiCGStab2)
-          iterProc = AddrFunc( HUTI_Z_BICGSTAB_2 )
-       CASE (ITER_TFQMR)
-          iterProc = AddrFunc( HUTI_Z_TFQMR )
-       CASE (ITER_CG)
-          iterProc = AddrFunc( HUTI_Z_CG )
-       CASE (ITER_CGS)
-          iterProc = AddrFunc( HUTI_Z_CGS )
-       CASE (ITER_GMRES)
-          iterProc = AddrFunc( HUTI_Z_GMRES )
-
-     /*******  Solvers from IterativeMethods.src ******/
-
-       CASE (ITER_GCR)
-         iterProc = AddrFunc( itermethod_z_gcr )
-         IF ( dotProc  == 0 ) dotProc = AddrFunc(zdotc)
-         IF ( normProc == 0 ) normproc = AddrFunc(dznrm2)
-         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )	
-
-       CASE (ITER_BICGSTABL)
-         iterProc = AddrFunc( itermethod_z_bicgstabl )
-         IF ( dotProc  == 0 ) dotProc = AddrFunc(zdotc)
-         IF ( normProc == 0 ) normproc = AddrFunc(dznrm2)
-         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
-
-       END SELECT
-     END IF
-
+        ! Solvers from HUTiter libdary 
+        !-------------------------------------------------------       
+      CASE (ITER_BiCGStab)
+        iterProc = AddrFunc( HUTI_Z_BICGSTAB )
+      CASE (ITER_BiCGStab2)
+        iterProc = AddrFunc( HUTI_Z_BICGSTAB_2 )
+      CASE (ITER_TFQMR)
+        iterProc = AddrFunc( HUTI_Z_TFQMR )
+      CASE (ITER_CG)
+        iterProc = AddrFunc( HUTI_Z_CG )
+      CASE (ITER_CGS)
+        iterProc = AddrFunc( HUTI_Z_CGS )
+      CASE (ITER_GMRES)
+        iterProc = AddrFunc( HUTI_Z_GMRES )
+        
+        ! Solvers from IterativeMethods.src 
+        !-------------------------------------------------------
+      CASE (ITER_GCR)
+        iterProc = AddrFunc( itermethod_z_gcr )
+      CASE (ITER_BICGSTABL)
+        iterProc = AddrFunc( itermethod_z_bicgstabl )
+      END SELECT
+      
+      IF( Internal ) THEN
+        IF ( dotProc  == 0 ) dotProc = AddrFunc(zdotc)
+        IF ( normProc == 0 ) normproc = AddrFunc(dznrm2)
+        IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
+      END IF
+      
+    END IF
+    
 !------------------------------------------------------------------------------
 
-     GlobalMatrix => A
-     CALL IterCall( iterProc, x, b, ipar, dpar, work, &
-       mvProc, pcondProc, pcondrProc, dotProc, normProc, stopcProc )
-
-     IF ( A % COMPLEX ) HUTI_NDIM = HUTI_NDIM * 2
+    GlobalMatrix => A
+    CALL IterCall( iterProc, x, b, ipar, dpar, work, &
+        mvProc, pcondProc, pcondrProc, dotProc, normProc, stopcProc )
+    
+    IF ( A % COMPLEX ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
-     IF ( HUTI_INFO /= HUTI_CONVERGENCE .AND. ParEnv % myPE==0 ) THEN
-       IF( HUTI_INFO == HUTI_DIVERGENCE ) THEN
-         CALL Fatal( 'IterSolve', 'System diverged over tolerance.' )
-       ELSE IF ( AbortNotConverged ) THEN
-         CALL Fatal( 'IterSolve', 'Failed convergence tolerances.' )
-       ELSE
-         CALL Error( 'IterSolve', 'Failed convergence tolerances.' )
-       END IF
-     END IF
+    IF ( HUTI_INFO /= HUTI_CONVERGENCE .AND. ParEnv % myPE==0 ) THEN
+      IF( HUTI_INFO == HUTI_DIVERGENCE ) THEN
+        CALL Fatal( 'IterSolve', 'System diverged over tolerance.' )
+      ELSE IF ( AbortNotConverged ) THEN
+        CALL Fatal( 'IterSolve', 'Failed convergence tolerances.' )
+      ELSE
+        CALL Error( 'IterSolve', 'Failed convergence tolerances.' )
+      END IF
+    END IF
 !------------------------------------------------------------------------------
-     DEALLOCATE( work )
-
+    DEALLOCATE( work )
+    
 
 !------------------------------------------------------------------------------
-   END SUBROUTINE IterSolver
+  END SUBROUTINE IterSolver
 !------------------------------------------------------------------------------
 
 END MODULE IterSolve
