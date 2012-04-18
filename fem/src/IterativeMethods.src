@@ -191,6 +191,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 !> Jacobi iterative method for linear systems. This is not really of practical
 !> use but may be used for testing, for example. 
+!> Note that if the scaling is performed so that the diagonal entry is one
+!> the division by it is unnecessary. Hence for this method scaling is not 
+!> needed. 
 !------------------------------------------------------------------------------
  SUBROUTINE itermethod_jacobi( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
@@ -291,6 +294,132 @@ CONTAINS
 !------------------------------------------------------------------------------
   
 
+!------------------------------------------------------------------------------
+!> Richardson iterative method for linear systems. This may of actual use for 
+!> mass matrices. Actually this is not the simple Richardson iteration method
+!> as it is preconditioned with the lumped mass matrix. 
+!> Note that if scaling is performed by the "row equilibrium" method then
+!> lumped mass is by construction unity (assuming all-positive entries).
+!> So for this method scaling is not needed. 
+!------------------------------------------------------------------------------
+ SUBROUTINE itermethod_richardson( xvec, rhsvec, &
+      ipar, dpar, work, matvecsubr, pcondlsubr, &
+      pcondrsubr, dotprodfun, normfun, stopcfun )
+       
+    IMPLICIT NONE
+
+    EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
+    EXTERNAL dotprodfun, normfun, stopcfun
+    REAL(KIND=dp) :: dotprodfun
+    REAL(KIND=dp) :: normfun
+    REAL(KIND=dp) :: stopcfun
+    
+    ! Parameters
+    INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
+    REAL(KIND=dp), DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
+    REAL(KIND=dp) :: &
+       xvec(HUTI_NDIM),rhsvec(HUTI_NDIM),work(HUTI_WRKDIM,HUTI_NDIM)
+
+    INTEGER :: ndim
+    INTEGER :: Rounds, OutputInterval
+    REAL(KIND=dp) :: MinTol, MaxTol, Residual
+    LOGICAL :: Converged, Diverged
+    
+    ndim = HUTI_NDIM
+    Rounds = HUTI_MAXIT
+    MinTol = HUTI_TOLERANCE
+    MaxTol = HUTI_MAXTOLERANCE
+    OutputInterval = HUTI_DBUGLVL 
+       
+    CALL richardson(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, MaxTol, Residual, &
+        Converged, Diverged, OutputInterval )
+
+    IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
+    IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
+    IF ( (.NOT. Converged) .AND. (.NOT. Diverged) ) HUTI_INFO = HUTI_MAXITER   
+
+  CONTAINS 
+    
+    
+    SUBROUTINE Richardson( n, A, x, b, Rounds, MinTolerance, MaxTolerance, Residual, &
+        Converged, Diverged, OutputInterval) 
+!------------------------------------------------------------------------------
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: Rounds
+      REAL(KIND=dp) :: x(n),b(n)
+      LOGICAL :: Converged, Diverged
+      REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
+      INTEGER :: OutputInterval
+      REAL(KIND=dp) :: bnorm,rnorm,s,q
+      INTEGER, POINTER :: Cols(:),Rows(:)
+      REAL(KIND=dp), POINTER :: Values(:)
+      REAL(KIND=dp), ALLOCATABLE :: R(:), M(:)
+!------------------------------------------------------------------------------
+      INTEGER :: i,j,k,n
+!------------------------------------------------------------------------------
+
+      Rows   => A % Rows
+      Cols   => A % Cols
+      Values => A % Values
+      
+      Converged = .FALSE.
+      Diverged = .FALSE.
+      
+      ALLOCATE( R(n), M(n) )
+      
+      CALL matvecsubr( x, r, ipar )
+      r(1:n) = b(1:n) - r(1:n)
+      
+      bnorm = normfun(n, b, 1)
+      rnorm = normfun(n, r, 1)
+
+      Residual = rnorm / bnorm
+      Converged = (Residual < MinTolerance) 
+      Diverged = (Residual > MaxTolerance)     
+      IF( Converged .OR. Diverged) RETURN
+
+      ! Perform preconditioning by mass lumping
+      DO i=1,n
+        s = 0.0_dp
+        DO j=Rows(i),Rows(i+1)-1
+          s = s + Values( j )
+        END DO
+        M(i) = s 
+      END DO
+
+      DO k=1,Rounds
+        DO i=1,n
+          IF( k == 1 ) THEN
+            x(i) = b(i) / M(i) 
+          ELSE
+            x(i) = x(i) + r(i) / M(i)
+          END IF
+        END DO
+        
+        CALL matvecsubr( x, r, ipar )
+
+        r(1:n) = b(1:n) - r(1:n)
+        rnorm = normfun(n, r, 1)
+        
+        Residual = rnorm / bnorm
+        
+        IF( MOD(k,OutputInterval) == 0) THEN
+          WRITE (*, '(I8, 2E11.4)') k, rnorm, residual
+        END IF
+        
+        Converged = (Residual < MinTolerance) 
+        Diverged = (Residual > MaxTolerance)     
+        IF( Converged .OR. Diverged) EXIT
+      END DO
+      
+      DEALLOCATE( R, M )
+      
+    END SUBROUTINE Richardson
+    
+!------------------------------------------------------------------------------
+  END SUBROUTINE itermethod_richardson
+!------------------------------------------------------------------------------
+  
 
 !------------------------------------------------------------------------------
 !>   This routine solves real linear systems Ax = b by using the BiCGStab(l) algorithm 
