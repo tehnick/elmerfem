@@ -94,7 +94,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
     IF ( CalcStress .OR. CalcStressAll ) THEN
       CALL ListAddString( SolverParams,&
           NextFreeKeyword('Exported Variable ',SolverParams), &
-          'Stress[Stress_xx:1 Stress_yy:1 Stress_zz:1 Stress_xy:1 Stress_xz:1 Stress_yz:1]' )
+          'Stress[Stress_xx:1 Stress_yy:1 Stress_zz:1 Stress_xy:1 Stress_yz:1 Stress_xz:1]' )
       CALL ListAddString( SolverParams,&
           NextFreeKeyword('Exported Variable ',SolverParams), &
           'vonMises' )
@@ -841,8 +841,8 @@ CONTAINS
          IF ( Transient .OR. EigenOrHarmonicAnalysis() ) &
             CALL Fatal( 'StressSolve', 'No value for density found.' )
        END IF
-       Damping(1:n) = GetReal( Material, 'Damping', Found )
 
+       Damping(1:n) = GetReal( Material, 'Damping', Found )
        RayleighDamping = GetLogical( Material, 'Rayleigh damping', Found )
        IF( RayleighDamping ) THEN
          RayleighAlpha(1:N) = GetReal( Material, 'Rayleigh alpha', Found )
@@ -983,11 +983,11 @@ CONTAINS
               LocalTemperature, Element, n, ntot, ElementNodes, RelIntegOrder, RotateC, TransformMatrix )
           ELSE
             CALL StressCompose( MASS, DAMP, STIFF, FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus,  &
-               PoissonRatio, Density, Damping, PlaneStress, Isotropic,              &
+               PoissonRatio, Density, PlaneStress, Isotropic,              &
                PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
                LocalTemperature, Element, n, ntot, ElementNodes, RelIntegOrder, StabilityAnalysis  &
                .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
-               RotateC, TransformMatrix, NodalMeshVelo, RayleighDamping,            &
+               RotateC, TransformMatrix, NodalMeshVelo, Damping, RayleighDamping,            &
                RayleighAlpha, RayleighBeta )
           END IF
 

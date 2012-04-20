@@ -53,11 +53,11 @@ MODULE StressLocal
 
 !------------------------------------------------------------------------------
    SUBROUTINE StressCompose( MASS, DAMP, STIFF, FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus, &
-     NodalPoisson, NodalDensity, NodalDamping, PlaneStress, Isotropic,           &
+     NodalPoisson, NodalDensity, PlaneStress, Isotropic,           &
      NodalPreStress, NodalPreStrain, NodalStressLoad, NodalStrainLoad,           &
      NodalHeatExpansion, NodalTemperature, Element, n, ntot, Nodes, RelIntegOrder, StabilityAnalysis, &
      GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix, NodalMeshVelo, &
-     RayleighDamping, RayleighAlpha, RayleighBeta  )
+     NodalDamping, RayleighDamping, RayleighAlpha, RayleighBeta  )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: STIFF(:,:), MASS(:,:), DAMP(:,:), FORCE(:), LOAD(:,:)
      REAL(KIND=dp) :: FORCE_im(:), LOAD_im(:,:)
@@ -99,7 +99,8 @@ MODULE StressLocal
 
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
 
-     LOGICAL :: stat, CSymmetry, NeedMass, NeedHeat, ActiveGeometricStiffness
+     LOGICAL :: stat, CSymmetry, NeedMass, NeedHeat, NeedStress, NeedHarmonic, &
+         NeedPreStress, ActiveGeometricStiffness
 
 !------------------------------------------------------------------------------
 
@@ -118,8 +119,11 @@ MODULE StressLocal
      NeedMass = ANY( NodalDensity(1:n) /= 0.0d0 )
      NeedMass = NeedMass .OR. ANY( NodalDamping(1:n) /= 0.0d0 )
      NeedHeat = ANY( NodalTemperature(1:n) /= 0.0d0 )
-     !    
-     ! Integration stuff:
+     NeedHarmonic = ANY( LoadAtIp_im(1:n) /= 0.0d0 ) 
+     NeedPreStress = ANY( NodalPreStrain(i,1:n) /= 0.0d0 ) 
+     NeedPreStress = NeedPreStress .OR. ANY( NodalPreStress(i,1:n) /= 0.0d0 ) 
+
+     !      ! Integration stuff:
      ! ------------------  
      NBasis = ntot
      IntegStuff = GaussPoints( element, RelOrder = RelIntegOrder )
@@ -270,57 +274,64 @@ MODULE StressLocal
 
           ELSE
             IF ( RotateC ) THEN
-                CALL RotateElasticityMatrix( C, TransformMatrix, 3 )
+              CALL RotateElasticityMatrix( C, TransformMatrix, 3 )
             END IF
           END IF
 
        END SELECT
 
-       StressTensor = 0.0d0
-       StrainTensor = 0.0d0
-       IF ( StabilityAnalysis .OR. GeometricStiffness ) &
-          CALL LocalStress( StressTensor,StrainTensor,NodalPoisson,ElasticModulus, &
-          NodalHeatExpansion, NodalTemperature, Isotropic,CSymmetry,PlaneStress,   &
-          NodalDisplacement,Basis,dBasisdx,Nodes,dim,n,ntot )
+       IF ( StabilityAnalysis .OR. GeometricStiffness ) THEN
+         CALL LocalStress( StressTensor,StrainTensor,NodalPoisson,ElasticModulus, &
+             NodalHeatExpansion, NodalTemperature, Isotropic,CSymmetry,PlaneStress,   &
+             NodalDisplacement,Basis,dBasisdx,Nodes,dim,n,ntot )
+         ActiveGeometricStiffness = .TRUE.
+       END IF
 
-       DO i=1,6
-          PreStrain(i) = SUM( NodalPreStrain(i,1:n)*Basis(1:n) )
-          PreStress(i) = SUM( NodalPreStress(i,1:n)*Basis(1:n) )
-       END DO
-       PreStress = PreStress + MATMUL( C, PreStrain  )
-
-       DO i=1,6
-          StrainLoad(i) = SUM( NodalStrainLoad(i,1:n)*Basis(1:n) )
-          StressLoad(i) = SUM( NodalStressLoad(i,1:n)*Basis(1:n) )
-       END DO
-       StressLoad = StressLoad + MATMUL( C, StrainLoad )
-
-       SELECT CASE(dim)
-       CASE(2)
-         IF ( Csymmetry ) THEN
-            StressTensor(1,1) = StressTensor(1,1) + PreStress(1)
-            StressTensor(2,2) = StressTensor(2,2) + PreStress(2)
-            StressTensor(3,3) = StressTensor(3,3) + PreStress(3)
-            StressTensor(1,2) = StressTensor(1,2) + PreStress(4)
-            StressTensor(2,1) = StressTensor(2,1) + PreStress(4)
-         ELSE
-            StressTensor(1,1) = StressTensor(1,1) + PreStress(1)
-            StressTensor(2,2) = StressTensor(2,2) + PreStress(2)
-            StressTensor(1,2) = StressTensor(1,2) + PreStress(3)
-            StressTensor(2,1) = StressTensor(2,1) + PreStress(3)
+       IF( NeedPreStress ) THEN
+         DO i=1,6
+           PreStrain(i) = SUM( NodalPreStrain(i,1:n)*Basis(1:n) )
+           PreStress(i) = SUM( NodalPreStress(i,1:n)*Basis(1:n) )
+         END DO
+         PreStress = PreStress + MATMUL( C, PreStrain  )
+         
+         DO i=1,6
+           StrainLoad(i) = SUM( NodalStrainLoad(i,1:n)*Basis(1:n) )
+           StressLoad(i) = SUM( NodalStressLoad(i,1:n)*Basis(1:n) )
+         END DO
+         StressLoad = StressLoad + MATMUL( C, StrainLoad )
+         
+         IF( .NOT. ( StabilityAnalysis .OR. GeometricStiffness ) ) THEN 
+           StressTensor = 0.0d0
+           StrainTensor = 0.0d0          
          END IF
-       CASE(3)
-          StressTensor(1,1) = StressTensor(1,1) + PreStress(1)
-          StressTensor(2,2) = StressTensor(2,2) + PreStress(2)
-          StressTensor(3,3) = StressTensor(3,3) + PreStress(3)
-          StressTensor(1,2) = StressTensor(1,2) + PreStress(4)
-          StressTensor(2,1) = StressTensor(2,1) + PreStress(4)
-          StressTensor(2,3) = StressTensor(2,3) + PreStress(5)
-          StressTensor(3,2) = StressTensor(3,2) + PreStress(5)
-          StressTensor(1,3) = StressTensor(1,3) + PreStress(6)
-          StressTensor(3,1) = StressTensor(3,1) + PreStress(6)
-       END SELECT
-       ActiveGeometricStiffness = ANY( StressTensor /= 0.0d0 ) 
+         
+         SELECT CASE(dim)
+         CASE(2)
+           IF ( Csymmetry ) THEN
+             StressTensor(1,1) = StressTensor(1,1) + PreStress(1)
+             StressTensor(2,2) = StressTensor(2,2) + PreStress(2)
+             StressTensor(3,3) = StressTensor(3,3) + PreStress(3)
+             StressTensor(1,2) = StressTensor(1,2) + PreStress(4)
+             StressTensor(2,1) = StressTensor(2,1) + PreStress(4)
+           ELSE
+             StressTensor(1,1) = StressTensor(1,1) + PreStress(1)
+             StressTensor(2,2) = StressTensor(2,2) + PreStress(2)
+             StressTensor(1,2) = StressTensor(1,2) + PreStress(3)
+             StressTensor(2,1) = StressTensor(2,1) + PreStress(3)
+           END IF
+         CASE(3)
+           StressTensor(1,1) = StressTensor(1,1) + PreStress(1)
+           StressTensor(2,2) = StressTensor(2,2) + PreStress(2)
+           StressTensor(3,3) = StressTensor(3,3) + PreStress(3)
+           StressTensor(1,2) = StressTensor(1,2) + PreStress(4)
+           StressTensor(2,1) = StressTensor(2,1) + PreStress(4)
+           StressTensor(2,3) = StressTensor(2,3) + PreStress(5)
+           StressTensor(3,2) = StressTensor(3,2) + PreStress(5)
+           StressTensor(1,3) = StressTensor(1,3) + PreStress(6)
+           StressTensor(3,1) = StressTensor(3,1) + PreStress(6)
+         END SELECT
+         ActiveGeometricStiffness = .TRUE.
+       END IF
 
        !
        ! Loop over basis functions (of both unknowns and weights):
@@ -362,11 +373,14 @@ MODULE StressLocal
 
          LoadAtIp    = 0.0d0
          LoadAtIp_im = 0.0d0
-         DO i=1,dim
-           DO j=1,6
-             LoadAtIp(i) = LoadAtIp(i) + StressLoad(j) * G(i,j)
+         IF( NeedPreStress ) THEN
+           DO i=1,dim
+             DO j=1,6
+               LoadAtIp(i) = LoadAtIp(i) + StressLoad(j) * G(i,j)
+             END DO
            END DO
-         END DO
+         END IF
+
 
          G = MATMUL( G, C )
 
@@ -460,9 +474,11 @@ MODULE StressLocal
            LoadAtIp(i) = LoadAtIp(i) + &
                SUM( LOAD(i,1:n)*Basis(1:n) ) * Basis(p) + &
                SUM( LOAD(4,1:n)*Basis(1:n) ) * dBasisdx(p,i)
-           LoadAtIp_im(i) = LoadAtIp_im(i) + &
-               SUM( LOAD_im(i,1:n)*Basis(1:n) ) * Basis(p) + &
-               SUM( LOAD_im(4,1:n)*Basis(1:n) ) * dBasisdx(p,i)
+           IF( NeedHarmonic ) THEN
+             LoadAtIp_im(i) = LoadAtIp_im(i) + &
+                 SUM( LOAD_im(i,1:n)*Basis(1:n) ) * Basis(p) + &
+                 SUM( LOAD_im(4,1:n)*Basis(1:n) ) * dBasisdx(p,i)
+           END IF
          END DO
 
          IF ( NeedHeat ) THEN
@@ -483,7 +499,9 @@ MODULE StressLocal
 
          DO i=1,dim
            FORCE(dim*(p-1)+i) = FORCE(dim*(p-1)+i) + s*LoadAtIp(i)
-           FORCE_im(dim*(p-1)+i) = FORCE_im(dim*(p-1)+i) + s*LoadAtIp_im(i)
+           IF( NeedHarmonic ) THEN
+             FORCE_im(dim*(p-1)+i) = FORCE_im(dim*(p-1)+i) + s*LoadAtIp_im(i)
+           END IF
          END DO
       END DO
     END DO
