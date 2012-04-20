@@ -150,7 +150,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   INTEGER, POINTER :: PotentialPerm(:), EnergyPerm(:), SurfPerm(:)
   INTEGER, POINTER :: FieldPerm(:), FluxPerm(:)
   INTEGER :: CapBodies, CapBody, Permi, Permj, iter, MaxIterations
-  INTEGER :: i, j, k, l, m, n, t, istat, bf_id, LocalNodes, DIM, NonlinearIter
+  INTEGER :: i, j, k, l, m, n, t, istat, bf_id, LocalNodes, DIM, NonlinearIter, &
+      RelIntegOrder, ntot, nsize
   
   LOGICAL :: AllocationsDone = .FALSE., gotIt, FluxBC, OpenBc, LayerBC
   LOGICAL :: CalculateField, CalculateFlux, CalculateEnergy
@@ -162,7 +163,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Matrix_t), POINTER :: CM
   LOGICAL, ALLOCATABLE :: Done(:)
   
-  CHARACTER(LEN=MAX_NAME_LEN) :: CapMatrixFile, Name
+  CHARACTER(LEN=MAX_NAME_LEN) :: CapMatrixFile, Name, VarName
   TYPE(ValueList_t), POINTER :: Params, BC 
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -218,7 +219,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   Potential     => Solver % Variable % Values
   StiffMatrix => Solver % Matrix
   ForceVector => StiffMatrix % RHS
-  
+  VarName = GetVarName( Solver % Variable )
+
   Norm = Solver % Variable % Norm
   DIM = CoordinateSystemDimension()
 
@@ -286,10 +288,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
         CALL Fatal('StatElecSolve',&
             'Capacitance calculation requested without any > Capacitance Body <')
       END IF
-
       
-      ALLOCATE(CapBodyIndex(Model % NumberOfNodes), &
-          Charges(Model % NumberOfNodes), &
+      nsize = SIZE( Potential )  
+      ALLOCATE(CapBodyIndex(nsize), &
+          Charges(nsize), &
           CapMatrix(CapBodies,CapBodies), &
           STAT = istat)
       IF ( istat /= 0 ) THEN
@@ -353,6 +355,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
    
+  RelIntegOrder = ListGetInteger( Params,'Relative Integration Order',GotIt)
+
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -414,7 +418,12 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
       CurrentElement => GetActiveElement(t)
       NodeIndexes => CurrentElement % NodeIndexes
-      n = CurrentElement % TYPE % NumberOfNodes
+
+      CurrentElement => GetActiveElement(t)
+      n = GetElementNOFNOdes()
+      ntot = GetElementNOFDOFs()
+
+!      n = CurrentElement % TYPE % NumberOfNodes
       
       ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
       ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
@@ -500,7 +509,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !      Get element local matrix, and rhs vector
 !------------------------------------------------------------------------------
       CALL StatElecCompose( LocalStiffMatrix,LocalForce, PiezoMaterial, &
-          PiezoCoeff, Permittivity,Load,CurrentElement,n,ElementNodes, &
+          PiezoCoeff, Permittivity,Load,CurrentElement,n,ntot,ElementNodes, &
           Displacement )
 
 !------------------------------------------------------------------------------
@@ -627,6 +636,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
         Beta(1:n) = 0.0_dp
         
         OpenBC = ListGetLogical( BC,'Electric Infinity BC',GotIt)
+        IF(.NOT. GotIt) OpenBC = ListGetLogical( BC,TRIM(VarName)//' Infinity BC',GotIt)
 
         IF(LayerBC .OR. FluxBC .OR. OpenBC) THEN
           IF ( LayerBC ) THEN
@@ -685,15 +695,19 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     CALL FinishAssembly( Solver,ForceVector )
 
 !------------------------------------------------------------------------------
-!    Dirichlet boundary conditions
+!   This sets the BC flags so that the potential form a permulation
 !------------------------------------------------------------------------------
-    CALL DefaultDirichletBCs()
-   
     IF(CalculateCapMatrix) THEN 
       CALL SetPermutationBoundaries( Model, StiffMatrix, ForceVector, &
           'Capacitance Body',PotentialPerm, iter)
     END IF
 
+!------------------------------------------------------------------------------
+!    Dirichlet boundary conditions
+!------------------------------------------------------------------------------
+    CALL DefaultDirichletBCs()
+   
+ 
     at = CPUTime() - at
     WRITE( Message, * ) 'Assembly (s)          :',at
     CALL Info( 'StatElecSolve', Message, Level=4 )
@@ -1351,7 +1365,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
  
 !------------------------------------------------------------------------------
      SUBROUTINE StatElecCompose( StiffMatrix,Force,PiezoMaterial, PiezoCoeff, &
-                            Permittivity, Load,Element,n,Nodes, Displacement )
+                            Permittivity, Load,Element,n,ntot,Nodes, Displacement )
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: StiffMatrix(:,:),Force(:),Load(:), Permittivity(:,:,:)
        REAL(KIND=dp) :: PiezoCoeff(:,:,:), Displacement(:,:)
@@ -1362,19 +1376,20 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
  
        REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
+       REAL(KIND=dp) :: Basis(ntot),dBasisdx(ntot,3)
        REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,A,L,C(3,3),x,y,z
        REAL(KIND=dp) :: PiezoForce(n), LocalStrain(6), PiezoLoad(3)
 
        LOGICAL :: Stat
 
-       INTEGER :: i,j,p,q,t,DIM
+       INTEGER :: i,j,p,q,t,DIM,ntot,Nbasis
  
        TYPE(GaussIntegrationPoints_t) :: IntegStuff
  
 !------------------------------------------------------------------------------
 
        DIM = CoordinateSystemDimension()
+       NBasis = ntot
 
        PiezoForce = 0.0d0
        Force = 0.0d0
@@ -1384,7 +1399,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !      Numerical integration
 !------------------------------------------------------------------------------
-       IntegStuff = GaussPoints( Element )
+
+       IntegStuff = GaussPoints( Element, RelOrder = RelIntegOrder )
  
        DO t=1,IntegStuff % n
          U = IntegStuff % u(t)
@@ -1434,7 +1450,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
                    LocalStrain(j)
              END DO
            END DO
-           
          END IF
          
 !------------------------------------------------------------------------------
@@ -1447,8 +1462,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !        The Poisson equation
 !------------------------------------------------------------------------------
-         DO p=1,N
-           DO q=1,N
+         DO p=1,Nbasis
+           DO q=1,Nbasis
              A = 0.d0
              DO i=1,DIM
                DO J=1,DIM
@@ -1492,47 +1507,59 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
     TYPE(Element_t), POINTER :: CurrentElement
     INTEGER, POINTER :: NodeIndexes(:)
-    INTEGER :: i,j,k,n,t,k1,k2, Body
+    INTEGER :: i,j,k,n,t,k1,k2, Body, MaxBody
     LOGICAL :: GotIt
     REAL(KIND=dp) :: val,s
 
 !------------------------------------------------------------------------------
-    
-    DO t = Model % NumberOfBulkElements + 1, &
-        Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+    MaxBody = 0
+    DO i=1,Model % NumberOfBCs
+      BC => Model % BCs(i) % Values
+      Body = ListGetInteger( BC, Name, gotIt )
       
-      CurrentElement => Model % Elements(t)
+      IF ( gotIt ) THEN           
+        IF(Body == Permutation) THEN
+          val = 1.0_dp
+        ELSE
+          val = 0.0_dp
+        END IF
+        
+        CALL ListAddConstReal( BC,TRIM(VarName),val)
+        MaxBody = MAX( MaxBody, Body ) 
+      END IF
+    END DO
+
+    IF( Permutation == 1 ) THEN
+      DO t = Model % NumberOfBulkElements + 1, &
+          Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+        
+        CurrentElement => Model % Elements(t)
 !------------------------------------------------------------------------------
 !      Set the current element pointer in the model structure to
 !      reflect the element being processed
 !------------------------------------------------------------------------------
-      Model % CurrentElement => Model % Elements(t)
+        Model % CurrentElement => Model % Elements(t)
 !------------------------------------------------------------------------------
-      n = CurrentElement % TYPE % NumberOfNodes
-      NodeIndexes => CurrentElement % NodeIndexes
-
-      DO i=1,Model % NumberOfBCs
-        IF ( CurrentElement % BoundaryInfo % Constraint == &
-            Model % BCs(i) % Tag ) THEN
-          
-          Body = ListGetInteger( Model % BCs(i) % Values, Name, gotIt )
-          CapBodyIndex(NodeIndexes) = Body
-          
-          IF ( gotIt ) THEN           
-            IF(Body == Permutation) THEN
-              val = 1.0_dp
-            ELSE 
-              val = 0.0d0
-            END IF
-
-            DO j=1,n
-	      CALL SetDirichletPoint( StiffMatrix, ForceVector, 1, 1, Perm, NodeIndexes(j), val )
-            END DO
-
+        n = CurrentElement % TYPE % NumberOfNodes
+        NodeIndexes => CurrentElement % NodeIndexes
+        
+        DO i=1,Model % NumberOfBCs
+          IF ( CurrentElement % BoundaryInfo % Constraint == &
+              Model % BCs(i) % Tag ) THEN
+            
+            BC => Model % BCs(i) % Values
+            Body = ListGetInteger( BC, Name, gotIt )
+            IF( GotIt ) CapBodyIndex(NodeIndexes) = Body
           END IF
-         END IF
-       END DO
-     END DO
+        END DO
+      END DO
+
+      PRINT *,'Number of permutation BCs'
+      DO i=1,MaxBody
+        PRINT *,'Capacitance body:',i,'no',COUNT(CapBodyIndex == i )
+      END DO
+    END IF
+
 !------------------------------------------------------------------------------
    END SUBROUTINE SetPermutationBoundaries
 !------------------------------------------------------------------------------
