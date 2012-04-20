@@ -392,6 +392,7 @@ CONTAINS
       ! -------------------------------
       BasisTerms = 0
       element % GaussPoints  = 0
+      element % GaussPoints0 = 0
       element % GaussPoints2 = 0
       element % StabilizationMK = 0
       NULLIFY( element % NodeU )
@@ -472,12 +473,17 @@ CONTAINS
             ELSE IF ( str(1:12) == 'gauss points' ) THEN
 
               Element % GaussPoints2 = 0
-              READ( str(13:MAX_STRING_LEN), *,END=10 ) element % GaussPoints,element % GaussPoints2
+              READ( str(13:MAX_STRING_LEN), *,END=10 ) element % GaussPoints,&
+                  element % GaussPoints2, element % GaussPoints0 
 
 10            CONTINUE
 
               IF ( Element % GaussPoints2 <= 0 ) &
                    Element % GaussPoints2 = Element % GaussPoints
+
+              IF ( Element % GaussPoints0 <= 0 ) &
+                   Element % GaussPoints0 = Element % GaussPoints
+             
             ELSE IF ( str(1:3) == 'end' ) THEN
               gotit = .TRUE.
               EXIT

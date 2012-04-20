@@ -55,7 +55,7 @@ MODULE StressLocal
    SUBROUTINE StressCompose( MASS, DAMP, STIFF, FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus, &
      NodalPoisson, NodalDensity, NodalDamping, PlaneStress, Isotropic,           &
      NodalPreStress, NodalPreStrain, NodalStressLoad, NodalStrainLoad,           &
-     NodalHeatExpansion, NodalTemperature, Element, n, ntot, Nodes, StabilityAnalysis, &
+     NodalHeatExpansion, NodalTemperature, Element, n, ntot, Nodes, RelIntegOrder, StabilityAnalysis, &
      GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix, NodalMeshVelo, &
      RayleighDamping, RayleighAlpha, RayleighBeta  )
 !------------------------------------------------------------------------------
@@ -75,6 +75,7 @@ MODULE StressLocal
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
+     INTEGER :: RelIntegOrder
 
      INTEGER :: n, ntot
 !------------------------------------------------------------------------------
@@ -121,7 +122,7 @@ MODULE StressLocal
      ! Integration stuff:
      ! ------------------  
      NBasis = ntot
-     IntegStuff = GaussPoints( element )
+     IntegStuff = GaussPoints( element, RelOrder = RelIntegOrder )
 
      U_Integ => IntegStuff % u
      V_Integ => IntegStuff % v
@@ -502,7 +503,7 @@ MODULE StressLocal
 !------------------------------------------------------------------------------
    SUBROUTINE StressForceCompose( FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus, NodalPoisson,     &
      PlaneStress, Isotropic,NodalStressLoad, NodalStrainLoad, NodalHeatExpansion,&
-     NodalTemperature, Element, n, ntot, Nodes,  RotateC, TransformMatrix )
+     NodalTemperature, Element, n, ntot, Nodes,  RelIntegOrder, RotateC, TransformMatrix )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: FORCE(:), LOAD(:,:)
      REAL(KIND=dp) :: FORCE_im(:), LOAD_im(:,:)
@@ -516,6 +517,7 @@ MODULE StressLocal
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
+     INTEGER :: RelIntegOrder
 
      INTEGER :: n, ntot
 !------------------------------------------------------------------------------
@@ -556,7 +558,7 @@ MODULE StressLocal
      ! Integration stuff:
      ! ------------------  
      NBasis = ntot
-     IntegStuff = GaussPoints( element )
+     IntegStuff = GaussPoints( element, RelOrder = RelIntegOrder )
 
      U_Integ => IntegStuff % u
      V_Integ => IntegStuff % v

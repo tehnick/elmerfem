@@ -127,10 +127,10 @@ MODULE Types
     TYPE(Matrix_t), POINTER :: Child, Parent, ConstraintMatrix, EMatrix
     INTEGER :: NumberOfRows
 
-    INTEGER :: Subband, Format, SolveCount, Comm=-1
-    LOGICAL :: Ordered, Lumped, Symmetric, Complex, DGMatrix, Cholesky
+    INTEGER :: Subband, FORMAT, SolveCount, Comm=-1
+    LOGICAL :: Ordered, Lumped, Symmetric, COMPLEX, DGMatrix, Cholesky
 
-    TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => Null()
+    TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => NULL()
 
     INTEGER, POINTER :: Perm(:),InvPerm(:)
     INTEGER, ALLOCATABLE :: GRows(:), RowOwner(:)
@@ -143,11 +143,11 @@ MODULE Types
     REAL(KIND=dp),  POINTER :: MassValues(:),DampValues(:),BulkValues(:)
 
 #ifdef HAVE_MUMPS
-    TYPE(dmumps_struc), POINTER :: MumpsID => Null()
+    TYPE(dmumps_struc), POINTER :: MumpsID => NULL()
 #endif
 #ifdef HAVE_PARDISO
-    INTEGER, POINTER :: PardisoParam(:) => Null()
-    INTEGER(KIND=AddrInt), POINTER :: PardisoID(:) => Null()
+    INTEGER, POINTER :: PardisoParam(:) => NULL()
+    INTEGER(KIND=AddrInt), POINTER :: PardisoID(:) => NULL()
 #endif
 #ifdef HAVE_SUPERLU
     INTEGER(KIND=AddrInt) :: SuperLU_Factors=0
@@ -287,7 +287,7 @@ MODULE Types
                 NumberOfFaces, &                
                 DIMENSION                           ! 1=line, 2=surface, 3=volume
 
-     INTEGER :: GaussPoints,GaussPoints2            ! number of gauss points to use
+     INTEGER :: GaussPoints,GaussPoints2, GaussPoints0 ! number of gauss points to use
 
      REAL(KIND=dp) :: StabilizationMK               ! stab.param. depending on
                                                     ! interpolation type
@@ -305,7 +305,7 @@ MODULE Types
      INTEGER :: TYPE
 
      REAL(KIND=dp), POINTER :: TValues(:)
-     REAL(KIND=dp), POINTER :: FValues(:,:,:), CubicCoeff(:)=>Null()
+     REAL(KIND=dp), POINTER :: FValues(:,:,:), CubicCoeff(:)=>NULL()
 
      LOGICAL :: LValue
      INTEGER, POINTER :: IValues(:)
@@ -385,7 +385,7 @@ MODULE Types
 !  END TYPE Variable_Component_t
 
    TYPE Variable_t
-     TYPE(Variable_t), POINTER   :: Next => Null()
+     TYPE(Variable_t), POINTER   :: Next => NULL()
      INTEGER :: NameLen
      CHARACTER(LEN=MAX_NAME_LEN) :: Name
 
@@ -398,7 +398,7 @@ MODULE Types
 ! Some variables are created from pointers to the primary variables
      LOGICAL :: Secondary
 
-     INTEGER :: Type = Variable_on_nodes
+     INTEGER :: TYPE = Variable_on_nodes
 
      INTEGER :: DOFs
      INTEGER, POINTER          :: Perm(:)
@@ -414,7 +414,7 @@ MODULE Types
 !------------------------------------------------------------------------------
    TYPE ListMatrixEntry_t
      INTEGER :: INDEX
-     REAL(KIND=dp) :: Value
+     REAL(KIND=dp) :: VALUE
      TYPE(ListMatrixEntry_t), POINTER :: Next
    END TYPE ListMatrixEntry_t
 
@@ -433,39 +433,39 @@ MODULE Types
 !-------------------------------------------------------------------------------
 
    TYPE BoundaryInfo_t
-     TYPE(Factors_t), POINTER :: GebhardtFactors=>Null()
+     TYPE(Factors_t), POINTER :: GebhardtFactors=>NULL()
      INTEGER :: Constraint = 0, OutBody = -1
-     TYPE(Element_t), POINTER :: Left =>Null(), Right=>Null()
+     TYPE(Element_t), POINTER :: Left =>NULL(), Right=>NULL()
    END TYPE BoundaryInfo_t
 
 !-------------------------------------------------------------------------------
 
    TYPE ElementData_t
-     TYPE(ElementData_t), POINTER :: Next=>Null()
+     TYPE(ElementData_t), POINTER :: Next=>NULL()
      TYPE(varying_string) :: Name
-     REAL(KIND=dp), POINTER :: Values(:)=>Null()
+     REAL(KIND=dp), POINTER :: Values(:)=>NULL()
    END TYPE ElementData_t
 
 !-------------------------------------------------------------------------------
 
    TYPE Element_t
-     TYPE(ElementType_t), POINTER :: Type => Null()
+     TYPE(ElementType_t), POINTER :: TYPE => NULL()
 
      LOGICAL :: Copy = .FALSE.
 
      INTEGER :: BodyId=0, Splitted=0
      REAL(KIND=dp) :: StabilizationMK,hK
 
-     TYPE(BoundaryInfo_t),  POINTER :: BoundaryInfo => Null()
+     TYPE(BoundaryInfo_t),  POINTER :: BoundaryInfo => NULL()
 
      INTEGER :: ElementIndex, GElementIndex, PartIndex, NDOFs, BDOFs, DGDOFs
      INTEGER, DIMENSION(:), POINTER :: &
-         NodeIndexes => Null(), EdgeIndexes   => Null(), &
-         FaceIndexes => Null(), BubbleIndexes => Null(), &
-         DGIndexes   => Null()
+         NodeIndexes => NULL(), EdgeIndexes   => NULL(), &
+         FaceIndexes => NULL(), BubbleIndexes => NULL(), &
+         DGIndexes   => NULL()
 
-     TYPE(PElementDefs_t), POINTER :: PDefs=>Null()
-     TYPE(ElementData_t),  POINTER :: PropertyData=>Null()
+     TYPE(PElementDefs_t), POINTER :: PDefs=>NULL()
+     TYPE(ElementData_t),  POINTER :: PropertyData=>NULL()
    END TYPE Element_t
 
 !-------------------------------------------------------------------------------
@@ -493,9 +493,9 @@ MODULE Types
    !
    TYPE Nodes_t
      INTEGER :: NumberOfNodes
-     REAL(KIND=dp), POINTER :: x(:)=>Null()
-     REAL(KIND=dp), POINTER :: y(:)=>Null()
-     REAL(KIND=dp), POINTER :: z(:)=>Null()
+     REAL(KIND=dp), POINTER :: x(:)=>NULL()
+     REAL(KIND=dp), POINTER :: y(:)=>NULL()
+     REAL(KIND=dp), POINTER :: z(:)=>NULL()
    END TYPE Nodes_t
 
 !------------------------------------------------------------------------------
@@ -526,7 +526,7 @@ MODULE Types
 
    TYPE ParallelInfo_t
      INTEGER :: NumberOfIfDOFs
-     LOGICAL, POINTER               :: Interface(:)
+     LOGICAL, POINTER               :: INTERFACE(:)
      INTEGER, POINTER               :: GlobalDOFs(:)
      TYPE(NeighbourList_t),POINTER  :: NeighbourList(:)
 
@@ -572,7 +572,7 @@ MODULE Types
 !------------------------------------------------------------------------------
 
     TYPE Solver_t
-      TYPE(ValueList_t), POINTER :: Values => Null()
+      TYPE(ValueList_t), POINTER :: Values => NULL()
 
       INTEGER :: TimeOrder,DoneTime,Order,NOFEigenValues=0
       INTEGER(KIND=AddrInt) :: PROCEDURE, LinBeforeProc, LinAfterProc
@@ -584,15 +584,15 @@ MODULE Types
 
       INTEGER :: MultiGridLevel,  MultiGridTotal, MultiGridSweep
       LOGICAL :: MultiGridSolver, MultiGridEqualSplit
-      TYPE(Mesh_t), POINTER :: Mesh => Null()
+      TYPE(Mesh_t), POINTER :: Mesh => NULL()
 
-      INTEGER, POINTER :: ActiveElements(:) => Null()
+      INTEGER, POINTER :: ActiveElements(:) => NULL()
       INTEGER :: NumberOfActiveElements
       INTEGER, ALLOCATABLE ::  Def_Dofs(:,:)
 
-      TYPE(BlockMatrix_t), POINTER :: BlockMatrix => Null()
-      TYPE(Matrix_t),   POINTER :: Matrix => Null()
-      TYPE(Variable_t), POINTER :: Variable => Null()
+      TYPE(BlockMatrix_t), POINTER :: BlockMatrix => NULL()
+      TYPE(Matrix_t),   POINTER :: Matrix => NULL()
+      TYPE(Variable_t), POINTER :: Variable => NULL()
     END TYPE Solver_t
 
 !------------------------------------------------------------------------------
@@ -615,70 +615,70 @@ MODULE Types
 !
 !     Simulation input data, that concern the model as a whole
 !
-      TYPE(ValueList_t), POINTER :: Simulation => Null()
+      TYPE(ValueList_t), POINTER :: Simulation => NULL()
 !
 !     Variables
 !
-      TYPE(Variable_t), POINTER  :: Variables => Null()
+      TYPE(Variable_t), POINTER  :: Variables => NULL()
 !
 !     Some physical constants, that will be read from the database or set by
 !     other means: gravity direction/intensity and Stefan-Boltzmann constant)
 !
-      TYPE(ValueList_t), POINTER :: Constants => Null()
+      TYPE(ValueList_t), POINTER :: Constants => NULL()
 !
 !     Types  of  equations (flow,heat,...) and  some  parameters (for example
 !     laminar or turbulent flow or type of convection model for heat equation,
 !     etc.)
 !
       INTEGER :: NumberOfEquations = 0
-      TYPE(EquationArray_t), POINTER :: Equations(:) => Null()
+      TYPE(EquationArray_t), POINTER :: Equations(:) => NULL()
 !
 !     Active bodyforces: (bussinesq approx., heatsource, freele chosen
 !     bodyforce...)
 !
       INTEGER :: NumberOfBodyForces = 0
-      TYPE(BodyForceArray_t), POINTER :: BodyForces(:) => Null()
+      TYPE(BodyForceArray_t), POINTER :: BodyForces(:) => NULL()
 !
 !     Initial conditions for field variables
 !
       INTEGER :: NumberOfICs = 0
-      TYPE(InitialConditionArray_t), POINTER :: ICs(:) => Null()
+      TYPE(InitialConditionArray_t), POINTER :: ICs(:) => NULL()
 !
 !     Boundary conditions
 !
       INTEGER :: NumberOfBCs = 0
-      TYPE(BoundaryConditionArray_t), POINTER :: BCs(:) => Null()
+      TYPE(BoundaryConditionArray_t), POINTER :: BCs(:) => NULL()
 !
 !     For free surfaces the curvatures...
 !
-      INTEGER, POINTER :: FreeSurfaceNodes(:) => Null()
-      REAL(KIND=dp), POINTER :: BoundaryCurvatures(:) => Null()
+      INTEGER, POINTER :: FreeSurfaceNodes(:) => NULL()
+      REAL(KIND=dp), POINTER :: BoundaryCurvatures(:) => NULL()
 !
 !     Material parameters
 !
       INTEGER :: NumberOfMaterials = 0
-      TYPE(MaterialArray_t), POINTER :: Materials(:) => Null()
+      TYPE(MaterialArray_t), POINTER :: Materials(:) => NULL()
 !
 !     Active bodies, every element has a pointer to a body, body has
 !     material,ICs,bodyforces and equations
 !
       INTEGER :: NumberOfBodies  = 0
-      TYPE(BodyArray_t), POINTER :: Bodies(:) => Null()
+      TYPE(BodyArray_t), POINTER :: Bodies(:) => NULL()
 !
 !      Boundary to boundary condition mapping
 !
       INTEGER :: NumberOfBoundaries = 0
-      INTEGER, POINTER :: BoundaryId(:) => Null()
-      TYPE(BoundaryArray_t), POINTER :: Boundaries(:) => Null()
+      INTEGER, POINTER :: BoundaryId(:) => NULL()
+      TYPE(BoundaryArray_t), POINTER :: Boundaries(:) => NULL()
 !
 !     Linear equation solvers
 !
       INTEGER :: NumberOfSolvers = 0
-      TYPE(Solver_t), POINTER :: Solvers(:) => Null()
+      TYPE(Solver_t), POINTER :: Solvers(:) => NULL()
 !
 !     Node coordinates + info for parallel computations
 !
-      TYPE(Nodes_t), POINTER :: Nodes => Null()
+      TYPE(Nodes_t), POINTER :: Nodes => NULL()
 !
 !     Max number of nodes in any one element in this model
 !
@@ -686,23 +686,23 @@ MODULE Types
 !
 !     Elements
 !
-      TYPE(Element_t), POINTER :: Elements(:) => Null()
+      TYPE(Element_t), POINTER :: Elements(:) => NULL()
 !
 !     For reference the current element in process   
 !
-      TYPE(Element_t), POINTER :: CurrentElement => Null()
+      TYPE(Element_t), POINTER :: CurrentElement => NULL()
 !
 !     These are for internal use,   number of potentially nonzero elements
 !     in stiffness and mass matrices (with one dof), and number of nonzero
 !     elements in rows of the matrices.
 !
       INTEGER :: TotalMatrixElements = 0
-      INTEGER, POINTER :: RowNonzeros(:) => Null()
+      INTEGER, POINTER :: RowNonzeros(:) => NULL()
 
       TYPE(Mesh_t), POINTER :: Meshes
 
-      TYPE(Mesh_t),   POINTER :: Mesh   => Null()
-      TYPE(Solver_t), POINTER :: Solver => Null()
+      TYPE(Mesh_t),   POINTER :: Mesh   => NULL()
+      TYPE(Solver_t), POINTER :: Solver => NULL()
     END TYPE Model_t
 
     TYPE(Model_t),  POINTER :: CurrentModel

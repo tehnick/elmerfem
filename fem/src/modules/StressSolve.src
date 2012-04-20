@@ -810,8 +810,13 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE BulkAssembly()
 !------------------------------------------------------------------------------
+    INTEGER :: RelIntegOrder 
+
+
      CALL StartAdvanceOutput( 'StressSolve', 'Assembly:')
      body_id = -1
+
+     RelIntegOrder = ListGetInteger( SolverParams,'Relative Integration Order',Found)
 
 
      DO t=1,Solver % NumberOFActiveElements
@@ -975,12 +980,12 @@ CONTAINS
           IF ( ConstantBulkMatrixInUse ) THEN
             CALL StressForceCompose( FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus, PoissonRatio, &
               PlaneStress, Isotropic,StressLoad, StrainLoad, HeatExpansionCoeff,         &
-              LocalTemperature, Element, n, ntot, ElementNodes, RotateC, TransformMatrix )
+              LocalTemperature, Element, n, ntot, ElementNodes, RelIntegOrder, RotateC, TransformMatrix )
           ELSE
             CALL StressCompose( MASS, DAMP, STIFF, FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus,  &
                PoissonRatio, Density, Damping, PlaneStress, Isotropic,              &
                PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
-               LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
+               LocalTemperature, Element, n, ntot, ElementNodes, RelIntegOrder, StabilityAnalysis  &
                .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
                RotateC, TransformMatrix, NodalMeshVelo, RayleighDamping,            &
                RayleighAlpha, RayleighBeta )

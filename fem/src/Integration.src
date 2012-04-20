@@ -1180,22 +1180,47 @@ END FUNCTION GaussPointsPTetra
 !------------------------------------------------------------------------------
 !>    Given element structure return gauss integration points for the element.
 !------------------------------------------------------------------------------
-   FUNCTION GaussPoints( elm,np ) RESULT(IntegStuff)
+   FUNCTION GaussPoints( elm, np, RelOrder ) RESULT(IntegStuff)
 !------------------------------------------------------------------------------
      TYPE( Element_t ) :: elm   !< Structure holding element description
      INTEGER, OPTIONAL :: np    !< Number of requested points
+     INTEGER, OPTIONAL :: RelOrder !< Relative order of Gauss points (-1,0,+1)
      TYPE( GaussIntegrationPoints_t ) :: IntegStuff   !< Structure holding the integration points
 !------------------------------------------------------------------------------
      LOGICAL :: pElement
-     INTEGER :: n
+     INTEGER :: n, eldim, p1d
      TYPE(ElementType_t), POINTER :: elmt
 !------------------------------------------------------------------------------
 
-     elmt => elm % Type
+     elmt => elm % TYPE
      pElement = ASSOCIATED(elm % PDefs)
 
      IF ( PRESENT(np) ) THEN
        n = np
+     ELSE IF( PRESENT( RelOrder ) ) THEN
+       IF (pElement) THEN
+         n = elm % PDefs % GaussPoints
+         IF( RelOrder == 0 ) THEN
+           CONTINUE
+         ELSE 
+           eldim = elm % type % dimension
+           p1d = NINT( n**(1.0_dp/eldim) ) + RelOrder
+           IF( p1d < 1 ) THEN
+             CALL Fatal('GaussPoints','Number of integration points must remain positive!')
+           END IF
+           n = p1d**eldim
+         END IF
+       ELSE
+         IF( RelOrder == 0 ) THEN
+           n = elmt % GaussPoints
+         ELSE IF( RelOrder == 1 ) THEN
+           n = elmt % GaussPoints2
+         ELSE IF( RelOrder == -1 ) THEN
+           n = elmt % GaussPoints0
+         ELSE
+           PRINT *,'RelOrder can only be {-1, 0, 1} !'
+         END IF
+       END IF  
      ELSE
        IF (pElement) THEN
          n = elm % PDefs % GaussPoints

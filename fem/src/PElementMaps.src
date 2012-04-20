@@ -159,11 +159,11 @@ CONTAINS
     END FUNCTION getBrickFaceEdgeMap
 
 
-    FUNCTION getTetraEdgeMap(i,type) RESULT(edge)
+    FUNCTION getTetraEdgeMap(i,TYPE) RESULT(edge)
       IMPLICIT NONE
 
       INTEGER, INTENT(IN) :: i
-      INTEGER, INTENT(IN), OPTIONAL :: type
+      INTEGER, INTENT(IN), OPTIONAL :: TYPE
       INTEGER :: t
       INTEGER, DIMENSION(2) :: edge
 
@@ -171,7 +171,7 @@ CONTAINS
 
       ! If type not present use default (1)
       t = 1
-      IF (PRESENT(type)) t = type
+      IF (PRESENT(TYPE)) t = TYPE
 
       ! Select edge map by tetra type
       SELECT CASE (t)
@@ -185,11 +185,11 @@ CONTAINS
     END FUNCTION getTetraEdgeMap
 
 
-    FUNCTION getTetraFaceMap(i,type) RESULT(face)
+    FUNCTION getTetraFaceMap(i,TYPE) RESULT(face)
       IMPLICIT NONE
 
       INTEGER, INTENT(IN) :: i
-      INTEGER, INTENT(IN), OPTIONAL :: type
+      INTEGER, INTENT(IN), OPTIONAL :: TYPE
       INTEGER :: t
       INTEGER, DIMENSION(3) :: face
 
@@ -197,7 +197,7 @@ CONTAINS
       
       ! If type not present use default (1)
       t = 1
-      IF (PRESENT(type)) t = type
+      IF (PRESENT(TYPE)) t = TYPE
 
       ! Select face map by tetra type 
       SELECT CASE(t)
@@ -279,7 +279,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t) :: Element
+      TYPE(Element_t) :: Element
       INTEGER, INTENT(IN) :: i
       
       INTEGER :: map(4)
@@ -293,7 +293,7 @@ CONTAINS
          RETURN
       END IF
 
-      SELECT CASE(Element % Type % ElementCode / 100)
+      SELECT CASE(Element % TYPE % ElementCode / 100)
       CASE (3)
          map(1:2) = getTriangleEdgeMap(i)
       CASE (4)
@@ -334,12 +334,12 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t) :: Element
+      TYPE(Element_t) :: Element
       INTEGER, INTENT(IN) :: i
 
       INTEGER :: elementCode, map(4)
 
-      elementCode = Element % Type % ElementCode
+      elementCode = Element % TYPE % ElementCode
 
       IF (.NOT. MInit) CALL InitializeMappings()
 
@@ -390,7 +390,7 @@ CONTAINS
 !    
 !------------------------------------------------------------------------------
       IMPLICIT NONE
-      Type(Element_t) :: Element
+      TYPE(Element_t) :: Element
       INTEGER,  POINTER :: map(:,:)
 
       IF (.NOT. MInit) CALL InitializeMappings()
@@ -402,7 +402,7 @@ CONTAINS
          RETURN
       END IF
 
-      SELECT CASE (Element % Type % ElementCode / 100)
+      SELECT CASE (Element % TYPE % ElementCode / 100)
       CASE (3)
          map => TriangleEdgeMap
       CASE (4)
@@ -446,7 +446,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
-      Type(Element_t) :: Element
+      TYPE(Element_t) :: Element
       INTEGER, POINTER :: faceMap(:,:)
 
       IF (.NOT. MInit) CALL InitializeMappings()
@@ -458,7 +458,7 @@ CONTAINS
          RETURN
       END IF
 
-      SELECT CASE (Element % Type % ElementCode / 100)
+      SELECT CASE (Element % TYPE % ElementCode / 100)
       CASE (5)
          SELECT CASE( Element % PDefs % TetraType )
          CASE (1)
@@ -498,7 +498,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t) :: Element
+      TYPE(Element_t) :: Element
       INTEGER, POINTER :: faceEdgeMap(:,:)
       
       IF (.NOT. MInit) CALL InitializeMappings()
@@ -510,7 +510,7 @@ CONTAINS
          RETURN
       END IF
 
-      SELECT CASE (Element % Type % ElementCode / 100)
+      SELECT CASE (Element % TYPE % ElementCode / 100)
       CASE (5)
          SELECT CASE( Element % PDefs % TetraType )
          CASE (1)
@@ -679,7 +679,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     IMPLICIT NONE
 !------------------------------------------------------------------------------
-    Type(Element_t) :: Element
+    TYPE(Element_t) :: Element
     INTEGER :: EdgeDOFs
     INTEGER, INTENT(IN) :: p
 
@@ -719,7 +719,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     
-    Type(Element_t) :: Element
+    TYPE(Element_t) :: Element
     INTEGER, INTENT(IN) :: p
     INTEGER, INTENT(IN), OPTIONAL :: faceNumber
     INTEGER :: faceDOFs
@@ -731,7 +731,7 @@ CONTAINS
     END IF
 
     faceDOFs = 0
-    SELECT CASE(Element % Type % ElementCode / 100)
+    SELECT CASE(Element % TYPE % ElementCode / 100)
     ! Tetrahedron
     CASE (5)
        IF (p >= 3) faceDOFs = (p-1)*(p-2)/2
@@ -784,7 +784,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     
-    Type(Element_t) :: Element
+    TYPE(Element_t) :: Element
     INTEGER, INTENT(IN) :: p
     INTEGER :: bubbleDOFs
     
@@ -796,7 +796,7 @@ CONTAINS
 
     ! Select by element type
     bubbleDOFs = 0
-    SELECT CASE (Element % Type % ElementCode / 100)
+    SELECT CASE (Element % TYPE % ElementCode / 100)
     ! Line 
     CASE (2)
       IF (p >= 2) bubbleDOFs = p - 1
@@ -845,7 +845,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), INTENT(IN) :: Element
+      TYPE(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
       retVal = ASSOCIATED(Element % PDefs)
 !------------------------------------------------------------------------------
@@ -870,11 +870,11 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), INTENT(IN) :: Element
+      TYPE(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
 
       ! Check elementcode and p element flag
-      retVal = Element % Type % ElementCode/100==3 .AND. isPElement(Element)
+      retVal = Element % TYPE % ElementCode/100==3 .AND. isPElement(Element)
 !------------------------------------------------------------------------------
     END FUNCTION isPTriangle
 !------------------------------------------------------------------------------
@@ -897,11 +897,11 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), INTENT(IN) :: Element
+      TYPE(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
 
       ! Check elementcode and p element flag
-      retVal = Element % Type % ElementCode/100==4 .AND. isPElement(Element)
+      retVal = Element % TYPE % ElementCode/100==4 .AND. isPElement(Element)
 !------------------------------------------------------------------------------
     END FUNCTION isPQuad
 !------------------------------------------------------------------------------
@@ -924,10 +924,10 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), INTENT(IN) :: Element
+      TYPE(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
 
-      retVal = Element % Type % ElementCode/100==5 .AND. isPElement(Element)
+      retVal = Element % TYPE % ElementCode/100==5 .AND. isPElement(Element)
 !------------------------------------------------------------------------------
     END FUNCTION isPTetra
 !------------------------------------------------------------------------------
@@ -950,10 +950,10 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), INTENT(IN) :: Element
+      TYPE(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
 
-      retVal = Element % Type % ElementCode/100==7 .AND. isPElement(Element)
+      retVal = Element % TYPE % ElementCode/100==7 .AND. isPElement(Element)
 !------------------------------------------------------------------------------
     END FUNCTION isPWedge
 !------------------------------------------------------------------------------
@@ -976,10 +976,10 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), INTENT(IN) :: ELement
+      TYPE(Element_t), INTENT(IN) :: ELement
       LOGICAL :: retVal
 
-      retVal = Element % Type % ElementCode/100==6 .AND. isPElement(Element)
+      retVal = Element % TYPE % ElementCode/100==6 .AND. isPElement(Element)
 !------------------------------------------------------------------------------
     END FUNCTION isPPyramid
 !------------------------------------------------------------------------------
@@ -1001,14 +1001,16 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), INTENT(IN) :: ELement
+      TYPE(Element_t), INTENT(IN) :: ELement
       LOGICAL :: retVal
 
-      retVal = Element % Type % ElementCode/100==8 .AND. isPElement(Element)
+      retVal = Element % TYPE % ElementCode/100==8 .AND. isPElement(Element)
 !------------------------------------------------------------------------------
     END FUNCTION isPBrick
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Get the number of gauss points for P-elements.
 !------------------------------------------------------------------------------
     FUNCTION getNumberOfGaussPoints( Element, Mesh ) RESULT(ngp)
 !------------------------------------------------------------------------------
@@ -1016,7 +1018,9 @@ CONTAINS
       
       TYPE(Element_t) :: Element
       TYPE(Mesh_t), POINTER :: Mesh 
-      INTEGER :: edgeP, faceP, bubbleP, ngp, nb
+      INTEGER :: ngp
+!------------------------------------------------------------------------------
+      INTEGER :: edgeP, faceP, bubbleP, nb, maxp
 
       IF (.NOT. ASSOCIATED(Element % PDefs)) THEN
          CALL Warn('PElementBase::getNumberOfGaussPoints','Element not p element')
@@ -1026,14 +1030,14 @@ CONTAINS
 
       ! Max p of edges
       edgeP = 0
-      IF ( Element % Type % Dimension == 2 .OR. &
-           Element % Type % Dimension == 3) THEN
+      IF ( Element % TYPE % DIMENSION == 2 .OR. &
+           Element % TYPE % DIMENSION == 3) THEN
          edgeP = getEdgeP( Element, Mesh )
       END IF
       
       ! Max p of faces
       faceP = 0
-      IF ( Element % Type % Dimension == 3 ) THEN
+      IF ( Element % TYPE % DIMENSION == 3 ) THEN
          faceP = getFaceP(Element, Mesh )
       END IF
       
@@ -1042,7 +1046,7 @@ CONTAINS
       IF (Element % BDOFs > 0) THEN
          bubbleP = Element % PDefs % P
          
-         SELECT CASE( Element % Type % ElementCode / 100 )
+         SELECT CASE( Element % TYPE % ElementCode / 100 )
          CASE(3)
              nb = MAX( GetBubbleDOFs( Element, bubbleP ), Element % BDOFs )
              bubbleP = NINT( ( 3.0d0+SQRT(1.0d0+8.0d0*nb) ) / 2.0d0 )
@@ -1074,9 +1078,8 @@ CONTAINS
       END IF
 
       ! Get number of Gauss points. Number needed is 2*max(p)=2*(max(p)+1)/2
-      ngp = MAX(1, edgeP, faceP, bubbleP)
-      ngp = (ngp+1)
-      ngp = ngp ** Element % Type % Dimension
+      maxp = MAX(1, edgeP, faceP, bubbleP) + 1
+      ngp = maxp ** Element % TYPE % DIMENSION
 !------------------------------------------------------------------------------
     END FUNCTION getNumberOfGaussPoints
 !------------------------------------------------------------------------------
@@ -1102,7 +1105,7 @@ CONTAINS
       ! Get max p of edges of element if any
       edgeP = 0
       IF (ASSOCIATED(Element % EdgeIndexes)) THEN
-         DO i=1, Element % Type % NumberOfEdges
+         DO i=1, Element % TYPE % NumberOfEdges
             Edge => Mesh % Edges(Element % EdgeIndexes(i))
             ! Here if edge has no dofs it effectively has degree of 0
             IF (Edge % BDOFs <= 0) CYCLE
@@ -1131,7 +1134,7 @@ CONTAINS
 
       faceP = 0
       IF (ASSOCIATED(Element % FaceIndexes)) THEN
-         DO i=1,Element % Type % NumberOfFaces
+         DO i=1,Element % TYPE % NumberOfFaces
             Face => Mesh % Faces( Element % FaceIndexes(i) )
             ! Here if face has no dofs it effectively has degree of 0
             IF (Face % BDOFs <= 0) CYCLE
@@ -1148,12 +1151,14 @@ CONTAINS
       IMPLICIT NONE
 
       TYPE(Element_t), POINTER :: Face, Edge
+      INTEGER :: ngp
+!------------------------------------------------------------------------------
       TYPE(Mesh_t), POINTER :: Mesh
-      INTEGER :: ngp, edgeP, i
+      INTEGER :: edgeP, i, maxp
 
       ! Get max p of edges contained in face
       edgeP = 0
-      DO i=1, Face % Type % NumberOfEdges
+      DO i=1, Face % TYPE % NumberOfEdges
          Edge => Mesh % Edges ( Face % EdgeIndexes(i) )
          edgeP = MAX(edgeP, Edge % PDefs % P)
       END DO
@@ -1165,7 +1170,8 @@ CONTAINS
       END IF
 
       ! Get number of Gauss points
-      ngp = (MAX(edgeP, Face % PDefs % P) + 1) ** 2
+      maxp = MAX(edgeP, Face % PDefs % P) + 1
+      ngp = maxp ** 2
 !------------------------------------------------------------------------------
     END FUNCTION
 !------------------------------------------------------------------------------
@@ -1189,7 +1195,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     
-    Type(Element_t) :: Element
+    TYPE(Element_t) :: Element
     INTEGER :: n
     REAL(KIND=dp) :: U(:), V(:), W(:)
 
@@ -1200,10 +1206,10 @@ CONTAINS
     END IF
 
     ! Reserve space for element nodes
-    n = Element % Type % NumberOfNodes
+    n = Element % TYPE % NumberOfNodes
 
     ! Select by element type given
-    SELECT CASE(Element % Type % ElementCode / 100)
+    SELECT CASE(Element % TYPE % ElementCode / 100)
     ! Line
     CASE(2)
        U(1:n) = (/ -1d0,1d0 /)
