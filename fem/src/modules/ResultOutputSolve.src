@@ -1499,9 +1499,10 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     nsize = NumberOfAllElements
   END IF
 
-
-
-  BCOffSet = Model % NumberOfBodies
+  BCOffSet = 100
+  DO WHILE( BCOffset <= Model % NumberOfBodies ) 
+    BCOffset = 10 * BCOffset
+  END DO
 
   WRITE(10,'(A)') '$Elements'
   WRITE(10,'(I8)') nsize
@@ -3049,9 +3050,9 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   INTEGER :: NumberOfNodes, NumberOfElements, ParallelNodes, ParallelElements
   TYPE(Element_t), POINTER :: CurrentElement
   TYPE(ValueList_t),POINTER :: Params
-  INTEGER :: MaxModes
+  INTEGER :: MaxModes, BCOffset
   INTEGER, POINTER :: ActiveModes(:)
-  LOGICAL :: GotActiveModes, EigenAnalysis
+  LOGICAL :: GotActiveModes, EigenAnalysis, WriteIds
 
 ! Parameters for buffered binary output
   INTEGER :: BufferSize
@@ -3141,6 +3142,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
+
   IF(MaskExists) THEN
     CALL Info('VtuOutputSolver','Using > '// TRIM(Str) // ' < as mask variable')
     NumberOfNodes = 0
@@ -3218,6 +3220,13 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL Info('VtuOutputSolver','Saving each eigenmode to different file')
     FileIndex = 1
   END IF
+
+  WriteIds = ListGetLogical( Params,'Save Ids',GotIt)  
+  BCOffset = 100
+  DO WHILE( BCOffset <= Model % NumberOfBodies ) 
+    BCOffset = 10 * BCOffset
+  END DO
+  
 
  100   CONTINUE
 
@@ -3843,6 +3852,60 @@ CONTAINS
       END DO
     END DO
 
+    !---------------------------------------------------------------------
+    ! If requested write the body and bc indexes
+    !---------------------------------------------------------------------
+    IF( WriteIds ) THEN
+      !---------------------------------------------------------------------
+      ! Finally save the field values 
+      !---------------------------------------------------------------------
+      IF( WriteXML ) THEN
+        CALL Info('WriteVtuFile','Writing body and BC indexes')
+
+        WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="Ids"'
+        CALL StrWrite( OutStr )
+          
+        IF( AsciiOutput ) THEN
+          WRITE( OutStr,'(A)') ' format="ascii">'//lf
+          CALL StrWrite( OutStr ) 
+        ELSE
+          WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+          CALL StrWrite( OutStr ) 
+        END IF
+      END IF
+        
+      IF( BinaryOutput ) THEN
+        k = IntSize * NumberOfElements
+        Offset = Offset + IntSize + k
+      END IF
+              
+      IF( WriteData ) THEN        
+        IF( BinaryOutput ) WRITE( VtuUnit ) k
+        
+        DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements                    
+          CurrentElement => Model % Elements(i)
+          IF( MaskExists ) THEN
+            IF( ANY(MaskPerm(CurrentElement % NodeIndexes) == 0) ) CYCLE
+          END IF
+          
+          IF( i <= Model % NumberOfBulkElements ) THEN
+            j = CurrentElement % BodyId
+          ELSE
+            j = GetBCId( CurrentElement ) + BCOffset
+          END IF
+          
+          CALL IntegerWrite( j )
+        END DO        
+        CALL IntegerWrite( 0, .TRUE. )
+      END IF
+        
+      IF( AsciiOutput ) THEN
+        WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+        CALL StrWrite( OutStr ) 
+      END IF
+    END IF
+
+
     IF( WriteXML ) THEN
       WRITE( OutStr,'(A)') '      </CellData>'//lf
       CALL StrWrite( OutStr ) 
@@ -4335,15 +4398,18 @@ CONTAINS
 
     ! Elementwise information
     !-------------------------------------
-    IF(.FALSE.) THEN
+
+    ! Body and BC indexes
+    IF( WriteIds ) THEN
       WRITE( VtuUnit,'(A)') '      <PCellData>'
       IF( AsciiOutput ) THEN
-        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="body" format="ascii"/>'
+        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="Ids" format="ascii"/>'
       ELSE
-        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="body" format="appended"/>'        
+        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="Ids" format="appended"/>'        
       END IF
       WRITE( VtuUnit,'(A)') '      </PCellData>'
     END IF
+
 
     ! Coordinates of each point
     !-------------------------------------
