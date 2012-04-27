@@ -2455,9 +2455,9 @@ TYPE(valuelist_t), POINTER :: lst
 !------------------------------------------------------------------------------
 !   Open restart file and search for the right position
 !------------------------------------------------------------------------------
-    CALL Info( 'LoadRestartFile',' ', Level = 3)
-    CALL Info( 'LoadRestartFile','--------------------------------------------', Level=3 )
-    CALL Info( 'LoadRestartFile','Reading data from file: '//TRIM(RestartFile), Level = 3 )
+    CALL Info( 'LoadRestartFile',' ', Level = 4)
+    CALL Info( 'LoadRestartFile','--------------------------------------------', Level= 4 )
+    CALL Info( 'LoadRestartFile','Reading data from file: '//TRIM(RestartFile), Level = 4 )
 
     Cont = .FALSE.
     IF ( PRESENT( Continuous ) ) Cont = Continuous
@@ -2493,23 +2493,23 @@ TYPE(valuelist_t), POINTER :: lst
         Binary = .TRUE.
         FmtVersion = 1
         E = Row(1:1)
-        CALL Info( 'LoadRestartFile', TRIM(Row(3:)), Level=3 )
+        CALL Info( 'LoadRestartFile', TRIM(Row(3:)), Level = 4 )
     ELSE IF ( Row(2:7) == 'BINARY' ) THEN
         Binary = .TRUE.
         FmtVersion = 2
         i = INDEX( Row, "." )
         E = Row(i+1:i+1)
-        CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level=3 )
+        CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level = 4 )
     ELSE IF ( Row(2:7) == 'ASCII' ) THEN
         Binary = .FALSE.
         FmtVersion = 1
-        CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level=3 )
+        CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level = 4 )
     ELSE 
         Binary = .FALSE.
         FmtVersion = 0
-        CALL Info( 'LoadRestartFile', 'ASCII 0', Level=3 )
+        CALL Info( 'LoadRestartFile', 'ASCII 0', Level = 4 )
     END IF
-    CALL Info( 'LoadRestartFile',' ', Level = 3)
+    CALL Info( 'LoadRestartFile',' ', Level = 4)
 
     DO WHILE( ReadAndTrim(RestartUnit,Row) )
       IF ( Row(1:18) == 'degrees of freedom' ) EXIT
@@ -2662,6 +2662,10 @@ TYPE(valuelist_t), POINTER :: lst
       IF ( ASSOCIATED( TimeVar ) )  TimeVar % Values(1)  = Time
       IF ( ASSOCIATED( tStepVar ) ) tStepVar % Values(1) = Timestep
 
+      WRITE( Message,'(A,ES12.3)') 'Reading time sequence: ',Time
+      CALL Info( 'LoadRestartFile',Message, Level=4)
+
+
       DO i=1,DOFs
          IF ( PosFile ) THEN
             Pos = GetPosition( PosUnit,TimeCount,i )
@@ -2766,10 +2770,10 @@ TYPE(valuelist_t), POINTER :: lst
     tstop = CPUTime()
     
     WRITE( Message,'(A,F8.2)') 'Time spent for restart (s): ', tstop - tstart
-    CALL Info( 'LoadRestartFile',Message, Level=3)
-    CALL Info( 'LoadRestartFile', 'All done', Level=3 )
-    CALL Info( 'LoadRestartFile','--------------------------------------------', Level=3 )
-    CALL Info( 'LoadRestartFile', ' ', Level = 3 )
+    CALL Info( 'LoadRestartFile',Message, Level = 4)
+    CALL Info( 'LoadRestartFile', 'All done', Level = 4 )
+    CALL Info( 'LoadRestartFile','--------------------------------------------', Level = 4 )
+    CALL Info( 'LoadRestartFile', ' ', Level = 4 )
 
 
 CONTAINS
