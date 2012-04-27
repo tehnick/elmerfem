@@ -2447,10 +2447,10 @@ TYPE(valuelist_t), POINTER :: lst
     REAL(KIND=dp), POINTER :: Velocity1(:),Velocity2(:),Velocity3(:),Pressure(:)
     INTEGER(KIND=IntOff_k) :: Pos
     CHARACTER(1) :: E
-    REAL(dp) :: tstart, tstop
+    REAL(dp) :: tstart, tstop, CPUTime
     SAVE DOFs
 
-    CALL CPU_TIME(tstart)
+    tstart = CPUTime()
     Perm => NULL()
 !------------------------------------------------------------------------------
 !   Open restart file and search for the right position
@@ -2763,10 +2763,10 @@ TYPE(valuelist_t), POINTER :: lst
       Var => Var % Next
     END DO
 
-    CALL CPU_TIME(tstop)
+    tstop = CPUTime()
     
-    WRITE( Message,* ) 'Restart time = ', tstop - tstart
-    CALL Info( 'LoadRestartFile',Message)
+    WRITE( Message,'(A,F8.2)') 'Time spent for restart (s): ', tstop - tstart
+    CALL Info( 'LoadRestartFile',Message, Level=3)
     CALL Info( 'LoadRestartFile', 'All done', Level=3 )
     CALL Info( 'LoadRestartFile','--------------------------------------------', Level=3 )
     CALL Info( 'LoadRestartFile', ' ', Level = 3 )
