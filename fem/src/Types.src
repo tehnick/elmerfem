@@ -322,6 +322,23 @@ MODULE Types
      CHARACTER(LEN=MAX_NAME_LEN) :: Name,DependName
    END TYPE ValueList_t
 
+   ! This is a tentative data type to speed up the retrieval of parameters
+   ! at Gaussian points.
+   !----------------------------------------------------------------------
+   TYPE ValueHandle_t
+     TYPE(Element_t), POINTER :: Element => NULL()
+     TYPE(ValueList_t), POINTER :: List => NULL(), ptr => NULL()
+     TYPE(Nodes_t), POINTER :: Nodes
+     INTEGER, POINTER :: Indexes
+     INTEGER :: n 
+     REAL(KIND=dp), POINTER :: Values(:)
+     REAL(KIND=dp) :: ConstantValue 
+     LOGICAL :: AllocationsDone = .FALSE.
+     LOGICAL :: ConstantEverywhere = .FALSE.
+     LOGICAL :: ConstantInList = .FALSE.
+     LOGICAL :: ConstantInElement = .FALSE.
+   END TYPE ValueHandle_t
+
 !------------------------------------------------------------------------------
 
    TYPE MaterialArray_t
@@ -422,6 +439,7 @@ MODULE Types
      INTEGER :: Degree, Level
      TYPE(ListMatrixEntry_t), POINTER :: Head
    END TYPE ListMatrix_t
+
 !------------------------------------------------------------------------------
 
    TYPE Factors_t 
