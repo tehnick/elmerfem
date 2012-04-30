@@ -1219,7 +1219,7 @@ END SUBROUTINE GetMaxDefs
     REAL(KIND=dp) :: x(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
            TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist, alpha, Angles(3), &
            x1_min(3), x1_max(3), x2_min(3), x2_max(3), x2r_min(3), x2r_max(3), scl(3), &
-           ds, s1, Normal1(3), Normal2(3), Dot1Min, Dot2Min, Normal2r(3)
+           ds, s1, s2, Normal1(3), Normal2(3), Dot1Min, Dot2Min, Normal2r(3)
 
     SAVE Parray
 !------------------------------------------------------------------------------
@@ -1632,22 +1632,35 @@ END SUBROUTINE GetMaxDefs
         SclMatrix(i,i) = Parray(i,1)
       END DO
     ELSE
-      ! Define scaling so that the bounding box that includes the boundaries 
-      ! is of same size.
+      ! Define scaling from the bounding boxes
       !----------------------------------------------------------------------
       
-      DO i=1,3
-        scl(i) = x2r_max(i) - x2r_min(i)
+      IF( .FALSE. ) THEN
+        ! This makes scaling componentwise
+        ! Currently it is disabled!
+        DO i=1,3
+          scl(i) = x2r_max(i) - x2r_min(i)
           
-        IF( ABS( scl(i) ) > AEPS ) THEN
-          scl(i) = ( x1_max(i) - x1_min(i) ) / scl(i)
-        END IF
-
-        SclMatrix(i,i) = scl(i)
-      END DO
+          IF( ABS( scl(i) ) > AEPS ) THEN
+            scl(i) = ( x1_max(i) - x1_min(i) ) / scl(i)
+          ELSE
+            scl(i) = 1.0_dp
+          END IF
+        END DO
+      ELSE        
+        ! This assumes isotropic scaling since the previous
+        ! was prone to errors when the surfaces were almost, 
+        ! but not quite, aligned with some coordinate direction.
+        s1 = SUM( ( x1_max(1:3) - x1_min(1:3) ) ** 2 )
+        s2 = SUM( ( x2r_max(1:3) - x2r_min(1:3) ) ** 2 )
+        scl(1:3)  = SQRT( s1 / s2 )
+      END IF
 
       WRITE(Message,'(A,3ES12.3)') 'Scaling: ',scl
       CALL Info('PeriodicProjector',Message)
+      DO i=1,3 
+        SclMatrix(i,i) = scl(i)        
+      END DO
     END IF
 
 
