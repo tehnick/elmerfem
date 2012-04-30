@@ -3858,7 +3858,7 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
 
-  CALL Info('ElementSizeSolver','Computing nodal element size indicator')
+  CALL Info('GetNodalElementSize','Computing nodal element size indicator')
 
 
   ALLOCATE( Solver )
@@ -3914,7 +3914,7 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
   N = Mesh % MaxElementNodes ! just big enough for elemental arrays
   ALLOCATE( FORCE(N), STIFF(N,N), STAT=istat )
   IF ( istat /= 0 ) THEN
-    CALL Fatal( 'ElementSizeSolver', 'Memory allocation error.' )
+    CALL Fatal( 'GetNodalElementSize', 'Memory allocation error.' )
   END IF
   
   ElemMin =  HUGE(ElemMin)
@@ -3952,11 +3952,11 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
   
 
   WRITE(Message,'(A,2ES12.4)') 'Minimum Element Size: ',ElemMin, MINVAL(h)
-  CALL Info('ElementSizeSolver',Message)
+  CALL Info('GetNodalElementSize',Message)
   WRITE(Message,'(A,2ES12.4)') 'Maximum Element Size: ',ElemMax, MAXVAL(h)
-  CALL Info('ElementSizeSolver',Message)
+  CALL Info('GetNodalElementSize',Message)
   WRITE(Message,'(A,2ES12.4)') 'Element Size Ratio: ',ElemMax / ElemMin, MAXVAL(h)/MINVAL(h)
-  CALL Info('ElementSizeSolver',Message)
+  CALL Info('GetNodalElementSize',Message)
 
   Model % Solver=>NULL()
   DEALLOCATE(Mesh % Variables)
