@@ -1277,7 +1277,8 @@ END SUBROUTINE GetMaxDefs
     BMesh2 % MaxElementNodes = 0
     Dot1Min = HUGE( Dot1Min ) 
     Dot2Min = HUGE( Dot2Min )
-
+    NoBothActive = 0
+	
     DO i=1, Mesh % NumberOfBoundaryElements
        Element => Elements(i)
        IF ( dim > 1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
@@ -1348,11 +1349,8 @@ END SUBROUTINE GetMaxDefs
 
     ConstantNormals = ( 1 - Dot1Min < 1.0d-6 ) .AND. ( 1 - Dot2Min < 1.0e-6 )     
     
-
- 
     BMesh1 % NumberOfBulkElements = n1
     BMesh2 % NumberOfBulkElements = n2
-
 
 !   Fill in the mesh node structures with the
 !   boundary nodes:
@@ -1394,9 +1392,6 @@ END SUBROUTINE GetMaxDefs
     CALL AllocateVector( InvPerm1, BMesh1 % NumberOfNodes )
     CALL AllocateVector( InvPerm2, BMesh2 % NumberOfNodes )
 
-
-
-       
     x1_min = HUGE( dp ); x1_max = -HUGE( dp )
     x2_min = HUGE( dp ); x2_max = -HUGE( dp )
     x2r_min = HUGE( dp ); x2r_max = -HUGE( dp )
