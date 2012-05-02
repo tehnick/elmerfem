@@ -4165,7 +4165,7 @@ CONTAINS
 
   SUBROUTINE WritePvdFile( PvdFile, DataSetFile, nTime, Model )
     CHARACTER(LEN=*), INTENT(IN) :: PvdFile, DataSetFile
-    INTEGER :: nTime, RecLen
+    INTEGER :: nTime, RecLen = 0
     TYPE(Model_t) :: Model     
     INTEGER, PARAMETER :: VtuUnit = 58
     INTEGER :: n
@@ -4186,7 +4186,7 @@ CONTAINS
     END IF
 
 
-    IF( nTime == 1 ) THEN
+    IF( nTime == 1 .OR. Reclen == 0 ) THEN
       ! Find the maximum record length (modulo four)
       WRITE( Str,'(A)') '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian"><Collection>'
       n = LEN_TRIM( Str ) 
@@ -4197,7 +4197,9 @@ CONTAINS
       
       RecLen = ((n/4)+1)*4
       PRINT *,'Record Length: ',RecLen
-     
+    END IF
+
+    IF( nTime == 1 ) THEN
       OPEN( UNIT=VtuUnit, FILE=PvdFile, form = 'formatted', STATUS='REPLACE', &
           ACCESS='DIRECT', ACTION='WRITE', RECL=RecLen)
 
