@@ -4,29 +4,24 @@
 ! *
 ! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
 ! * 
-! *  This program is free software; you can redistribute it and/or
-! *  modify it under the terms of the GNU General Public License
-! *  as published by the Free Software Foundation; either version 2
-! *  of the License, or (at your option) any later version.
-! * 
-! *  This program is distributed in the hope that it will be useful,
-! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! *  GNU General Public License for more details.
+! * This library is free software; you can redistribute it and/or
+! * modify it under the terms of the GNU Lesser General Public
+! * License as published by the Free Software Foundation; either
+! * version 2.1 of the License, or (at your option) any later version.
 ! *
-! *  You should have received a copy of the GNU General Public License
-! *  along with this program (in file fem/GPL-2); if not, write to the 
-! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
-! *  Boston, MA 02110-1301, USA.
+! * This library is distributed in the hope that it will be useful,
+! * but WITHOUT ANY WARRANTY; without even the implied warranty of
+! * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! * Lesser General Public License for more details.
+! * 
+! * You should have received a copy of the GNU Lesser General Public
+! * License along with this library (in file ../LGPL-2.1); if not, write 
+! * to the Free Software Foundation, Inc., 51 Franklin Street, 
+! * Fifth Floor, Boston, MA  02110-1301  USA
 ! *
 ! *****************************************************************************/
 !
 !/******************************************************************************
-! *
-! *  These routines are for parallel version of ELMER solver.
-! *  Subroutines for MPI-communication
-! *
-! ******************************************************************************
 ! *
 ! *  Authors: Jouni Malinen, Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
@@ -38,6 +33,14 @@
 ! *  Original Date: 2000
 ! *
 ! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+!>  These routines are for parallel version of ELMER solver.
+!>  Subroutines for MPI-communication
+!------------------------------------------------------------------------------
+!> \ingroup ElmerLib
+!> \{
+
 
 #include "huti_fdefs.h"
 
@@ -106,12 +109,8 @@ CONTAINS
 !-----------------------------------------------------------------
 
 
-  !********************************************************************
-  !********************************************************************
-  !
-  ! Initialize parallel execution environment
-  !
-   
+!------------------------------------------------------------------------
+!> Initialize parallel execution environment
 !-----------------------------------------------------------------------
    FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
 !-----------------------------------------------------------------------
@@ -156,9 +155,8 @@ CONTAINS
 !-----------------------------------------------------------------------
 
 
-!********************************************************************
-!********************************************************************
-! Initialize parallel execution environment
+!-----------------------------------------------------------------------
+!> Initialize parallel execution environment
 !-----------------------------------------------------------------------
   SUBROUTINE ParEnvInit( SPMatrix, ParallelInfo, SourceMatrix )
 !-----------------------------------------------------------------------
@@ -198,8 +196,8 @@ CONTAINS
 !-----------------------------------------------------------------------
 
 
-!********************************************************************
-! Find active PEs using ParallelInfo % NeighbourList
+!-----------------------------------------------------------------------
+!> Find active PEs using ParallelInfo % NeighbourList
 !-----------------------------------------------------------------------
   SUBROUTINE FindActivePEs( ParallelInfo, SourceMatrix, JustNeighbours )
 !-----------------------------------------------------------------------
@@ -492,11 +490,9 @@ CONTAINS
 !-----------------------------------------------------------------------
 
 
-!***********************************************************************
-! Try to agree about global numbering of nodes among active
-! processes.
 !-----------------------------------------------------------------------
-
+!> Try to agree about global numbering of nodes among active
+!> processes.
 !-----------------------------------------------------------------------
   SUBROUTINE AddToCommonList( list, ENTRY )
 !-----------------------------------------------------------------------
@@ -2756,13 +2752,11 @@ END  SUBROUTINE SParIterAllReduceAnd
 
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! Send all of the interface matrix blocks (in NbsIfMatrices) to neighbour
-! processors. This is done only once so there is no need to optimize
-! communication...
-!
+!--------------------------------------------------------------------------
+!> Send all of the interface matrix blocks (in NbsIfMatrices) to neighbour
+!> processors. This is done only once so there is no need to optimize
+!> communication...
+!--------------------------------------------------------------------------
   SUBROUTINE ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
     USE Types
     IMPLICIT NONE
@@ -2970,13 +2964,12 @@ END SUBROUTINE ExchangeInterfaces
 !*********************************************************************
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! Send all of the interface matrix blocks (in NbsIfMatrices) to neighbour
-! processors. This is done only once so there is no need to optimize
-! communication...
-!
+
+!--------------------------------------------------------------------------
+!> Send all of the interface matrix blocks (in NbsIfMatrices) to neighbour
+!> processors. This is done only once so there is no need to optimize
+!> communication...
+!--------------------------------------------------------------------------
   SUBROUTINE ExchangeIfvalues( NbsIfMatrix, RecvdIfMatrix, &
              NeedMass, NeedDamp, NeedPrec )
     USE Types
@@ -3464,11 +3457,10 @@ END SUBROUTINE ExchangeSourceVec
 !*********************************************************************
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! Exchange right-hand-side elements on the interface with neighbours
-!
+
+!----------------------------------------------------------------------
+!> Exchange right-hand-side elements on the interface with neighbours
+!----------------------------------------------------------------------
 SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
           ParallelInfo, SourceRHS, TargetRHS )
 
@@ -3640,13 +3632,10 @@ END SUBROUTINE ExchangeRHSIf
 !*********************************************************************
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! Send parts of the result vector to neighbours
-!
-!
-!*********************************************************************
+
+!----------------------------------------------------------------------
+!> Send parts of the result vector to neighbours
+!----------------------------------------------------------------------
 SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
   USE types
   IMPLICIT NONE
@@ -3805,9 +3794,9 @@ END SUBROUTINE ExchangeResult
 !*********************************************************************
 !*********************************************************************
 !
-! Build index tables for faster vector element combination (in parallel
-! matrix-vector operation).
-!
+!> Build index tables for faster vector element combination (in parallel
+!> matrix-vector operation).
+!-----------------------------------------------------------------------
 SUBROUTINE BuildRevVecIndices( SplittedMatrix )
   IMPLICIT NONE
 
@@ -3961,8 +3950,8 @@ END SUBROUTINE BuildRevVecIndices
 !*********************************************************************
 !*********************************************************************
 !
-! Send our part of the interface matrix blocks to neighbours.
-!
+!> Send our part of the interface matrix blocks to neighbours.
+!----------------------------------------------------------------------
 SUBROUTINE Send_LocIf_Old( SplittedMatrix )
 
   USE types
@@ -4043,8 +4032,8 @@ END SUBROUTINE Send_LocIf_Old
 !*********************************************************************
 !*********************************************************************
 !
-! Receive interface block contributions to vector from neighbours
-!
+!> Receive interface block contributions to vector from neighbours.
+!----------------------------------------------------------------------
 SUBROUTINE Recv_LocIf_Old( SplittedMatrix, ndim, v )
 
   USE types
@@ -4101,8 +4090,8 @@ END SUBROUTINE Recv_LocIf_Old
 
 !*********************************************************************
 !*********************************************************************
-! Send our part of the interface matrix blocks to neighbours.
-!
+!> Send our part of the interface matrix blocks to neighbours.
+!----------------------------------------------------------------------
 SUBROUTINE Send_LocIf_size( SplittedMatrix, n, neigh )
 
   USE types
@@ -4146,7 +4135,7 @@ END SUBROUTINE Send_LocIf_size
 
 !*********************************************************************
 !*********************************************************************
-! Send our part of the interface matrix blocks to neighbours.
+!> Send our part of the interface matrix blocks to neighbours.
 !
 SUBROUTINE Send_LocIf( SplittedMatrix,n,neigh )
 
@@ -4247,7 +4236,7 @@ END SUBROUTINE Send_LocIf
 !*********************************************************************
 !*********************************************************************
 !
-! Receive interface block contributions to vector from neighbours
+!> Receive interface block contributions to vector from neighbours
 !
 SUBROUTINE Recv_LocIf_size( n, neigh, sizes )
   USE Types
@@ -4276,7 +4265,7 @@ END SUBROUTINE Recv_LocIf_size
 !*********************************************************************
 !*********************************************************************
 !
-! Receive interface block contributions to vector from neighbours
+!> Receive interface block contributions to vector from neighbours
 !
 SUBROUTINE Recv_LocIf( SplittedMatrix, n, neigh, &
               sizes, requests, buffer )
@@ -4318,7 +4307,7 @@ END SUBROUTINE Recv_LocIf
 !*********************************************************************
 !*********************************************************************
 !
-! Receive interface block contributions to vector from neighbours
+!> Receive interface block contributions to vector from neighbours
 !
 SUBROUTINE Recv_LocIf_Wait( SplittedMatrix, ndim, v, n, neigh, &
                sizes, requests, buffer )
@@ -4435,7 +4424,7 @@ END FUNCTION SParDotProd
 !*********************************************************************
 !*********************************************************************
 !
-! Compute global 2-norm of vector x
+!> Compute global 2-norm of vector x
 !
 FUNCTION SParNorm( ndim, x, xind ) RESULT(dres)
   IMPLICIT NONE
@@ -4463,7 +4452,7 @@ END FUNCTION SParNorm
 !*********************************************************************
 !*********************************************************************
 !
-! Compute global dot product of vectors x and y
+!> Compute global dot product of vectors x and y
 !
 FUNCTION SParCDotProd( ndim, x, xind, y, yind ) result (dres)
 
@@ -4504,7 +4493,7 @@ END FUNCTION SParCDotProd
 !*********************************************************************
 !*********************************************************************
 !
-! Compute global 2-norm of vector x
+!> Compute global 2-norm of vector x
 !
 FUNCTION SParCNorm( ndim, x, xind ) result (norm)
   IMPLICIT NONE
@@ -4534,7 +4523,7 @@ END FUNCTION SParCNorm
 !*********************************************************************
 !*********************************************************************
 !
-! Finalize MPI environment
+!> Finalize MPI environment
 !
 SUBROUTINE ParEnvFinalize()
   IMPLICIT NONE
@@ -4559,9 +4548,9 @@ END SUBROUTINE ParEnvFinalize
 
 !*********************************************************************
 !
-! Search an element QueriedNode from an ordered set Nodes and return
-! Index to Nodes structure. Return value -1 means QueriedNode was
-! not found.
+!> Search an element QueriedNode from an ordered set Nodes and return
+!> Index to Nodes structure. Return value -1 means QueriedNode was
+!> not found.
 !
 FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last,Order ) RESULT ( Indx )
 
@@ -4652,8 +4641,8 @@ END FUNCTION SearchNode
 !*********************************************************************
 !*********************************************************************
 !
-! Search an element Item from an ordered integer array(N) and return
-! Index to that array element. Return value -1 means Item was not found.
+!> Search an element Item from an ordered integer array(N) and return
+!> Index to that array element. Return value -1 means Item was not found.
 !
 FUNCTION SearchIAItem( N, IArray, Item, SortOrder, sIndx ) RESULT ( Indx )
 
@@ -4714,8 +4703,8 @@ END FUNCTION SearchIAItem
 
 
 !*********************************************************************
-! Search an element Item from an ordered integer array(N) and return
-! Index to that array element. Return value -1 means Item was not found.
+!> Search an element Item from an ordered integer array(N) and return
+!> Index to that array element. Return value -1 means Item was not found.
 !
 FUNCTION SearchIAItemLinear( N, IArray, Item ) RESULT ( Indx )
 
@@ -4744,3 +4733,5 @@ END FUNCTION SearchIAItemLinear
 
 
 END MODULE SParIterComm
+
+!> \}

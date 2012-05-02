@@ -4,20 +4,20 @@
 ! *
 ! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
 ! * 
-! *  This program is free software; you can redistribute it and/or
-! *  modify it under the terms of the GNU General Public License
-! *  as published by the Free Software Foundation; either version 2
-! *  of the License, or (at your option) any later version.
-! * 
-! *  This program is distributed in the hope that it will be useful,
-! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! *  GNU General Public License for more details.
+! *  This library is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU Lesser General Public
+! *  License as published by the Free Software Foundation; either
+! *  version 2.1 of the License, or (at your option) any later version.
 ! *
-! *  You should have received a copy of the GNU General Public License
-! *  along with this program (in file fem/GPL-2); if not, write to the 
-! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
-! *  Boston, MA 02110-1301, USA.
+! *  This library is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! *  Lesser General Public License for more details.
+! * 
+! *  You should have received a copy of the GNU Lesser General Public
+! *  License along with this library (in file ../LGPL-2.1); if not, write 
+! *  to the Free Software Foundation, Inc., 51 Franklin Street, 
+! *  Fifth Floor, Boston, MA  02110-1301  USA
 ! *
 ! *****************************************************************************/
 !
@@ -934,7 +934,7 @@
 
      TYPE(Solver_t), POINTER :: Solver
 
-     REAL(KIND=dp) :: RealTime, newtime, prevtime=0, maxtime
+     REAL(KIND=dp) :: RealTime, newtime, prevtime=0, maxtime, exitcond
      REAL(KIND=dp), ALLOCATABLE :: xx(:,:), xxnrm(:), yynrm(:), PrevXX(:,:,:)
 
 
@@ -1220,12 +1220,18 @@
          END IF
 !------------------------------------------------------------------------------
 
-         maxtime = ListGetConstReal( CurrentModel % Simulation,'Real Time Max',GotIt)
+         maxtime = ListGetCReal( CurrentModel % Simulation,'Real Time Max',GotIt)
          IF( GotIt .AND. RealTime() > maxtime ) THEN
-            CALL Info('MAIN','Reached allowed maximum real time, exiting...')
+            CALL Info('ElmerSolver','Reached allowed maximum real time, exiting...')
             GOTO 100
          END IF
 
+	 exitcond = ListGetCReal( CurrentModel % Simulation,'Exit Condition',GotIt)
+	 IF( GotIt .AND. exitcond > 0.0_dp ) THEN
+            CALL Info('ElmerSolver','Found a positive exit condition, exiting...')
+            GOTO 100
+         END IF
+	 
 !------------------------------------------------------------------------------
 
          IF ( SteadyStateReached .AND. .NOT. (Transient .OR. Scanning) ) THEN

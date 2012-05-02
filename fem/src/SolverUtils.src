@@ -41,6 +41,9 @@
 !> Basic utilities used by individual solvers. 
 !------------------------------------------------------------------------------
 
+!> \ingroup ElmerLib
+!> \{
+
 
 MODULE SolverUtils
 
@@ -923,7 +926,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
+!> Updates the mass matrix only.
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateMassMatrix( StiffMatrix, LocalMassMatrix, &
                   n, NDOFs, NodeIndexes )
@@ -1958,7 +1961,7 @@ CONTAINS
     END SUBROUTINE SetLimiterValues
 
 
-!> At fisrt pass sum together the rows related to the periodic dofs.
+!> At first pass sum together the rows related to the periodic dofs.
 !------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass1( Model, A, b, &
                       Name, DOF, NDOFs, Perm, This, Done )
@@ -3545,6 +3548,8 @@ END FUNCTION SearchNodeL
 
 
 !------------------------------------------------------------------------------
+!> Rotate a vector to normal-tangential coordinate system.
+!------------------------------------------------------------------------------
   SUBROUTINE RotateNTSystem( Vec, NodeNumber )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: Vec(:)
@@ -3583,6 +3588,9 @@ END FUNCTION SearchNodeL
   END SUBROUTINE RotateNTSystem
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+!> Backrotate a solution from normal-tangential coordinate system to cartesian one.
 !------------------------------------------------------------------------------
   SUBROUTINE BackRotateNTSystem( Solution, Perm, NDOFs )
 !------------------------------------------------------------------------------
@@ -3668,6 +3676,8 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Computes the norm related to a solution vector of the Solver.
 !------------------------------------------------------------------------------
   FUNCTION ComputeNorm(Solver, nin, values) RESULT (Norm)
 !------------------------------------------------------------------------------
@@ -5398,8 +5408,6 @@ SUBROUTINE VariableNameParser(var_name, NoOutput, Global, Dofs )
 END SUBROUTINE VariableNameParser
 
 
-
-
 !------------------------------------------------------------------------------
 !> Updates values for exported variables which are typically auxiliary variables derived
 !> from the solution.
@@ -6344,3 +6352,6 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 
 
 END MODULE SolverUtils
+
+!> \}
+

@@ -4,20 +4,20 @@
 ! *
 ! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
 ! * 
-! *  This program is free software; you can redistribute it and/or
-! *  modify it under the terms of the GNU General Public License
-! *  as published by the Free Software Foundation; either version 2
-! *  of the License, or (at your option) any later version.
-! * 
-! *  This program is distributed in the hope that it will be useful,
-! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! *  GNU General Public License for more details.
+! * This library is free software; you can redistribute it and/or
+! * modify it under the terms of the GNU Lesser General Public
+! * License as published by the Free Software Foundation; either
+! * version 2.1 of the License, or (at your option) any later version.
 ! *
-! *  You should have received a copy of the GNU General Public License
-! *  along with this program (in file fem/GPL-2); if not, write to the 
-! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
-! *  Boston, MA 02110-1301, USA.
+! * This library is distributed in the hope that it will be useful,
+! * but WITHOUT ANY WARRANTY; without even the implied warranty of
+! * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! * Lesser General Public License for more details.
+! * 
+! * You should have received a copy of the GNU Lesser General Public
+! * License along with this library (in file ../LGPL-2.1); if not, write 
+! * to the Free Software Foundation, Inc., 51 Franklin Street, 
+! * Fifth Floor, Boston, MA  02110-1301  USA
 ! *
 ! *****************************************************************************/
 !
@@ -1348,6 +1348,13 @@ END SUBROUTINE GetMaxDefs
     END IF
 
     ConstantNormals = ( 1 - Dot1Min < 1.0d-6 ) .AND. ( 1 - Dot2Min < 1.0e-6 )     
+    IF( ConstantNormals ) THEN
+      ! The full angle between the two normals
+       Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
+       WRITE(Message,'(A,ES12.3)') &
+           'Suggested angle between two normals in degs: ',Alpha 
+       CALL Info('PeriodicProjector',Message,Level=8)
+    END IF
     
     BMesh1 % NumberOfBulkElements = n1
     BMesh2 % NumberOfBulkElements = n2
@@ -1411,30 +1418,34 @@ END SUBROUTINE GetMaxDefs
 !   These are called first since they are not accounted for in the 
 !   automatic scaling and translation.
 !   ---------
+
+
     Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
         'Periodic BC Rotate', GotRotate )
     IF( GotRotate ) THEN
-      Angles(1:3) = Parray(1:3,1)      
-    ELSE IF( .NOT. ConstantNormals ) THEN
-      CALL Warn('PeriodicProjector','Normals are not constant, cannot test for rotation!')
+      Angles(1:3) = Parray(1:3,1)   
     ELSE
       Angles = 0.0_dp
-      
-      Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
-      PRINT *,'Alpha:',Alpha
-      
-      IF( Alpha > EPSILON( Alpha ) ) THEN
-        DO i=1,3
-          IF( ABS ( Normal1(i) - Normal2(i) ) < EPSILON( ds ) ) THEN
-            GotRotate = .TRUE.            
-            WRITE(Message,'(A,I0,A,ES12.3)') &
-                'Rotation around axis ',i,' in degs ',Alpha 
-            Angles(i) = Alpha
-            EXIT
+      IF( ListGetLogical( Model % BCs(This) % Values, &
+          'Periodic BC Rotate Automatic', GotIt ) ) THEN
+        
+        IF( .NOT. ConstantNormals ) THEN
+          CALL Fatal('PeriodicProjector','Normals are not constant, cannot test for rotation!')
+        ELSE IF( Alpha > EPSILON( Alpha ) ) THEN
+          ! Rotation should be performed 
+          DO i=1,3
+            IF( ABS ( Normal1(i) - Normal2(i) ) < EPSILON( ds ) ) THEN
+              GotRotate = .TRUE.            
+              WRITE(Message,'(A,I0,A,ES12.3)') &
+                  'Rotation around axis ',i,' in degs ',Alpha 
+              CALL Info('PeriodicProjector',Message,Level=8)
+              Angles(i) = Alpha
+              EXIT
+            END IF
+          END DO
+          IF(.NOT. GotRotate ) THEN
+            CALL Fatal('PeriodicProjector','could not define rotation axis, improve algorithm!')
           END IF
-        END DO        
-        IF(.NOT. GotRotate ) THEN
-          CALL Warn('PeriodicProjector','could not define rotation axis, improve algorithm!')
         END IF
       END IF
     END IF
@@ -1513,7 +1524,7 @@ END SUBROUTINE GetMaxDefs
         WRITE(Message,'(A,3ES12.3)') 'Initial Target normal: ',Normal2
         CALL Info('PeriodicProjector',Message,Level=8)    
         
-        WRITE(Message,'(A,3ES12.3)') 'Rotated Target normal: ',Normal1
+        WRITE(Message,'(A,3ES12.3)') 'Rotated Target normal: ',Normal2r
         CALL Info('PeriodicProjector',Message,Level=8)    
       
         Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
@@ -1533,6 +1544,8 @@ END SUBROUTINE GetMaxDefs
     END IF
 
 
+    ! Create the master and target meshes that only include the active elements
+    !---------------------------------------------------------------------------
     k1 = 0; k2 = 0
     DO i=1,Mesh % NumberOfNodes
       IF ( Perm1(i) > 0 ) THEN
@@ -1648,10 +1661,14 @@ END SUBROUTINE GetMaxDefs
         ! but not quite, aligned with some coordinate direction.
         s1 = SUM( ( x1_max(1:3) - x1_min(1:3) ) ** 2 )
         s2 = SUM( ( x2r_max(1:3) - x2r_min(1:3) ) ** 2 )
-        scl(1:3)  = SQRT( s1 / s2 )
+        IF( s2 > EPSILON( s2 ) ) THEN
+          scl(1:3)  = SQRT( s1 / s2 )
+        ELSE
+          scl(1:3) = 1.0_dp
+        END IF
       END IF
 
-      WRITE(Message,'(A,3ES12.3)') 'Scaling: ',scl
+      WRITE(Message,'(A,3ES12.3)') 'Scaling with: ',scl(1:3)
       CALL Info('PeriodicProjector',Message)
       DO i=1,3 
         SclMatrix(i,i) = scl(i)        

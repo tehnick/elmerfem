@@ -4,28 +4,23 @@
 ! *
 ! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
 ! * 
-! *  This program is free software; you can redistribute it and/or
-! *  modify it under the terms of the GNU General Public License
-! *  as published by the Free Software Foundation; either version 2
-! *  of the License, or (at your option) any later version.
-! * 
-! *  This program is distributed in the hope that it will be useful,
-! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! *  GNU General Public License for more details.
+! * This library is free software; you can redistribute it and/or
+! * modify it under the terms of the GNU Lesser General Public
+! * License as published by the Free Software Foundation; either
+! * version 2.1 of the License, or (at your option) any later version.
 ! *
-! *  You should have received a copy of the GNU General Public License
-! *  along with this program (in file fem/GPL-2); if not, write to the 
-! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
-! *  Boston, MA 02110-1301, USA.
+! * This library is distributed in the hope that it will be useful,
+! * but WITHOUT ANY WARRANTY; without even the implied warranty of
+! * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! * Lesser General Public License for more details.
+! * 
+! * You should have received a copy of the GNU Lesser General Public
+! * License along with this library (in file ../LGPL-2.1); if not, write 
+! * to the Free Software Foundation, Inc., 51 Franklin Street, 
+! * Fifth Floor, Boston, MA  02110-1301  USA
 ! *
 ! *****************************************************************************/
 !
-!/******************************************************************************
-! *
-! *  This module implements the parallel version of the ELMER
-! *  iterative solver.
-! *
 ! ******************************************************************************
 ! *
 ! *  Authors: Jouni Malinen, Juha Ruokolainen
@@ -41,6 +36,15 @@
 
 #include "huti_fdefs.h"
 
+!------------------------------------------------------------------------------
+!> External Preconditioning operations needed by parallel iterative solvers.
+!> This is the place to do preconditioning steps if needed
+!> Called from HUTIter library
+!------------------------------------------------------------------------------
+!> \ingroup ElmerLib
+!> \{
+
+
 MODULE SParIterPrecond
 
   USE Types
@@ -51,17 +55,9 @@ MODULE SParIterPrecond
   
 CONTAINS
 
-  !*********************************************************************
-  !*********************************************************************
-  !
-  ! External Preconditioning operations
-  !
-  ! This is the place to do preconditioning steps if needed
-  ! Called from HUTIter library
-  !
-  !*********************************************************************
-  !*********************************************************************
-
+  !----------------------------------------------------------------------
+  !> Parallel diagonal preconditioning 
+  !----------------------------------------------------------------------
   SUBROUTINE ParDiagPrec ( u, v, ipar )
 
     ! Input parameters
@@ -81,14 +77,12 @@ CONTAINS
 
   END SUBROUTINE ParDiagPrec
 
-  !*********************************************************************
-  !*********************************************************************
-  !
-  ! This routines performs a forward and backward solve for ILU
-  ! factorization, i.e. solves (LU)u = v.
-  !
-  ! Diagonal values of U must be already inverted
-  
+
+  !------------------------------------------------------------------------
+  !> This routines performs a forward and backward solve for ILU
+  !> factorization, i.e. solves (LU)u = v.
+  !> Diagonal values of U must be already inverted
+  !------------------------------------------------------------------------  
   SUBROUTINE ParLUPrec ( u, v, ipar )
 
     ! Input parameters
@@ -112,7 +106,7 @@ CONTAINS
     Diag => PIGpntr % SplittedMatrix % InsideMatrix % Diag
     Vals => PIGpntr % SplittedMatrix % InsideMatrix % ILUValues
 
-    CALL LUPrec( HUTI_NDIM, Size(Cols), Rows,Cols,Diag,Vals,u,v )
+    CALL LUPrec( HUTI_NDIM, SIZE(Cols), Rows,Cols,Diag,Vals,u,v )
 
 CONTAINS
     
@@ -151,14 +145,12 @@ CONTAINS
 
   END SUBROUTINE ParLUPrec
 
-  !*********************************************************************
-  !*********************************************************************
-  !
-  ! This routines performs a forward solve for ILU
-  ! factorization, i.e. solves Lu = v.
-  !
-  ! Diagonal values of U must be already inverted
 
+  !------------------------------------------------------------------------
+  !> This routines performs a forward solve for ILU
+  !> factorization, i.e. solves Lu = v.
+  !> Diagonal values of U must be already inverted
+  !------------------------------------------------------------------------
   SUBROUTINE ParLPrec ( u, v, ipar )
     
     ! Input parameters
@@ -190,14 +182,12 @@ CONTAINS
 
   END SUBROUTINE ParLPrec
 
-  !*********************************************************************
-  !*********************************************************************
-  !
-  ! This routines performs backward solve for ILU
-  ! factorization, i.e. solves Uu = v.
-  !
-  ! Diagonal values of U must be already inverted
 
+  !-----------------------------------------------------------------------
+  !> This routines performs backward solve for ILU
+  !> factorization, i.e. solves Uu = v.
+  !> Diagonal values of U must be already inverted.
+  !-----------------------------------------------------------------------
   SUBROUTINE ParUPrec ( u, v, ipar )
 
     ! Input parameters
@@ -234,13 +224,12 @@ CONTAINS
 
   END SUBROUTINE ParUPrec
 
-  !*********************************************************************
-  !*********************************************************************
-  !
-  ! This routine is used to perform ILU(0) preconditioning setup
-  ! Incomplete LU factorization is saved to Matrix % ILUValues.
-  ! Diagonal entries are inverted.
-  !
+
+  !-----------------------------------------------------------------------
+  !> This routine is used to perform ILU(0) preconditioning setup
+  !> Incomplete LU factorization is saved to Matrix % ILUValues.
+  !> Diagonal entries are inverted.
+  !-----------------------------------------------------------------------
   
   SUBROUTINE ParILU0 ( Matrix )
 
@@ -290,7 +279,7 @@ CONTAINS
              DO l = Matrix % Rows(Matrix % Cols(k)), &
                   Matrix % Rows(Matrix % Cols(k) + 1) - 1
 
-                IF (Matrix % Cols(l) .eq. Matrix % Cols(j) ) then
+                IF (Matrix % Cols(l) .EQ. Matrix % Cols(j) ) THEN
                    Matrix % ILUValues(j) = Matrix % ILUValues(j) - &
                         Matrix % ILUValues(k) * Matrix % ILUValues(l)
                    EXIT
@@ -312,3 +301,5 @@ CONTAINS
   END SUBROUTINE ParILU0
   
 END MODULE SParIterPrecond
+
+!> \{

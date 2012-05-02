@@ -4,28 +4,24 @@
 ! *
 ! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
 ! * 
-! *  This program is free software; you can redistribute it and/or
-! *  modify it under the terms of the GNU General Public License
-! *  as published by the Free Software Foundation; either version 2
-! *  of the License, or (at your option) any later version.
-! * 
-! *  This program is distributed in the hope that it will be useful,
-! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! *  GNU General Public License for more details.
+! * This library is free software; you can redistribute it and/or
+! * modify it under the terms of the GNU Lesser General Public
+! * License as published by the Free Software Foundation; either
+! * version 2.1 of the License, or (at your option) any later version.
 ! *
-! *  You should have received a copy of the GNU General Public License
-! *  along with this program (in file fem/GPL-2); if not, write to the 
-! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
-! *  Boston, MA 02110-1301, USA.
+! * This library is distributed in the hope that it will be useful,
+! * but WITHOUT ANY WARRANTY; without even the implied warranty of
+! * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! * Lesser General Public License for more details.
+! * 
+! * You should have received a copy of the GNU Lesser General Public
+! * License along with this library (in file ../LGPL-2.1); if not, write 
+! * to the Free Software Foundation, Inc., 51 Franklin Street, 
+! * Fifth Floor, Boston, MA  02110-1301  USA
 ! *
 ! *****************************************************************************/
 !
 !/******************************************************************************
-! *
-! *  These routines are for parallel version of the ELMER solver.
-! *
-! ******************************************************************************
 ! *
 ! *  Authors: Jouni Malinen, Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
@@ -37,6 +33,14 @@
 ! *  Original Date: 2000
 ! *
 ! *****************************************************************************/
+
+!> \ingroup ElmerLib
+!> \{
+
+!------------------------------------------------------------------------------
+!> Module for the parallel iterative solution in Elmer.
+!-------------------------------------------------------------------------------
+
 
 #include "huti_fdefs.h"
 #include "../config.h"
@@ -712,11 +716,9 @@ END FUNCTION SplitMatrix
 !********************************************************************
 
 
-!********************************************************************
-!********************************************************************
-!
-! Zero the splitted matrix (for new non-linear iteration)
-!
+
+!----------------------------------------------------------------------
+!> Zero the splitted matrix (for new non-linear iteration)
 !----------------------------------------------------------------------
 SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
 !----------------------------------------------------------------------
@@ -1090,6 +1092,8 @@ END SUBROUTINE ZeroSplittedMatrix
 
 
 !----------------------------------------------------------------------
+!> Create continuous numbering for the dofs expected by some linear solvers.
+!----------------------------------------------------------------------
   SUBROUTINE ContinuousNumbering(ParallelInfo, Mperm, Aperm, Owner )
 !--------------------------------------------------------------------
      INTEGER :: Mperm(:), Aperm(:), Owner(:)
@@ -1242,10 +1246,10 @@ END SUBROUTINE ZeroSplittedMatrix
 
 
 
-!********************************************************************
-!
-! Call the iterative solver
-!
+
+!--------------------------------------------------------------------
+!> Call the parallel iterative solver
+!--------------------------------------------------------------------
 SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
             RHSVec, Solver, SParMatrixDesc )
 
@@ -1807,11 +1811,10 @@ END SUBROUTINE SParIterSolver
 
 
 
-!*********************************************************************
-!*********************************************************************
+
+!-------------------------------------------------------------------------
 !
-!
-!
+!-------------------------------------------------------------------------
 SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
          RHSVec, XVec, Solver, ErrInfo )
 
@@ -1971,14 +1974,10 @@ END SUBROUTINE Solve
 
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! External Matrix - Vector operations (Parallel real, version)
-!
-! Multiply vector u with the global matrix,  return the result in v
-! Called from HUTIter library
-!
+!---------------------------------------------------------------------
+!> External Matrix - Vector operations (Parallel real, version)
+!> Multiply vector u with the global matrix,  return the result in v
+!> Called from HUTIter library
 !----------------------------------------------------------------------
   SUBROUTINE SParMatrixVector( u,v,ipar )
 !----------------------------------------------------------------------
@@ -2121,14 +2120,11 @@ END SUBROUTINE SParMatrixVector
 !----------------------------------------------------------------------
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! External Matrix - Vector operations (Parallel, complex version)
-!
-! Multiply vector u with the matrix in A_val return the result in v
-! Called from HUTIter library
-!
+!----------------------------------------------------------------------
+!> External Matrix - Vector operations (Parallel, complex version).
+!> Multiply vector u with the matrix in A_val return the result in v
+!> Called from HUTIter library
+!----------------------------------------------------------------------
 SUBROUTINE SParCMatrixVector( u, v, ipar )
 
   IMPLICIT NONE
@@ -2241,17 +2237,13 @@ END SUBROUTINE SParCMatrixVector
 
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! This routine is used to count the nodes which have connections to
-! neighbours the count of connections for neighbour. Then this information
-! is used to allocate some communication buffers.
-!
-!*********************************************************************
+!--------------------------------------------------------------------------
+!> This routine is used to count the nodes which have connections to
+!> neighbours the count of connections for neighbour. Then this information
+!> is used to allocate some communication buffers.
+!--------------------------------------------------------------------------
 SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo )
-!*********************************************************************
-
+!--------------------------------------------------------------------------
   USE Types
   IMPLICIT NONE
 
@@ -2331,16 +2323,12 @@ END SUBROUTINE CountNeighbourConns
 !*********************************************************************
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! This subroutine combines indices of two matrices in CRS format.
-! Row and column indices are assumed to be in sorted order.
-!
-!*********************************************************************
+!-----------------------------------------------------------------------
+!> This subroutine combines indices of two matrices in CRS format.
+!> Row and column indices are assumed to be in sorted order.
+!-----------------------------------------------------------------------
 SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
-!*********************************************************************
-
+!-----------------------------------------------------------------------
   USE Types
   IMPLICIT NONE
 
@@ -2528,13 +2516,11 @@ END SUBROUTINE CombineCRSMatIndices
 !*********************************************************************
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! Update all necessary global structures after the local matrix has
-! been built.
-!
 
+!----------------------------------------------------------------------
+!> Update all necessary global structures after the local matrix has
+!> been built.
+!----------------------------------------------------------------------
 SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
   USE Types
   IMPLICIT NONE
@@ -2702,15 +2688,13 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
   END DO
   DEALLOCATE( RecvdIfMatrix )
 END SUBROUTINE GlueFinalize
+!---------------------------------------------------------------------
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! Compress the given interface matrix deleting the inside connections.
-!
-! MODIFIES THE STRUCTURE OF INPUT MATRIX RecvdIfMatrix !!
-!
+!---------------------------------------------------------------------
+!> Compress the given interface matrix deleting the inside connections.
+!> Note: modifies the structure of the input matrix RecvdIfMatrix.
+!----------------------------------------------------------------------
 SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
             RecvdIfMatrix, ParallelInfo )
 
@@ -2795,14 +2779,13 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
      RecvdIfMatrix(p) % NumberOfRows  = NewRow - 1
   END DO
 END SUBROUTINE ClearInsideC
+!-----------------------------------------------------------------------
 
-!*********************************************************************
-!*********************************************************************
-!
-! Convert the original local DoF numbering to a compressed one to
-! enable direct use of column indices in matrix operations.
-!
 
+!-----------------------------------------------------------------------
+!> Convert the original local DoF numbering to a compressed one to
+!> enable direct use of column indices in matrix operations.
+!-----------------------------------------------------------------------
 SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo )
 
   USE Types
@@ -2851,3 +2834,5 @@ END SUBROUTINE RenumberDOFs
 !********************************************************************
 
 END MODULE SParIterSolve
+
+!> \}
