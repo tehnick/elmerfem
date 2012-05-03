@@ -101,7 +101,6 @@ SParIterComm.$(OBJEXT): SParIterComm.f90 SParIterGlobals.$(OBJEXT) GeneralUtils.
 SParIterGlobals.$(OBJEXT): SParIterGlobals.f90 Types.$(OBJEXT)
 SParIterPrecond.$(OBJEXT): SParIterPrecond.f90 SParIterGlobals.$(OBJEXT) SParIterComm.$(OBJEXT) Types.$(OBJEXT)
 SParIterSolver.$(OBJEXT): SParIterSolver.f90 SParIterGlobals.$(OBJEXT) Lists.$(OBJEXT) IterSolve.$(OBJEXT) CRSMatrix.$(OBJEXT) SParIterComm.$(OBJEXT) SParIterPrecond.$(OBJEXT) Types.$(OBJEXT)
-SparseMatrix.$(OBJEXT): SparseMatrix.f90 GeneralUtils.$(OBJEXT)
 SSTKomega.$(OBJEXT): SSTKomega.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 StatCurrentSolve.$(OBJEXT): StatCurrentSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 StatElecSolve.$(OBJEXT): StatElecSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)

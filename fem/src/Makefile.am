@@ -314,7 +314,6 @@ EXTRA_DIST = \
 	SParIterGlobals.src \
 	SParIterPrecond.src \
 	SParIterSolver.src \
-	SparseMatrix.src \
 	SSTKomega.src \
 	StatCurrentSolve.src \
 	StatElecBoundary.src \
