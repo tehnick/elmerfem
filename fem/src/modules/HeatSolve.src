@@ -128,7 +128,8 @@
        Pressure(:), dPressuredt(:), GasConstant(:),AText(:), HeaterArea(:), &
        HeaterTarget(:), HeaterScaling(:), HeaterDensity(:), HeaterSource(:), &
        HeatExpansionCoeff(:), ReferenceTemperature(:), PressureCoeff(:), &
-       PhaseVelocity(:,:)
+       PhaseVelocity(:,:), &
+       PerfusionRate(:), PerfusionDensity(:), PerfusionHeatCapacity(:), PerfusionRefTemperature(:)
 
      SAVE U, V, W, MU, MASS, STIFF, LOAD, PressureCoeff, &
        FORCE, ElementNodes, HeatConductivity, HeatCapacity, HeatTransferCoeff, &
@@ -138,7 +139,8 @@
        GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea, HeaterTarget, &
        HeaterScaling, HeaterDensity, HeaterSource, SmartHeaters, IntegralHeaters, SmartTolReached,    &
        ReferenceTemperature, HeatExpansionCoeff, PrevPowerScaling, PowerScaling, &
-       MeltPoint, DoneTime, SmartHeaterNode, SmartHeaterBC, SmartHeaterAverage
+       MeltPoint, DoneTime, SmartHeaterNode, SmartHeaterBC, SmartHeaterAverage, &
+       PerfusionRate, PerfusionDensity, PerfusionHeatCapacity, PerfusionRefTemperature
 
 
      INTERFACE
@@ -272,7 +274,11 @@
                  HeatConductivity,      &
                  STIFF,LOAD,            &
                  Indexes, SaveIndexes,  &
-                 FORCE, TimeForce )
+                 FORCE, TimeForce,      &
+                 PerfusionRate,     &
+                 PerfusionDensity,      &
+                 PerfusionHeatCapacity, &
+                 PerfusionRefTemperature )
        END IF
 
        ALLOCATE( &
@@ -301,7 +307,12 @@
                  GasConstant( N ),AText( N ),          &
                  HeatConductivity( 3,3,N ),            &
                  STIFF( 2*N,2*N ),LOAD( N ), &
-                 FORCE( 2*N ), TimeForce(2*N), STAT=istat )
+                 FORCE( 2*N ), TimeForce(2*N), &
+                 PerfusionRate( N ),     &
+                 PerfusionDensity( N ),      &
+                 PerfusionHeatCapacity( N ), &
+                 PerfusionRefTemperature( N ), &
+                 STAT=istat )
 
        IF ( istat /= 0 ) THEN
          CALL Fatal( 'HeatSolve', 'Memory allocation error' )
@@ -905,16 +916,28 @@
               END IF
            END IF
          END IF
-
-!------------------------------------------------------------------------------
-!        Get element local matrices, and RHS vectors
-!------------------------------------------------------------------------------
-         C0 = 0.0d0
+	
+         C0 = 0.0_dp
 !------------------------------------------------------------------------------
 ! Note at this point HeatCapacity = \rho * c_p OR \rho * (c_p - R)
 ! and C1 = 0 (diffusion) or 1 (convection)
 !------------------------------------------------------------------------------
+	 
+!------------------------------------------------------------------------------
+!          Perfusion (added as suggested by Matthias Zenker)
+!------------------------------------------------------------------------------
+         PerfusionRate(1:n) = GetReal( BodyForce, 'Perfusion Rate', Found )
+         
+         IF ( Found ) THEN
+           PerfusionRefTemperature(1:n) = GetReal( BodyForce, 'Perfusion Reference Temperature' )
+           PerfusionDensity(1:n) = GetReal( BodyForce, 'Perfusion Density' )
+           PerfusionHeatCapacity(1:n) = GetReal( BodyForce, 'Perfusion Heat Capacity' )
+           C0(1:n) = PerfusionHeatCapacity(1:n) * PerfusionRate(1:n) * PerfusionDensity(1:n) 
+           Load(1:n) = Load(1:n) + C0(1:n) * PerfusionRefTemperature(1:n)           
+         END IF
 
+!------------------------------------------------------------------------------
+!        Get element local matrices, and RHS vectors
 !------------------------------------------------------------------------------
          IF ( CurrentCoordinateSystem() == Cartesian ) THEN
 !------------------------------------------------------------------------------
