@@ -137,7 +137,20 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
   IF ( .NOT.Found ) NonlinearIter = 1
   Bubbles = GetLogical( SolverParams, 'Bubbles', Found )
 
-  UseDensity = GetLogical( SolverParams,'Use Density',Found)
+! Initially density was not used in the Helmholtz equation. However, if there 
+! are several different densities it must be used and hence it was added later.
+! For backward compatibility also the version where density is not provided should work.
+!---------------------------------------------------------------------------------------
+  UseDensity = .TRUE.
+  DO i=1,Model % NumberOfMaterials
+    IF( .NOT. ListCheckPresent( Model % Materials(i) % Values,'Density') ) THEN
+      UseDensity = .FALSE.
+      IF( Model % NumberOfMaterials > 1) THEN
+        CALL Warn('HelmholtzSolver','There are multiple materials and density is not used, might result to errors!')
+      END IF
+      EXIT
+    END IF
+  END DO
 
   n = GetElementNOFNodes()
   Simulation => GetSimulation()
