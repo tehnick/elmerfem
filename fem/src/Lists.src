@@ -547,7 +547,7 @@ CONTAINS
       ptr % SteadyConverged = -1    
 
       IF ( PRESENT( Secondary ) ) THEN
-        PRINT *,'Secondary:',name
+        PRINT *,'Secondary:',TRIM(name)
         ptr % Secondary = Secondary
       END IF
 
@@ -565,7 +565,7 @@ CONTAINS
 !> Also allocates the field values if not given in the parameter list. 
 !------------------------------------------------------------------------------
     SUBROUTINE VariableAddVector( Variables,Mesh,Solver,Name,DOFs,Values,&
-      Perm,Output,Secondary )
+      Perm,Output,Secondary,Global,InitValue )
 !------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
       TYPE(Mesh_t),   TARGET :: Mesh
@@ -576,6 +576,8 @@ CONTAINS
       LOGICAL, OPTIONAL :: Output
       INTEGER, OPTIONAL, POINTER :: Perm(:)
       LOGICAL, OPTIONAL :: Secondary
+      LOGICAL, OPTIONAL :: Global
+      REAL(KIND=dp), OPTIONAL :: InitValue
 !------------------------------------------------------------------------------
       CHARACTER(LEN=MAX_NAME_LEN) :: tmpname
       REAL(KIND=dp), POINTER :: Component(:), TmpValues(:)
@@ -593,14 +595,23 @@ CONTAINS
       ELSE
         IF( PRESENT( Perm ) ) THEN 
           nsize = MAXVAL( Perm ) 
+        ELSE IF( PRESENT( Global ) ) THEN
+          IF( Global ) THEN
+            nsize = 1 
+          ELSE
+            nsize = Mesh % NumberOfNodes
+          END IF
         ELSE
-          nsize = Mesh % NumberOfNodes
+          nsize = Mesh % NumberOfNodes          
         END IF
         NULLIFY(TmpValues)
-        ALLOCATE(TmpValues(nsize))
+        ALLOCATE(TmpValues(ndofs*nsize))
         TmpValues = 0.0_dp         
       END IF
 
+      IF( PRESENT( InitValue ) ) THEN
+        TmpValues = InitValue
+      END IF
 
       IF( nDOFs > 1 ) THEN
         DO i=1,nDOFs
