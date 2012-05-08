@@ -1,4 +1,4 @@
-!/*****************************************prevme************************************/
+!/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
@@ -23,7 +23,7 @@
 !
 !/******************************************************************************
 ! *
-! *  Authors: Juha Ruokolainen
+! *  Authors: Juha Ruokolainen, Peter Råback
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -31,11 +31,12 @@
 ! *           02101 Espoo, Finland 
 ! *
 ! *  Original Date: 10 May 2000
+! *  Edited:         9.5.2012
 ! *
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
-!>  An alternativesolver for mesh update solver. The intended use for this
+!>  An alternative fork for mesh update solver. The intended use for this
 !>  is, for example, in geometry optimization when the normal MeshUpdate is
 !>  not always suitable as it may be needed to extent real physical displacements.
 !> This is a dynamically loaded solver with a standard interface.
@@ -60,24 +61,25 @@
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t),POINTER :: Material, BC
   REAL(KIND=dp) :: RelativeChange, UNorm, maxu, TargetCoeff, val, Relax
-  TYPE(Variable_t), POINTER :: MeshSol, TargetSol
+  TYPE(Variable_t), POINTER :: MeshSol, TargetSol, GradSol
   REAL(KIND=dp), POINTER :: MeshUpdate(:), PrevMeshUpdate(:)
   INTEGER, POINTER :: MeshPerm(:), NodeIndexes(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: TargetFieldName
 
   LOGICAL :: AllocationsDone = .FALSE., Isotropic = .TRUE., &
-            GotForceBC, Found, MovingMesh, Cumulative,GotTargetField
+            GotForceBC, Found, MovingMesh, Cumulative,GotTargetField, &
+            GotTargetSurface, GotGradSol
 			
   REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
        LOAD(:,:),FORCE(:), ElasticModulus(:),PoissonRatio(:), &
-		Alpha(:,:), Beta(:), Gamma(:)
+		Alpha(:,:), Beta(:), Gamma(:), RefSurface(:)
   REAL(KIND=dp), POINTER :: OrigX(:), OrigY(:), OrigZ(:), &
       TrueX(:), TrueY(:), TrueZ(:)
 
   SAVE STIFF, LOAD, FORCE, AllocationsDone, &
        ElasticModulus, PoissonRatio, &
        OrigX, OrigY, OrigZ, TrueX, TrueY, TrueZ, PrevMeshUpdate, &
-       VisitedTimes,dim,Alpha,Beta,Gamma
+       VisitedTimes,dim,Alpha,Beta,Gamma,RefSurface
 
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
@@ -115,11 +117,11 @@
     
     IF ( AllocationsDone ) THEN
       DEALLOCATE(  ElasticModulus, PoissonRatio, &
-          FORCE, STIFF, Alpha, Beta, Gamma, LOAD, STAT=istat )
+          FORCE, STIFF, Alpha, Beta, Gamma, RefSurface, LOAD, STAT=istat )
     END IF
     
     ALLOCATE( &
-        Alpha(3,N), Beta(N), Gamma(N), &
+        Alpha(3,N), Beta(N), Gamma(N), RefSurface(N), &
         ElasticModulus( N ), PoissonRatio( N ), &
         FORCE( STDOFs*N ), STIFF( STDOFs*N,STDOFs*N ),  &
         LOAD( 4,N ),STAT=istat )
@@ -225,9 +227,32 @@
     TargetSol => VariableGet( Model % Variables, TargetFieldName )     
     IF( .NOT. ASSOCIATED(TargetSol)) THEN
       CALL Fatal('NonphysicalMeshSolve',&
-          'No Target Field: '//TRIM( TargetFieldName ) )
+          'Given > Target Field < does not exist: '//TRIM( TargetFieldName ) )
     END IF
   END IF
+  
+  TargetFieldName = GetString(Solver % Values,'Target Surface',GotTargetSurface )
+  GotGradSol = .FALSE.
+  IF( GotTargetSurface ) THEN
+    IF( GotTargetField ) THEN
+      CALL Fatal('NonphysicalMeshSolve','Cannot have > Target Field < and > Target Surface < at same time!')
+    END IF
+    TargetSol => VariableGet( Model % Variables, TargetFieldName )     
+    IF( .NOT. ASSOCIATED(TargetSol)) THEN
+      CALL Fatal('NonphysicalMeshSolve',&
+          'Given > Target Surface < does not exist: '//TRIM( TargetFieldName ) )
+    END IF
+    
+    TargetFieldName = GetString(Solver % Values,'Grad Surface',GotGradSol ) 
+    IF( GotGradSol ) THEN
+      GradSol => VariableGet( Model % Variables, TargetFieldName )     
+      IF( .NOT. ASSOCIATED(TargetSol)) THEN
+        CALL Fatal('NonphysicalMeshSolve',&
+            'Given > Grad Surface < does not exist: '//TRIM( TargetFieldName ) )
+      END IF
+    END IF
+  END IF
+
   
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
@@ -254,7 +279,8 @@
     Alpha = 0.0_dp
     Beta = 0.0_dp
     Gamma = 0.0_dp    
-    
+    RefSurface = 0.0_dp
+
     Alpha(1,1:n) =  GetReal( BC, 'Mesh Coefficient 1', Found )
     GotForceBC = Found
     Alpha(2,1:n) =  GetReal( BC, 'Mesh Coefficient 2', Found )
@@ -274,17 +300,22 @@
     
     Gamma(1:n) =  GetReal( BC, 'Mesh Penalty Factor', Found )
     GotForceBC = GotForceBC .OR. Found
+
+    IF( GotTargetSurface ) THEN
+      RefSurface(1:n) = GetReal( BC,'Reference Surface',Found)
+    END IF
     
     IF ( .NOT. GotForceBC ) CYCLE
-    
-    CALL MeshBoundary( STIFF,FORCE,LOAD,Alpha,Beta,Gamma,Element,n,nd,nb )
+     
+    CALL MeshBoundary( STIFF,FORCE,LOAD,Alpha,Beta,Gamma,RefSurface,Element,n,nd,nb )
     
 !------------------------------------------------------------------------------
 
      CALL DefaultUpdateEquations( STIFF, FORCE )
    END DO
 !------------------------------------------------------------------------------
-   
+
+ 
 !-----------------------------------------------------------   
 ! Set the nodal coordinates by penalty
 !------------------------------------------------------------
@@ -483,25 +514,28 @@
 
 !------------------------------------------------------------------------------
  SUBROUTINE MeshBoundary( STIFF,FORCE,LOAD,NodalAlpha,NodalBeta,NodalGamma,&
-	Element,n,nd,nb )
+	NodalRefSurface,Element,n,nd,nb )
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: STIFF(:,:),FORCE(:)
-   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),NodalGamma(:),LOAD(:,:)
+   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),NodalGamma(:),NodalRefSurface(:),LOAD(:,:)
    TYPE(Element_t),POINTER  :: Element
    INTEGER :: n,nd,nb
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(nd)
-   REAL(KIND=dp) :: dBasisdx(nd,3),detJ
+   REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3),detJ
    REAL(KIND=dp) :: u,v,w,s
-   REAL(KIND=dp) :: Alpha(3),Beta,Gamma,Normal(3),LoadAtIP(3),ExtDisp(3)
+   REAL(KIND=dp) :: Alpha(3),Beta,Gamma,Normal(3),LoadAtIP(3),ExtDisp(3),RefSurface, &
+       GradSurface(3), AbsGradSurface2, Surface
+   REAL(KIND=dp), ALLOCATABLE :: ParentBasis(:), dParentBasisdx(:,:)
+   REAL(KIND=dp) :: ParentdetJ
 
-   INTEGER :: i,t,q,p,dim
-   LOGICAL :: stat
+   INTEGER :: i,t,q,p,dim,np
+   LOGICAL :: stat, AllocationsDone
+   TYPE(Element_t),POINTER :: Parent
 
    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
-   TYPE(Nodes_t)    :: Nodes
-   SAVE Nodes
+   TYPE(Nodes_t)    :: Nodes, ParentNodes
+   SAVE Nodes, ParentNodes, AllocationsDone, ParentBasis, dParentBasisdx
 !------------------------------------------------------------------------------
 
    dim = Element % TYPE % DIMENSION + 1
@@ -511,6 +545,23 @@
    STIFF = 0.0D0
 
    IntegStuff = GaussPoints( Element )
+
+   IF( GotTargetSurface .AND. .NOT. GotGradSol ) THEN
+     IF( .NOT. AllocationsDone ) THEN
+       np = Solver % Mesh % MaxElementNodes
+       ALLOCATE( ParentBasis(np), dParentBasisdx(np,3))
+       AllocationsDone = .TRUE.
+     END IF
+
+     Parent => Element % BoundaryInfo % Left
+     IF ( .NOT. ASSOCIATED(Parent) ) &
+         Parent => Element % BoundaryInfo % Right
+     IF(.NOT.ASSOCIATED(Parent)) RETURN
+
+     np = GetElementNOFDOFs(Parent)
+     CALL GetElementNodes( ParentNodes, Parent )
+   END IF
+
 
    DO t=1,IntegStuff % n
 
@@ -535,14 +586,38 @@
      Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
      LoadAtIP = LoadAtIP + SUM( NodalBeta(1:n) * Basis ) * Normal
 
-     IF( GotTargetField ) THEN
-       Gamma = SUM( NodalGamma(1:n)*Basis )
-       DO i=1,dim
-         ExtDisp(i) = SUM( Basis * TargetSol % Values( &
-	        dim * ( TargetSol % Perm( NodeIndexes(1:n) ) - 1) +  i ) )
-       END DO
+     IF( GotTargetSurface .OR. GotTargetField ) THEN
+       IF( GotTargetField ) THEN
+         DO i=1,dim
+           ExtDisp(i) = SUM( Basis(1:n) * TargetSol % Values( &
+               dim * ( TargetSol % Perm( Element % NodeIndexes(1:n) ) - 1) +  i ) )
+         END DO
+       ELSE
+         RefSurface = SUM( Basis(1:n) * NodalRefSurface(1:n))
+         Surface = SUM( Basis(1:n) * TargetSol % Values( Element % NodeIndexes(1:n) ) )
+
+         IF( GotGradSol ) THEN
+           DO i=1,dim
+             GradSurface(i) = &
+                 SUM( Basis(1:n) * GradSol % Values( dim*(Element % NodeIndexes(1:n)-1)+i ) )
+           END DO
+         ELSE
+           CALL GetParentUVW( Element,n,Parent,np,U,V,W,Basis )
+           stat = ElementInfo( Parent,ParentNodes,U,V,W,ParentdetJ, &
+               ParentBasis,dParentBasisdx )
+           DO i=1,dim
+             GradSurface(i) = &
+                 SUM( dParentBasisdx(1:np,i) * TargetSol % Values( Parent % NodeIndexes(1:np) ) )
+           END DO
+         END IF
+         AbsGradSurface2 = SUM( GradSurface(1:dim)**2) 
+         DO i=1,dim
+           ExtDisp(i) = (RefSurface-Surface)*GradSurface(i) / AbsGradSurface2
+         END DO
+       END IF
+       Gamma = SUM( NodalGamma(1:n) * Basis )
        LoadAtIP = LoadAtIP + ExtDisp * Gamma
-     ELSE
+     ELSE        
        Gamma = 0.0_dp
      END IF
 
