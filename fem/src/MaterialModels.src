@@ -318,12 +318,32 @@ this ise not in USE
         R = GetConstReal( CurrentModel % Constants,'Gas Constant',GotIt)
         IF (.NOT.GotIt) R = 8.314_dp
         ! lets for the time being have this hardcoded
-        Tlimit = -10.0_dp
-        A1 = 3.985d-13
-        A2 = 1.916d03
-        Q1 = 60.0d03
-        Q2 = 139.0d03
-
+        Tlimit = GetConstReal(Material, 'Limit Temperature', GotIt)
+        IF (.NOT.GotIt) THEN
+           Tlimit = -10.0_dp
+           CALL INFO('EffectiveViscosity','Limit Temperature not found. Setting to -10', Level=5)
+        END IF
+        A1 = GetConstReal(Material, 'Rate Factor 1', GotIt)
+        IF (.NOT.GotIt) THEN
+           A1 = 3.985d-13
+           CALL INFO('EffectiveViscosity','Rate Factor 1 not found. Setting to 3.985e-13', Level=5)
+        END IF
+        A2 = GetConstReal(Material, 'Rate Factor 2', GotIt)
+        IF (.NOT.GotIt) THEN
+           A2 = 1.916d03
+           CALL INFO('EffectiveViscosity','Rate Factor 2 not found. Setting to 1.916E03', Level=5)
+        END IF
+        Q1 = GetConstReal(Material, 'Activation Energy 1', GotIt)
+        IF (.NOT.GotIt) THEN
+           Q1 = 60.0d03
+           CALL INFO('EffectiveViscosity','Activation Energy 1 not found. Setting to 60.0E03', Level=5)
+        END IF
+        Q2 = GetConstReal(Material, 'Activation Energy 2', GotIt)
+        IF (.NOT.GotIt) THEN
+           Q2 = 139.0d03
+           CALL INFO('EffectiveViscosity','Activation Energy 2 not found. Setting to 139.0d03', Level=5)
+        END IF
+        
         IF (Temp.LE. Tlimit) THEN
            ArrheniusFactor = A1 * EXP( -Q1/(R * (273.15 + Temp)))
         ELSE IF((Tlimit<Temp) .AND. (Temp .LE. 0.0_dp)) THEN
