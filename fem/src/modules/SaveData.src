@@ -392,29 +392,29 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       END IF    
       OldVar => Var
       OldVariableName = VariableName
+
+      ! A 0D variable cannot really be much operated, hence save it as is
+      !-------------------------------------------------------------------
+      IF(SIZE(Var % Values) == Var % Dofs) THEN
+        IsInteger = .FALSE.
+        IF( VariableName == 'nonlin iter' ) IsInteger = .TRUE.
+        IF( VariableName == 'coupled iter' ) IsInteger = .TRUE.
+
+        IF( Var % Dofs == 1 ) THEN
+          CALL AddToSaveList('value: '//TRIM(VariableName)//' scalar variable', &
+                              Var % Values(1), IsInteger )
+        ELSE
+          DO j=1,Var % DOfs
+            CALL AddToSaveList('value: '//ComponentName(VariableName,j)//' scalar variable', Var % Values(j))          
+          END DO
+        END IF
+        CYCLE
+      END IF
     ELSE
       IF(ASSOCIATED(OldVar)) THEN
         Var => OldVar
         VariableName = OldVariableName
       END IF
-    END IF
-
-    ! A 0D variable cannot really be much operated, hence save it as is
-    !-------------------------------------------------------------------
-    IF(GotVar .AND. SIZE(Var % Values) == Var % Dofs) THEN
-      IsInteger = .FALSE.
-      IF( VariableName == 'nonlin iter' ) IsInteger = .TRUE.
-      IF( VariableName == 'coupled iter' ) IsInteger = .TRUE.
-
-      IF( Var % Dofs == 1 ) THEN
-        CALL AddToSaveList('value: '//TRIM(VariableName)//' scalar variable', &
-                            Var % Values(1), IsInteger )
-      ELSE
-        DO j=1,Var % DOfs
-          CALL AddToSaveList('value: '//ComponentName(VariableName,j)//' scalar variable', Var % Values(j))          
-        END DO
-      END IF
-      CYCLE
     END IF
 
     NoOper = NoVar     
