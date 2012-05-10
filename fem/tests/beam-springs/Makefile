@@ -6,5 +6,5 @@ run:
 
 
 clean:
-	/bin/rm mon.out kmat.* 
+	/bin/rm mon.out kmat.* test.log
 	/bin/rm -r beam3d
