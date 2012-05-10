@@ -132,15 +132,16 @@ MODULE Types
 
     TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => NULL()
 
-    INTEGER, POINTER :: Perm(:),InvPerm(:)
+    INTEGER, POINTER CONTIG :: Perm(:),InvPerm(:), Gorder(:)
     INTEGER, ALLOCATABLE :: GRows(:), RowOwner(:)
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:), Gorder(:)
+    INTEGER, POINTER CONTIG :: Rows(:),Cols(:), Diag(:)
 
-    REAL(KIND=dp), POINTER :: RHS(:),BulkRHS(:),RHS_im(:),Force(:,:)
+    REAL(KIND=dp), POINTER CONTIG :: RHS(:),BulkRHS(:),RHS_im(:),Force(:,:)
 
-    REAL(KIND=dp),  POINTER :: Values(:),ILUValues(:), DiagScaling(:) => NULL()
+    REAL(KIND=dp),  POINTER CONTIG :: Values(:), ILUValues(:), &
+               DiagScaling(:) => NULL()
     REAL(KIND=dp) :: RhsScaling
-    REAL(KIND=dp),  POINTER :: MassValues(:),DampValues(:),BulkValues(:)
+    REAL(KIND=dp),  POINTER CONTIG :: MassValues(:),DampValues(:),BulkValues(:)
 
 #ifdef HAVE_MUMPS
     TYPE(dmumps_struc), POINTER :: MumpsID => NULL()
@@ -168,7 +169,7 @@ MODULE Types
 
     INTEGER(KIND=AddrInt) :: MatVecSubr = 0
 
-    INTEGER, POINTER :: ILURows(:),ILUCols(:),ILUDiag(:)
+    INTEGER, POINTER CONTIG :: ILURows(:),ILUCols(:),ILUDiag(:)
 
 !   For Complex systems, not used yet!:
 !   -----------------------------------
@@ -247,7 +248,7 @@ MODULE Types
      TYPE (GlueTableT), POINTER :: GlueTable
      TYPE (RHST), DIMENSION(:), POINTER :: RHS
      TYPE (ResBufferT), DIMENSION(:), POINTER :: ResBuf
-     REAL(KIND=dp), POINTER :: Work(:,:),TmpXVec(:),TmpRVec(:)
+     REAL(KIND=dp), POINTER CONTIG :: Work(:,:),TmpXVec(:),TmpRVec(:)
   END TYPE SplittedMatrixT
 
 
