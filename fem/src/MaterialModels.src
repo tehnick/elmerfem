@@ -287,14 +287,6 @@ this ise not in USE
         IF (.NOT.GotIt) c2n(1:n) = 3.0_dp
         c2 = SUM( Basis(1:n) * c2n(1:n) )
         s = ss/4.0_dp ! the second invariant is not taken from the strain rate tensor, but rather 2*strain rate tensor (that's why we divide by 4 = 2**2)        
-        c3n = ListGetReal( Material, 'Critical Shear Rate',n, Element % NodeIndexes,GotIt )
-        IF (GotIt) THEN
-           c3 = SUM( Basis(1:n) * c3n(1:n) )
-           IF(s < c3**2) THEN
-              s = c3**2
-              IF (PRESENT(muder)) muder = 0._dp
-           END IF
-        END IF
         NodalTemperature(1:n) = ListGetReal(Material, 'Constant Temperature', n, Element % NodeIndexes, GotIt) !we are happy as is
         IF(.NOT.GotIt) THEN !we have to find a temperature field
 
@@ -357,12 +349,21 @@ this ise not in USE
         IF (.NOT.GotIt) NodalEhF(1:n) = 1.0_dp
         EhF = SUM(Basis(1:n) * NodalEhF(1:n))
 
+
+        IF (PRESENT(muder)) muder = 0.5_dp * (  EhF * ArrheniusFactor)**(-1.0_dp/c2) &
+             * ((1.0_dp/c2)-1.0_dp)/2.0_dp * s**(((1.0_dp/c2)-1.0_dp)/2.0_dp - 1.0_dp)/4
+
+        c3n = ListGetReal( Material, 'Critical Shear Rate',n, Element % NodeIndexes,GotIt )
+        IF (GotIt) THEN
+           c3 = SUM( Basis(1:n) * c3n(1:n) )
+           IF(s < c3**2) THEN
+              s = c3**2
+              IF (PRESENT(muder)) muder = 0._dp
+           END IF
+        END IF
+
         ! compute the effective viscosity
         mu = 0.5_dp * (EhF * ArrheniusFactor)**(-1.0_dp/c2) * s**(((1.0_dp/c2)-1.0_dp)/2.0_dp);
-        IF (PRESENT(muder)) muder = 0.5_dp * (  EhF * ArrheniusFactor)**(-1.0_dp/c2) &
-             * ((1.0_dp/c2)-1.0_dp)/2.0_dp * s**(((1.0_dp/c2)-1.0_dp)/2.0_dp - 1.0_dp)
-
-
 
      CASE('power law')
         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )

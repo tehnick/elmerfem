@@ -746,7 +746,7 @@ MODULE NavierStokes
 
        IF ( ViscNewtonLin ) THEN
          DO i=1,dim
-           muder = muder0*SUM(Strain(i,:)*dBasisdx(q,:))
+           muder = muder0*4*SUM(Strain(i,:)*dBasisdx(q,:))
            DO j=1,dim
              Jac(j,i)=Jac(j,i)+s*2*muder*SUM(Strain(j,:)*dBasisdx(p,:))
            END DO
