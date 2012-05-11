@@ -3048,10 +3048,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
      IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-       WRITE(Message,*) 'Value type for property [', TRIM(Name), &
-               '] not used consistently.'
-       CALL Fatal( 'ListGetRealArray', Message )
-       RETURN
+       CALL Fatal( 'ListGetRealArray', &
+           'Value type for property > '// TRIM(Name) // '< not used consistently.')
      END IF
 
      N1 = SIZE(ptr % FValues,1)
@@ -3163,10 +3161,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
      IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-       WRITE(Message,*) 'Value type for property [', TRIM(Name), &
-               '] not used consistently.'
-       CALL Fatal( 'ListGetRealArray', Message )
-       RETURN
+       CALL Fatal( 'ListGetDerivValue', &
+           'Value type for property > '// TRIM(Name) // '< not used consistently.')
      END IF
 
      SELECT CASE(ptr % TYPE)
@@ -3181,6 +3177,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
                                T, ptr % CubicCoeff )
            END IF
          END DO
+
+       CASE DEFAULT 
+         CALL Fatal( 'ListGetDerivValue', &
+             'No automated derivation possible for > '//TRIM(Name)//' <' )
+
      END SELECT
 
    END FUNCTION ListGetDerivValue
