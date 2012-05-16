@@ -135,6 +135,20 @@ CONTAINS
   END SUBROUTINE pcond_dummy
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Complex dummy preconditioner, if linear system scaling is active this corresponds
+!> to diagonal preconditioning.
+!------------------------------------------------------------------------------
+  SUBROUTINE pcond_dummy_cmplx(u,v,ipar )
+!------------------------------------------------------------------------------
+    INTEGER :: ipar(*)
+    COMPLEX(KIND=dp) :: u(HUTI_NDIM), v(HUTI_NDIM)
+!------------------------------------------------------------------------------
+    u = v 
+!------------------------------------------------------------------------------
+  END SUBROUTINE pcond_dummy_cmplx
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
 !> The routine that decides which linear system solver to call, and calls it.
@@ -479,7 +493,11 @@ CONTAINS
     ELSE
       SELECT CASE( PCondType )
       CASE (PRECOND_NONE)
-        pcondProc = AddrFunc( pcond_dummy )
+        IF ( .NOT. A % COMPLEX ) THEN
+          pcondProc = AddrFunc( pcond_dummy )
+        ELSE
+          pcondProc = AddrFunc( pcond_dummy_cmplx  )
+        END IF
         
       CASE (PRECOND_DIAGONAL)
         IF ( .NOT. A % COMPLEX ) THEN

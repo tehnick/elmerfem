@@ -2696,15 +2696,7 @@ END FUNCTION CRS_RowSum
 !
 !   if no ilu provided do diagonal solve:
 !   -------------------------------------
-    IF ( .NOT. ASSOCIATED( Values ) ) THEN
-       Diag => A % Diag
-
-       DO i=1,n/2
-          x = CMPLX( A % Values(Diag(2*i-1)), -A % Values(Diag(2*i-1)+1), KIND=dp )
-          b(i) = b(i) / x
-       END DO
-       RETURN
-    END IF
+    IF ( .NOT. ASSOCIATED( Values ) ) RETURN
 
 !---------------------------------------------------------------------
 ! The following #ifdefs  seem really necessery, if speed is an issue:
