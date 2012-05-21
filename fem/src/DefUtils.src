@@ -598,6 +598,41 @@ CONTAINS
     
 
 
+!------------------------------------------------------------------------------
+!> Add variable to the default variable list.
+!------------------------------------------------------------------------------
+  SUBROUTINE DefaultVariableAdd( Name, DOFs, Perm, Values,&
+      Output,Secondary,Global,InitValue,USolver )
+    
+    CHARACTER(LEN=*) :: Name
+    INTEGER, OPTIONAL :: DOFs
+    REAL(KIND=dp), OPTIONAL, POINTER :: Values(:)
+    LOGICAL, OPTIONAL :: Output
+    INTEGER, OPTIONAL, POINTER :: Perm(:)
+    LOGICAL, OPTIONAL :: Secondary
+    LOGICAL, OPTIONAL :: Global
+    REAL(KIND=dp), OPTIONAL :: InitValue   
+    TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+    !------------------------------------------------------------------------------
+    TYPE(Variable_t), POINTER :: Variables
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Solver_t), POINTER :: Solver
+    
+    IF( PRESENT( USolver ) ) THEN
+      Solver => USolver
+    ELSE
+      Solver => CurrentModel % Solver 
+    END IF
+    Mesh => Solver % Mesh
+    Variables => Mesh % Variables
+
+    CALL VariableAddVector( Variables,Mesh,Solver,Name,DOFs,Values,&
+        Perm,Output,Secondary,Global,InitValue )
+
+  END SUBROUTINE DefaultVariableAdd
+!------------------------------------------------------------------------------
+
+
 !> Returns a string by its name if found in the list structure
   FUNCTION GetString( List, Name, Found ) RESULT(str)
      TYPE(ValueList_t), POINTER :: List
@@ -4173,20 +4208,20 @@ CONTAINS
      Mesh => GetMesh()
      Parallel = ParEnv % PEs>1
 
-     IF (Element % Type % BasisFunctionDegree>1) THEN
+     IF (Element % TYPE % BasisFunctionDegree>1) THEN
        CALL Fatal('GetEdgeBasis',"Can't handle but linear elements, sorry.") 
      END IF
 
      SELECT CASE(GetElementFamily(Element))
      CASE(4,7,8)
-       n = Element % Type % NumberOfNodes
-       u = SUM(Basis(1:n)*Element % Type % NodeU(1:n))
-       v = SUM(Basis(1:n)*Element % Type % NodeV(1:n))
-       w = SUM(Basis(1:n)*Element % Type % NodeW(1:n))
+       n = Element % TYPE % NumberOfNodes
+       u = SUM(Basis(1:n)*Element % TYPE % NodeU(1:n))
+       v = SUM(Basis(1:n)*Element % TYPE % NodeV(1:n))
+       w = SUM(Basis(1:n)*Element % TYPE % NodeW(1:n))
 
-       dudx(1,:) = MATMUL(Element % Type % NodeU(1:n),dBasisdx(1:n,:))
-       dudx(2,:) = MATMUL(Element % Type % NodeV(1:n),dBasisdx(1:n,:))
-       dudx(3,:) = MATMUL(Element % Type % NodeW(1:n),dBasisdx(1:n,:))
+       dudx(1,:) = MATMUL(Element % TYPE % NodeU(1:n),dBasisdx(1:n,:))
+       dudx(2,:) = MATMUL(Element % TYPE % NodeV(1:n),dBasisdx(1:n,:))
+       dudx(3,:) = MATMUL(Element % TYPE % NodeW(1:n),dBasisdx(1:n,:))
 
        triBase(1) = 1-u-v
        triBase(2) = u
