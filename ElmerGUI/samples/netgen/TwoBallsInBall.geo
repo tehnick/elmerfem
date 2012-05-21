@@ -1,5 +1,5 @@
 #
-# a large ball with four circular holes 
+# a large ball with two smaller balls cut off
 #
 algebraic3d
 
