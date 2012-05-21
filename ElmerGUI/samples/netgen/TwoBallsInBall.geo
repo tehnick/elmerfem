@@ -10,6 +10,6 @@ solid bigball = sphere (0.0, 0.0, 0.0; 5.0);
 
 solid rest = bigball and not smallballs;
 
-# two sub-domains
-tlo smallballs -col=[1,0,0];
+# two sub-domains (or one now)
+#tlo smallballs -col=[1,0,0];
 tlo rest -col=[0,0,1] -transparent;
