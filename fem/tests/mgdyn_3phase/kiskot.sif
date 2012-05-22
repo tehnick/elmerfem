@@ -65,7 +65,6 @@ Solver 1
 
   Linear System Convergence Tolerance = 1e-6
 
-  Before Linsolve="EliminateDirichlet" "EliminateDirichlet"
   Steady State Convergence Tolerance = 1e-09
 End
 
@@ -80,10 +79,11 @@ Solver 2
 
   Potential Variable = String "P"
 
-  Calculate Joule Heating = Logical True
   Calculate Magnetic Vector Potential = Logical True
   Calculate Current Density = Logical True
+  Calculate Joule Heating = Logical True
   Calculate Electric Field = Logical True
+  Calculate Magnetic Flux Density = Logical Truue
   Calculate Magnetic Field Strength = Logical True
 
   Steady State Convergence Tolerance = 1
@@ -150,6 +150,7 @@ Boundary Condition 1
   Target Boundaries(3) = 1 8 21
   Name = "FarField"
 
+  ! (A,t) = 0
   p re {e} = real 0
   p im {e} = real 0
 End
@@ -157,13 +158,14 @@ End
 Boundary Condition 2
   Target Boundaries(6) = 2 3 4 5 6 7
   Name = "Conductor sides"
-  ! (J,n)=0 is the natural b.c.
+  ! (J,n)=-(sigma*(i\omega*A+grad(V),n)=0 is the natural b.c.
 End
 
 Boundary Condition 3
   Target Boundaries(6) = 9 10 11 12 13 14
   Name = "Ground"
 
+  ! V=0
   p re = Real 0
   p im = Real 0
 End
