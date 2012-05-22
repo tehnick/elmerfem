@@ -2062,6 +2062,19 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   END IF
 
   !
+  ! Fix unused potential DOFs:
+  ! --------------------------
+  A => GetMatrix()
+  DO i=1,Mesh % NumberOfNodes
+    j=Solver % Variable % Perm(i)
+    IF (j==0) CYCLE
+    k=A % Diag(2*(j-1)+1)
+    IF (A % Values(k)==0) A % Values(k)=1._dp
+    k=A % Diag(2*(j-1)+2)
+    IF (A % Values(k)==0) A % Values(k)=1._dp
+  END DO
+
+  !
   ! Linear system solution:
   ! -----------------------
   Norm = DefaultSolve()
