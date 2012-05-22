@@ -306,7 +306,6 @@
          Solver % Mesh % NumberOfBoundaryElements
 
         CurrentElement => Solver % Mesh % Elements(t)
-        Model % CurrentElement => CurrentElement
 		
         DO i=1,Model % NumberOfBCs
           IF ( CurrentElement % BoundaryInfo % Constraint == &
@@ -316,7 +315,7 @@
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
 !------------------------------------------------------------------------------
-            Model % CurrentElement => Solver % Mesh % Elements(t)
+            Model % CurrentElement => CurrentElement
 !------------------------------------------------------------------------------
             n = CurrentElement % TYPE % NumberOfNodes
             NodeIndexes => CurrentElement % NodeIndexes
@@ -370,9 +369,6 @@
        MinPotential = ParallelReduction(MinPotential,1)
        MaxPotential = ParallelReduction(MaxPotential,2)
      END IF
-      
-     CALL SetNodalLoads( Model,StiffMatrix,ForceVector, &
-               ComponentName(Solver % Variable),1,1,PotentialPerm )
 
 !------------------------------------------------------------------------------
 !    FinishAssembly must be called after all other assembly steps, but before
@@ -526,6 +522,7 @@
 !        should be calculated
 !------------------------------------------------------------------------------
        Element => Solver % Mesh % Elements( Solver % ActiveElements( t ) )
+       Model % CurrentElement => Element
        NodeIndexes => Element % NodeIndexes
 
        n = Element % TYPE % NumberOfNodes
