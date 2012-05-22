@@ -745,7 +745,7 @@ END SUBROUTINE ResultOutputSolver
           VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
           Var => VariableGet( Model % Variables, TRIM(VarName) ) 
           IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
-            CYCLE
+            IF (.NOT.PRESENT(ONOEfound)) CYCLE
           ELSE IF ( PRESENT(ONOEfound) ) THEN
             CYCLE
           END IF
