@@ -1210,7 +1210,8 @@ END SUBROUTINE GetMaxDefs
     INTEGER :: i,j,k,l,m,n,n1,n2,k1,k2, Constraint, DIM, NoBothActive
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element, Elements(:)
-    LOGICAL :: GotIt, GotRotate, ThisActive, TargetActive, ConstantNormals
+    LOGICAL :: GotIt, GotRotate, ThisActive, TargetActive, ConstantNormals, &
+        UseQuadrantTree
     INTEGER, POINTER :: NodeIndexes(:), Perm1(:), Perm2(:), &
                  InvPerm1(:), InvPerm2(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2
@@ -1747,7 +1748,10 @@ END SUBROUTINE GetMaxDefs
 !    Get the mesh projetor, which now contains
 !    weigths between the two boundaries nodes:
 !    ------------------------------------------
-     Projector => MeshProjector( BMesh2, BMesh1 )
+     UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
+     IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
+
+     Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )
 
      Projector % InvPerm => InvPerm1
      DO i=1,Projector % NumberOfRows

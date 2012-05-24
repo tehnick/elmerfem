@@ -1090,7 +1090,7 @@ CONTAINS
 !------------------------------------------------------------------------------
        INTEGER :: dim
        TYPE(Nodes_t) :: ElementNodes
-       INTEGER :: nBulk, i, j, k, l, n, bf_id
+       INTEGER :: nBulk, i, j, k, l, n, bf_id, QTreeFails, TotFails
        REAL(KIND=dp), DIMENSION(3) :: Point
        INTEGER, POINTER :: NodeIndexes(:)
        REAL(KIND=dp), DIMENSION(3) :: LocalCoordinates
@@ -1103,7 +1103,7 @@ CONTAINS
        REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:)
        REAL(KIND=dp) :: BoundingBox(6), detJ, u,v,w,s
        
-       LOGICAL :: UseQTree, Stat, UseProjector
+       LOGICAL :: UseQTree, TryQTree, Stat, UseProjector
        TYPE(Quadrant_t), POINTER :: RootQuadrant
        
        INTEGER, POINTER   :: Rows(:), Cols(:)
@@ -1154,7 +1154,7 @@ CONTAINS
        ELSE
          UseQTree = UseQuadrantTree
        ENDIF
-       
+    
        IF ( UseQTree ) THEN
          IF ( .NOT.ASSOCIATED( RootQuadrant ) ) THEN
            BoundingBox(1) = MINVAL(OldMesh % Nodes % x)
@@ -1194,7 +1194,10 @@ CONTAINS
        eps_tries = ListGetInteger( CurrentModel % Simulation,  &
            'Interpolation Max Iterations', Stat )
        IF(.NOT. Stat) eps_tries = 12
-       
+
+       QTreeFails = 0
+       TotFails = 0
+
 !------------------------------------------------------------------------------
 ! Loop over all nodes in the new mesh
 !------------------------------------------------------------------------------
@@ -1203,16 +1206,20 @@ CONTAINS
          Point(1) = NewMesh % Nodes % x(i)
          Point(2) = NewMesh % Nodes % y(i)
          Point(3) = NewMesh % Nodes % z(i)
+
 !------------------------------------------------------------------------------
 ! Find in which old mesh bulk element the point belongs to
 !------------------------------------------------------------------------------
          Found = .FALSE.
-         IF ( ASSOCIATED(RootQuadrant) .AND. UseQTree ) THEN
+         TryQTree = ASSOCIATED(RootQuadrant) .AND. UseQTree 
+
+         IF( TryQTree ) THEN
 !------------------------------------------------------------------------------
 ! Find the last existing quadrant that the point belongs to
 !------------------------------------------------------------------------------
            Element => NULL()
            CALL FindLeafElements(Point, dim, RootQuadrant, LeafQuadrant)
+           
            IF ( ASSOCIATED(LeafQuadrant) ) THEN
              ! Go through the bulk elements in the last ChildQuadrant
              ! only.  Try to find matching element with progressively
@@ -1251,7 +1258,10 @@ CONTAINS
                IF( Eps1 > 1.0_dp ) EXIT
              END DO
            END IF
-         ELSE
+         END IF
+
+         IF( .NOT. TryQTree .OR. &
+             (.NOT. Found .AND. .NOT. PRESENT( FoundNodes) ) ) THEN
            !------------------------------------------------------------------------------
            ! Go through all old mesh bulk elements
            !------------------------------------------------------------------------------
@@ -1267,7 +1277,10 @@ CONTAINS
              
              Found =  PointInElement( Element, ElementNodes, &
                  Point, LocalCoordinates ) 
-             IF( Found ) EXIT
+             IF( Found ) THEN
+               IF( TryQTree ) QTreeFails = QtreeFails + 1
+               EXIT
+             END IF
            END DO
          END IF
          
@@ -1275,7 +1288,8 @@ CONTAINS
            Element => NULL()
            IF (.NOT.PRESENT(FoundNodes) ) THEN
              WRITE( Message, * ) 'Point was not found in any of the elements!',i
-             CALL Warn( 'InterpolateMeshToMesh', Message )
+             CALL Info( 'InterpolateMeshToMesh', Message, Level=5 )
+             TotFails = TotFails + 1
            END IF
            CYCLE
          END IF
@@ -1292,7 +1306,7 @@ CONTAINS
              LocalW(i) = LocalCoordinates(3)
           END IF
 
-          IF ( .NOT.PRESENT(OldVariables).OR.PRESENT(Projector) ) CYCLE
+          IF ( .NOT.PRESENT(OldVariables) .OR. PRESENT(Projector) ) CYCLE
 !------------------------------------------------------------------------------
 !
 !         Go through all variables to be interpolated:
@@ -1361,9 +1375,24 @@ CONTAINS
 !------------------------------------------------------------------------------
              END IF
              Var => Var % Next
-          END DO
+           END DO
 !------------------------------------------------------------------------------
-       END DO
+         END DO
+
+         IF( .NOT. PRESENT( FoundNodes ) ) THEN
+           IF( QtreeFails > 0 ) THEN
+             WRITE( Message,'(A,I0)' ) 'Number of points not found in quadtree: ',QtreeFails
+             CALL Info( 'InterpolateMeshToMesh', Message )
+             IF( TotFails == 0 ) THEN
+               CALL Info( 'InterpolateMeshToMesh','All nodes still found by N^2 dummy search!' )               
+             END IF
+           END IF
+           IF( TotFails > 0 ) THEN
+             WRITE( Message,'(A,I0)') 'Number of points not found: ',TotFails
+             CALL Warn( 'InterpolateMeshToMesh', Message )
+           END IF
+         END IF
+
 !------------------------------------------------------------------------------
 !
 !      Construct mesh projector, if requested. Next time around
