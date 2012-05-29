@@ -145,6 +145,12 @@ void STDCALLBULL FC_FUNC_(spqr_fsolve,SPQR_FSOLVE)(cholmod **handle,int *n,doubl
   cholmod_l_free_dense(&db, &(*handle)->c);
 }
 
+void STDCALLBULL FC_FUNC_(spqr_nz,SPQR_NZ)(cholmod **handle,int *nz)
+{
+   int i,j,k;
+   *nz=(*handle)->nz;
+}
+
 void STDCALLBULL FC_FUNC_(spqr_nullspace,SPQR_NULLSPACE)(cholmod **handle,int *n,int *nz,double *z)
 {
    int i,j,k;
@@ -157,12 +163,18 @@ void STDCALLBULL FC_FUNC_(spqr_nullspace,SPQR_NULLSPACE)(cholmod **handle,int *n
     }
 }
 
-void STDCALLBULL FC_FUNC_(spqr_ffree,SPQR_FFREE)(cholmod **handle)
+
+
+int STDCALLBULL FC_FUNC_(spqr_ffree,SPQR_FFREE)(cholmod **handle)
 {
+  if(!(*handle)->qr) return -1;
+
   SuiteSparseQR_C_free(&(*handle)->qr,&(*handle)->c);
   if((*handle)->a.i) free((*handle)->a.i);
   if((*handle)->a.p) free((*handle)->a.p);
+  if((*handle)->z) free((*handle)->z);
   cholmod_l_finish(&(*handle)->c);
   free(*handle);
+  return 0;
 }
 #endif

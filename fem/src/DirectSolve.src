@@ -561,6 +561,7 @@ CONTAINS
 
   INTEGER(KIND=AddrInt) :: spqr_ffactorize
 
+  INTEGER :: i,spqr_ffree
   LOGICAL :: Factorize, FreeFactorize, Found
 
   REAL(KIND=dp), POINTER CONTIG :: Vals(:)
@@ -570,8 +571,7 @@ CONTAINS
   IF ( PRESENT(Free_Fact) ) THEN
     IF ( Free_Fact ) THEN
       IF ( A % Cholmod/=0 ) THEN
-        CALL spqr_ffree(A % cholmod)
-        A % cholmod = 0
+        IF(spqr_ffree(A % cholmod)==0) A % Cholmod=0
       END IF
       RETURN
     END IF
@@ -583,7 +583,7 @@ CONTAINS
 
   IF ( Factorize .OR. A% cholmod==0 ) THEN
     IF ( A % cholmod/=0 ) THEN
-      CALL spqr_ffree(A % cholmod)
+      i=spqr_ffree(A % cholmod)
       A % cholmod = 0
     END IF
 
@@ -603,7 +603,7 @@ CONTAINS
   IF ( .NOT. Found ) FreeFactorize = .TRUE.
 
   IF ( Factorize .AND. FreeFactorize ) THEN
-    CALL spqr_ffree(A % cholmod)
+    i=spqr_ffree(A % cholmod)
     A % cholmod = 0
   END IF
 #else
