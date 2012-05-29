@@ -123,9 +123,9 @@ MODULE StressLocal
      NeedMass = ANY( NodalDensity(1:n) /= 0.0d0 )
      NeedMass = NeedMass .OR. ANY( NodalDamping(1:n) /= 0.0d0 )
      NeedHeat = ANY( NodalTemperature(1:n) /= 0.0d0 )
-     NeedHarmonic = ANY( LoadAtIp_im(1:n) /= 0.0d0 ) 
-     NeedPreStress = ANY( NodalPreStrain(i,1:n) /= 0.0d0 ) 
-     NeedPreStress = NeedPreStress .OR. ANY( NodalPreStress(i,1:n) /= 0.0d0 ) 
+     NeedHarmonic = ANY( LOAD_im(:,1:n) /= 0.0d0 ) 
+     NeedPreStress = ANY( NodalPreStrain(1:6,1:n) /= 0.0d0 ) 
+     NeedPreStress = NeedPreStress .OR. ANY( NodalPreStress(1:6,1:n) /= 0.0d0 ) 
 
      !      ! Integration stuff:
      ! ------------------  
@@ -284,11 +284,11 @@ MODULE StressLocal
 
        END SELECT
 
-       IF ( StabilityAnalysis .OR. GeometricStiffness ) THEN
+       ActiveGeometricStiffness = StabilityAnalysis.OR.GeometricStiffness
+       IF ( ActiveGeometricStiffness ) THEN
          CALL LocalStress( StressTensor,StrainTensor,NodalPoisson,ElasticModulus, &
              NodalHeatExpansion, NodalTemperature, Isotropic,CSymmetry,PlaneStress,   &
              NodalDisplacement,Basis,dBasisdx,Nodes,dim,n,ntot )
-         ActiveGeometricStiffness = .TRUE.
        END IF
 
        IF( NeedPreStress ) THEN
