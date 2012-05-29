@@ -124,7 +124,7 @@ CONTAINS
 #ifndef HAVE_PARDISO
                    CALL Fatal( 'GetMatrixFormat', 'Pardiso solver has not been installed.' )
 #endif
-                CASE( 'cholmod' )
+                CASE( 'cholmod','spqr' )
 #ifndef HAVE_CHOLMOD
                    CALL Fatal( 'GetMatrixFormat', 'Cholmod solver has not been installed.' )
 #endif
@@ -1204,7 +1204,6 @@ CONTAINS
     END TYPE RungeKutta_t
     TYPE(RungeKutta_t), ALLOCATABLE, TARGET :: RGCoeff(:)
 !------------------------------------------------------------------------------
-
 
 !------------------------------------------------------------------------------
 !   Intialize equation solvers for new timestep
@@ -3392,7 +3391,6 @@ CONTAINS
 
      SAVE TimeVar
 !------------------------------------------------------------------------------
-
      CALL SetCurrentMesh( Model, Solver % Mesh )
      Model % Solver => Solver
      Params => Solver % Values

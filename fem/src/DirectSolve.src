@@ -516,7 +516,7 @@ CONTAINS
   IF ( .NOT. Found ) Factorize = .TRUE.
 
   IF ( Factorize .OR. A% cholmod==0 ) THEN
-    IF ( A % cholmod==0 ) THEN
+    IF ( A % cholmod/=0 ) THEN
       CALL cholmod_ffree(A % cholmod)
       A % cholmod = 0
     END IF
@@ -545,6 +545,72 @@ CONTAINS
 #endif
 !------------------------------------------------------------------------------
   END SUBROUTINE Cholmod_SolveSystem
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Solves a linear system using SuiteSparseQR multifrontal direct solver courtesy
+!> of University of Florida.
+!------------------------------------------------------------------------------
+  SUBROUTINE SPQR_SolveSystem( Solver,A,x,b,Free_fact)
+!------------------------------------------------------------------------------
+  LOGICAL, OPTIONAL :: Free_Fact
+  TYPE(Matrix_t) :: A
+  TYPE(Solver_t) :: Solver
+  REAL(KIND=dp) :: x(*), b(*)
+
+  INTEGER(KIND=AddrInt) :: spqr_ffactorize
+
+  LOGICAL :: Factorize, FreeFactorize, Found
+
+  REAL(KIND=dp), POINTER CONTIG :: Vals(:)
+  INTEGER, POINTER CONTIG :: Rows(:), Cols(:), Diag(:)
+
+#ifdef HAVE_CHOLMOD
+  IF ( PRESENT(Free_Fact) ) THEN
+    IF ( Free_Fact ) THEN
+      IF ( A % Cholmod/=0 ) THEN
+        CALL spqr_ffree(A % cholmod)
+        A % cholmod = 0
+      END IF
+      RETURN
+    END IF
+  END IF
+
+  Factorize = ListGetLogical( Solver % Values, &
+     'Linear System Refactorize', Found )
+  IF ( .NOT. Found ) Factorize = .TRUE.
+
+  IF ( Factorize .OR. A% cholmod==0 ) THEN
+    IF ( A % cholmod/=0 ) THEN
+      CALL spqr_ffree(A % cholmod)
+      A % cholmod = 0
+    END IF
+
+    Rows => A % Rows
+    Cols => A % Cols
+    Vals => A % Values
+
+    Rows=Rows-1; Cols=Cols-1 ! c numbering
+    A % Cholmod=spqr_ffactorize(A % NumberOfRows, Rows, Cols, Vals)
+    Rows=Rows+1; Cols=Cols+1 ! fortran numbering
+  END IF
+
+  CALL spqr_fsolve(A % cholmod, A % NumberOfRows, x, b);
+
+  FreeFactorize = ListGetLogical( Solver % Values, &
+      'Linear System Free Factorization', Found )
+  IF ( .NOT. Found ) FreeFactorize = .TRUE.
+
+  IF ( Factorize .AND. FreeFactorize ) THEN
+    CALL spqr_ffree(A % cholmod)
+    A % cholmod = 0
+  END IF
+#else
+   CALL Fatal( 'SPQR_SolveSystem', 'SPQR Solver has not been installed.' )
+#endif
+!------------------------------------------------------------------------------
+  END SUBROUTINE SPQR_SolveSystem
 !------------------------------------------------------------------------------
 
 
@@ -611,6 +677,8 @@ CONTAINS
 
     n = SIZE(A % ParallelInfo % GlobalDOFs)
 !XXXXXXXXXXXXXXXXx
+    IF(ASSOCIATED(A % Gorder)) DEALLOCATE(A % GOrder)
+
     ALLOCATE( A % Gorder(n), Owner(n) )
     CALL ContinuousNumbering( A % ParallelInfo, &
         A % Perm, A % Gorder, Owner )
@@ -1054,6 +1122,7 @@ CONTAINS
         CALL Umfpack_SolveSystem( Solver, A, x, b, Free_Fact )
 #endif
 #ifdef HAVE_CHOLMOD
+        CALL SPQR_SolveSystem( Solver, A, x, b, Free_Fact )
         CALL Cholmod_SolveSystem( Solver, A, x, b, Free_Fact )
 #endif
         RETURN
@@ -1076,6 +1145,9 @@ CONTAINS
 
       CASE( 'cholmod' )
         CALL Cholmod_SolveSystem( Solver, A, x, b )
+
+      CASE( 'spqr' )
+        CALL SPQR_SolveSystem( Solver, A, x, b )
 
       CASE( 'mumps' )
         CALL Mumps_SolveSystem( Solver, A, x, b )
