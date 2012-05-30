@@ -33,11 +33,52 @@
 ! *  Original Date: 01 Aug 2002
 ! *
 ! *****************************************************************************/
+
+
+!------------------------------------------------------------------------------
+!> Initialization of the primary solver, i.e. StatCurrentSolver.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
+SUBROUTINE StatCurrentSolver_Init( Model,Solver,dt,TransientSimulation)
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL ::  TransientSimulation
+    REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+    LOGICAL :: Found, Calculate
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+    INTEGER :: dim
+
+    Params => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF (ListGetLogical(Params,'Calculate Joule Heating',Found)) &
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+        'Joule Heating' )
+    
+    Calculate = ListGetLogical(Params,'Calculate Volume Current',Found)
+    IF( Calculate ) THEN
+      IF( Dim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elcurr[Volume Current:2]' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elcurr[Volume Current:3]' )
+      END IF
+    END IF
+   
+!------------------------------------------------------------------------------
+END SUBROUTINE StatCurrentSolver_Init
+!------------------------------------------------------------------------------
     
 !------------------------------------------------------------------------------
 !>  Solve the Poisson equation for the electric potential and compute the 
 !>  volume current and Joule heating
-!> \ingroup Solvers
 !------------------------------------------------------------------------------
   SUBROUTINE StatCurrentSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -58,7 +99,7 @@
 
      REAL (KIND=DP), POINTER :: ForceVector(:), Potential(:)
      REAL (KIND=DP), POINTER :: ElField(:), VolCurrent(:)
-     REAL (KIND=DP), POINTER :: Heating(:), JouleH(:)
+     REAL (KIND=DP), POINTER :: Heating(:)
      REAL (KIND=DP), POINTER :: EleC(:)
      REAL (KIND=DP), POINTER :: Cwrk(:,:,:)
      REAL (KIND=DP), ALLOCATABLE ::  Conductivity(:,:,:), &
@@ -78,6 +119,7 @@
      LOGICAL :: ControlPower, ControlCurrent, Control
 
      TYPE(ValueList_t), POINTER :: Params
+     TYPE(Variable_t), POINTER :: Var
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
 
@@ -140,24 +182,27 @@
  
        CalculateCurrent = ListGetLogical( Params, &
            'Calculate Volume Current', GotIt )
-       IF ( CalculateCurrent )  &
-           ALLOCATE( VolCurrent( DIM*Model%NumberOfNodes ), STAT=istat )
-       IF ( istat /= 0 ) THEN
-          CALL Fatal( 'StatCurrentSolve', 'Memory allocation error.' )
+       IF ( CalculateCurrent ) THEN
+         Var => VariableGet( Solver % Mesh % Variables,'elcurr')
+         IF( ASSOCIATED( Var) ) THEN
+           VolCurrent => Var % Values
+         ELSE
+           CALL Fatal('StatCurrentSolver','Volume Current does not exist')
+         END IF
        END IF
-
-       DO i = 1, Model % NumberOfEquations
-         CalculateHeating = ListGetLogical( Model % Equations(i) % Values, &
-             'Calculate Joule heating', GotIt )
-         IF ( GotIt ) EXIT
-       END DO
-       IF ( .NOT. GotIt )  &
-            CalculateHeating = ListGetLogical( Params, &
-            'Calculate Joule Heating', GotIt )
-       IF ( CalculateHeating )  &
-           ALLOCATE( Heating( Model%NumberOfNodes ), STAT=istat )
-       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'StatCurrentSolve', 'Memory allocation error.' )
+        
+       CalculateHeating = ListGetLogicalAnyEquation( &
+           Model,'Calculate Joule heating')
+       IF ( .NOT. CalculateHeating )  &
+           CalculateHeating = ListGetLogical( Params, &
+           'Calculate Joule Heating', GotIt )
+       IF ( CalculateHeating ) THEN
+         Var => VariableGet( Solver % Mesh % Variables,'Joule Heating')
+         IF( ASSOCIATED( Var) ) THEN
+           Heating => Var % Values
+         ELSE
+           CALL Fatal('StatCurrentSolver','Joule Heating does not exist')
+         END IF
        END IF
 
        ConstantWeights = ListGetLogical( Params, &
@@ -176,22 +221,6 @@
        IF ( CalculateField ) THEN         
           CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, &
                Solver, 'Electric Field', dim, ElField, PotentialPerm)
-       END IF
-
-!------------------------------------------------------------------------------
-!      Add volume current to the variable list
-!------------------------------------------------------------------------------
-
-       IF ( CalculateCurrent ) THEN
-          CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, &
-               Solver, 'Volume Current', dim, VolCurrent, PotentialPerm)
-       END IF
-
-       IF ( CalculateHeating ) THEN
-          Heating = 0.0d0
-          JouleH => Heating
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               Solver, 'Joule Heating', 1, JouleH, PotentialPerm )
        END IF
           
        AllocationsDone = .TRUE.
@@ -459,13 +488,13 @@
     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Potential')
    
     IF ( CalculateCurrent ) THEN
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Volume Current')
+      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Volume Current')
     END IF
-   
-   IF ( CalculateHeating ) THEN
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Joule Heating')
-   END IF
-
+    
+    IF ( CalculateHeating ) THEN
+      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Joule Heating')
+    END IF
+    
 
 !------------------------------------------------------------------------------
  
