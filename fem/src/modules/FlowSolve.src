@@ -391,6 +391,10 @@
         'Nonlinear System Newton After Iterations', minv=0 )
      IF ( NewtonIter == 0 ) NewtonLinearization = .TRUE.
 
+
+     IF (GetLogical( GetSolverParams(), &
+         'Nonlinear System Reset Newton',  GotIt)) NewtonLinearization=.FALSE.
+
      NonlinearIter = ListGetInteger( Solver % Values, &
         'Nonlinear System Max Iterations', minv=0 )
 
