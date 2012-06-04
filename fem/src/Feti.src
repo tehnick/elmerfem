@@ -45,6 +45,8 @@ MODULE FetiSolve
   USE DefUtils
   IMPLICIT NONE
 
+  TYPE(ValueList_t), PRIVATE, POINTER :: Params => Null()
+
 
   ! Communication buffer stuff we send to our neighbours:
   ! -----------------------------------------------------
@@ -1262,7 +1264,6 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
     INTEGER :: i,j,m,iter,nnz,nLC,nrows,maxit,ipar(50), output,Restart,Saven
     REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err0,err1,err2,TOL,dpar(1)
-    TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found,prec
     REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:), &
            Ssave(:,:), Psave(:,:), srho(:), rr(:)
@@ -1402,7 +1403,6 @@ END SUBROUTINE FetiProject
     TYPE(Varying_string) :: nm
     LOGICAL :: Found, gotNM
     REAL(KIND=dp) :: xc,yc,zc,hc,ss
-    TYPE(ValueList_t), POINTER :: Params
     INTEGER, ALLOCATABLE :: floatinds(:)
     CHARACTER(MAX_NAME_LEN) :: Method
     COMPLEX(KIND=dp) :: EigValues(maxnz)
@@ -1578,11 +1578,14 @@ END SUBROUTINE FetiProject
     CALL ListSetNameSpace('feti:')
 
     CALL ListAddString( Params, 'Feti: Linear System Solver', 'Direct' )
+    Params=>GetSolverParams()
     CALL ListAddString( Params, 'Feti: Linear System Direct Method', 'umfpack' )
+    Params=>GetSolverParams()
 
     IF (.NOT.ListCheckPresent(Params,'Eigen System Convergence Tolerance')) &
       CALL ListAddConstReal( Params, &
                'Feti: Eigen System Convergence Tolerance', 1.0d-9)
+    Params=>GetSolverParams()
 
     IF (.NOT.ASSOCIATED(A % MassValues)) THEN
       ALLOCATE(A % MassValues(SIZE(A % Values)))
@@ -1676,7 +1679,6 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp) :: alpha(maxnz), zz, TOL
     INTEGER :: i,j,k,l,m,n,nd,q,d,nLC
 
-    TYPE(ValueList_t), POINTER :: Params
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL  :: Found, Floating=.FALSE., FetiInit, QR
     REAL(KIND=dp), POINTER :: xtmp(:),btmp(:),rtmp(:)
@@ -1729,7 +1731,6 @@ END SUBROUTINE FetiProject
     ! Check whether to use the 'total' FETI scheme:
     ! ---------------------------------------------
 
-    Params => GetSolverParams()
     TOL=GetCReal( Params,'Linear System Convergence Tolerance')
 
     ! Check whether to use the 'total' FETI scheme:
@@ -1897,7 +1898,7 @@ END SUBROUTINE FetiProject
     END IF
 
     CALL FetiSendRecvLC(A,y,x)
-    y = y + b
+    y = y + b(1:n)
     CALL FetiDirectSolver(A,x,y,Solver)
 
     IF (Floating) THEN
