@@ -188,7 +188,7 @@ static void Instructions()
 static void Goodbye()
 {
   printf("\nThank you for using Elmergrid!\n");
-  printf("Send bug reports and feature wishes to peter.raback@csc.fi\n");
+  printf("Send bug reports and feature wishes to elmeradm@csc.fi\n");
   exit(0);
 }
 

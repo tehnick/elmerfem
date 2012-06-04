@@ -3417,6 +3417,9 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
       probnodes[i] = 0;
     printf("Applying aggressive optimization for load balancing\n");
   }
+  else {
+    optimize = 0;
+  }
 
  optimizeownership:
 
