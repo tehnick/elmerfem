@@ -86,6 +86,8 @@ MODULE FetiSolve
 
   LOGICAL, ALLOCATABLE, PRIVATE, SAVE :: DirichletDOFs(:)
 
+integer,allocatable::pbeg(:)
+
 #include "huti_fdefs.h"
 
 CONTAINS
@@ -375,7 +377,7 @@ CONTAINS
       sndLC=0
       toSend(:) % n=0
       DO i=1,nrows
-        IF (ig(i) .AND..NOT.DirichletDOFs(i)) THEN
+        IF (ig(i).AND..NOT.DirichletDOFs(i)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
           sz = SIZE(nb(i) % Neighbours)
@@ -469,6 +471,7 @@ CONTAINS
     ! ------------------------------------
     CALL FetiSendReceive(toSend, toReceive, tag=110, Fsum=F)
 
+
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiSendRecvLC
 !------------------------------------------------------------------------------
@@ -542,7 +545,11 @@ CONTAINS
 
         n = GetElementNOFNodes()
         DO j=1,d
-          Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
+          IF (d>1) THEN
+            Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
+          ELSE
+            Vals(1:n)=GetReal(BC,Solver % Variable % Name,Found)
+          END IF
           IF (.NOT.Found) CYCLE
           DO k=1,n
             l = p(Element % NodeIndexes(k))
@@ -563,9 +570,8 @@ CONTAINS
               B % RHS(nLC) = Vals(k)/A % DiagScaling(l)
               CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
             ELSE
-              val = ABS(A % Values(A % Diag(l)))
-              B % RHS(nLC) = Vals(k)*val
-              CALL SetMatrixElement(B, nLC, ParEnv % myPE, val)
+              B % RHS(nLC) = Vals(k)
+              CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
             END IF
           END DO
         END DO
@@ -691,7 +697,7 @@ CONTAINS
             ! (also normalized below...)
             ! -----------------------------------------------------
             Bmat % Perm(nLC) = i
-            val = 1._dp/(j*SQRT(1+(1._dp/j)**2))
+            val = 1._dp/(j*SQRT(1+1._dp/j))
             DO m=1,j
               proc = nb(l) % Neighbours(m)
               CALL SetMatrixElement(Bmat,nLC,proc,val)
@@ -735,7 +741,6 @@ CONTAINS
 
     ! Extract send & receive dof values: 
     ! ----------------------------------
-
     toSend(:) % n=0
     DO i=1,ninterface
       l = lint(i)
@@ -848,6 +853,9 @@ CONTAINS
 
     type(matrix_t), pointer :: gtg_m => null()
 
+    logical :: gotnm
+    type(Varying_string) :: nm
+
     save :: g_nz,g_i,gtg_m,g_gtg
 !------------------------------------------------------------------------------
 !call resettimer('project')
@@ -860,6 +868,10 @@ CONTAINS
       if (op==2) t=0
       return
     end if
+
+    nm=''
+    gotNM=ListGetNameSpace(nm)
+    CALL ListSetNameSpace('feti proj:')
 
     nrows = A % NumberOfRows
     ALLOCATE(x(nz),b(nz),P(nrows),Q(nrows));P=0; Q=0
@@ -992,8 +1004,6 @@ CONTAINS
 
           ! Get storage for the (global) G'G:
           ! ---------------------------------
-!         if(allocated(g_gtg)) deallocate(g_gtg)
-!         allocate(g_gtg(g_n,g_n)); g_gtg=0;
           IF (ASSOCIATED(gtg_m)) CALL FreeMatrix(gtg_m)
           gtg_m=>AllocateMatrix()
           gtg_m % format = MATRIX_LIST
@@ -1027,10 +1037,8 @@ CONTAINS
           end do
 
           !
-          ! Factorize the G'G, and we are done intializing  (the call is
-          ! to Lapack full matrix  Cholesky  factorization, at least for
-          ! the time being...):
-          ! ------------------------------------------------------------
+          ! Factorize the G'G, and we are done intializing:
+          ! -----------------------------------------------
           call list_tocrsmatrix(gtg_m)
 !         call dpotrf('u',g_n,g_gtg,g_n,ierr)    
 
@@ -1068,10 +1076,8 @@ CONTAINS
                     d_type,i,405,comm,stat,ierr)
         end do
 
-        ! solve x (lapack routine used here):
-        ! -----------------------------------
-!       g_x=g_b
-!       call dpotrs('u',g_n,1,g_gtg,g_n,g_x,g_n,ierr)
+        ! solve x:
+        ! --------
         call directsolver(gtg_m,g_x,g_b,getsolver())
 
         ! distribute the result:
@@ -1110,6 +1116,8 @@ CONTAINS
         T=T-S
       END IF
     END IF
+
+    CALL ListSetNameSpace(CHAR(nm))
 !call checktimer('project',delete=.true.)
 
 CONTAINS
@@ -1256,7 +1264,8 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err0,err1,err2,TOL,dpar(1)
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found,prec
-    REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:),Ssave(:,:),Psave(:,:),srho(:),rr(:)
+    REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:), &
+           Ssave(:,:), Psave(:,:), srho(:), rr(:)
 !------------------------------------------------------------------------------
 !call resettimer('cpg')
     nrows=A % NumberOfRows
@@ -1268,6 +1277,7 @@ END SUBROUTINE FetiProject
     Restart = GetInteger( Params,'Linear System CPG Restart', Found)
     TOL     = GetConstReal( Params,'Linear System Convergence Tolerance')
 
+    HUTI_NDIM=n
     bnorm = normfun(n,b,1)
     IF ( bnorm==0 ) THEN
       x=0; RETURN;
@@ -1281,8 +1291,6 @@ END SUBROUTINE FetiProject
       x(1:nz)=MATMUL(z,f(1:m))
     END IF
     CALL FetiProject(A,n,x,OP=1,TOL=1d-12)
-
-    HUTI_NDIM=n
 
     CALL matvecsubr(x(1:n),T,ipar)
     Ri = -(T - b(1:n))
@@ -1386,7 +1394,7 @@ END SUBROUTINE FetiProject
     INTEGER :: FixInds(:)
     TYPE(Solver_t) :: Solver
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-7
+    REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-9
     REAL(KIND=dp), ALLOCATABLE :: x(:),tz(:,:)
     INTEGER, POINTER :: p(:)
     INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(0:6)
@@ -1590,7 +1598,7 @@ END SUBROUTINE FetiProject
     ! ------------------------------------------------------------------------
     CALL DirectSolver(A,x,x,Solver,Free_Fact=.TRUE.)
 
-    CALL ListSetNameSpace(char(nm))
+    CALL ListSetNameSpace(CHAR(nm))
 
     ! Finally create null(A) from zero freq. eigenvectors:
     ! ----------------------------------------------------
@@ -1627,7 +1635,7 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
     INTEGER :: n
     REAL(KIND=dp), POINTER CONTIG :: tx(:),tb(:)
-!call checktimer('direct')
+!call resettimer('direct')
     n = A % NumberOfRows
     tx=>x
     tb=>b
@@ -1646,7 +1654,7 @@ END SUBROUTINE FetiProject
       x=tx(1:n)
       DEALLOCATE(tx,tb)
     END IF
-!call checktimer('direct')
+!call checktimer('direct',delete=.true.)
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiDirectSolver
 !------------------------------------------------------------------------------
@@ -1670,7 +1678,7 @@ END SUBROUTINE FetiProject
 
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL  :: Found, Floating=.FALSE., FetiInit
+    LOGICAL  :: Found, Floating=.FALSE., FetiInit, QR
     REAL(KIND=dp), POINTER :: xtmp(:),btmp(:),rtmp(:)
     INTEGER(KIND=AddrInt) :: mvProc, dotProc, nrmProc, stopcProc, precProc, AddrFunc
 
@@ -1682,8 +1690,8 @@ END SUBROUTINE FetiProject
     INTEGER, ALLOCATABLE :: Indexes(:)
     REAL(KIND=dP), ALLOCATABLE :: vals(:)
 
-    TYPE(Element_t), POINTER :: El
-    TYPE(ValueList_t), POINTER :: Bc
+    TYPE(Element_t), POINTER :: EL
+    TYPE(ValueList_t), POINTER :: BC
 !------------------------------------------------------------------------------
 
     ! Flag dirichlet d.o.f., to remove 'em from interface conditions:
@@ -1702,8 +1710,13 @@ END SUBROUTINE FetiProject
       IF(.NOT.ASSOCIATED(BC)) CYCLE
       nd = GetElementDOFs(Indexes)
       DO j=1,d
-        IF(ListCheckPresent(BC,ComponentName(Solver % Variable,j))) &
-          DirichletDOFs(d*(p(Indexes(1:nd))-1)+j)=.TRUE.
+        IF (d>1) THEN
+          IF(ListCheckPresent(BC,ComponentName(Solver % Variable,j))) &
+            DirichletDOFs(d*(p(Indexes(1:nd))-1)+j)=.TRUE.
+        ELSE
+          IF(ListCheckPresent(BC,Solver % Variable % Name)) &
+            DirichletDOFs(d*(p(Indexes(1:nd))-1)+j)=.TRUE.
+        END IF
       END DO
     END DO
     DEALLOCATE(Indexes)
@@ -1734,6 +1747,10 @@ END SUBROUTINE FetiProject
     ! --------------------------------------------------------------
     CPG = GetString(Params,'Linear System Iterative Method') == 'cpg'
 
+    ! Check if QR decomposition to find the nullspace:
+    ! ------------------------------------------------
+    QR = GetString(Params,'Linear System Direct Method') == 'spqr'
+
     n = A % NumberOfRows
     ALLOCATE(y(n))
 
@@ -1753,12 +1770,14 @@ END SUBROUTINE FetiProject
 
       ! Check for floating domains, initialize null space z (a.k.a. R):
       ! ---------------------------------------------------------------
-      Floating = FetiFloatingDomain(A,Solver,FixInds,TOL)
+      IF(.NOT.QR) THEN
+        Floating=FetiFloatingDomain(A,Solver,FixInds,TOL)
+      END IF
     END IF
 
     ! 'fix' A  to allow solving local system:
     ! ---------------------------------------
-    IF (Floating) THEN
+    IF (.NOT.QR.AND.Floating) THEN
       saverows   => a % rows
       savecols   => a % cols
       savevalues => a % values
@@ -1793,9 +1812,9 @@ END SUBROUTINE FetiProject
           a % rows(n+j)=l
           do i=1,n
             IF ( z(j,i)==0 ) CYCLE
-             a % cols(l)=i
-             a % values(l)=z(j,i)
-             l=l+1
+            a % cols(l)=i
+            a % values(l)=z(j,i)
+            l=l+1
           end do
         end do
         a % rows(n+nz+1)=l
@@ -1825,6 +1844,18 @@ END SUBROUTINE FetiProject
     x = -x
     nLC = FetiSendRecvIf(A,y,x)
 
+    ! If using QR decomposition, find the null space
+    ! after factorizing:
+    ! ----------------------------------------------
+    IF (Refactorize.AND.QR) THEN
+      CALL SPQR_NZ(A % Cholmod,nz) ! null space size
+      NullSpaceLC=.FALSE.
+      Floating = nz/=0
+      IF(ALLOCATED(z)) DEALLOCATE(z)
+      ALLOCATE(z(nz,n))
+      CALL SPQR_NullSpace(A % Cholmod,n,nz,z) ! get the null space
+    END IF
+
     ! add Dirichlet BC contribution to the r.h.s., if using Total FETI:
     ! ------------------------------------------------------------------
     IF (TotalFeti) y(1:nLC)=y(1:nLC)+Bmat % RHS(1:nLC)
@@ -1846,13 +1877,10 @@ END SUBROUTINE FetiProject
       CALL FetiCPG(A,nLC,x,y,b,Solver, & 
               FetiMV, FetiPrec, SParDotProd, SParNorm)
     ELSE
-      stopcProc=AddrFunc(FetiStopc)
-      mvProc=AddrFunc(FetiMV)
       precProc=AddrFunc(FetiPrec)
-
+      mvProc=AddrFunc(FetiMV)
       nrmProc=AddrFunc(SParNorm)
       dotProc=AddrFunc(SParDotProd)
-
       CALL IterSolver(A,x,y,Solver,ndim=nLC,DotF=dotProc, &
           NormF=nrmProc, MatvecF=mvProc, precF=precProc )
     END IF
@@ -1876,10 +1904,12 @@ END SUBROUTINE FetiProject
       x = x + MATMUL(alpha(1:nz),z)
 !     DEALLOCATE(z)
 
-      DEALLOCATE(A % Values,A % Rows, A % Cols)
-      A % Rows => SaveRows
-      A % Cols => SaveCols
-      A % Values => SaveValues
+      IF(.NOT.QR) THEN
+        DEALLOCATE(A % Values,A % Rows, A % Cols)
+        A % Rows => SaveRows
+        A % Cols => SaveCols
+        A % Values => SaveValues
+      END IF
     END IF
 
     IF ( Refactorize ) THEN
@@ -1895,7 +1925,7 @@ END SUBROUTINE FetiProject
       ! help outer iteration convergence:
       ! -------------------------------------------------------------
       DO i=1,n
-        IF (DirichletDofs(i)) x(i) = b(i)
+        IF (DirichletDofs(i)) x(i)=b(i)
       END DO
     END IF
 
@@ -2019,7 +2049,7 @@ END SUBROUTINE FetiProject
      y = y + b
      CALL FetiDirectSolver(A,x,y,Solver)
 
-call parallelactivebarrier()
+CALL ParallelActiveBarrier()
      ! For floating domains:
      ! ---------------------
      call FetiMV(lx,llx,ipar)
@@ -2063,4 +2093,3 @@ END SUBROUTINE FetiSolver
 !------------------------------------------------------------------------------
 
 !> \}
-
