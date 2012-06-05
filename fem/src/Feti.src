@@ -40,6 +40,9 @@
 !-------------------------------------------------------------------------------
 !>  Basic FETI solver, for Poisson & Navier style of equations.
 !-------------------------------------------------------------------------------
+
+#include "../config.h"
+
 MODULE FetiSolve
 
   USE DefUtils
@@ -1849,12 +1852,16 @@ END SUBROUTINE FetiProject
     ! after factorizing:
     ! ----------------------------------------------
     IF (Refactorize.AND.QR) THEN
+#ifdef HAVE_CHOLMOD
       CALL SPQR_NZ(A % Cholmod,nz) ! null space size
       NullSpaceLC=.FALSE.
       Floating = nz/=0
       IF(ALLOCATED(z)) DEALLOCATE(z)
       ALLOCATE(z(nz,n))
       CALL SPQR_NullSpace(A % Cholmod,n,nz,z) ! get the null space
+#else
+      CALL Fatal('Feti','Cholmod/SPQR solver has not been installed.')
+#endif
     END IF
 
     ! add Dirichlet BC contribution to the r.h.s., if using Total FETI:
