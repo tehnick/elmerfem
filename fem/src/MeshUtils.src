@@ -297,7 +297,7 @@ END SUBROUTINE GetMaxDefs
 
     LOGICAL :: GotIt, NeedEdges, FoundDG, Found
 
-    INTEGER :: MinIndex,MaxIndex,MinEIndex,MaxEIndex, &
+    INTEGER :: MinIndex,MaxIndex,MinEIndex,MaxEIndex, DefaultTargetBC, &
         BDOFs, EDOFs,FDOFs,inDOFs(7), DGIndex, istat, mesh_dim, save_dim
     INTEGER, POINTER :: NodeTags(:),CoordMap(:),BList(:)
     INTEGER, POINTER :: LocalPerm(:),LocalEPerm(:), &
@@ -686,7 +686,11 @@ END SUBROUTINE GetMaxDefs
         END IF
         Mesh % Elements(i) % BodyId = 0
 
+        DefaultTargetBC=0
         DO j=1,Model % NumberOfBCs
+          IF(ListGetLogical( Model % BCs(j) % Values, &
+                  'Default Target', GotIt)) DefaultTargetBC=j
+              
           BList => ListGetIntegerArray( Model % BCs(j) % Values, &
                      'Target Boundaries', GotIt ) 
           IF ( GotIt ) THEN
@@ -702,17 +706,18 @@ END SUBROUTINE GetMaxDefs
         END DO
 
         j = Mesh % Elements(i) % BoundaryInfo % Constraint
+        IF((j<=0.OR.j>Model % NumberOfBCs).AND.DefaultTargetBC>0) THEN
+          Mesh % Elements(i) % BoundaryInfo % Constraint=DefaultTargetBC
+          Mesh % Elements(i) % BodyId  = ListGetInteger( &
+            Model % BCs(DefaultTargetBC) % Values, 'Body Id', &
+               Gotit, 1, Model % NumberOfBodies )
+        END IF
+        j = Mesh % Elements(i) % BoundaryInfo % Constraint
+
         IF ( j > 0 .AND. j <= Model % NumberOfBCs ) &
           Mesh % Elements(i) % BoundaryInfo % OutBody = &
              ListGetInteger( Model % BCs(j) % Values, &
                 'Normal Target Body', GotIt, maxv=Model % NumberOFBodies ) 
-!         Mesh % Elements(i) % BoundaryInfo % OutBody => &
-!            ListGetIntegerArray( Model % BCs(j) % Values, &
-!               'Normal Target Body', GotIt, maxv=Model % NumberOFBodies ) 
-!       IF ( .NOT. ASSOCIATED(Mesh % Elements(i) % BoundaryInfo) ) % OutBody ) THEN
-!          ALLOCATE( Mesh % Elements(i) % BoundaryInfo) ) % OutBody(1) )
-!          Mesh % Elements(i) % BoundaryInfo) ) % OutBody(1) )
-!       END IF
 
         CALL AllocateVector( Mesh % Elements(i) % NodeIndexes, n )
 
