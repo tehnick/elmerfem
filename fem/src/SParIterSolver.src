@@ -1428,6 +1428,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
          ELSE IF( Prec(1:9) == 'boomeramg' ) THEN
             IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Preconditioner: boomerAMG",Level=1)
             hypre_pre=2
+         ELSE IF( Prec(1:4) == 'none' ) THEN
+            hypre_pre=9
          END IF
       END IF
 

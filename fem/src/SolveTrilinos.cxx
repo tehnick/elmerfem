@@ -25,7 +25,7 @@ see elmerfem/fem/examples/trilinos for an example.
 #endif
 
 // enable this to store matrices, generate debugging output etc
-//#define DEBUG_TRILINOS_INTERFACE
+#define DEBUG_TRILINOS_INTERFACE
 
 #define CHECK_ZERO(funcall) {ierr = funcall;\
 if (ierr) {std::cout<<"Trilinos Error "<<ierr<<" returned from call "<<#funcall<<std::endl; return;}}
@@ -51,7 +51,7 @@ if (ierr) {std::cout<<"Trilinos Error "<<ierr<<" returned from call "<<#funcall<
 #include "Epetra_SerialComm.h"
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
-#include "Epetra_Import.h"
+#include "Epetra_Export.h"
 #include "Epetra_Vector.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_CrsMatrix.h"
@@ -106,10 +106,13 @@ typedef struct ElmerTrilinosContainer {
 Teuchos::RCP<Epetra_Comm> comm_;
 Teuchos::RCP<Epetra_Map> assemblyMap_; // map with 'overlap' of nodes
 Teuchos::RCP<Epetra_Map> solveMap_; // map with each node on one proc
-Teuchos::RCP<Epetra_Import> importer_;
+Teuchos::RCP<Epetra_Export> exporter_;
 Teuchos::RCP<Epetra_CrsMatrix> matrix_;
 Teuchos::RCP<Epetra_Vector> rhs_;
 Teuchos::RCP<Epetra_Vector> sol_;
+
+double scaleFactor_; // scale entire system by a scalar constant, scaleFactor*Ax = scaleFactor*b
+                     // enabled by setting "Scale Factor" in xml file
 
 Teuchos::RCP<Teuchos::ParameterList> params_;
 
@@ -288,17 +291,17 @@ CHECK_ZERO(EpetraExt::BlockMapToMatrixMarketFile("ElmerMap.txt",*assemblyMap));
 CHECK_ZERO(EpetraExt::BlockMapToMatrixMarketFile("TrilinosMap.txt",*solveMap));
 #endif
 
-   Teuchos::RCP<Epetra_Import> importer;
+   Teuchos::RCP<Epetra_Export> exporter;
 
-   // construct an importer to transfer data between the two object types
+   // construct an exporter to transfer data between the two object types
    try {
-   importer = Teuchos::rcp(new Epetra_Import
-        (*solveMap, *assemblyMap));
+   exporter = Teuchos::rcp(new Epetra_Export
+        (*assemblyMap, *solveMap));
    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,success)
 
-   if (!success || importer==Teuchos::null)
+   if (!success || exporter==Teuchos::null)
      {
-     WARNING("Failed to construct importer",__FILE__,__LINE__);
+     WARNING("Failed to construct exporter",__FILE__,__LINE__);
      ierr = -1;
      return;
      }
@@ -309,7 +312,7 @@ try {
    A = Teuchos::rcp(new Epetra_CrsMatrix
         (Copy, *solveMap, A_elmer->MaxNumEntries(),false));
    // create the matrix from the overlapping input matrix
-   CHECK_ZERO(A->Import(*A_elmer, *importer, Add));
+   CHECK_ZERO(A->Export(*A_elmer, *exporter, Add));
    CHECK_ZERO(A->FillComplete());
 
    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,success)
@@ -343,7 +346,9 @@ try {
      {
      OUT("reading parameters from '"+filename+"'");
      try {
-       Teuchos::updateParametersFromXmlFile(filename,params.get());   
+// for Trilinos 10.10 and later     
+//       Teuchos::updateParametersFromXmlFile(filename,params.ptr());
+       Teuchos::updateParametersFromXmlFile(filename,params.get());
        } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,success);
        if (!success)
          {
@@ -358,13 +363,17 @@ try {
    if (print_matrix)
    {
 #ifdef DEBUG_TRILINOS_INTERFACE
-   std::string filename = "TrilinosMatrix.mtx";
+   std::string filename = params->get("Filename Base","Trilinos")+"Matrix.mtx";
    CHECK_ZERO(EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),*A));
 #else
    WARNING("you have specified 'Dump Matrix', but DEBUG_TRILINOS_INTERFACE is not defined",
         __FILE__,__LINE__);
 #endif
    }
+
+   double scaleFactor = params->get("Scale Factor",1.0);
+   if (scaleFactor!=1.0) CHECK_ZERO(A->Scale(scaleFactor));
+     
    
   ///////////////////////////////////////////////////////////////////
   // create/setup preconditioner                                   //
@@ -417,8 +426,9 @@ try {
    Container->params_=params;
    Container->assemblyMap_=assemblyMap;
    Container->solveMap_=solveMap;
-   Container->importer_=importer;
+   Container->exporter_=exporter;
    Container->matrix_=A;
+   Container->scaleFactor_=scaleFactor;
    Container->rhs_=rhs;
    Container->sol_=sol;
   Container->prec_=prec;
@@ -453,21 +463,27 @@ if (Container==NULL) ERROR("invalid pointer passed to SolveTrilinos2",__FILE__,_
    // get the data structures built in SolveTrilinos1():
    Teuchos::RCP<Epetra_Map> assemblyMap = Container->assemblyMap_;
    Teuchos::RCP<Epetra_Map> solveMap = Container->solveMap_;
-   Teuchos::RCP<Epetra_Import> importer = Container->importer_;
+   Teuchos::RCP<Epetra_Export> exporter = Container->exporter_;
    Teuchos::RCP<Epetra_CrsMatrix> A = Container->matrix_;
    Teuchos::RCP<Epetra_Vector> x = Container->sol_;
    Teuchos::RCP<Epetra_Vector> b = Container->rhs_;
    Teuchos::RCP<Epetra_Operator> prec = Container->prec_;
    Teuchos::RCP<Belos::SolverManager<ST,MV,OP> > solver = Container->solver_;
    Teuchos::RCP<Teuchos::ParameterList> params = Container->params_;
+   double scaleFactor = Container->scaleFactor_;
 
    // import the vectors
    Epetra_Vector bview(View, *assemblyMap, rhsvec);
-   CHECK_ZERO(b->Import(bview, *importer, Add));
+   CHECK_ZERO(b->Export(bview, *exporter, Add));
 
    // import the vectors
    Epetra_Vector xview(View, *assemblyMap, xvec);
-   CHECK_ZERO(x->Import(xview, *importer, Zero));
+   CHECK_ZERO(x->Export(xview, *exporter, Zero));
+
+   if (scaleFactor!=1.0)
+     { 
+     CHECK_ZERO(b->Scale(scaleFactor));
+     }
 
    // override the settings for tconv tol and num iter using Elmer inut data:
    if (*TOL>=0.0) params->sublist("Belos").set("Convergence Tolerance",*TOL);
@@ -547,7 +563,7 @@ if (!success)
     }
   else
     {
-    WARNING("no solver or preconditioner available",__FILE__,__LINE__);
+   WARNING("no solver or preconditioner available",__FILE__,__LINE__);
     ierr=3;
     *x=*b;
     }
@@ -556,8 +572,9 @@ if (!success)
    if (print_vectors)
    {
 #ifdef DEBUG_TRILINOS_INTERFACE   
-   EpetraExt::MultiVectorToMatrixMarketFile("rhs.txt",*b);
-   EpetraExt::MultiVectorToMatrixMarketFile("sol.txt",*x);
+   string filebase = params->get("Filename Base","Trilinos");
+   EpetraExt::MultiVectorToMatrixMarketFile((filebase+"Rhs.txt").c_str(),*b);
+   EpetraExt::MultiVectorToMatrixMarketFile((filebase+"Sol.txt").c_str(),*x);
 #else
    WARNING("you have specified 'Dump Vectors', but DEBUG_TRILINOS_INTERFACE is not defined",
         __FILE__,__LINE__);
@@ -602,7 +619,7 @@ if (!success)
 
 
    // import the vectors
-   CHECK_ZERO(xview.Export(*x, *importer, Zero));
+   CHECK_ZERO(xview.Import(*x, *exporter, Zero));
 
 // Trilinos cleans up itself (because of RCP's)
 return;
@@ -913,7 +930,7 @@ Teuchos::RCP<Belos::SolverManager<ST,MV,OP> > createSolver
   // guess, it is better to check ||r||_2/||b||_2 (actually a more fancy 
   // convergence test like the one used in Elmer would be better, but I  
   // haven't figured out how to tell Belos to do that)
-  if (!belosList.isParameter("Implicit Residual Scaling"))
+  if (linearSolver=="GMRES" && belosList.isParameter("Implicit Residual Scaling")==false)
     {
     belosList.set("Implicit Residual Scaling","Norm of RHS");
     }
@@ -922,10 +939,10 @@ Teuchos::RCP<Belos::SolverManager<ST,MV,OP> > createSolver
   // This is simply an Epetra_Operator with 'Apply' and 'ApplyInverse' switched.
   if (!Teuchos::is_null(P))
     {
-    belosPrecPtr = rcp(new Belos::EpetraPrecOp(P));
+    belosPrecPtr = Teuchos::rcp(new Belos::EpetraPrecOp(P));
     }
   // create Belos problem interface
-  belosProblemPtr = rcp(new Belos::LinearProblem<ST,MV,OP>(A,x,b));
+  belosProblemPtr = Teuchos::rcp(new Belos::LinearProblem<ST,MV,OP>(A,x,b));
 
   if (belosPrecPtr!=Teuchos::null)
     {
@@ -938,15 +955,15 @@ Teuchos::RCP<Belos::SolverManager<ST,MV,OP> > createSolver
     }
 
   // create the solver
-  RCP<Teuchos::ParameterList> belosListPtr=rcp(&belosList,false);
+  Teuchos::RCP<Teuchos::ParameterList> belosListPtr=rcp(&belosList,false);
   if (linearSolver=="CG")
     {
-    belosSolverPtr = rcp(new Belos::BlockCGSolMgr<ST,MV,OP>(belosProblemPtr,belosListPtr));
+    belosSolverPtr = Teuchos::rcp(new Belos::BlockCGSolMgr<ST,MV,OP>(belosProblemPtr,belosListPtr));
     }
   else if (linearSolver=="GMRES")
     {
-    RCP<Teuchos::ParameterList> belosListPtr=rcp(&belosList,false);
-    belosSolverPtr = rcp(new Belos::BlockGmresSolMgr<ST,MV,OP>(belosProblemPtr,belosListPtr));
+    Teuchos::RCP<Teuchos::ParameterList> belosListPtr=Teuchos::rcp(&belosList,false);
+    belosSolverPtr = Teuchos::rcp(new Belos::BlockGmresSolMgr<ST,MV,OP>(belosProblemPtr,belosListPtr));
     }
   else if (linearSolver=="None")
     {

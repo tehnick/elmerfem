@@ -1,3 +1,4 @@
+#define DEBUG_HYPRE_INTERFACE
 /*
    Example 5
 
@@ -254,7 +255,7 @@ st  = realtime_();
        /* Set the BiCGSTAB preconditioner */
        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
 				(HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
-     } else {
+     } else if (*hypre_method!=9) {
        fprintf( stderr,"Hypre preconditioning method not implemented\n");
        exit(EXIT_FAILURE);
      }
@@ -506,6 +507,13 @@ st  = realtime_();
    /* ted matrix Atilde                   */
    HYPRE_IJMatrixGetObject(Atilde, (void**) &parcsr_A);
 
+#ifdef DEBUG_HYPRE_INTERFACE
+   HYPRE_IJMatrixPrint(Atilde,
+                        "HypreMatrix.txt");
+  MPI_Finalize();
+  exit(-1);//TROET
+#endif                        
+
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
@@ -598,7 +606,7 @@ st  = realtime_();
        HYPRE_BoomerAMGSetMaxLevels(precond, hypre_intpara[3]); /* levels of coarsening */
        HYPRE_BoomerAMGSetInterpType(precond, hypre_intpara[4]);  /* interpolation type */
        HYPRE_BoomerAMGSetSmoothType(precond, hypre_intpara[5]);  /* smoother type */
-     } else {
+     } else if (*hypre_method%10!=9) {
        fprintf( stderr,"Hypre preconditioning method not implemented\n");
        exit(EXIT_FAILURE);
      }
