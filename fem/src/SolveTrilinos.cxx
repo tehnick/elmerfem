@@ -947,7 +947,8 @@ Teuchos::RCP<Belos::SolverManager<ST,MV,OP> > createSolver
   if (belosPrecPtr!=Teuchos::null)
     {
     // set preconditioner
-    belosProblemPtr->setRightPrec(belosPrecPtr);
+    OUT("set preconditioner...");
+    belosProblemPtr->setLeftPrec(belosPrecPtr);
     }
   bool set = belosProblemPtr->setProblem();
   if (set == false) {
