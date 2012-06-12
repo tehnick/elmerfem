@@ -1,4 +1,3 @@
-#define DEBUG_HYPRE_INTERFACE
 /*
    Example 5
 
@@ -506,13 +505,6 @@ st  = realtime_();
    /* so we put in the possibly approxima-*/
    /* ted matrix Atilde                   */
    HYPRE_IJMatrixGetObject(Atilde, (void**) &parcsr_A);
-
-#ifdef DEBUG_HYPRE_INTERFACE
-   HYPRE_IJMatrixPrint(Atilde,
-                        "HypreMatrix.txt");
-  MPI_Finalize();
-  exit(-1);//TROET
-#endif                        
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
