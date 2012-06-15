@@ -628,7 +628,7 @@ st  = realtime_();
        HYPRE_ParCSRBiCGSTABSetLogging(solver, 0);      /* needed to get run info later */
        }
 
-     if (hypre_method==0)
+     if (*hypre_method==0)
        {
        /* Set the PCG preconditioner */
        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
