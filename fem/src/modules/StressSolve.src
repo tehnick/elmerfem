@@ -118,7 +118,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
     IF(CalculateStrains) THEN
       CALL ListAddString( SolverParams,&
           NextFreeKeyword('Exported Variable ',SolverParams), &
-          'Strain[Strain_xx:1 Strain_yy:1 Strain_zz:1 Strain_xy:1 Strain_xz:1 Strain_yz:1]' )
+          'Strain[Strain_xx:1 Strain_yy:1 Strain_zz:1 Strain_xy:1 Strain_yz:1 Strain_xz:1]' )
       IF(CalcPrincipalAll) THEN
         CALL ListAddString( SolverParams,&
             NextFreeKeyword('Exported Variable ',SolverParams), &
@@ -678,14 +678,18 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
          
          nsize = SIZE(Solver % Variable % EigenVectors,2)/STDOFs
          nomodes = Solver % NOFEigenValues
-         
+
          DO i=1,nomodes
+
+           WRITE (Message,'(A,I0)') 'Computing stresses for eigenmode: ',i 
+           CALL INfo('StressSolver', Message ) 
+
            Displacement = Solver % Variable % EigenVectors(i,:)
 
            CALL ComputeStress( Displacement, NodalStress,  &
                VonMises, DisplPerm, StressPerm, &
                NodalStrain, PrincipalStress, PrincipalStrain, Tresca, PrincipalAngle )
-           
+
            DO j=1,7               
              SELECT CASE ( j )
              CASE(1) 
@@ -706,10 +710,9 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
              
              Var => VariableGet( Mesh % Variables, VarName )
              IF(.NOT. ASSOCIATED(Var) ) CYCLE
-             
+             dofs = Var % Dofs
+            
              IF( i == 1 ) THEN               
-               dofs = Var % Dofs
-
                IF( .NOT. ASSOCIATED( Var % EigenVectors ) ) THEN
                  ALLOCATE( Var % EigenVectors(nomodes, dofs * nsize ) )             
                  Var % EigenVectors = 0.0_dp
@@ -717,19 +720,25 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
                IF( .NOT. ASSOCIATED( Var % EigenValues ) ) THEN                 
                  ALLOCATE( Var % EigenValues(nomodes) )
                END IF
+
+               Var % EigenValues = Solver % Variable % EigenValues 
+               IF( dofs > 1 ) THEN
+                 DO k=1,dofs
+                   iVar => VariableGet( Mesh % Variables,ComponentName(Var % Name,k) )
+                   IF( ASSOCIATED( iVar ) ) THEN
+                     iVar % EigenValues => Var % EigenValues
+                     iVar % Eigenvectors => Var % EigenVectors(:,k::dofs)
+                   ELSE
+                     CALL Fatal('StressSolver','No variable associated: '//&
+                         ComponentName( Var % Name,k ) )
+                   END IF
+                 END DO
+               END IF
              END IF
 
-             Var % EigenValues = Solver % Variable % EigenValues
-             
-             IF( dofs > 1 ) THEN
-               DO k=1,dofs
-                 iVar => VariableGet( Mesh % Variables,ComponentName(Var % Name,k) )
-                 iVar % EigenValues => Var % EigenValues
-                 iVar % Eigenvectors => Var % EigenVectors(:,k::dofs)
-               END DO
-             END IF
-             
+
              SELECT CASE ( j )
+
              CASE(1) 
                Var % EigenVectors(i,:) = NodalStress
              CASE(2) 
@@ -1346,6 +1355,8 @@ CONTAINS
      CALL Info('StressSolver','------------------------------------------',Level=5)
      CALL Info('StressSolver','Starting Stress Computation',Level=5)
 
+     CALL ListSetNameSpace('stress:')
+
      n = MAX( Mesh % MaxElementDOFs, Mesh % MaxElementNodes )
      ALLOCATE( Indexes(n), LocalDisplacement(3,n), &
          MASS(n,n), FORCE(6*n), &
@@ -1367,6 +1378,7 @@ CONTAINS
          Permutation => StSolver % Variable % Perm
        ELSE
          ALLOCATE( Permutation( SIZE(Solver % Variable % Perm) ) )
+         Permutation = 0
        END IF
 
        OptimizeBW = GetLogical( StSolver % Values, 'Optimize Bandwidth', Found )
@@ -1413,9 +1425,9 @@ CONTAINS
 
      NodalStress  = 0.0d0
      ForceG       = 0.0d0
-       IF(CalculateStrains) THEN
-           NodalStrain  = 0.0d0
-           SForceG      = 0.0d0
+     IF(CalculateStrains) THEN
+       NodalStrain  = 0.0d0
+       SForceG      = 0.0d0
      END IF
      CALL DefaultInitialize()
 
@@ -1483,9 +1495,9 @@ CONTAINS
           IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
 
           CALL LocalStress( Stress, Strain, PoissonRatio, &
-             ElasticModulus, HeatExpansionCoeff, LocalTemperature, &
+              ElasticModulus, HeatExpansionCoeff, LocalTemperature, &
               Isotropic, CSymmetry, PlaneStress, LocalDisplacement, &
-                Basis, dBasisdx, Nodes, dim, n, nd )
+              Basis, dBasisdx, Nodes, dim, n, nd )
 
           DO p=1,nd
             DO q=1,nd
@@ -1536,6 +1548,7 @@ CONTAINS
           
           WRITE( Message,'(A,I0,A,I0,A)') 'Solving for Stress(',i,',',j,')'
           CALL Info('StressSolver',Message,Level=5)
+
           st = DefaultSolve()
            
           DO l=1,SIZE( Permutation )
@@ -1716,6 +1729,7 @@ CONTAINS
       CALL Info('StressSolver','Finished Stress Computation',Level=5)
       CALL Info('StressSolver','------------------------------------------',Level=5)
 
+      CALL ListSetNameSpace('')
 
 !------------------------------------------------------------------------------
    END SUBROUTINE ComputeStress

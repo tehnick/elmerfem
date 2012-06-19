@@ -2613,6 +2613,8 @@
       ALLOCATE( Permutation( SIZE(Solver % Variable % Perm) ) )
       ! Permutation = Perm
 
+      CALL ListSetNameSpace('stress:')
+
       OptimizeBW = GetLogical( StSolver % Values, 'Optimize Bandwidth', Found )
       IF ( .NOT. Found ) OptimizeBW = .TRUE.
       GlobalBubbles = GetLogical( StSolver % Values, 'Bubbles in Global System', Found )
@@ -2637,7 +2639,9 @@
       StSolver % Variable => VariableGet( StSolver % Mesh % Variables, 'StressTemp' )
 
       FirstTime = .FALSE.
-   END IF
+    ELSE
+      CALL ListSetNameSpace('stress:')
+    END IF
 
    Model % Solver => StSolver
    Ind = (/ 1, 4, 6, 4, 2, 5, 6, 5, 3 /)
@@ -3059,6 +3063,9 @@
         NodalLame2 )  
 
    Model % Solver => Solver
+
+   CALL ListSetNameSpace('')
+
 !--------------------------------------------------------------------------------
  END SUBROUTINE ComputeStressAndStrain
 !--------------------------------------------------------------------------------
