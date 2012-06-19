@@ -1726,6 +1726,9 @@ CONTAINS
         WRITE (str,'(A)') 'Boundary Assembly Procedure'
       END IF
       ProcName = ListGetString( SolverParams, TRIM(str), GotIt )
+      IF(.NOT. GotIt) THEN
+         CALL Fatal('BlockSystemAssembly','Bulk Assembly Precedure not given!')
+      END IF
     END IF
 
     Diagonal = (RowVar == ColVar) 
