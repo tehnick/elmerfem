@@ -3615,7 +3615,9 @@ CONTAINS
               IndField = FileIndex
             END IF
             IF( IndField > NoModes ) THEN
-              CALL Warn('WriteVtuXMLFile','Too few eigenmodes!')
+	      WRITE( Message,'(A,I0,A,I0,A)') 'Too few eigenmodes (',&
+                     IndField,',',NoModes,') in '//TRIM(FieldName)       
+              CALL Warn('WriteVtuXMLFile',Message)
               CYCLE
             END IF
             NoModes = 1
