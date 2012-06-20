@@ -180,7 +180,7 @@ CONTAINS
     LOGICAL :: Internal
 
     REAL(KIND=dp) :: ILUT_TOL
-    LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize
+    LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize,Found
     TYPE(ValueList_t), POINTER :: Params
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -229,8 +229,14 @@ CONTAINS
     
 !------------------------------------------------------------------------------
     Params => Solver % Values
-    str = ListGetString( Params,'Linear System Iterative Method' )
-    
+    str = ListGetString( Params,'Linear System Iterative Method',Found )
+    IF( .NOT. Found ) THEN
+      CALL Warn('IterSolver','> Linear System Iterative Method < not found, using BiCGstab')
+      str = 'bicgstab'      
+    ELSE
+      CALL Info('IterSolver','Using iterative method: '//TRIM(str),Level=9)
+    END IF
+
     IF ( str(1:9) == 'bicgstab2' ) THEN
       IterType = ITER_BiCGStab2
     ELSE IF ( str(1:9) == 'bicgstabl' ) THEN
@@ -256,6 +262,7 @@ CONTAINS
     ELSE
       IterType = ITER_BiCGStab
     END IF
+    
 !------------------------------------------------------------------------------
 
     HUTI_WRKDIM = 0

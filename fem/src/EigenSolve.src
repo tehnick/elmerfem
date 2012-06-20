@@ -91,7 +91,7 @@ CONTAINS
 
       IMPLICIT NONE
 
-      TYPE(Matrix_t), POINTER :: Matrix
+      TYPE(Matrix_t), POINTER :: Matrix, A
       TYPE(Solver_t), TARGET :: Solver
       INTEGER :: N, NEIG, DPERM(n)
       COMPLEX(KIND=dp) :: EigValues(:), EigVectors(:,:)
@@ -108,6 +108,7 @@ CONTAINS
       INTEGER, ALLOCATABLE :: Perm(:)
       LOGICAL, ALLOCATABLE :: Choose(:)
       REAL(KIND=dp), ALLOCATABLE :: WORKL(:), D(:,:), WORKEV(:), V(:,:)
+      CHARACTER(LEN=MAX_NAME_LEN) :: Method
 
 !
 !     %---------------%
@@ -116,7 +117,7 @@ CONTAINS
 !
       CHARACTER ::     BMAT*1, Which*2, DirectMethod*100
       INTEGER   ::     IDO, NCV, lWORKL, kinfo, i, j, k, l, p, IERR, iter, &
-                       NCONV, maxitr, ishfts, mode, istat
+                       NCONV, maxitr, ishfts, mode, istat, Dofs
       LOGICAL   ::     First, Stat, Direct = .FALSE., &
                        Iterative = .FALSE., NewSystem, Damped, Stability
 
@@ -125,14 +126,16 @@ CONTAINS
 
       COMPLEX(KIND=dp) :: s
 !
-      REAL(KIND=dp), POINTER :: SaveValues(:)
+      REAL(KIND=dp), POINTER :: SaveValues(:), SaveRhs(:)
+      TYPE(ValueList_t), POINTER :: Params
 
 !     %--------------------------------------%
 !     | Check if system is damped and if so, |
 !     | move to other subroutine             |
 !     %--------------------------------------%
 
-      Damped = ListGetLogical( Solver % Values, 'Eigen System Damped', stat )
+      Params => Solver % Values
+      Damped = ListGetLogical( Params, 'Eigen System Damped', stat )
       IF ( .NOT. stat ) Damped = .FALSE.
 
       IF ( Damped ) THEN
@@ -146,7 +149,7 @@ CONTAINS
 !     | and if so move to other subroutine     |
 !     %----------------------------------------%
 
-      Stability = ListGetLogical( Solver % Values, 'stability analysis', stat )
+      Stability = ListGetLogical( Params, 'stability analysis', stat )
       IF ( .NOT. stat ) Stability = .FALSE.
 
       IF ( Stability ) THEN
@@ -171,7 +174,7 @@ CONTAINS
 !     |               NEV + 1 <= NCV <= MAXNCV             | 
 !     %----------------------------------------------------%
 !
-      NCV = ListGetInteger( Solver % Values, 'Eigen System Lanczos Vectors', stat )
+      NCV = ListGetInteger( Params, 'Eigen System Lanczos Vectors', stat )
       IF ( .NOT. stat ) NCV = 3*NEIG + 1
 
       IF ( NCV <=  NEIG ) THEN
@@ -199,9 +202,10 @@ CONTAINS
 !     %--------------------------------------------------%
 !
 !
-      TOL = ListGetConstReal( Solver % Values, 'Eigen System Convergence Tolerance', stat )
+
+      TOL = ListGetConstReal( Params, 'Eigen System Convergence Tolerance', stat )
       IF ( .NOT. stat ) THEN
-         TOL = 100 * ListGetConstReal( Solver % Values, 'Linear System Convergence Tolerance' )
+         TOL = 100 * ListGetConstReal( Params, 'Linear System Convergence Tolerance' )
       END IF
 
       IDO   = 0
@@ -222,7 +226,7 @@ CONTAINS
       BMAT  = 'G'
       IF ( Matrix % Lumped ) THEN
          Mode  =  2
-         SELECT CASE( ListGetString(Solver % Values,'Eigen System Select',stat) )
+         SELECT CASE( ListGetString(Params,'Eigen System Select',stat) )
          CASE( 'smallest magnitude' )
               Which = 'SM'
          CASE( 'largest magnitude')
@@ -240,7 +244,7 @@ CONTAINS
          END SELECT
       ELSE
          Mode  = 3
-         SELECT CASE( ListGetString(Solver % Values,'Eigen System Select',stat) )
+         SELECT CASE( ListGetString(Params,'Eigen System Select',stat) )
          CASE( 'smallest magnitude' )
               Which = 'LM'
          CASE( 'largest magnitude')
@@ -257,8 +261,8 @@ CONTAINS
               Which = 'LM'
          END SELECT
       END IF
-!
-      Maxitr = ListGetInteger( Solver % Values, 'Eigen System Max Iterations', stat )
+
+      Maxitr = ListGetInteger( Params, 'Eigen System Max Iterations', stat )
       IF ( .NOT. stat ) Maxitr = 300
 !
       IPARAM = 0
@@ -272,34 +276,32 @@ CONTAINS
 
 !     Compute LU-factors for (A-\sigma M) (if consistent mass matrix)
 !
-      Factorize = ListGetLogical( Solver % Values, &
+      Factorize = ListGetLogical( Params, &
             'Linear System Refactorize', FoundFactorize )
-      CALL ListAddLogical( Solver % Values, 'Linear System Refactorize',.TRUE. )
+      CALL ListAddLogical( Params, 'Linear System Refactorize',.TRUE. )
 
-      FreeFactorize = ListGetLogical( Solver % Values, &
+      FreeFactorize = ListGetLogical( Params, &
                 'Linear System Refactorize', FoundFreeFactorize )
-      CALL ListAddLogical( Solver % Values,  &
+      CALL ListAddLogical( Params,  &
                      'Linear System Free Factorization',.FALSE. )
 
       IF ( .NOT. Matrix % Lumped ) THEN
-         SigmaR = ListGetConstReal( Solver % Values,'Eigen System Shift', stat )
-         IF ( SigmaR /= 0.0d0 ) THEN
-            Matrix % Values = Matrix % Values - SigmaR * Matrix % MassValues
-         END IF
+        SigmaR = ListGetConstReal( Params,'Eigen System Shift', stat )
+        IF ( SigmaR /= 0.0d0 ) THEN
+          Matrix % Values = Matrix % Values - SigmaR * Matrix % MassValues
+        END IF
 
-         Direct = ListGetString( Solver % Values, &
-                  'Linear System Solver', stat ) == 'direct'
-
-         IF ( Direct ) THEN
-            DirectMethod = ListGetString( Solver % Values, &
+        Method = ListGetString( Params,'Linear System Solver', stat )         
+        IF ( Method == 'direct' ) THEN
+          DirectMethod = ListGetString( Params, &
               'Linear System Direct Method', stat )
-
-            SELECT CASE( DirectMethod )
-            CASE('umfpack', 'big umfpack', 'mumps', 'superlu', 'pardiso')
-            CASE DEFAULT
-               Stat = CRS_ILUT(Matrix, 0.0d0)
-            END SELECT
-         END IF
+          
+          SELECT CASE( DirectMethod )
+          CASE('umfpack', 'big umfpack', 'mumps', 'superlu', 'pardiso')
+          CASE DEFAULT
+            Stat = CRS_ILUT(Matrix, 0.0d0)
+          END SELECT
+        END IF
       END IF
 
 !
@@ -310,12 +312,12 @@ CONTAINS
       iter = 1
       NewSystem = .TRUE.
 
-      Iterative = ListGetString( Solver % Values, &
+      Iterative = ListGetString( Params, &
                'Linear System Solver', stat ) == 'iterative'
 
-      stat = ListGetLogical( Solver % Values,  'No Precondition Recompute', stat  )
+      stat = ListGetLogical( Params,  'No Precondition Recompute', stat  )
       IF ( Iterative .AND. Stat ) THEN
-         CALL ListAddLogical( Solver % Values, 'No Precondition Recompute', .FALSE. )
+         CALL ListAddLogical( Params, 'No Precondition Recompute', .FALSE. )
       END IF
 
       DO WHILE( ido /= 99 )
@@ -336,69 +338,72 @@ CONTAINS
          END IF
  
          IF (ido == -1 .OR. ido == 1) THEN
+
 !           WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
 !           CALL Info( 'EigenSolve', Message, Level=5 )
             CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
             iter = iter + 1
-!
+
 !---------------------------------------------------------------------
 !             Perform  y <--- OP*x = inv[M]*A*x   (lumped mass)
 !                      ido =-1 inv(A-sigmaR*M)*M*x 
 !                      ido = 1 inv(A-sigmaR*M)*z
 !---------------------------------------------------------------------
-            IF ( .NOT. Matrix % Lumped .AND. ido == 1 ) THEN
 
-               IF ( Direct ) THEN
-                 CALL DirectSolver( Matrix,WORKD(IPNTR(2)),WORKD(IPNTR(3)),Solver )
-               ELSE
-                  x => workd(ipntr(2):ipntr(2)+n-1)
-                  b => workd(ipntr(3):ipntr(3)+n-1)
+            IF ( Matrix % Lumped ) THEN
+              CALL CRS_MatrixVectorMultiply( Matrix, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
+              DO i=0,n-1
+                WORKD( IPNTR(1)+i ) = WORKD( IPNTR(2)+i )
+              END DO
+              DO i=0,n-1
+                WORKD( IPNTR(2)+i ) = WORKD( IPNTR(1)+i ) / &
+                    Matrix % MassValues( Matrix % Diag(i+1) )
+              END DO
+            ELSE              
+             
+              Dofs = Solver % Variable % Dofs 
+              A => Matrix
+              x => workd(ipntr(2):ipntr(2)+n-1)
 
-                  IF ( Solver % MultiGridSolver ) THEN
-                     CALL MultiGridSolve( Matrix, x, b,  Solver % Variable % DOFs, &
-                           Solver, Solver % MultiGridLevel, NewSystem )
-                  ELSE
-                     CALL IterSolver( Matrix, x, b, Solver )
-                  END IF
-
-               END IF
-            ELSE
-               IF ( Matrix % Lumped ) THEN
-                  CALL CRS_MatrixVectorMultiply( Matrix, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
-               ELSE
-                  SaveValues => Matrix % Values
-                  Matrix % Values => Matrix % MassValues
-                  CALL CRS_MatrixVectorMultiply( Matrix, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
-                  Matrix % Values => SaveValues
-               END IF
-
-               DO i=0,n-1
+              IF ( ido == -1 ) THEN
+                SaveValues => Matrix % Values
+                Matrix % Values => Matrix % MassValues
+                CALL CRS_MatrixVectorMultiply( Matrix, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
+                Matrix % Values => SaveValues
+                
+                DO i=0,n-1
                   WORKD( IPNTR(1)+i ) = WORKD( IPNTR(2)+i )
-               END DO
+                END DO
+                b => workd(ipntr(1):ipntr(1)+n-1)
+              ELSE
+                b => workd(ipntr(3):ipntr(3)+n-1)                              
+              END IF
 
-               IF ( Matrix % Lumped ) THEN
-                  DO i=0,n-1
-                     WORKD( IPNTR(2)+i ) = WORKD( IPNTR(1)+i ) / &
-                        Matrix % MassValues( Matrix % Diag(i+1) )
-                  END DO
-               ELSE
-                  IF ( Direct ) THEN
-                    CALL DirectSolver( Matrix,WORKD(IPNTR(2)),WORKD(IPNTR(1)),Solver )
-                  ELSE
-                    x => workd(ipntr(2):ipntr(2)+n-1)
-                    b => workd(ipntr(1):ipntr(1)+n-1)
+              ! Some strategies (such as 'block') may depend on that these are set properly 
+              ! to reflect the linear problem under study.            
+              SaveRhs => Matrix % rhs
+              Matrix % rhs => b
 
-                    IF ( Solver % MultiGridSolver ) THEN
-                       CALL MultiGridSolve( Matrix, x, b, Solver % Variable % DOFs,  &
-                              Solver, Solver % MultiGridLevel, NewSystem )
-                     ELSE
-                       CALL IterSolver( Matrix, x, b, Solver )
-                     END IF
+              SELECT CASE( Method ) 
+                
+              CASE('multigrid')
+                CALL MultiGridSolve( A, x, b, &
+                    DOFs, Solver, Solver % MultiGridLevel, NewSystem )
+              CASE('iterative')
+                CALL IterSolver( A, x, b, Solver )
+              CASE('block')
+                CALL BlockSolveExt( A, x, b, Solver )
+              CASE ('direct')
+                CALL DirectSolver( A, x, b, Solver )
+              CASE DEFAULT
+                CALL Fatal('ArpackEigenSolve','Unknown linear system method: '//TRIM(Method))
+              END SELECT
 
-                  END IF
-               END IF
+              Matrix % rhs => SaveRhs
             END IF
-         ELSE IF (ido == 2) THEN
+
+          ELSE IF (ido == 2) THEN
+
 !
 !           %-----------------------------------------%
 !           |         Perform  y <--- M*x.            |
@@ -423,24 +428,24 @@ CONTAINS
 
          IF ( NewSystem .AND. ido /= 2 ) THEN
             IF ( Iterative ) THEN
-               CALL ListAddLogical( Solver % Values,  'No Precondition Recompute', .TRUE. )
+               CALL ListAddLogical( Params,  'No Precondition Recompute', .TRUE. )
             ELSE
-               CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', .FALSE. )
+               CALL ListAddLogical( Params, 'Linear System Refactorize', .FALSE. )
             END IF
             NewSystem = .FALSE.
          END IF
        END DO
 
       IF ( FoundFactorize ) THEN
-        CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', Factorize )
+        CALL ListAddLogical( Params, 'Linear System Refactorize', Factorize )
       ELSE
-        CALL ListRemove( Solver % Values, 'Linear System Refactorize' )
+        CALL ListRemove( Params, 'Linear System Refactorize' )
       END IF
 
       IF ( .NOT. FoundFreeFactorize ) THEN
-        CALL ListRemove( Solver % Values, 'Linear System Free Factorization' )
+        CALL ListRemove( Params, 'Linear System Free Factorization' )
       ELSE
-        CALL ListAddLogical( Solver % Values, 'Linear System Free Factorization', FreeFactorize )
+        CALL ListAddLogical( Params, 'Linear System Free Factorization', FreeFactorize )
       END IF
 
 !     %-----------------------------------------%
@@ -523,10 +528,10 @@ CONTAINS
          CALL SortC( NEIG, EigValues, Perm )
 
 !
-!        Extract the values to ELMER structures:
+!        Extract the values to Elmer structures:
 !        -----------------------------------------
          CALL Info( 'EigenSolve', ' ', Level=4 )
-         CALL Info( 'EigenSolve', 'EIGEN SYSTEM SOLUTION COMPLETE: ', Level=4 )
+         CALL Info( 'EigenSolve', 'Eigen system solution complete: ', Level=4 )
          CALL Info( 'EigenSolve', ' ', Level=4 )
          WRITE( Message, * ) 'The convergence criterion is: ', TOL
          CALL Info( 'EigenSolve', Message, Level=4 )
@@ -591,7 +596,7 @@ CONTAINS
            IF ( ABS(s) > 0 ) EigVectors(i,:) = EigVectors(i,:) / SQRT(s)
          END DO
 
-         IF ( ListGetLogical( Solver % Values, 'Eigen System Compute Residuals', stat ) ) THEN
+         IF ( ListGetLogical( Params, 'Eigen System Compute Residuals', stat ) ) THEN
            CALL CheckResiduals( Matrix, Neig, EigValues, EigVectors )
          END IF
          CALL Info( 'EigenSolve', '--------------------------------',Level=3 )
@@ -999,7 +1004,7 @@ END SUBROUTINE CheckResiduals
               END DO
            END IF
 
-           print *,'abs(s)=',abs(s)
+           PRINT *,'abs(s)=',ABS(s)
 
            IF ( ABS(s) > 0 ) EigVectors(i,:) = EigVectors(i,:) / SQRT(s)
 

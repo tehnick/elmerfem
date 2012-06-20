@@ -159,7 +159,7 @@ CONTAINS
      SELECT CASE( A % FORMAT )
        CASE( MATRIX_CRS )
          CALL CRS_SetMatrixElement( A, i, j, VALUE )
-         IF(A % Format == MATRIX_LIST) THEN
+         IF(A % FORMAT == MATRIX_LIST) THEN
            CALL List_toListMatrix(A)
            CALL List_SetMatrixElement( A % ListMatrix, i, j, VALUE )
          END IF
@@ -232,7 +232,7 @@ CONTAINS
      SELECT CASE( A % FORMAT )
        CASE( MATRIX_CRS )
          CALL CRS_AddToMatrixElement( A, i, j, VALUE )
-         IF(A % Format == MATRIX_LIST) THEN
+         IF(A % FORMAT == MATRIX_LIST) THEN
            CALL List_toListMatrix(A)
            CALL List_AddToMatrixElement( A % ListMatrix, i, j, VALUE )
          END IF
@@ -3447,7 +3447,7 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
-    IF ( Solver % Matrix % Format == MATRIX_LIST ) &
+    IF ( Solver % Matrix % FORMAT == MATRIX_LIST ) &
       CALL List_toCRSMatrix(Solver % Matrix)
 
 !------------------------------------------------------------------------------
@@ -4883,6 +4883,7 @@ END FUNCTION SearchNodeL
 !   If solving eigensystem go there:
 !   --------------------------------
     IF ( EigenAnalysis ) THEN
+
       IF ( ScaleSystem ) CALL ScaleLinearSystem(Solver, A )
      
       CALL SolveEigenSystem( &
@@ -4891,7 +4892,7 @@ END FUNCTION SearchNodeL
           Solver % Variable % EigenVectors, Solver )
       
       IF ( ScaleSystem ) CALL BackScaleLinearSystem( Solver, A ) 
-      IF (BackRotation) CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+      IF ( BackRotation ) CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
       
       Norm = ComputeNorm(Solver,n,x)
       Solver % Variable % Norm = Norm
@@ -5348,6 +5349,10 @@ SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
     !------------------------------------------------------------------------------
     n = StiffMatrix % NumberOfRows
 
+    ! Set the 'Eigen Analysis' flag to False since internally 
+    ! some strategies rely on it not being set (e.g. 'block'). 
+    CALL ListAddLogical( Solver % Values,'Eigen Analysis',.FALSE.)
+
     IF ( .NOT. Solver % Matrix % COMPLEX ) THEN
       IF ( ParEnv % PEs <= 1 ) THEN
         CALL ArpackEigenSolve( Solver, StiffMatrix, n, NOFEigen, &
@@ -5360,6 +5365,8 @@ SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
       CALL ArpackEigenSolveComplex( Solver, StiffMatrix, n/2, &
               NOFEigen, EigenValues, EigenVectors )
     END IF
+
+    CALL ListAddLogical( Solver % Values,'Eigen Analysis',.TRUE.)
 
 !------------------------------------------------------------------------------
 END SUBROUTINE SolveEigenSystem

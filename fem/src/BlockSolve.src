@@ -360,8 +360,10 @@ CONTAINS
         ELSE
           ! Picking of standard submatrices of size one.
           !----------------------------------------------------------------------
-          IF( ReuseMatrix .AND. ( RowVar + ColVar > 2 ) ) THEN
-            CALL CRS_CopyMatrixTopology( TotMatrix % Submatrix(1,1) % Mat, Amat )
+          IF( ReuseMatrix ) THEN
+            IF( RowVar + ColVar > 2 .AND. Amat % NumberOfRows == 0 ) THEN
+              CALL CRS_CopyMatrixTopology( TotMatrix % Submatrix(1,1) % Mat, Amat )
+            END IF
           END IF
           CALL CRS_BlockMatrixPick(SolverMatrix,Amat,NoVar,RowVar,ColVar)          
         END IF
@@ -524,6 +526,7 @@ CONTAINS
         END DO
       END DO
     END DO
+
   END SUBROUTINE BlockMatrixVectorProd
   
 
@@ -988,12 +991,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-!> The FETI main routine: solve x from Ax=b using the F(inite) E(lement)
-!> T(earing) and I(nterconnect) method.
+!> An alternative handle for the block solvers to be used by the legacy matrix
+!> type. 
 !------------------------------------------------------------------------------
   SUBROUTINE BlockSolveInt(A,x,b,Solver)
-    ! Just basic feti so far...
-    ! -------------------------
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), POINTER :: A
     TYPE(Solver_t), TARGET :: Solver
@@ -1013,7 +1014,7 @@ CONTAINS
         ReuseMatrix, LS
     INTEGER, POINTER :: VarPerm(:)
     
-    TYPE (Matrix_t), POINTER :: Amat, SolverMatrix
+    TYPE(Matrix_t), POINTER :: Amat, SolverMatrix
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Varying_string) :: namesp
@@ -1033,19 +1034,17 @@ CONTAINS
     IF(.NOT. GotIt ) BlockPrec = .TRUE.
     BlockGS = ListGetLogical( Params,'Block Gauss-Seidel',GotIt)    
 
-
     BlockDofs = Solver % Variable % Dofs      
     CALL BlockInitMatrix( Solver, TotMatrix, BlockDofs )
 
     NoVar = TotMatrix % NoVar
-
     TotMatrix % Solver => Solver
     SolverMatrix => Solver % Matrix
     SolverVar => Solver % Variable
       
     CALL BlockPickMatrix( Solver, NoVar )
     CALL BlockPrecMatrix( Solver, Novar ) 
-      
+
     IF (isParallel) THEN
       DO RowVar=1,NoVar
         DO ColVar=1,NoVar
@@ -1081,7 +1080,7 @@ CONTAINS
     ! related to nonlinearity and assembly.
     !----------------------------------------------------------------------
     IF( NoVar == 1 ) THEN
-      CALL Info('BlockSolver','Solving in standard manner',Level=6)
+      CALL Info('BlockSolverInt','Solving in standard manner',Level=6)
       
       Solver % Variable => TotMatrix % SubVector(1) % Var
       Solver % Matrix => TotMatrix % Submatrix(1,1) % Mat
@@ -1090,13 +1089,13 @@ CONTAINS
       MaxChange = Solver % Variable % NonlinChange 
       
     ELSE IF( BlockPrec ) THEN
-      CALL Info('BlockSolver','Using block precontioning strategy',Level=6)        
+      CALL Info('BlockSolverInt','Using block precontioning strategy',Level=6)        
       CALL BlockKrylovIter( Solver, MaxChange )
     ELSE
       Solver % Variable => TotMatrix % SubVector(1) % Var
       Solver % Matrix => TotMatrix % Submatrix(1,1) % Mat
       
-      CALL Info('BlockSolver','Using block solution strategy',Level=6)
+      CALL Info('BlockSolverInt','Using block solution strategy',Level=6)
       CALL BlockStandardIter( Solver, MaxChange )
     END IF
     CALL ListSetNameSpace('')
@@ -1106,8 +1105,8 @@ CONTAINS
     Solver % Matrix => SolverMatrix
     Solver % variable => SolverVar
        
-    CALL Info('BlockSolver','All done')
-    CALL Info('BlockSolver','-------------------------------------------------',Level=5)
+    CALL Info('BlockSolverInt','All done')
+    CALL Info('BlockSolverInt','-------------------------------------------------',Level=5)
 
   END SUBROUTINE BlockSolveInt
 
