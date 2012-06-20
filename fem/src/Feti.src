@@ -75,7 +75,7 @@ MODULE FetiSolve
   ! R in the relevant FETI literature:
   ! ------------------------------------------------------------
   INTEGER, PRIVATE, SAVE :: nz
-  INTEGER, PRIVATE, PARAMETER :: maxnz=8
+  INTEGER, PRIVATE, PARAMETER :: maxnz=20
   REAL(KIND=dp), ALLOCATABLE, SAVE, PRIVATE ::z(:,:)
 
   ! Neighbour identification, local and global numbering of 
@@ -91,7 +91,9 @@ MODULE FetiSolve
 
   LOGICAL, ALLOCATABLE, PRIVATE, SAVE :: DirichletDOFs(:)
 
-integer,allocatable::pbeg(:)
+integer,allocatable::snd(:),asize(:),bsize(:),cnt(:),gbuf(:,:),ibuf(:,:)
+integer::ierr,me,abeg,bbeg
+integer::status(MPI_STATUS_SIZE)
 
 #include "huti_fdefs.h"
 
@@ -853,7 +855,7 @@ CONTAINS
     integer :: ierr,stat(mpi_status_size),l_n,g_n, &
           n_nbr,comm,i_type,d_type,me,mactive,maxnz,proc
     logical :: iterative, found
-    integer,allocatable :: l_nz(:),g_nz(:),l_i(:),g_i(:),l_nbr(:)
+    integer,allocatable :: l_nz(:),g_nz(:),gg_nz(:),l_i(:),g_i(:),l_nbr(:)
     real(kind=dp), allocatable :: l_g(:,:),l_gtg(:,:),g_x(:),g_b(:),g_gtg(:,:)
 
     type(matrix_t), pointer :: gtg_m => null()
@@ -861,9 +863,12 @@ CONTAINS
     logical :: gotnm
     type(Varying_string) :: nm
 
-    save :: g_nz,g_i,gtg_m,g_gtg
+    integer,save :: size, mygroup, grpsize, subsize, comm_group,solv_group,solv_comm,ir=0
+    integer, allocatable, save :: ranks(:,:),subsizes(:)
+
+    save :: g_nz,gg_nz,g_i,gtg_m,g_gtg,g_n,g_x,g_b,me,mactive
 !------------------------------------------------------------------------------
-!call resettimer('project')
+!!call resettimer('project')
 
     maxnz = parallelreduction(1._dp*nz,2)
 
@@ -884,17 +889,19 @@ CONTAINS
     iterative=getlogical(getsolverparams(), 'Feti CPG Projection Iterative', found)
 
     if (.not.iterative) then
-      do mactive=0,parenv % pes-1
-        if ( parenv % active(mactive+1) ) exit
-      end do
-      me = parenv % mype
 
-      comm = mpi_comm_world
+      comm = a % comm
       i_type = mpi_integer
       d_type = mpi_double_precision
 
       if (refactorize .and. op==1) then
-!call resettimer('factorize')
+!call resettimer('factorize setup')
+
+        do mactive=0,parenv % pes-1
+          if ( parenv % active(mactive+1) ) exit
+        end do
+        me = parenv % mype
+
         ! If not using CG, assemble and factorize the G'G matrix:
         !
         ! NOTE for further development: Instead of using one task to do the
@@ -969,13 +976,58 @@ CONTAINS
         l_gtg=matmul(transpose(l_g),l_g)
         deallocate(l_g)
 
+        size = parenv % pes
+
+        grpsize=listgetinteger( params, 'Feti Projection Solution Group Size', &
+                          found,minv=1,maxv=size)
+        if (.not.found) grpsize=1
+
+        if(allocated(ranks)) deallocate(ranks,subsizes)
+        allocate(ranks(grpsize,size/grpsize+1),subsizes(grpsize))
+        ranks=0;subsizes=0
+
+        ir=0
+        do while(ir<size)
+          do j=1,grpsize
+            ir=ir+1
+            if(ir>size) exit
+            subsizes(j)=subsizes(j)+1
+          end do
+        end do
+
+        ir = 0
+        do i=1,grpsize
+          do j=1,subsizes(i)
+            ranks(i,j)=ir
+            ir = ir+1
+          end do
+        end do
+
+        mygroup=grpsize
+        do i=1,grpsize-1
+          if (me<ranks(i+1,1)) then
+            mygroup = i
+            exit
+           end if
+        end do
+        mactive = ranks(mygroup,1)
+        subsize = subsizes(mygroup)
+
+        call mpi_comm_group(comm, comm_group, ierr) ! Extract the original group handle
+        call mpi_group_incl(comm_group,grpsize,ranks(:,1),solv_group,ierr)
+        call mpi_comm_create(comm,solv_group,solv_comm,ierr)
+
+        DO i=1,grpsize
+         if (ranks(i,1)/=me) &
+            call mpi_bsend(nz,1,i_type,ranks(i,1),401,comm,ierr)
+        END DO
+
         ! form global G'G:
         ! =================
         if (me/=mactive) then
 
           ! send local G'G to 'mactive' task:
           ! ----------------------------------
-          call mpi_bsend(nz,1,i_type,mactive,401,comm,ierr)
           call mpi_bsend(nneigh,1,i_type,mactive,402,comm,ierr)
           call mpi_bsend(gpnum,nneigh,i_type,mactive,403,comm,ierr)
           call mpi_bsend(l_gtg,l_n**2,d_type,mactive,404,comm,ierr)
@@ -1011,6 +1063,7 @@ CONTAINS
           ! ---------------------------------
           IF (ASSOCIATED(gtg_m)) CALL FreeMatrix(gtg_m)
           gtg_m=>AllocateMatrix()
+          gtg_m % Comm = solv_comm
           gtg_m % format = MATRIX_LIST
 
           ! Assemble our own part...
@@ -1025,7 +1078,7 @@ CONTAINS
 
           ! ...and the rest of it:
           ! ----------------------
-          do i=1,count(parenv % active)-1 ! -1 to count 'me' out
+          do i=1,subsize-1 ! -1 to count 'me' out
             call mpi_recv(n_nbr,1,i_type,mpi_any_source,402,comm,stat,ierr)
             proc=stat(mpi_source)
 
@@ -1045,10 +1098,12 @@ CONTAINS
           ! Factorize the G'G, and we are done intializing:
           ! -----------------------------------------------
           call list_tocrsmatrix(gtg_m)
-!         call dpotrf('u',g_n,g_gtg,g_n,ierr)    
+
+          g_n=gtg_m % numberofrows
+          allocate(g_x(g_n),g_b(g_n)); g_x=0; g_b=0
 
         end if ! task 'mactive' doing the factoring (and later, solving)
-!call checktimer('factorize',delete=.true.)
+!call checktimer('factorize setup',delete=.true.)
       end if ! the first time G'G assembly and factorizing
     end if ! direct solver setup
 
@@ -1065,20 +1120,19 @@ CONTAINS
       IF (nz>0) x=b
       CALL FCG(nz,x,b)
     else
+
+!call resettimer('coarse prob')
       if (me==mactive) then
 
         ! assemble the r.h.s. vector:
         ! ---------------------------
-!       g_n=size(g_gtg,1)
-        g_n=gtg_m % numberofrows
-        allocate(g_x(g_n),g_b(g_n)); g_x=0; g_b=0
 
-        if (nz>0) g_b(1:nz) = b
-        do i=0,parenv % pes-1
-          if (i==me .or. .not. parenv % active(i+1)) cycle
-          if (g_nz(i)>0) &
-            call mpi_recv(g_b(g_i(i):g_i(i+1)-1), g_nz(i), &
-                    d_type,i,405,comm,stat,ierr)
+        if (nz>0) g_b(g_i(me):g_i(me+1)-1) = b
+        do i=2,subsize
+          j=ranks(mygroup,i)
+          if (g_nz(j)>0) &
+            call mpi_recv(g_b(g_i(j):g_i(j+1)-1), g_nz(j), &
+                    d_type,j,405,comm,stat,ierr)
         end do
 
         ! solve x:
@@ -1087,16 +1141,16 @@ CONTAINS
 
         ! distribute the result:
         ! ----------------------
-        do i=0,parenv % pes-1
-          if (i==me .or. .not. parenv % active(i+1)) cycle
-          if (g_nz(i)>0) &
-            call mpi_bsend(g_x(g_i(i):g_i(i+1)-1), &
-                 g_nz(i),d_type,i,406,comm,ierr)
+        do i=2,subsize
+          j=ranks(mygroup,i)
+          if (g_nz(j)>0) &
+            call mpi_bsend(g_x(g_i(j):g_i(j+1)-1), &
+                 g_nz(j),d_type,j,406,comm,ierr)
         end do
 
         ! finally my own part:
         ! --------------------
-        if (nz>0) x(1:nz)=g_x(1:nz)
+        if (nz>0) x(1:nz)=g_x(g_i(me):g_i(me+1)-1)
       else
         ! send r.h.s.:
         ! ------------
@@ -1110,17 +1164,20 @@ CONTAINS
       endif
       call parallelactivebarrier()
     endif
+!call checktimer('coarse prob',delete=.true.)
 
-    IF (OP==2) THEN
-      T(1:nz)=x
-    ELSE
+    SELECT CASE(OP)
+    CASE(0)
       CALL G(x,S)
-      IF (OP==1) THEN
-        T=-S
-      ELSE
-        T=T-S
-      END IF
-    END IF
+      T=T-S
+    CASE(1)
+      CALL G(x,S)
+      T=-S
+    CASE(2)
+      T(1:nz)=x
+    CASE DEFAULT
+      CALL Fatal('Feti Procjection','Unknown projection OP.')
+    END SELECT
 
     CALL ListSetNameSpace(CHAR(nm))
 !call checktimer('project',delete=.true.)
@@ -1129,11 +1186,9 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   subroutine addtogtg(gtg_m,l_gtg,n_nbr,l_nbr,g_nz,g_i)
-! subroutine addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
 !------------------------------------------------------------------------------
     real(kind=dp) :: l_gtg(:,:)
     type(matrix_t), pointer :: gtg_m
-!   real(kind=dp) :: g_gtg(:,:)
     integer :: n_nbr, l_nbr(0:), g_nz(0:), g_i(0:)
 !------------------------------------------------------------------------------
     integer :: i,j,k,l,g_r,g_c,l_r,l_c,l_i(0:n_nbr+1)
@@ -1151,7 +1206,6 @@ CONTAINS
           do l=0,g_nz(l_nbr(j))-1
             l_r=l_i(j)+l
             g_r=g_i(l_nbr(j))+l
-!           g_gtg(g_r,g_c)=g_gtg(g_r,g_c)+l_gtg(l_r,l_c)
             if (abs(l_gtg(l_r,l_c))>aeps) &
               call addtomatrixelement(gtg_m,g_r,g_c,l_gtg(l_r,l_c))
           end do
@@ -1569,7 +1623,7 @@ END SUBROUTINE FetiProject
     IF (dim==2) THEN
       Neigs=4
     ELSE
-      Neigs=8
+      Neigs=20
     END IF
 
     ! Solution of few lowest eigenmodes:
@@ -1683,7 +1737,7 @@ END SUBROUTINE FetiProject
     INTEGER :: i,j,k,l,m,n,nd,q,d,nLC
 
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL  :: Found, Floating=.FALSE., FetiInit, QR
+    LOGICAL  :: Found, Floating=.FALSE., FetiInit, QR, MumpsLU, MumpsNS
     REAL(KIND=dp), POINTER :: xtmp(:),btmp(:),rtmp(:)
     INTEGER(KIND=AddrInt) :: mvProc, dotProc, nrmProc, stopcProc, precProc, AddrFunc
 
@@ -1697,7 +1751,10 @@ END SUBROUTINE FetiProject
 
     TYPE(Element_t), POINTER :: EL
     TYPE(ValueList_t), POINTER :: BC
+
 !------------------------------------------------------------------------------
+
+call checkbuffer(4*2**20)
 
     ! Flag dirichlet d.o.f., to remove 'em from interface conditions:
     ! ----------------------------------------------------------------
@@ -1755,6 +1812,14 @@ END SUBROUTINE FetiProject
     ! ------------------------------------------------
     QR = GetString(Params,'Linear System Direct Method') == 'spqr'
 
+    ! Check if local Mumps decomposition can be used to find the nullspace
+    ! ---------------------------------------------------------------------
+    MumpsLU = GetString(Params,'Linear System Direct Method') == 'mumpslocal'
+    ! Mark system as possibly singular for Mumps
+    ! ------------------------------------------
+    IF (MumpsLU) &
+      MumpsLU = ListGetLogical(Params, 'Mumps Solve Singular', Found)
+
     n = A % NumberOfRows
     ALLOCATE(y(n))
 
@@ -1765,6 +1830,7 @@ END SUBROUTINE FetiProject
     ! y=b
     ! CALL ParallelInitSolve(A,x,y,rtmp)
 
+
     IF(Refactorize) THEN
       InitializeLC = .TRUE.;  InitializeIf = .TRUE.
 
@@ -1774,14 +1840,14 @@ END SUBROUTINE FetiProject
 
       ! Check for floating domains, initialize null space z (a.k.a. R):
       ! ---------------------------------------------------------------
-      IF(.NOT.QR) THEN
+      IF(.NOT.(QR.OR.MumpsLU)) THEN
         Floating=FetiFloatingDomain(A,Solver,FixInds,TOL)
       END IF
     END IF
 
     ! 'fix' A  to allow solving local system:
     ! ---------------------------------------
-    IF (.NOT.QR.AND.Floating) THEN
+    IF (.NOT.(QR.OR.MumpsLU).AND.Floating) THEN
       saverows   => a % rows
       savecols   => a % cols
       savevalues => a % values
@@ -1853,7 +1919,7 @@ END SUBROUTINE FetiProject
     ! ----------------------------------------------
     IF (Refactorize.AND.QR) THEN
 #ifdef HAVE_CHOLMOD
-      CALL SPQR_NZ(A % Cholmod,nz) ! null space size
+      CALL SPQR_NZ(A % Cholmod,nz) ! get null space size
       NullSpaceLC=.FALSE.
       Floating = nz/=0
       IF(ALLOCATED(z)) DEALLOCATE(z)
@@ -1861,6 +1927,20 @@ END SUBROUTINE FetiProject
       CALL SPQR_NullSpace(A % Cholmod,n,nz,z) ! get the null space
 #else
       CALL Fatal('Feti','Cholmod/SPQR solver has not been installed.')
+#endif
+    END IF
+
+    ! Find the null space by using LU decomposition and Mumps
+    IF (Refactorize .AND. MumpsLU) THEN
+#ifdef HAVE_MUMPS
+      IF(ALLOCATED(z)) DEALLOCATE(z)
+
+      ! Solve local nullspace with Mumps
+      CALL Mumps_SolveNullSpaceLocal( Solver, A, z, nz )
+      NullSpaceLC=.FALSE. ! What does this do?
+      Floating = nz/=0 ! Is the domain a floating one
+#else
+      CALL Fatal('Feti','Mumps has not been installed.')
 #endif
     END IF
 
@@ -1912,7 +1992,7 @@ END SUBROUTINE FetiProject
       x = x + MATMUL(alpha(1:nz),z)
 !     DEALLOCATE(z)
 
-      IF(.NOT.QR) THEN
+      IF(.NOT.(QR.OR.MumpsLU)) THEN
         DEALLOCATE(A % Values,A % Rows, A % Cols)
         A % Rows => SaveRows
         A % Cols => SaveCols

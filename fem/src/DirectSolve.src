@@ -807,6 +807,377 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Solves local linear system using MUMPS direct solver. If the solved system
+!> is singular and factorization , one possible solution is returned.
+!------------------------------------------------------------------------------
+  SUBROUTINE Mumps_SolveSystemLocal( Solver, A, x, b, Free_Fact )
+!------------------------------------------------------------------------------
+     IMPLICIT NONE
+
+     TYPE(Matrix_t) :: A
+     TYPE(Solver_t) :: Solver
+     REAL(KIND=dp), TARGET :: x(*), b(*)
+     LOGICAL, OPTIONAL :: Free_Fact
+
+     INTEGER :: i
+     LOGICAL :: Factorize, FreeFactorize, stat
+
+#ifdef HAVE_MUMPS
+     ! Free local Mumps instance if requested
+     IF (PRESENT(Free_Fact)) THEN
+       IF (Free_Fact) THEN
+         CALL Mumps_FreeLocal(A)
+         RETURN
+       END IF
+     END IF
+
+     ! Refactorize local matrix if needed
+     Factorize = ListGetLogical( Solver % Values, &
+                                'Linear System Refactorize', stat )
+     IF (.NOT. stat) Factorize = .TRUE.
+
+     IF (Factorize .OR. .NOT. ASSOCIATED(A % mumpsIDL)) THEN
+       CALL Mumps_FactorizeLocal(Solver, A)
+     END IF
+
+     ! Set RHS
+     A % mumpsIDL % NRHS = 1
+     A % mumpsIDL % LRHS = A % mumpsIDL % n
+     DO i=1,A % NumberOfRows
+       A % mumpsIDL % RHS(i) = b(i)
+     END DO
+     ! We could use BLAS here..
+     ! CALL DCOPY(A % NumberOfRows, b, 1, A % mumpsIDL % RHS, 1)
+
+     ! SOLUTION PHASE
+     A % mumpsIDL % job = 3
+     CALL DMumps(A % mumpsIDL)
+
+     ! TODO: If solution is not local, redistribute the solution vector here
+
+     ! Set local solution
+     DO i=1,A % NumberOfRows
+       x(i)=A % mumpsIDL % RHS(i)
+     END DO
+     ! We could use BLAS here..
+     ! CALL DCOPY(A % NumberOfRows, A % mumpsIDL % RHS, 1, x, 1)
+
+     FreeFactorize = ListGetLogical( Solver % Values, &
+                                  'Linear System Free Factorization', stat )
+     IF (.NOT. stat) FreeFactorize = .TRUE.
+
+     IF (Factorize .AND. FreeFactorize) CALL Mumps_FreeLocal(A)
+#else
+     CALL Fatal( 'Mumps_SolveSystemLocal', 'MUMPS Solver has not been installed.' )
+#endif
+!------------------------------------------------------------------------------
+  END SUBROUTINE Mumps_SolveSystemLocal
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Factorize local matrix with Mumps
+!------------------------------------------------------------------------------
+  SUBROUTINE Mumps_FactorizeLocal(Solver, A)
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+
+      TYPE(Solver_t) :: Solver
+       TYPE(Matrix_t) :: A
+
+#ifdef HAVE_MUMPS
+       INCLUDE 'mpif.h'
+
+     INTEGER :: i, j, n, nz, allocstat, icntlft, ptype, nzloc
+     LOGICAL :: matpd, matsym, nullpiv, stat
+
+     ! INTEGER :: myrank, ierr
+     ! CHARACTER(len=32) :: buf
+
+    IF ( ASSOCIATED(A % mumpsIDL) ) THEN
+         CALL Mumps_FreeLocal(A)
+    END IF
+
+    ALLOCATE(A % mumpsIDL)
+
+    ! INITIALIZATION PHASE
+
+    ! Initialize local instance of Mumps
+    ! TODO (Hybridization): change this if local system needs to be solved
+    ! with several cores
+    A % mumpsIDL % COMM = MPI_COMM_SELF
+    A % mumpsIDL % PAR = 1 ! Host (=self) takes part in factorization
+
+    ! Check if matrix is symmetric or spd
+    matsym = ListGetLogical(Solver % Values, &
+                            'Linear System Symmetric', stat)
+    matpd = ListGetLogical(Solver % Values, &
+                           'Linear System Positive Definite', stat)
+
+    A % mumpsIDL % SYM = 0
+    IF (matsym) THEN
+      IF (matpd) THEN
+        ! Matrix is symmetric positive definite
+        A % mumpsIDL % SYM = 1
+      ELSE
+        ! Matrix is symmetric
+        A % mumpsIDL % SYM = 2
+     END IF
+    ELSE
+      ! Set matrix is unsymmetric
+      A % mumpsIDL % SYM = 0
+    END IF
+    A % mumpsIDL % JOB  = -1 ! Initialize
+    CALL DMumps(A % mumpsIDL)
+
+    ! FACTORIZE PHASE
+
+    ! Set stdio parameters
+    A % mumpsIDL % ICNTL(1)  = 6  ! Error messages to stdout
+    A % mumpsIDL % ICNTL(2)  = -1 ! No diagnostic and warning messages
+    A % mumpsIDL % ICNTL(3)  = -1 ! No statistic messages
+    A % mumpsIDL % ICNTL(4)  = 1  ! Print only error messages
+
+    ! Set matrix format
+    A % mumpsIDL % ICNTL(5)  = 0  ! Assembled matrix format
+    A % mumpsIDL % ICNTL(18) = 0 ! Centralized matrix
+    A % mumpsIDL % ICNTL(21) = 0 ! Centralized dense solution phase
+
+    ! Check if solution of singular systems is ok
+    A % mumpsIDL % ICNTL(24) = 0
+    nullpiv = ListGetLogical(Solver % Values, &
+                            'Mumps Solve Singular', stat)
+    IF (nullpiv) THEN
+      A % mumpsIDL % ICNTL(24) = 1
+      A % mumpsIDL % CNTL(1) = 1D-2     ! Pivoting threshold
+      A % mumpsIDL % CNTL(3) = 1D-9     ! Null pivot detection threshold
+      A % mumpsIDL % CNTL(5) = 1D6      ! Fixation value for null pivots
+      A % mumpsIDL % CNTL(13) = 1       ! Do not use ScaLAPACK on the root node
+      ! TODO: if needed, here set CNTL(3) and CNTL(5) as parameters for
+      ! more accurate null pivot detection
+    END IF
+
+    ! Set permutation strategy for Mumps
+    ptype = ListGetInteger(Solver % Values, &
+                                'Mumps Permutation Type', stat)
+    IF (stat) THEN
+      A % mumpsIDL % ICNTL(6) = ptype
+    END IF
+
+    ! TODO: Change this if system is larger than local.
+    ! For larger than local systems define global->local numbering
+    n = A % NumberofRows
+    nz = A % Rows(A % NumberOfRows+1)-1
+    A % mumpsIDL % N  = n
+    A % mumpsIDL % NZ = nz
+    ! A % mumpsIDL % nz_loc = nz
+
+    ! Allocate rows and columns for MUMPS
+    ALLOCATE( A % mumpsIDL % IRN(nz), &
+          A % mumpsIDL % JCN(nz), &
+          A % mumpsIDL % A(nz), STAT=allocstat)
+    IF (allocstat /= 0) THEN
+      CALL Fatal('Mumps_FactorizeLocal', &
+            'Memory allocation for MUMPS row and column indices failed.')
+    END IF
+
+    ! Set matrix for Mumps (unsymmetric case)
+    IF (A % mumpsIDL % sym == 0) THEN
+      DO i=1,A % NumberOfRows
+         DO j=A % Rows(i),A % Rows(i+1)-1
+            A % mumpsIDL % IRN(j) = i
+         END DO
+       END DO
+
+       ! Set columns and values
+       DO i=1,A % mumpsIDL % nz
+         A % mumpsIDL % JCN(i) = A % Cols(i)
+       END DO
+       DO i=1,A % mumpsIDL % nz
+         A % mumpsIDL % A(i) = A % Values(i)
+       END DO
+    ELSE
+      ! Set matrix for Mumps (symmetric case)
+      nzloc = 0
+      DO i=1,A % NumberOfRows
+        DO j=A % Rows(i),A % Rows(i+1)-1
+          ! Only output lower triangular part to Mumps
+          IF (i<=A % Cols(j)) THEN
+            nzloc = nzloc + 1
+            A % mumpsIDL % IRN(nzloc) = i
+            A % mumpsIDL % JCN(nzloc) = A % Cols(j)
+            A % mumpsIDL % A(nzloc) = A % Values(j)
+          END IF
+        END DO
+      END DO
+    END IF
+
+    icntlft = ListGetInteger(Solver % Values, 'mumps percentage increase working space', stat)
+    IF (stat) THEN
+       A % mumpsIDL % ICNTL(14) = icntlft
+    END IF
+
+    A % mumpsIDL % JOB = 1 ! Perform analysis
+    CALL DMumps(A % mumpsIDL)
+    CALL Flush(6)
+
+    ! Check return status
+    IF (A % mumpsIDL % INFO(1)<0) THEN
+      CALL Fatal('Mumps_FactorizeLocal','Mumps analysis phase failed')
+    END IF
+
+    A % mumpsIDL % JOB = 2 ! Perform factorization
+    CALL DMumps(A % mumpsIDL)
+    CALL Flush(6)
+
+    ! Check return status
+    IF (A % mumpsIDL % INFO(1)<0) THEN
+      CALL Fatal('Mumps_FactorizeLocal','Mumps factorize phase failed')
+    END IF
+
+    ! Allocate RHS
+    ALLOCATE(A % mumpsIDL % RHS(A % mumpsIDL % N), STAT=allocstat)
+    IF (allocstat /= 0) THEN
+         CALL Fatal('Mumps_FactorizeLocal', &
+                 'Memory allocation for MUMPS solution vector and RHS failed.' )
+    END IF
+#else
+   CALL Fatal( 'Mumps_FactorizeLocal', 'MUMPS Solver has not been installed.' )
+#endif
+!------------------------------------------------------------------------------
+  END SUBROUTINE Mumps_FactorizeLocal
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Solve local nullspace using MUMPS direct solver. On exit, z will be
+!> allocated and will hold the jth local nullspace vectors as z(j,:).
+!------------------------------------------------------------------------------
+  SUBROUTINE Mumps_SolveNullSpaceLocal(Solver, A, z, nz)
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+
+      TYPE(Solver_t) :: Solver
+       TYPE(Matrix_t) :: A
+       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:,:), TARGET :: z
+      INTEGER :: nz, nrhs
+
+#ifdef HAVE_MUMPS
+       INCLUDE 'mpif.h'
+
+       INTEGER :: j,k,n, allocstat
+      LOGICAL :: Factorize, FreeFactorize, stat
+
+       REAL(KIND=dp), DIMENSION(:), POINTER :: rhs_tmp, nspace
+
+       Factorize = ListGetLogical( Solver % Values,&
+                                   'Linear System Refactorize', stat )
+       IF (.NOT. stat) Factorize = .TRUE.
+
+     ! Refactorize local matrix if needed
+       IF ( Factorize .OR. (.NOT. ASSOCIATED(A % mumpsIDL)) ) THEN
+            CALL Mumps_FactorizeLocal(Solver, A)
+       END IF
+
+     ! Check symmetry condition
+        IF (.NOT. (A % mumpsIDL % sym == 1 .OR. A % mumpsIDL % sym == 2)) THEN
+          CALL Fatal( 'Mumps_SolveLocalNullSpace', &
+           'Mumps null space computation not supported for unsymmetric matrices.')
+        END IF
+
+        ! Get the size of the local nullspace and allocate memory
+        ! TODO: this is incorrect, should be number of columns
+     n = A % NumberOfRows
+     nz = A % mumpsIDL % INFOG(28)
+
+        IF (nz == 0) THEN
+          ALLOCATE(z(nz,n))
+       RETURN
+        END IF
+
+     ALLOCATE(nspace(n*nz), STAT=allocstat)
+     IF (allocstat /= 0) THEN
+          CALL Fatal( 'Mumps_SolveLocalNullSpace', &
+               'Storage allocation for local nullspace failed.')
+     END IF
+
+     rhs_tmp => A % mumpsIDL % RHS
+     nrhs = A % mumpsIDL % NRHS
+     A % mumpsIDL % RHS => nspace
+     A % mumpsIDL % NRHS = nz
+
+     ! Solve for the complete local nullspace
+       A % mumpsIDL % JOB = 3
+       A % mumpsIDL % ICNTL(25) = -1
+       CALL DMumps(A % mumpsIDL)
+     ! Check return status
+     IF (A % mumpsIDL % INFO(1)<0) THEN
+          CALL Fatal('Mumps_SolveNullSpaceLocal','Mumps nullspace solution failed')
+     END IF
+
+     ! Restore pointer to local solution vector
+     A % mumpsIDL % ICNTL(25) = 0
+     A % mumpsIDL % RHS => rhs_tmp
+     A % mumpsIDL % NRHS = nrhs
+
+       FreeFactorize = ListGetLogical( Solver % Values, &
+            'Linear System Free Factorization', stat )
+     IF (.NOT. stat) FreeFactorize = .TRUE.
+
+      IF (Factorize .AND. FreeFactorize) THEN
+          CALL Mumps_FreeLocal(A)
+       END IF
+
+     ALLOCATE(z(nz,n), STAT=allocstat)
+     IF (allocstat /= 0) THEN
+          CALL Fatal( 'Mumps_SolveLocalNullSpace', &
+                           'Storage allocation for local nullspace failed.')
+     END IF
+
+     ! Copy computed nullspace to z and deallocate nspace
+     DO j=1,nz
+          ! z is row major, cannot use DCOPY here
+       DO k=1,n
+            z(j,k)=nspace(n*(j-1)+k)
+          END DO
+        END DO
+     DEALLOCATE(nspace)
+#else
+   CALL Fatal( 'Mumps_SolveLocalNullSpace', 'MUMPS Solver has not been installed.' )
+#endif
+!------------------------------------------------------------------------------
+  END SUBROUTINE Mumps_SolveNullSpaceLocal
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Free local Mumps variables and solver internal allocations
+!------------------------------------------------------------------------------
+  SUBROUTINE Mumps_FreeLocal(A)
+!------------------------------------------------------------------------------
+        IMPLICIT NONE
+
+        TYPE(Matrix_t) :: A
+
+#ifdef HAVE_MUMPS
+     IF (ASSOCIATED(A % mumpsIDL)) THEN
+          ! Deallocate Mumps structures
+          DEALLOCATE( A % mumpsIDL % irn, A % mumpsIDL % jcn, &
+             A % mumpsIDL % a, A % mumpsIDL % rhs)
+
+          ! Free Mumps internal allocations
+          A % mumpsIDL % job = -2
+          CALL DMumps(A % mumpsIDL)
+          DEALLOCATE(A % mumpsIDL)
+
+          A % mumpsIDL => Null()
+        END IF
+#else
+     CALL Fatal( 'Mumps_FreeLocal', 'MUMPS Solver has not been installed.' )
+#endif
+!------------------------------------------------------------------------------
+  END SUBROUTINE Mumps_FreeLocal
+!------------------------------------------------------------------------------
+
+
 
 !------------------------------------------------------------------------------
 !> Solves a linear system using SuperLU direct solver.
@@ -1125,6 +1496,7 @@ CONTAINS
         CALL ComplexBandSolver( A, x, b, Free_Fact )
 #ifdef HAVE_MUMPS
         CALL Mumps_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL Mumps_SolveSystemLocal( Solver, A, x, b, Free_Fact )
 #endif
 #ifdef HAVE_PARDISO
         CALL Pardiso_SolveSystem( Solver, A, x, b, Free_Fact )
@@ -1165,6 +1537,9 @@ CONTAINS
 
       CASE( 'mumps' )
         CALL Mumps_SolveSystem( Solver, A, x, b )
+
+      CASE( 'mumpslocal' )
+        CALL Mumps_SolveSystemLocal( Solver, A, x, b )
 
       CASE( 'superlu' )
         CALL SuperLU_SolveSystem( Solver, A, x, b )

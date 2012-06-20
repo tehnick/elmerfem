@@ -144,7 +144,8 @@ MODULE Types
     REAL(KIND=dp),  POINTER CONTIG :: MassValues(:),DampValues(:),BulkValues(:)
 
 #ifdef HAVE_MUMPS
-    TYPE(dmumps_struc), POINTER :: MumpsID => NULL()
+    TYPE(dmumps_struc), POINTER :: MumpsID => NULL() ! Global distributed Mumps
+    TYPE(dmumps_struc), POINTER :: MumpsIDL => NULL() ! Local domainwise Mumps
 #endif
 #ifdef HAVE_PARDISO
     INTEGER, POINTER :: PardisoParam(:) => NULL()
