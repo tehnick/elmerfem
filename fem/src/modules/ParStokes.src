@@ -104,7 +104,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !----------------------------------------------------------------------------- 
   LOGICAL :: BlockPreconditioning, Parallel, UpdateMatrix, UseTrueResidual, Timing, &
        OptimizeBW, GlobalBubbles
-  LOGICAL :: DoScaling, DoEquilibration
+  LOGICAL :: DoScaling, DoEquilibration, BlockDiagonalA
   CHARACTER(LEN=MAX_NAME_LEN) :: Eq
   INTEGER :: i, j, k, nlen, Round, MaxIterations, RestartM
   INTEGER, ALLOCATABLE :: Indexes(:)
@@ -132,6 +132,8 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   DoScaling=ListGetLogical(Solver % Values, 'Linear System Scaling', Found) 
   DoEquilibration=ListGetLogical(Solver % Values, 'Linear System Row Equilibration', Found)
   DoScaling = DoScaling .OR. DoEquilibration
+
+  BlockDiagonalA = ListGetLogical( Solver % Values, 'Block Diagonal A', Found)
 
   !----------------------------------------------------------------------------------
   ! Find the preconditioning matrices and solvers generated before simulation
@@ -335,25 +337,39 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         !---------------------------------------------------------------------
         ! Get element local matrix and rhs vector:
         !---------------------------------------------------------------------
-        CALL LocalMatrix( STIFF, PLocal, FORCE, LOAD, rho, mu, &
-             Vx, Vy, Vz, Element, n, nd+nb, dim, Convect, SkipPowerLaw, Newton)
+        CALL LocalMatrix( STIFF, ALocal, PLocal, FORCE, LOAD, rho, mu, &
+             Vx, Vy, Vz, Element, n, nd+nb, dim, Convect, SkipPowerLaw, Newton, &
+             BlockDiagonalA)
 
         IF ( nb > 0 ) THEN
            CALL StaticCondensation( nd, nb, dim, STIFF, FORCE )
         END IF
 
         IF (BlockPreconditioning) THEN
-           Alocal = 0.0d0
-           DO p=1,nd
+          IF (.NOT. BlockDiagonalA) THEN
+            Alocal = 0.0d0
+            DO p=1,nd
               DO i=1,dim
-                 DO q=1,nd
-                    DO j=1,dim
-                       Alocal( (p-1)*dim+i, (q-1)*dim+j ) = &
-                            stiff( (p-1)*(dim+1)+i, (q-1)*(dim+1)+j)
-                    END DO
-                 END DO
+                DO q=1,nd
+                  DO j=1,dim
+                    Alocal( (p-1)*dim+i, (q-1)*dim+j ) = &
+                        stiff( (p-1)*(dim+1)+i, (q-1)*(dim+1)+j)
+                  END DO
+                END DO
               END DO
-           END DO
+            END DO
+          ELSE
+            ! The block diagonal approximation of the velocity preconditioning matrix: 
+            Alocal = 0.0d0
+            DO p=1,nd
+              DO i=1,dim
+                DO q=1,nd
+                  Alocal( (p-1)*dim+i, (q-1)*dim+i ) = &
+                      stiff( (p-1)*(dim+1)+i, (q-1)*(dim+1)+i)
+                END DO
+              END DO
+            END DO
+          END IF
         END IF
 
         CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -520,11 +536,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
            END IF
            ! store the scaling for the blocks A and Q
            j = PressureSolver % Matrix % NumberOfRows
-           IF (.not. allocated(RowScalingP)) THEN
+           IF (.NOT. ALLOCATED(RowScalingP)) THEN
               ALLOCATE(RowScalingP(j))
            END IF
            RowScalingP=1.0_dp
-           IF (.not. allocated(RowScalingA)) THEN
+           IF (.NOT. ALLOCATED(RowScalingA)) THEN
               ALLOCATE(RowScalingA(AMatrix%NumberOfRows))
            END IF
            RowScalingA=1.0_dp
@@ -540,7 +556,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                  END DO
               END DO
            ELSE
-              IF (.not. associated(PMatrix%DiagScaling)) THEN
+              IF (.NOT. ASSOCIATED(PMatrix%DiagScaling)) THEN
                  ALLOCATE(PMatrix%DiagScaling(j))
               END IF
               PMatrix%DiagScaling(:)=1.0_dp
@@ -996,14 +1012,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalMatrix(  STIFF, Mass, FORCE, LOAD, Nodalrho, &
-       Nodalmu, Vx, Vy, Vz, Element, n, nd, dim, Convect, SkipPowerLaw, Newton)
+  SUBROUTINE LocalMatrix(  STIFF, VeloBlock, Mass, FORCE, LOAD, Nodalrho, &
+       Nodalmu, Vx, Vy, Vz, Element, n, nd, dim, Convect, SkipPowerLaw, Newton, DiagonalA)
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), TARGET :: STIFF(:,:), Mass(:,:), FORCE(:), LOAD(:,:)
+    REAL(KIND=dp), TARGET :: STIFF(:,:), VeloBlock(:,:), Mass(:,:), FORCE(:), LOAD(:,:)
     REAL(KIND=dp) :: Nodalmu(:), Nodalrho(:), Vx(:), Vy(:), Vz(:), GradDivParam
     INTEGER :: dim, n, nd
     TYPE(Element_t), POINTER :: Element
-    LOGICAL :: Stabilization, Convect, SkipPowerLaw, Newton
+    LOGICAL :: Stabilization, Convect, SkipPowerLaw, Newton, DiagonalA
     !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), &
          DetJ, LoadAtIP(dim+1), Velo(dim), Grad(dim,dim), AK, w1, w2, w3, ViscAtIp, RhoAtIP
@@ -1024,6 +1040,7 @@ CONTAINS
     STIFF = 0.0d0
     FORCE = 0.0d0
     Mass = 0.0d0
+    VeloBlock = 0.0d0
     IF (Newton) JacM = 0.0d0
     ViscNewtonLin = .FALSE.
 
@@ -1085,7 +1102,7 @@ CONTAINS
 
              IF ( ViscNewtonLin ) THEN
                DO i=1,dim
-                 muder = 4*muder0*SUM(Strain(i,1:dim)*dBasisdx(q,1:dim))
+                 muder = 4.0d0*muder0*SUM(Strain(i,1:dim)*dBasisdx(q,1:dim))
                  DO j=1,dim
                    a1 = 0.0d0
                    a2 = 0.0d0
@@ -1114,6 +1131,17 @@ CONTAINS
                      ! Testing w.r.t  linear pressure test functions...                
                      A(dim+1,i) = A(dim+1,i) - s * dBasisdx(q,i) * Basis(p)
              END DO
+
+             IF (DiagonalA) THEN
+               DO i=1,dim
+                 DO j = 1,dim
+                   
+                   VeloBlock( dim*(p-1)+i, dim*(q-1)+i ) = VeloBlock( dim*(p-1)+i, dim*(q-1)+i ) + &
+                       s * mu * dBasisdx(q,j) * dBasisdx(p,j)
+                   
+                 END DO
+               END DO
+             END IF
 
           END DO
 
