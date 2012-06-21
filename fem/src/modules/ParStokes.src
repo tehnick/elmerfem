@@ -104,7 +104,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !----------------------------------------------------------------------------- 
   LOGICAL :: BlockPreconditioning, Parallel, UpdateMatrix, UseTrueResidual, Timing, &
        OptimizeBW, GlobalBubbles
-  LOGICAL :: DoScaling, DoEquilibration, BlockDiagonalA
+  LOGICAL :: DoScaling, DoEquilibration, BlockDiagonalA, UseVeloLaplacian
   CHARACTER(LEN=MAX_NAME_LEN) :: Eq
   INTEGER :: i, j, k, nlen, Round, MaxIterations, RestartM
   INTEGER, ALLOCATABLE :: Indexes(:)
@@ -134,6 +134,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   DoScaling = DoScaling .OR. DoEquilibration
 
   BlockDiagonalA = ListGetLogical( Solver % Values, 'Block Diagonal A', Found)
+  UseVeloLaplacian = ListGetLogical( Solver % Values, 'Use Velocity Laplacian', Found)
 
   !----------------------------------------------------------------------------------
   ! Find the preconditioning matrices and solvers generated before simulation
@@ -360,15 +361,17 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
             END DO
           ELSE
             ! The block diagonal approximation of the velocity preconditioning matrix: 
-            Alocal = 0.0d0
-            DO p=1,nd
-              DO i=1,dim
-                DO q=1,nd
-                  Alocal( (p-1)*dim+i, (q-1)*dim+i ) = &
-                      stiff( (p-1)*(dim+1)+i, (q-1)*(dim+1)+i)
+	    IF (.NOT. UseVeloLaplacian) THEN
+              Alocal = 0.0d0
+              DO p=1,nd
+                DO i=1,dim
+                  DO q=1,nd
+                    Alocal( (p-1)*dim+i, (q-1)*dim+i ) = &
+                        stiff( (p-1)*(dim+1)+i, (q-1)*(dim+1)+i)
+                  END DO
                 END DO
               END DO
-            END DO
+	    END IF
           END IF
         END IF
 
@@ -574,6 +577,32 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
               CALL ScaleLinearSystem( VelocitySolver, AMatrix, DiagScaling=AMatrix%DiagScaling)
               CALL ScaleLinearSystem( PressureSolver, PMatrix, DiagScaling=PMatrix%DiagScaling)
            END IF
+
+        ELSE
+           j = PressureSolver % Matrix % NumberOfRows
+           IF (.NOT. ALLOCATED(RowScalingP)) THEN
+             ALLOCATE(RowScalingP(j))
+           END IF
+           RowScalingP=1.0_dp
+           IF (.NOT. ALLOCATED(RowScalingA)) THEN
+             ALLOCATE(RowScalingA(AMatrix%NumberOfRows))
+           END IF
+           RowScalingA=1.0_dp
+
+           IF (.NOT. ASSOCIATED(PMatrix%DiagScaling)) THEN
+             ALLOCATE(PMatrix%DiagScaling(j))
+           END IF
+           PMatrix%DiagScaling(:)=1.0_dp
+           IF (.NOT. ASSOCIATED(AMatrix % DiagScaling)) THEN
+             ALLOCATE(AMatrix%DiagScaling(AMatrix%NumberOfRows))
+           END IF
+           AMatrix%DiagScaling(:)=1.0_dp
+
+           IF (.NOT. ASSOCIATED(Solver % Matrix % DiagScaling)) THEN
+             ALLOCATE(Solver % Matrix % DiagScaling(Solver%Matrix%NumberOfRows))
+           END IF
+           Solver % Matrix % DiagScaling(:)=1.0_dp
+
         END IF
 
         !-------------------------------------------------------------------------------
