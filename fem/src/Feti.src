@@ -86,7 +86,8 @@ MODULE FetiSolve
 
   ! Some global flags:
   ! ------------------
-  LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE., NullSpaceLC=.TRUE.
+  LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE., NullSpaceLC=.TRUE.,&
+                          dumptofiles=.FALSE.
   LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG, Refactorize, FetiAsPrec=.FALSE.
 
   LOGICAL, ALLOCATABLE, PRIVATE, SAVE :: DirichletDOFs(:)
@@ -740,6 +741,8 @@ CONTAINS
       ! --------------------------
       CALL List_ToCRSMatrix(Bmat)
 
+      IF(dumptofiles) CALL SaveB(A,ninterface,lint)
+
       DEALLOCATE(gdofs,ldofs,procs)
       InitializeIf = .FALSE.
     END IF
@@ -1017,13 +1020,15 @@ CONTAINS
         call mpi_group_incl(comm_group,grpsize,ranks(:,1),solv_group,ierr)
         call mpi_comm_create(comm,solv_group,solv_comm,ierr)
 
-        DO i=1,grpsize
-         if (ranks(i,1)/=me) &
-            call mpi_bsend(nz,1,i_type,ranks(i,1),401,comm,ierr)
-        END DO
 
         ! form global G'G:
         ! =================
+
+        do i=1,grpsize
+         if (ranks(i,1)/=me) &
+            call mpi_bsend(nz,1,i_type,ranks(i,1),401,comm,ierr)
+        end do
+
         if (me/=mactive) then
 
           ! send local G'G to 'mactive' task:
@@ -1721,6 +1726,173 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
+  SUBROUTINE SaveKandF(A)
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+
+    INTEGER :: me, abeg,i,j
+    INTEGER, ALLOCATABLE :: snd(:), asize(:), bsize(:)
+
+    me = Parenv % MyPE
+    ALLOCATE(snd(0:Parenv%PEs-1),asize(0:Parenv%PEs-1),bsize(0:parenv%pes-1))
+    snd=0
+    snd(me)=A % NumberOfRows
+    CALL MPI_ALLREDUCE( snd,asize,Parenv % PEs,MPI_INTEGER,MPI_MAX,&
+                              MPI_COMM_WORLD,ierr)
+    abeg = SUM(asize(0:me-1))
+
+    OPEN(1,file='f' // i2s(Parenv % MyPE))
+    OPEN(2,file='k' // i2s(Parenv % MyPE))
+
+    WRITE(1,'(a)') '% domain: '//trim(i2s(me))//' nrows:'//trim(i2s(A % NumberOFRows))
+
+    WRITE(2,'(a)') '% domain:' // trim(i2s(me))//' nnz:' // &
+       trim(i2s(A % Rows(A % NumberOfRows+1)-1)) // ' nrows:' // &
+          trim(i2s(A % NumberOFRows)) // ' gcols:'//trim(i2s(SUM(asize)))
+
+    DO i=1,A % NumberOfRows
+      DO j=A % Rows(i),A % Rows(i+1)-1
+        WRITE(2,*) abeg+i, abeg+A % Cols(j), A % Values(j)
+      END DO
+      WRITE(1,*) abeg+i, a % RHS(i)
+    END DO
+    CLOSE(2)
+!------------------------------------------------------------------------------
+  END SUBROUTINE SaveKandF
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE SaveR
+!------------------------------------------------------------------------------
+    INTEGER :: i
+    OPEN(2,File='r'//i2s(Parenv % MyPE))
+    WRITE(2,'(a)') '% domain: '//trim(i2s(ParEnv % MyPE))//' nz:'// &
+              trim(i2s(SIZE(z,1)))//' nrows:'// trim(i2s(SIZE(z,2)))
+    DO i=1,SIZE(z,2)
+      WRITE(2,*) z(1:nz,i)
+    END DO
+    CLOSE(2)
+!------------------------------------------------------------------------------
+  END SUBROUTINE SaveR
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE SaveB(A,ninterface,lint)
+    TYPE(Matrix_t) :: A
+    INTEGER :: lint(:)
+    INTEGER :: ninterface
+!------------------------------------------------------------------------------
+    INTEGER, ALLOCATABLE :: snd(:), asize(:), bsize(:), cnt(:),ibuf(:,:),gbuf(:,:)
+
+    INTEGER :: bbeg, i,j,k,l,proc,n,m,me
+
+    INTEGER, POINTER :: gtags(:)
+    LOGICAL, POINTER :: ig(:)
+    TYPE(NeighbourList_t), POINTER :: nb(:)
+
+    gtags => A % ParallelInfo % GlobalDofs
+    ig => A % ParallelInfo % Interface
+    nb => A % ParallelInfo % NeighbourList
+
+    OPEN(4,FILE='b'//I2S(Parenv % MyPE))
+
+    me = ParEnv % MyPE
+
+    WRITE(4,'(a)') '% domain: '//trim(i2s(me))//' nnz: '// &
+         trim(i2s(bMat % Rows(Bmat % NumberOfRows+1)-1)) // &
+               ' nrows: ' // trim(i2s(Bmat % NumberOfRows))
+
+    ALLOCATE(snd(0:Parenv%PEs-1),asize(0:Parenv%PEs-1),bsize(0:parenv%pes-1))
+
+    snd=0
+    snd(me)=A % NumberOfRows
+    CALL MPI_ALLREDUCE( snd,asize,Parenv % PEs,MPI_INTEGER,MPI_MAX,&
+                              MPI_COMM_WORLD,ierr)
+    abeg = SUM(asize(0:me-1))
+
+    snd=0
+    snd(me)=Bmat % NumberOFrows
+    CALL MPI_ALLREDUCE( snd,bsize,ParEnv%PEs,MPI_INTEGER, &
+               MPI_MAX, MPI_COMM_WORLD,ierr)
+    bbeg=sum(bsize(0:me-1))
+
+    ALLOCATE(cnt(0:parenv%pes-1))
+    ALLOCATE(ibuf(ninterface,0:parenv%pes-1))
+    ALLOCATE(gbuf(ninterface,0:parenv%pes-1))
+
+    cnt=0
+    DO i=1,nInterface
+      m = lint(i)
+      DO j=1,SIZE(nb(m) % Neighbours)
+        proc=nb(m) % Neighbours(j)
+        IF(proc==me) CYCLE
+        cnt(proc) = cnt(proc)+1
+        ibuf(cnt(proc),proc)=m
+        gbuf(cnt(proc),proc)=gtags(m)
+      END DO
+    END DO
+
+    DO i=1,ParEnv % PEs
+      IF(.NOT. ParEnv % ISneighbour(i)) CYCLE
+        proc=i-1
+      CALL MPI_BSEND( cnt(proc), 1, MPI_INTEGER, proc, &
+                800, MPI_COMM_WORLD, ierr )
+      IF(cnt(proc)>0) THEN
+        CALL MPI_BSEND( gbuf(:,proc), cnt(proc), MPI_INTEGER, proc, &
+                  801, MPI_COMM_WORLD, ierr )
+  
+        CALL MPI_BSEND( ibuf(:,proc), cnt(proc), MPI_INTEGER, proc, &
+                  802, MPI_COMM_WORLD, ierr )
+      END IF
+    END DO
+    CALL ParallelActiveBarrier()
+
+    DO i=1,ParEnv % PEs
+      IF(.NOT. ParEnv % IsNeighbour(i)) CYCLE
+      proc=i-1
+      CALL MPI_RECV( cnt(proc), 1, MPI_INTEGER, proc, &
+          800, MPI_COMM_WORLD, status, ierr )
+
+      IF(cnt(proc)>0) THEN
+        CALL MPI_RECV( gbuf(:,proc), cnt(proc), MPI_INTEGER, proc, &
+                  801, MPI_COMM_WORLD, status, ierr )
+
+        CALL MPI_RECV( ibuf(:,proc), cnt(proc), MPI_INTEGER, proc, &
+                  802, MPI_COMM_WORLD, status, ierr )
+      END IF
+    END DO
+
+    DO i=1,Bmat % NumberOfRows
+      l = Bmat % Perm(i)
+      IF (l>0) THEN ! m = Partition DOF number...
+        m = lint(l) ! ...for an interface DOF
+      ELSE
+        m = -l      ! ...for a Dirichlet DOF
+      END IF
+
+      DO j=Bmat % Rows(i),Bmat % Rows(i+1)-1
+        proc=Bmat % Cols(j)
+        IF(proc==me) THEN
+          WRITE(4,*) bbeg+i,m+abeg,bmat % values(j)
+        ELSE
+          DO k=1,cnt(proc)
+            IF(gtags(m)==gbuf(k,proc)) EXIT
+          END DO
+          IF(k>cnt(proc)) stop 'aah'
+          WRITE(4,*) bbeg+i,ibuf(k,proc)+sum(asize(0:proc-1)),Bmat % values(j)
+        END IF
+      end do
+     END DO
+
+     CLOSE(2)
+!------------------------------------------------------------------------------
+  END SUBROUTINE SaveB
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
 !> The FETI main routine: solve x from Ax=b using the F(inite) E(lement)
 !> T(earing) and I(nterconnect) method.
 !------------------------------------------------------------------------------
@@ -1753,8 +1925,6 @@ END SUBROUTINE FetiProject
     TYPE(ValueList_t), POINTER :: BC
 
 !------------------------------------------------------------------------------
-
-call checkbuffer(4*2**20)
 
     ! Flag dirichlet d.o.f., to remove 'em from interface conditions:
     ! ----------------------------------------------------------------
@@ -1829,7 +1999,9 @@ call checkbuffer(4*2**20)
     ! ------------------------------------------------------
     ! y=b
     ! CALL ParallelInitSolve(A,x,y,rtmp)
-
+ 
+    dumptofiles = GetLogical( Params, 'Feti dump system', Found)
+    IF(dumptofiles) CALL SaveKandF(A)
 
     IF(Refactorize) THEN
       InitializeLC = .TRUE.;  InitializeIf = .TRUE.
@@ -1943,6 +2115,8 @@ call checkbuffer(4*2**20)
       CALL Fatal('Feti','Mumps has not been installed.')
 #endif
     END IF
+
+    IF(dumptofiles) CALL SaveR()
 
     ! add Dirichlet BC contribution to the r.h.s., if using Total FETI:
     ! ------------------------------------------------------------------
@@ -2137,7 +2311,7 @@ call checkbuffer(4*2**20)
      y = y + b
      CALL FetiDirectSolver(A,x,y,Solver)
 
-CALL ParallelActiveBarrier()
+     CALL ParallelActiveBarrier()
      ! For floating domains:
      ! ---------------------
      call FetiMV(lx,llx,ipar)
