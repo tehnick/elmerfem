@@ -471,9 +471,8 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].created = FALSE; 
       boundaries[nofile][i].nosides = 0;
     }
-    if (LoadUniversalMesh(&(data[nofile]),eg.filesin[nofile],TRUE))
+    if (LoadUniversalMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
-    if(1) ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE,TRUE);
     nomeshes++;
     break;
 

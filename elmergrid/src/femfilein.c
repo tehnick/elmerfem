@@ -4031,7 +4031,8 @@ static void UnvToElmerIndx(int elemtype,int *topology)
 
 
 
-int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
+int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,
+		      char *prefix,int info)
      /* Load the grid in universal file format */
 {
   int noknots,totknots,noelements,elemcode,maxnodes;
@@ -4429,6 +4430,8 @@ end:
       if(data->material[i] == 0) data->material[i] = maxgroup + 1;
   }
     
+  ElementsToBoundaryConditions(data,bound,TRUE,info);
+ 
   if(info) printf("The Universal mesh was loaded from file %s.\n\n",filename);
 
   return(0);
