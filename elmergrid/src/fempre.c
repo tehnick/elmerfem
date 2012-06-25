@@ -107,6 +107,7 @@ static void Instructions()
   printf("1)  .grd      : ElmerGrid file format\n");
   printf("2)  .mesh.*   : ElmerSolver format (also partitioned .part format)\n");
   printf("3)  .ep       : ElmerPost format\n");
+  printf("4)  .msh      : Gmsh mesh format\n");
 #if 0
   printf("5)  .inp      : Abaqus input format\n");
   printf("7)  .fidap    : Fidap format\n");
@@ -925,8 +926,9 @@ int main(int argc, char *argv[])
 
 
   /********************************/
-  printf("\nElmergrid saving data:\n");
-  printf(  "----------------------\n");
+  printf("\nElmergrid saving data with method %d:\n",outmethod);
+  printf(  "-------------------------------------\n");
+
 
 
   switch (outmethod) {
@@ -952,7 +954,7 @@ int main(int argc, char *argv[])
     break;
 
 
-  case 3:
+  case 3: 
       /* Create a variable so that when saving data in ElmerPost format there is something to visualize */
     for(k=0;k<nomeshes;k++) {
       if(data[k].variables == 0) {
@@ -966,16 +968,9 @@ int main(int argc, char *argv[])
     break;
 
   case 4:
-    printf("The output number 4 still refers to ep-file but will become obsolite in time\n");
-    printf("Rather use number 3 for ElmerPost output format\n");
     for(k=0;k<nomeshes;k++) {
-      if(data[k].variables == 0) {
-	CreateVariable(&data[k],1,1,0.0,"Number",FALSE);
-	for(i=1;i<=data[k].alldofs[1];i++)
-	  data[k].dofs[1][i] = (Real)(i);	      
-      }
-      SaveSolutionElmer(&data[k],boundaries[k],eg.saveboundaries ? MAXBOUNDARIES:0,
-			eg.filesout[k],eg.decimals,info);
+      SaveMeshGmsh(&data[k],boundaries[k],eg.saveboundaries ? MAXBOUNDARIES:0,
+		   eg.filesout[k],eg.decimals,info);
     }
     break;
 

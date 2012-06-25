@@ -7,3 +7,5 @@ int SaveFidapOutput(struct FemType *data,char *prefix,int info,
 		    int vctrs,Real *vect1, ...);
 int SaveFastcapInput(struct FemType *data,
 		     struct BoundaryType *bound,char *prefix,int decimals,int info);
+int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
+		 int nobound,char *prefix,int decimals,int info);

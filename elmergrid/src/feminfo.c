@@ -2700,7 +2700,7 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
     }
      
     else if(strstr(command,"REVOLVE")) {
-      printf("rovolve: %s %s\n",command,params);
+      if(0) printf("revolve: %s %s\n",command,params);
 
       if(strstr(command,"REVOLVE RADIUS")) {
 	(*grid)[k].rotate = TRUE;
