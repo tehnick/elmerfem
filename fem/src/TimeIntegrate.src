@@ -432,7 +432,7 @@ CONTAINS
     INTEGER :: i,j,n
     REAL(KIND=dp), POINTER :: Stiff(:),Mass(:)
     INTEGER, POINTER :: Cols(:),Rows(:)
-    REAL(KIND=dp) :: su,mu,uj
+    REAL(KIND=dp) :: su,mu,uj,ui
 !------------------------------------------------------------------------------
     
     n = Matrix % NumberOfRows
@@ -441,18 +441,38 @@ CONTAINS
     Stiff => Matrix % Values
     Mass => Matrix % MassValues
 
-!$omp parallel do private(j,uj,su,mu)
-     DO i=1,n
-       su = 0.0_dp
-       mu = 0.0_dp
-       DO j=Rows(i),Rows(i+1)-1
-         uj = PrevSolution(Cols(j))
-         su = su + Stiff(j) * uj
-         mu = mu + Mass(j) * uj
-       END DO
-       Force(i) = Force(i) + (1-Beta)*su + (1.0/dt)*mu
-     END DO
+    IF( Matrix % Lumped ) THEN
+!$omp parallel do private(j,uj,ui,su,mu)
+      DO i=1,n
+        su = 0.0_dp
+        mu = 0.0_dp
+        ! lumped mass
+        DO j=Rows(i),Rows(i+1)-1
+          uj = PrevSolution(Cols(j))
+          su = su + Stiff(j) * uj
+          mu = mu + Mass(j)
+        END DO
+        j = Matrix % Diag(i)
+        ui = PrevSolution(Cols(j))
+
+        Force(i) = Force(i) + (1-Beta)*su + (1._dp/dt)*mu*ui
+        Stiff(j) = Beta * Stiff(j) + (1.0_dp/dt) * mu
 !$omp end parallel do
+      END DO
+    ELSE
+      !$omp parallel do private(j,uj,su,mu)     
+      DO i=1,n
+        su = 0.0_dp
+        mu = 0.0_dp
+        DO j=Rows(i),Rows(i+1)-1
+          uj = PrevSolution(Cols(j))
+          su = su + Stiff(j) * uj
+          mu = mu + Mass(j) * uj
+        END DO
+        Force(i) = Force(i) + (1-Beta)*su + (1.0/dt)*mu
+      END DO
+      !$omp end parallel do
+    END IF
 
     Stiff = Beta * Stiff + (1.0d0/dt) * Mass
 !------------------------------------------------------------------------------
@@ -473,7 +493,7 @@ CONTAINS
     INTEGER :: i,j,k,n
     REAL(KIND=dp), POINTER :: Stiff(:),Mass(:)
     INTEGER, POINTER :: Cols(:),Rows(:)
-    REAL(KIND=dp) :: su,mu,uj,a(6)
+    REAL(KIND=dp) :: su,mu,uj,ui,a(6)
 !------------------------------------------------------------------------------
     
     n = Matrix % NumberOfRows
@@ -481,7 +501,6 @@ CONTAINS
     Cols   => Matrix % Cols
     Stiff => Matrix % Values
     Mass => Matrix % MassValues
-
     
     a = 0.0_dp
     SELECT CASE( Order)
@@ -516,20 +535,39 @@ CONTAINS
 
     a = a / dt
 
-    !$omp parallel do private(j,k,uj,mu)
-     DO i=1,n
-       mu = 0.0_dp
-       DO j=Rows(i),Rows(i+1)-1
-         DO k=1,Order
-           uj = PrevSolution(Cols(j),k)
-           mu = mu - Mass(j) * a(k+1) * uj  
-         END DO
-       END DO
-       Force(i) = Force(i) + mu
-     END DO
-     !$omp end parallel do
-     
-     Stiff = Stiff + a(1) * Mass
+    IF( Matrix % Lumped ) THEN
+      !$omp parallel do private(j,k,ui,mu)
+      DO i=1,n
+        mu = 0.0_dp
+        ! lumped mass
+        DO j=Rows(i),Rows(i+1)-1
+          mu = mu + Mass(j)
+        END DO
+        j = Matrix % Diag(i)
+        ui = PrevSolution(Cols(j),k)
+        DO k=1,Order
+          Force(i) = Force(i) - mu * a(k+1) * ui
+        END DO
+        Stiff(j) = Stiff(j) + a(1) * mu
+      END DO
+      !$omp end parallel do
+    ELSE
+      !$omp parallel do private(j,k,uj,mu)
+      DO i=1,n
+        mu = 0.0_dp
+        DO j=Rows(i),Rows(i+1)-1
+          DO k=1,Order
+            uj = PrevSolution(Cols(j),k)
+            mu = mu - Mass(j) * a(k+1) * uj  
+          END DO
+        END DO
+        Force(i) = Force(i) + mu
+      END DO
+      !$omp end parallel do
+      
+      Stiff = Stiff + a(1) * Mass
+    END IF
+
 !------------------------------------------------------------------------------
    END SUBROUTINE BDF_CRS
 !------------------------------------------------------------------------------
@@ -547,7 +585,7 @@ CONTAINS
      INTEGER :: i,j,k,n
      REAL(KIND=dp), POINTER :: Stiff(:),Mass(:)
      INTEGER, POINTER :: Cols(:),Rows(:)
-     REAL(KIND=dp) :: su,mu,uj,a(4)
+     REAL(KIND=dp) :: su,mu,uj,ui,a(4)
 !------------------------------------------------------------------------------
     
      n = Matrix % NumberOfRows
@@ -579,20 +617,37 @@ CONTAINS
        CALL Warn('VBDF_CRS','Variable timestep BDF implemented only to order 3')
      END IF
 
-     !$omp parallel do private(j,k,uj,mu)
-     DO i=1,n
-       mu = 0.0_dp
-       DO j=Rows(i),Rows(i+1)-1
-         DO k=1,MIN(Order,3)
-           uj = PrevSolution(Cols(j),k)
-           mu = mu - Mass(j) * a(k+1) * uj  
+     IF( Matrix % Lumped ) THEN
+       !$omp parallel do private(j,k,ui,mu)
+       DO i=1,n
+         mu = 0.0_dp
+         ! lumped mass
+         DO j=Rows(i),Rows(i+1)-1
+           mu = mu + Mass(j)
          END DO
+         j = Matrix % Diag(i)
+         ui = PrevSolution(Cols(j),k)
+         DO k=1,MIN(Order,3)
+           Force(i) = Force(i) - mu * a(k+1) * ui
+         END DO
+         Stiff(j) = Stiff(j) + a(1) * mu
        END DO
-       Force(i) = Force(i) + mu
-     END DO
-     !$omp end parallel do
-     
-     Stiff = Stiff + a(1) * Mass
+       !$omp end parallel do
+     ELSE
+       !$omp parallel do private(j,k,uj,mu)
+       DO i=1,n
+         mu = 0.0_dp
+         DO j=Rows(i),Rows(i+1)-1
+           DO k=1,MIN(Order,3)
+             uj = PrevSolution(Cols(j),k)
+             mu = mu - Mass(j) * a(k+1) * uj  
+           END DO
+         END DO
+         Force(i) = Force(i) + mu
+       END DO
+       !$omp end parallel do
+       Stiff = Stiff + a(1) * Mass
+     END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE VBDF_CRS
 !------------------------------------------------------------------------------
