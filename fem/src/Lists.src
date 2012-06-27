@@ -2841,20 +2841,23 @@ CALL Info( 'VariableGet', Message, Level=7 )
      LOGICAL :: AllGlobal
 !------------------------------------------------------------------------------
      
-     ! If the value is constant return it asap
-     ! Currently this is nowhere set so omit this for thime being
-     ! This would require an initialization phase that 
-     ! goes through all Materils / BCs / Body Forces / Initial Conditions
-     !IF( Handle % ConstantEverywhere ) THEN
-     !  val = Handle % ConstantValue
-     !  RETURN
-     !END IF
-
+     ! If the value is known to be globally constant return it asap.
+     ! This can only be the case if the 'ListInitRealAtIp' has been called prior 
+     ! to this subroutine.
+     IF( Handle % ConstantEverywhere ) THEN
+       val = Handle % ConstantValue
+       RETURN
+     END IF
+     
      ! If the provided list is the same as last time, also the keyword will
      ! be sitting at the same place, otherwise find it in the new list
      val = 0.0_dp
-     IF( ASSOCIATED( List, Handle % List ) ) THEN
+     IF( .NOT. ASSOCIATED( List ) ) THEN
+       Found = .FALSE.
+       RETURN
+     ELSE IF( ASSOCIATED( List, Handle % List ) ) THEN
        ptr => Handle % ptr       
+       IF(PRESENT(Found)) Found = .TRUE.
        IF( Handle % ConstantInList ) THEN
          val = Handle % Values(1)
          RETURN
@@ -2868,7 +2871,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      END IF
      
      ! If there is no pointer return default value zero
-     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
+     IF ( .NOT. ASSOCIATED(ptr) ) RETURN
 
      ! If we get back to the same element than last time use the data already 
      ! retrieved. If the element is new the get the data in every node of the 
@@ -3009,8 +3012,109 @@ CALL Info( 'VariableGet', Message, Level=7 )
        END IF
      END IF
 
+
    END FUNCTION ListGetRealAtIp
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Initializes the handle to save just a little bit for constant valued.
+!> This is not mandatory but may still be used. 
+!------------------------------------------------------------------------------
+   RECURSIVE SUBROUTINE ListInitRealAtIp( Section,Name,Handle,minv,maxv ) 
+!------------------------------------------------------------------------------
+     CHARACTER(LEN=*)  :: Section,Name
+     TYPE(ValueHandle_t) :: Handle
+     REAL(KIND=dp), OPTIONAL :: minv,maxv
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: ptr, List
+     INTEGER :: i, NoVal
+     TYPE(Model_t), POINTER :: Model
+     REAL(KIND=dp)  :: val
+     LOGICAL :: ConstantEverywhere, Found
+!------------------------------------------------------------------------------
+
+     NoVal = 0
+     ConstantEverywhere = .TRUE.
+     Model => CurrentModel
+     
+     ! Loop over the full lists and check whether the keyword is constant in all of them
+     ! Unfortunately only keywords that are present in all lists can be deduced to be 
+     ! truly constant. This is a conservative estimate, but best we can do without 
+     ! involving the active elements into the picture.
+     i = 1
+     DO WHILE(.TRUE.) 
+       i = i + 1
+     
+       SELECT CASE ( Section ) 
+       CASE('Material')
+         IF(i > Model % NumberOfMaterials) EXIT
+         List => Model % Materials(i) % Values
+
+       CASE('Body Force')
+         IF(i > Model % NumberOfBodyForces) EXIT        
+         List => Model % BodyForces(i) % Values
+         
+       CASE('Initial Condition')
+         IF( i > Model % NumberOfICs) EXIT
+         List => Model % ICs(i) % Values
+
+       CASE('Boundary Condition')
+         IF( i > Model % NumberOfBCs ) EXIT        
+         List => Model % BCs(i) % Values
+
+       CASE DEFAULT
+         CALL Fatal('ListInitRealAtIP','Unknown section: '//TRIM(Section))
+         
+       END SELECT
+       
+       ptr => ListFind(List,Name,Found)
+       IF ( .NOT.ASSOCIATED(ptr) ) THEN
+         ConstantEverywhere = .FALSE.
+         EXIT
+       END IF
+
+       IF( ptr % TYPE == LIST_TYPE_CONSTANT_SCALAR .AND. &
+           ptr % PROCEDURE == 0 ) THEN
+         val = ptr % Fvalues(1,1,1)
+       ELSE
+         ConstantEverywhere = .FALSE.
+         EXIT
+       END IF
+       
+       NoVal = NoVal + 1
+       IF( NoVal == 1 ) THEN
+         Handle % ConstantValue = val
+       ELSE IF( ABS ( Handle % ConstantValue - val ) > TINY( val ) ) THEN
+         ConstantEverywhere = .FALSE.
+         EXIT
+       END IF
+     END DO
+     
+     IF( ConstantEverywhere ) THEN
+       CALL Info('ListInitRealAtIp','Constant value for keyword: '//TRIM(Name))
+       
+       IF ( PRESENT( minv ) ) THEN
+         IF ( val < minv ) THEN
+           WRITE( Message,*) 'Given value ',val, ' for property: ', '[', TRIM(Name),']', &
+               ' smaller than given minimum: ', minv
+           CALL Fatal( 'ListInitRealAtIp', Message )
+         END IF
+       END IF
+       
+       IF ( PRESENT( maxv ) ) THEN
+         IF ( val > maxv ) THEN
+           WRITE( Message,*) 'Given value ',val, ' for property: ', '[', TRIM(Name),']', &
+               ' larger than given maximum ', maxv
+           CALL Fatal( 'ListInitRealAtIp', Message )
+         END IF
+       END IF
+     END IF
+
+     Handle % ConstantEverywhere = ConstantEverywhere 
+
+   END SUBROUTINE ListInitRealAtIp
+
 
 
 !------------------------------------------------------------------------------
