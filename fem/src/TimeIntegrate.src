@@ -409,6 +409,195 @@ CONTAINS
    END SUBROUTINE Newmark2ndOrder
 !------------------------------------------------------------------------------
 
+
+
+!------------------------------------------------------------------------------
+! These are similar subroutines as above except they operate on the full
+! matrix level and assumes that A % Values includes stiffness matrix
+! and A % MassValues includes the mass matrix.
+!------------------------------------------------------------------------------
+
+
+!> Apply newmark beta scheme to CRS_Matrix.
+!> This is used also for Implicit Euler with beta=1.0 and
+!> Crank-Nicolson with beta=0.5.
+!------------------------------------------------------------------------------
+   SUBROUTINE NewmarkBeta_CRS( dt, Matrix, &
+       Force, PrevSolution, Beta )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Force(:),PrevSolution(:),dt
+    REAL(KIND=dp) :: Beta
+    TYPE(Matrix_t), POINTER :: Matrix
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,n
+    REAL(KIND=dp), POINTER :: Stiff(:),Mass(:)
+    INTEGER, POINTER :: Cols(:),Rows(:)
+    REAL(KIND=dp) :: su,mu,uj
+!------------------------------------------------------------------------------
+    
+    n = Matrix % NumberOfRows
+    Rows   => Matrix % Rows
+    Cols   => Matrix % Cols
+    Stiff => Matrix % Values
+    Mass => Matrix % MassValues
+
+!$omp parallel do private(j,uj,su,mu)
+     DO i=1,n
+       su = 0.0_dp
+       mu = 0.0_dp
+       DO j=Rows(i),Rows(i+1)-1
+         uj = PrevSolution(Cols(j))
+         su = su + Stiff(j) * uj
+         mu = mu + Mass(j) * uj
+       END DO
+       Force(i) = Force(i) + (1-Beta)*su + (1.0/dt)*mu
+     END DO
+!$omp end parallel do
+
+    Stiff = Beta * Stiff + (1.0d0/dt) * Mass
+!------------------------------------------------------------------------------
+  END SUBROUTINE NewmarkBeta_CRS
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Apply constant timestep BDF integration scheme to CRS Matrix.
+!------------------------------------------------------------------------------
+  SUBROUTINE BDF_CRS( dt, Matrix, Force, PrevSolution, Order )
+!------------------------------------------------------------------------------
+
+    TYPE(Matrix_t), POINTER :: Matrix
+    INTEGER :: Order
+    REAL(KIND=dp) :: Force(:),PrevSolution(:,:),dt
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,k,n
+    REAL(KIND=dp), POINTER :: Stiff(:),Mass(:)
+    INTEGER, POINTER :: Cols(:),Rows(:)
+    REAL(KIND=dp) :: su,mu,uj,a(6)
+!------------------------------------------------------------------------------
+    
+    n = Matrix % NumberOfRows
+    Rows   => Matrix % Rows
+    Cols   => Matrix % Cols
+    Stiff => Matrix % Values
+    Mass => Matrix % MassValues
+
+    
+    a = 0.0_dp
+    SELECT CASE( Order)
+    CASE(1)
+      a(1) = 1.0_dp
+      a(2) = -1.0_dp
+    CASE(2)
+      a(1) = 1.5_dp
+      a(2) = -2.0_dp
+      a(3) = 0.5_dp
+    CASE(3)
+      a(1) = 11._dp/6_dp
+      a(2) = -3._dp
+      a(3) = 3._dp/2._dp
+      a(4) = -1._dp/3._dp
+    CASE(4)
+      a(1) = 25._dp/12_dp
+      a(2) = -4._dp
+      a(3) = 3._dp
+      a(4) = -4._dp/3._dp
+      a(5) = 1._dp/4._dp
+    CASE(5)
+      a(1) = 137._dp/60_dp
+      a(2) = -5._dp
+      a(3) = 5._dp
+      a(4) = -10._dp/3._dp
+      a(5) = 5._dp/4._dp
+      a(6) = -1._dp/5._dp
+    CASE DEFAULT
+      CALL Fatal('BDF_CRS','Constant timestep BDF implemented only to order 5')
+    END SELECT
+
+    a = a / dt
+
+    !$omp parallel do private(j,k,uj,mu)
+     DO i=1,n
+       mu = 0.0_dp
+       DO j=Rows(i),Rows(i+1)-1
+         DO k=1,Order
+           uj = PrevSolution(Cols(j),k)
+           mu = mu - Mass(j) * a(k+1) * uj  
+         END DO
+       END DO
+       Force(i) = Force(i) + mu
+     END DO
+     !$omp end parallel do
+     
+     Stiff = Stiff + a(1) * Mass
+!------------------------------------------------------------------------------
+   END SUBROUTINE BDF_CRS
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Apply variable timestep BDF integration scheme to CRS matrix.
+!------------------------------------------------------------------------------
+   SUBROUTINE VBDF_CRS( dts, Matrix, Force, PrevSolution, Order )
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t), POINTER :: Matrix
+     INTEGER :: Order
+     REAL(KIND=dp) :: Force(:),PrevSolution(:,:),dts(:)
+!------------------------------------------------------------------------------
+     INTEGER :: i,j,k,n
+     REAL(KIND=dp), POINTER :: Stiff(:),Mass(:)
+     INTEGER, POINTER :: Cols(:),Rows(:)
+     REAL(KIND=dp) :: su,mu,uj,a(4)
+!------------------------------------------------------------------------------
+    
+     n = Matrix % NumberOfRows
+     Rows   => Matrix % Rows
+     Cols   => Matrix % Cols
+     Stiff => Matrix % Values
+     Mass => Matrix % MassValues
+          
+     a = 0.0_dp
+
+     a(1) = 1.0_dp / Dts(1)
+     a(2) = -1.0_dp / Dts(1)
+     IF(Order >= 2) THEN
+       a(1) = a(1) + 1.0_dp / (Dts(1)+Dts(2)) 
+       a(2) = a(2) - (1.0_dp + Dts(1)/Dts(2)) / (Dts(1)+Dts(2)) 
+       a(3) = (Dts(1)/Dts(2)) / (Dts(1)+Dts(2)) 
+     END IF
+     IF(Order >= 3) THEN
+       a(1) = a(1) + 1.0_dp / (Dts(1)+Dts(2)+Dts(3)) 
+       a(2) = a(2) - (1.0_dp + Dts(1)/Dts(2)*(1.0+(Dts(1)+Dts(2))/(Dts(2)+Dts(3)))) / (Dts(1)+Dts(2)+Dts(3)) 
+       a(3) = a(3) + (Dts(1)/Dts(2)*(1.0+(Dts(1)+Dts(2))/(Dts(2)+Dts(3))) + &
+               Dts(1)/Dts(3)*(Dts(1)+Dts(2))/(Dts(2)+Dts(3)) ) / (Dts(1)+Dts(2)+Dts(3)) 
+       a(4) = -(Dts(1)/Dts(3))*(Dts(1)+Dts(2))/(Dts(2)+Dts(3)) / (Dts(1)+Dts(2)+Dts(3))
+     END IF
+
+     ! The constant timestep BDF is implemented up to 5th degree hence higher order
+     ! schemes are possible even though this scheme cannot handle them. 
+     IF(Order > 3) THEN
+       CALL Warn('VBDF_CRS','Variable timestep BDF implemented only to order 3')
+     END IF
+
+     !$omp parallel do private(j,k,uj,mu)
+     DO i=1,n
+       mu = 0.0_dp
+       DO j=Rows(i),Rows(i+1)-1
+         DO k=1,MIN(Order,3)
+           uj = PrevSolution(Cols(j),k)
+           mu = mu - Mass(j) * a(k+1) * uj  
+         END DO
+       END DO
+       Force(i) = Force(i) + mu
+     END DO
+     !$omp end parallel do
+     
+     Stiff = Stiff + a(1) * Mass
+!------------------------------------------------------------------------------
+   END SUBROUTINE VBDF_CRS
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
 END MODULE TimeIntegrate
 !------------------------------------------------------------------------------
