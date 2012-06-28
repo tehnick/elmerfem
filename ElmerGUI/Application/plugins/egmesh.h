@@ -73,7 +73,8 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 		   int manual,Real corder[],Real eps,int mergebounds,int info);
 void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *doubles,int info);
 void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
-void ElementsToBoundaryConditions(struct FemType *data,struct BoundaryType *bound,int info);
+void ElementsToBoundaryConditions(struct FemType *data,
+				  struct BoundaryType *bound,int retainorphans,int info);
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info);
 int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 		      int *boundnodes,int suggesttype,int dimred,int info);

@@ -6161,15 +6161,17 @@ void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *double
 
 
 
+
 void ElementsToBoundaryConditions(struct FemType *data,
-				  struct BoundaryType *bound,int info)
+				  struct BoundaryType *bound,int retainorphans,int info)
 {
   int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,parent,sideelem,sameelem;
   int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same,minelemtype;
   int sidenodes,sidenodes2,maxelemtype,elemtype,elemdim,sideelements,material;
   int *moveelement,*parentorder,*possible,**invtopo;
-  int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim = 0;
-  int debug,unmoved,removed;
+  int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
+  int debug,unmoved,removed,elemhits;
+  int notfound,*notfounds;
 
 
   if(info) printf("Making elements to boundary conditions\n");
@@ -6198,6 +6200,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   maxelemsides = 0;
   unmoved = 0;
   removed = 0;
+  notfound = 0;
 
   for(i=1;i<=noelements;i++) {
     moveelement[i] = FALSE;
@@ -6273,36 +6276,53 @@ void ElementsToBoundaryConditions(struct FemType *data,
     sidenodes = sideelemtype % 100;
     for(i=0;i<sidenodes;i++) 
       sideind[i] = data->topology[elemind][i];
-    
+    elemhits = 0;    
+
     for(l=1;l<=maxpossible;l++) {
       elemind2 = invtopo[sideind[0]][l];
     
       if(!elemind2) continue;      
- 
-      for(side=0;;side++) {
+
+      elemtype = data->elementtypes[elemind2];
+      hit = 0;
+      for(i=0;i<sidenodes;i++)
+	for(j=0;j<elemtype%100;j++)
+	  if(sideind[i] == data->topology[elemind2][j]) hit++;
+
+      if(hit < sidenodes) continue;
+
+      if(hit > sidenodes) printf("Strange: elemhits %d vs. elemnodes %d\n",hit,sidenodes);
+      if(hit >= sidenodes) elemhits++;
+
+      for(side=0;side<=100;side++) {
 
 	if(debug) printf("elem1=%d l=%d elem2=%d side=%d\n",elemind,l,elemind2,side);
 
 	GetElementSide(elemind2,side,1,data,&sideind2[0],&sideelemtype2);
 
+	if(debug) printf("elemtype=%d sidelemtype=%d %d\n",
+			 elemtype,sideelemtype,sideelemtype2);
+
+	if(sideelemtype2 == 0 ) break;
 	if(sideelemtype2 < 300 && sideelemtype > 300) break;	
 	if(sideelemtype2 < 200 && sideelemtype > 200) break;		
 
-	if(sideelemtype != sideelemtype2) continue;
-	
 	sidenodes2 = sideelemtype2 % 100;	
-
 	if(sidenodes != sidenodes2) continue;
 	if(sidenodes2 == 1 && sidenodes > 1) break;
 
 	hit = 0;
 	for(i=0;i<sidenodes;i++) 
-	  for(j=0;j<sidenodes;j++) 
+	  for(j=0;j<sidenodes2;j++) 
 	    if(sideind[i] == sideind2[j]) hit++;
 	
 	if(debug) printf("%d hits in element %d\n",hit,sideelemtype2);
-
 	if(hit < sidenodes) continue;
+ 
+	if(sideelemtype != sideelemtype2) {
+	  printf("Hits in element after mismatch: %d vs. %d\n",sideelemtype,sideelemtype2);
+	  continue;
+	}	
 
 	if(same) {
 	  sameelem += 1;
@@ -6338,10 +6358,25 @@ void ElementsToBoundaryConditions(struct FemType *data,
     }
 
     if(!same) {
-      if(0) printf("sideelemtype = %d sidenodes=%d %d %d\n",sideelemtype,sidenodes,sideind[0],sideind[1]);
-      if(moveelement[elemind] == 1) {
-	moveelement[elemind] = FALSE;
-	unmoved += 1;
+       
+      if(0) {
+	printf("element: index = %d type = %d nodes = %d elemhits = %d\n",
+	       elemind,sideelemtype,sidenodes,elemhits);
+	printf("         inds =");
+	for(i=0;i<sidenodes;i++)
+	  printf(" %d ",sideind[i]);
+	printf("\n");
+      }
+ 
+     /* If the element is of dimension DIM-1 then create a table showing where they are */
+      if(retainorphans && moveelement[elemind] == 1) {	
+	if(!notfound) {
+	  notfounds = Ivector(1,noelements); 
+	  for(i=1;i<=noelements;i++)
+	    notfounds[i] = FALSE;
+	}
+	notfound++;
+	notfounds[elemind] = TRUE;
       }
       else {
 	moveelement[elemind] = -1;
@@ -6357,16 +6392,43 @@ void ElementsToBoundaryConditions(struct FemType *data,
   if(twiceelem) printf("Found %d sides that were multiply given\n",twiceelem);
   if(sameelem) printf("Found %d side elements that have two parents.\n",sameelem);
 
-  bound->nosides = sideelem;
 
   if(sideelem == sideelements) {
     printf("Found correctly %d side elements.\n",sideelem);
   }
   else {
     printf("Found %d side elements, could have found %d\n",sideelem,sideelements);
-    if(unmoved) printf("Leaving %d lower dimensional elements to be bulk elements\n",unmoved);
-    if(removed) printf("Removing %d lower dimensional elements from the element list\n",removed);
+    printf("Removing %d lower dimensional elements from the element list\n",removed);
+    if(notfound) {
+      printf("************************** WARNING **********************\n");
+      if(retainorphans) {
+	printf("Adding %d elements to boundary without parent information\n",notfound);
+	
+	bound->elementtypes = Ivector(sideelem+1,sideelements);
+	for(i=sideelem+1;i<=sideelements;i++) bound->elementtypes[i] = 0;
+	
+	bound->topology = Imatrix(sideelem+1,sideelements,0,MAXNODESD2-1);
+	
+	for(elemind=1;elemind <= data->noelements;elemind++) {
+	  if(!notfounds[elemind]) continue;
+	  sideelem++;
+	  j = data->elementtypes[elemind];
+	  bound->elementtypes[sideelem] = j;
+	  for(i=0;i<j%100;i++)
+	    bound->topology[sideelem][i] = data->topology[elemind][i];
+	  
+	  /* Adding some constant here could be used for debugging */
+	  bound->types[sideelem] = data->material[elemind] + 1*10;
+	}
+      }
+      else {
+	printf("Removing %d lower dimensional elements without parent information\n",notfound);	
+      }
+    }
   }
+
+  
+  bound->nosides = sideelem;
 
 
   /* Reorder remaining master elements */
@@ -6374,10 +6436,12 @@ void ElementsToBoundaryConditions(struct FemType *data,
   j = 0;
   for(i=1;i<=noelements;i++) {
     if(moveelement[i] == 0) {
-      parentorder[i] = ++j;
+      k = data->elementtypes[i];
 
+      j++;
+      parentorder[i] = j;
       data->material[j] = data->material[i];
-      k = data->elementtypes[j] = data->elementtypes[i];
+      data->elementtypes[j] = data->elementtypes[i];
       
       for(l=0;l<k%100;l++) 
 	data->topology[j][l] = data->topology[i][l];     
@@ -6395,16 +6459,20 @@ void ElementsToBoundaryConditions(struct FemType *data,
     if(bound->parent2[i])  bound->parent2[i] = parentorder[bound->parent2[i]];
   }
 
+
   if(info) printf("Moved %d elements (out of %d) to new positions\n",j,noelements);
 
   free_Ivector(parentorder,1,noelements);
+
   free_Ivector(moveelement,1,noelements); 
   free_Ivector(possible,1,noknots);
   free_Imatrix(invtopo,1,noknots,1,maxpossible);
+  if(notfound) free_Ivector(notfounds,1,noelements);
+
+  if(info) printf("All done\n");
 
   return;
 }
-
 
 
 

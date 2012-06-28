@@ -218,16 +218,36 @@ struct BoundaryType {
   int created,       /* is boundary created? */
     nosides,         /* sides on the boundary */
     maxsidenodes,  /* number of sidenodes on the element */
+    fixedpoints,     /* number of fixed points allowed */
     coordsystem,     /* coordinate system flag */
-    ediscont;        /* does the discontinous boundary exist */
+    vfcreated,       /* are view factors created */
+    gfcreated,       /* are Gephart factors created */
+    maparea,         /* mappings of the area */
+    mapvf,           /* mappings of the view factors */ 
+    open,            /* is the closure partially open? */
+    echain,          /* does the chain exist? */
+    ediscont,        /* does the discontinous boundary exist */
+    chainsize;       /* size of the chain */ 
   int *parent,       /* primary parents of the sides */
     *parent2,        /* secondary parents of the sides */
     *material,       /* material of the sides */
     *side,           /* side in the primary parent element */
     *side2,          /* side in the secondary parent element */
+    *chain,          /* indices in the chain representation */
     *types,
     *discont,        /* type of discontinuous and periodic BCs */
-    *normal;         /* direction of the normal */
+    *normal,         /* direction of the normal */
+    *elementtypes,   /* side element types if needed */
+    **topology,       /* topology if needed */
+    points[MAXVARS], /* how many points for each side? */
+    evars[MAXVARS];  /* does the variables exist? */
+  Real totalarea,       /* total area of the side */
+    areasexist,
+    *areas,             /* side areas */
+    **vf,               /* view factors */
+    **gf,               /* Gephart factors */
+    *vars[MAXVARS];     /* variables on the sides */
+  char varname[MAXVARS][MAXNAMESIZE]; /* variable name */
 };
 
 
