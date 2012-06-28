@@ -802,7 +802,6 @@ END FUNCTION CRS_RowSum
       DO j=A % Rows(i),A % Rows(i+1)-1
         WRITE(1,*) i,A % Cols(j),A % Values(j)
       END DO
-
     END DO
 
   END SUBROUTINE CRS_PrintMatrix
@@ -1113,9 +1112,93 @@ END FUNCTION CRS_RowSum
   END SUBROUTINE CRS_BlockDiagonal
 !------------------------------------------------------------------------------
  
+!------------------------------------------------------------------------------
+!> Makes a algebraic lower order scheme assuming steady state advection-diffusion equation.
+!> This can be applied together with flux corrected transport (FCT) scheme.
+! 
+!> Dmitri Kuzmin (2008): "Explicit and implicit FEM-FCT algorithms with flux linearization"
+!> The current implemetation is really just a starting point. 
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_FCTCorrection( A )
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A           !< Initial higher order matrix
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,k,k2,l,kb,n
+    REAL(KIND=dp) :: Aij,Aji,Aii,Dij,dFij
+    LOGICAL :: Found
+
+
+    N = A % NumberOfRows
+
+    IF(.NOT. ASSOCIATED(A % FCT_D) ) THEN
+      ALLOCATE( A % FCT_D(SIZE( A % Values) ) ) 
+    END IF
+    A % FCT_D = 0.0_dp
+    
+
+    DO i=1,N
+      DO k= A % Rows(i), A % Rows(i+1)-1
+        j = A % Cols(k)
+
+        ! Go through the lower symmetric part (ij) and find the corresponding entry (ji)
+        IF( j >= i ) CYCLE
+
+        ! First find entry (j,i)
+        DO k2 = A % Rows(j), A % Rows(j+1)-1
+          IF( A % Cols(k2) == i ) THEN
+            Found = .TRUE.
+            EXIT
+          END IF
+        END DO
+        
+        IF(.NOT. Found ) THEN
+          CALL Warn('CRS_FCTCorrection','Entry not found, matrix might not be symmetric!')
+          CYCLE
+        END IF
+
+        ! Formula (30) in Kuzmin's paper
+        ! Modified so that it also works similarly to A and -A
+        Aij = A % Values(k)
+        Aji = A % Values(k2)
+        Aii = A % Values(A % Diag(i))
+        IF( Aii < 0.0_dp ) THEN
+          Dij = MAX( -Aij, -Aji, 0.0_dp )
+        ELSE
+          Dij = MIN( -Aij, -Aji, 0.0_dp )
+        END IF
+
+        IF(.FALSE.) THEN
+          PRINT *,'ij',i,j,A % Cols(k2),A % Cols(k)
+          PRINT *,'Diag',A % Cols(A % Diag(i)),A % Cols(A % Diag(j))
+          PRINT *,'A',Aij,Aji,Aii,Dij
+        END IF
+
+        ! Formula (32) in Kuzmin's paper
+        IF( ABS( Dij ) > 0.0_dp ) THEN
+          A % FCT_D(k) = A % FCT_D(k) + Dij
+          A % FCT_D(k2) = A % FCT_D(k2) + Dij
+          A % FCT_D(A % Diag(i)) = A % FCT_D(A % Diag(i)) - Dij
+          A % FCT_D(A % Diag(j)) = A % FCT_D(A % Diag(j)) - Dij          
+
+!          A % Values(k) = A % Values(k) + Dij
+!          A % Values(k2) = A % Values(k2) + Dij
+!          A % Values(A % Diag(i)) = A % Values(A % Diag(i)) - Dij
+!          A % Values(A % Diag(j)) = A % Values(A % Diag(j)) - Dij
+        END IF
+
+      END DO
+    END DO
+
+    A % Values = A % Values + A % FCT_D
 
 !------------------------------------------------------------------------------
-!>    Copies the matrix topology from matrix A to build matrix B. Note that the 
+  END SUBROUTINE CRS_FCTCorrection
+!------------------------------------------------------------------------------
+
+ 
+
+!------------------------------------------------------------------------------
+!> Copies the matrix topology from matrix A to build matrix B. Note that the 
 !> topology is really reused, so that if matrix A is destroyed also matrix B 
 !> becomes unusable.
 !------------------------------------------------------------------------------

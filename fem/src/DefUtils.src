@@ -1022,6 +1022,25 @@ CONTAINS
      family = CurrElement % TYPE % ElementCode / 100
   END FUNCTION GetElementFamily
 
+!> Return true if the element is a possible flux element
+!> Needed to skip nodal elements in 2D and 3D boundary condition setting.
+  FUNCTION PossibleFluxElement( Element, Mesh )  RESULT(possible)
+     LOGICAL :: possible
+     TYPE(Element_t), OPTIONAL :: Element
+     TYPE(Mesh_t), OPTIONAL :: Mesh
+     INTEGER :: MeshDim, family
+
+     IF( PRESENT( Mesh ) ) THEN
+       MeshDim = Mesh % MeshDim
+     ELSE
+       MeshDim = CurrentModel % Solver % Mesh % MeshDim
+     END IF
+
+     family = GetElementFamily( Element )
+
+     possible = ( family > 1 .OR. MeshDim == 1 )
+   END FUNCTION PossibleFluxElement
+
 
 !> Return the number of nodes in the active element
   FUNCTION GetElementNOFNodes( Element ) RESULT(n)
@@ -3096,6 +3115,12 @@ CONTAINS
      ELSE
        x => Solver % Variable
      END IF
+
+     IF( GetLogical( Params,'Linear System FCT',Found ) ) THEN
+       PRINT *,'performing FCT'
+       CALL CRS_FCTCorrection( A )
+     END IF
+
 
      ScaleSystem=GetLogical(Params,'Linear System Dirichlet Scaling',Found)
      IF(.NOT.Found) THEN
