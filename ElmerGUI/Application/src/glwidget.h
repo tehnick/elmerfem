@@ -51,6 +51,7 @@ enum ListTypes {
   UNKNOWNLIST
 };
 
+#include <GL/glu.h>
 #include <QGLWidget>
 #include <QHash>
 #include <QVector>
