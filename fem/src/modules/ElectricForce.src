@@ -101,14 +101,8 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 
   Var => VariableGet( Mesh % Variables, 'Electric Force Density' )
   IF(.NOT. ASSOCIATED(Var) ) THEN
-    n = SIZE( Potential )
-
-    ALLOCATE( ForceDensity ( Dim * n ), STAT=istat)
-    IF ( istat /= 0 ) CALL Fatal( 'ElectricForce', 'Memory allocation error')	
-    ForceDensity = 0.0d0
-    
     CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
-        'Electric Force Density', Dim, ForceDensity, PotentialPerm )
+        'Electric Force Density', Dim, Perm = PotentialPerm )
     Var => VariableGet( Mesh % Variables, 'Electric Force Density' )
   END IF
   ForceDensity => Var % Values
