@@ -75,24 +75,17 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   LOGICAL :: stat, CalculateMoment, ActiveBoundary, DoDisplacedBoundaries, FirstTime = .TRUE.
   CHARACTER(LEN=MAX_NAME_LEN) :: PotName, VariableName
 
-  SAVE FirstTime, ForceDensity, Pwrk
 !------------------------------------------------------------------------------
 
   CALL Info('StatElecForce','Computing electric force on boundaries')
   
-
   DIM = CoordinateSystemDimension()
-
-  IF ( FirstTime ) THEN
-    Mesh => Solver % Mesh
-    NULLIFY( Pwrk )
-    FirstTime = .FALSE.
-  END IF
+  Mesh => Solver % Mesh
+  NULLIFY( Pwrk )
 
 !------------------------------------------------------------------------------
 !    Figure out the mesh that potential solver is using
 !------------------------------------------------------------------------------
-
 
   PotName = ListGetString( Solver % Values, 'Potential Field Name', stat )
   IF(.NOT. Stat) PotName = 'Potential'
@@ -120,19 +113,12 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   END IF
   ForceDensity => Var % Values
 
-  ALLOCATE( ElementNodes % x( Mesh % MaxElementNodes ) )
-  ALLOCATE( ElementNodes % y( Mesh % MaxElementNodes ) )
-  ALLOCATE( ElementNodes % z( Mesh % MaxElementNodes ) )
-
-  ALLOCATE( ParentNodes % x( Mesh % MaxElementNodes ) )
-  ALLOCATE( ParentNodes % y( Mesh % MaxElementNodes ) )
-  ALLOCATE( ParentNodes % z( Mesh % MaxElementNodes ) )
-  ParentNodes % x = 0.0d0
-  ParentNodes % y = 0.0d0
-  ParentNodes % z = 0.0d0
-
-  ALLOCATE( LocalPotential( Mesh % MaxElementNodes ) )
-  ALLOCATE( Permittivity( 3, 3, Mesh % MaxElementNodes ) )
+  n = Mesh % MaxElementNodes
+  ALLOCATE( ElementNodes % x( n ), &
+	ElementNodes % y(n), ElementNodes % z(n) )
+  ALLOCATE( ParentNodes % x( n ), &
+	ParentNodes % y(n), ParentNodes % z(n) )
+  ALLOCATE( LocalPotential( n ), Permittivity( 3, 3, n ) ) 
   ALLOCATE( Visited( Mesh % NumberOfNodes ) )
 
 !------------------------------------------------------------------------------
@@ -146,7 +132,6 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
       DVar => VariableGet( Mesh % Variables, VariableName, .TRUE. )
     END IF
   END IF
-
 
   PermittivityOfVacuum = ListGetConstReal( Model % Constants, &
       'Permittivity Of Vacuum', stat )
@@ -165,6 +150,10 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   ElementNodes % x = 0.0d0
   ElementNodes % y = 0.0d0
   ElementNodes % z = 0.0d0
+
+  ParentNodes % x = 0.0d0
+  ParentNodes % y = 0.0d0
+  ParentNodes % z = 0.0d0
 
   Area = 0.0d0
   Force  = 0.0d0
@@ -328,16 +317,11 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   CALL ListAddConstReal( Model % Simulation, &
       'res: Electric Force 1', Force(1)  )
    
-  DEALLOCATE( ElementNodes % x )
-  DEALLOCATE( ElementNodes % y )
-  DEALLOCATE( ElementNodes % z )
-  
-  DEALLOCATE( ParentNodes % x )
-  DEALLOCATE( ParentNodes % y )
-  DEALLOCATE( ParentNodes % z )
-  
-  DEALLOCATE( LocalPotential )
-  DEALLOCATE( Permittivity )
+  DEALLOCATE( ElementNodes % x, &
+	ElementNodes % y, ElementNodes % z )
+  DEALLOCATE( ParentNodes % x, &
+	ParentNodes % y, ParentNodes % z )
+  DEALLOCATE( LocalPotential, Permittivity )
   DEALLOCATE( Visited )
 
   Var => VariableGet( Mesh % Variables, 'Electric Force Density' ,ThisOnly=.TRUE. )
