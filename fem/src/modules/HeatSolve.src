@@ -877,7 +877,7 @@
 !------------------------------------------------------------------------------
          PhaseSpatial = .FALSE.
          IF (  PhaseChange ) THEN
-           CALL EffectiveHeatCapacity
+           CALL EffectiveHeatCapacity()
          ELSE
            HeatCapacity(1:n) = Density(1:n) * HeatCapacity(1:n)
          END IF
@@ -1570,7 +1570,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE EffectiveHeatCapacity
+    SUBROUTINE EffectiveHeatCapacity()
       LOGICAL :: Found, Specific
 !------------------------------------------------------------------------------
 !     See if temperature gradient indside the element is large enough 
@@ -1578,8 +1578,7 @@ CONTAINS
 !     use c_p = dH/dT, or if in time dependent simulation, use
 !     c_p = (dH/dt) / (dT/dt), if requested. 
 !------------------------------------------------------------------------------
-      PhaseChangeModel = PHASE_SPATIAL_1
-!------------------------------------------------------------------------------
+
       SELECT CASE(PhaseModel)
 !------------------------------------------------------------------------------
         CASE( 'spatial 1' )
@@ -1587,15 +1586,27 @@ CONTAINS
 !------------------------------------------------------------------------------
 
         CASE( 'spatial 2' )
-          PhaseChangeModel = PHASE_SPATIAL_2
 !------------------------------------------------------------------------------
+! Check if local variation of temperature is large enough to actually use the
+! Spatial 2 model. Should perhaps be scaled to element size (or actually
+! compute the gradient, but this will do for now...).
+!------------------------------------------------------------------------------
+          s = MAXVAL(LocalTemperature(1:n))-MINVAL(LocalTemperature(1:n))
+          IF ( s < AEPS ) THEN
+            PhaseChangeModel = PHASE_SPATIAL_1
+          ELSE
+            PhaseChangeModel = PHASE_SPATIAL_2
+          END IF
 
+!------------------------------------------------------------------------------
+! Note that here HeatCapacity is miused for saving dT.
+!------------------------------------------------------------------------------
         CASE('temporal')
           IF ( TransientSimulation .AND. ALLOCATED(TSolution) )  THEN
             HeatCapacity(1:n) = Temperature(TempPerm(Element % NodeIndexes)) - &
                      TSolution(TempPerm(Element % NodeIndexes))
 
-            IF ( ANY(ABS(HeatCapacity) < AEPS) ) THEN
+            IF ( ANY(ABS(HeatCapacity(1:n)) < AEPS) ) THEN
               PhaseChangeModel = PHASE_SPATIAL_1
             ELSE
               PhaseChangeModel = PHASE_TEMPORAL
@@ -1603,34 +1614,24 @@ CONTAINS
           ELSE
              PhaseChangeModel = PHASE_SPATIAL_1
           END IF
+
 !------------------------------------------------------------------------------
+        CASE DEFAULT
+          PhaseChangeModel = PHASE_SPATIAL_1
+
       END SELECT
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-! Check if local variation of temperature is large enough to actually use the
-! Spatial 2 model. Should perhaps be scaled to element size (or actually
-! compute the gradient, but this will do for now...).
-!------------------------------------------------------------------------------
       PhaseSpatial = ( PhaseChangeModel == PHASE_SPATIAL_2 )
-      IF ( PhaseSpatial ) THEN
-        s = 0.0D0
-        DO i=1,n
-          DO j=i+1,n
-            s = MAX( s,ABS(LocalTemperature(i)-LocalTemperature(j)) )
-          END DO
-        END DO
-        IF ( s < AEPS ) THEN
-          PhaseChangeModel = PHASE_SPATIAL_1
-        END IF
-      END IF
-      PhaseSpatial = ( PhaseChangeModel == PHASE_SPATIAL_2 )
-
       Specific = ListCheckPresent( Material,'Specific Enthalpy')
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
       SELECT CASE( PhaseChangeModel )
+
 !------------------------------------------------------------------------------
+! This phase change model is available only for some type of real entries 
+! that have an implemented analytical derivation rule.
+!-----------------------------------------------------------------------------
       CASE( PHASE_SPATIAL_1 )
         HeatCapacity(1:n) = ListGetReal( Material, &
              'Effective Heat Capacity', n,Element % NodeIndexes, Found )
@@ -1645,7 +1646,10 @@ CONTAINS
           END IF
         END IF
           
-!------------------------------------------------------------------------------
+!---------------------------------------------------------------------------------------
+! Note that for the 'spatial 2' model the evaluation of c_p is done in each integration
+! point and thus Enthalphy and PhaseSpatial flag are used instead of HeatCapacity directly.
+!-----------------------------------------------------------------------------------------
       CASE( PHASE_SPATIAL_2 )
         IF( Specific ) THEN
           Enthalpy(1:n) = ListGetReal(Material,'Specific Enthalpy',n,Element % NodeIndexes)
@@ -1657,6 +1661,11 @@ CONTAINS
 !------------------------------------------------------------------------------
       CASE( PHASE_TEMPORAL )
         TSolution1 = Temperature(1:LocalNodes)
+
+        ! When retrieving the value of enthalphy on the previous timestep 
+        ! the relevant entries of the Temperature solution in the global vector
+        ! are tampered in order to make the ListGetReal command work as wanted. 
+        !------------------------------------------------------------------------
         IF( Specific ) THEN
           Work(1:n) = ListGetReal( Material,'Specific Enthalpy',n,Element % NodeIndexes )
           Temperature(1:LocalNodes) = TSolution
