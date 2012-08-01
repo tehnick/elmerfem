@@ -67,7 +67,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       GotIt, GotOper, GotParOper, GotVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, IsParallel, ParallelWrite, LiveGraph, FileAppend, SaveEigenValue, &
       SaveEigenFreq, IsInteger, ParallelReduce, WriteCore, Hit, GotEpsAbs, SaveToFile, &
-      EchoValues
+      EchoValues, GotAny
   LOGICAL, POINTER :: ValuesInteger(:)
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
@@ -523,17 +523,22 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         BoundaryFluxes = 0.0_dp         
         CALL BoundaryStatistics(Var, Oper, GotCoeff, &
             CoefficientName, BoundaryFluxes, BoundaryHits)
-        		
-		DO j=1,Model % NumberOfBCs
+        
+        GotAny = .FALSE.
+        DO j=1,Model % NumberOfBCs
           IF( ListGetLogical(Model % BCs(j) % Values,'Flux Integrate',gotIt ) .OR. &
               ListGetLogical(Model % BCs(j) % Values,'Save Scalars',gotIt ) ) THEN
+            GotAny = .TRUE.
             IF( BoundaryHits(j) > 0 .AND. TRIM(Oper) == 'boundary mean' ) THEN
               BoundaryFluxes(j) = BoundaryFluxes(j) / BoundaryHits(j)
             END IF
-			WRITE (Name,'(A,A,A,A,I0)') TRIM(Oper),': ',TRIM(VariableName),' over bc ',j
+            WRITE (Name,'(A,A,A,A,I0)') TRIM(Oper),': ',TRIM(VariableName),' over bc ',j
             CALL AddToSaveList( TRIM(Name), BoundaryFluxes(j),.FALSE.,ParOper)
           END IF
         END DO
+        IF(.NOT. GotAny) THEN
+          CALL WARN('SaveScalars','No flag > Save Scalars < active for operator: '// TRIM(Oper))
+        END IF
         
       CASE ('boundary int','boundary int mean','area','diffusive flux','convective flux')
         BoundaryHits = 0
