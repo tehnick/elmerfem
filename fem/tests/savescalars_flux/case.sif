@@ -1,21 +1,21 @@
 ! Test different operators of SaveScalars on a simple heat equation 
+! This one tests the computation of fluxes in two different ways.
 ! For this purpose the SaveScalars includes a tailored output feature
 
 Header
   CHECK KEYWORDS Warn
-  Mesh DB "." "angle"
+  Mesh DB "." "cube"
 End
 
 Simulation
-  Max Output Level = 3
-  Coordinate System = "Cartesian 2D"
+  Max Output Level = 32
+  Coordinate System = "Cartesian"
 
   Simulation Type = "Steady State"
   Steady State Max Iterations = 1
   Output Intervals = 1
 
-  Solver Input File = "TempDist.sif"
-  Post File = "TempDist.ep"
+!  Post File = "TempDist.ep"
 End
 
 Constants
@@ -30,10 +30,9 @@ Body 1
   Material = 1
 End
 
-
 Equation 1
   Name = "Equation1"
-  Heat Equation = True
+  Active Solvers(1) = 1
 End
 
 Solver 1
@@ -54,75 +53,58 @@ Solver 1
   Nonlinear System Newton After Iterations = 3
   Nonlinear System Newton After Tolerance = 1.0e-02
   Nonlinear System Relaxation Factor = 1.0
+
+! Computes the residual of the linear system r=Ax-b where
+! A is the stiffness matrix without BCs. This represents the nodal
+! heat loads needed to cause the effect of the BCs.  
+  Calculate Loads = True
 End
 
 
 Solver 2 
   Equation = SaveScalars
   Procedure = "SaveData" "SaveScalars"
-  Filename = f.dat
+!  Filename = f.dat
   Show Norm = True
-  Show Norm Index = 1
+  Show Norm Index = 2
 
   Variable 1 = Temperature
-  Operator 1 = Volume
+  Coefficient 1 = Heat Conductivity   
+  Operator 1 = diffusive flux
+
+  Variable 2 = Temperature Loads
+  Operator 2 = boundary sum
 End
 
 
 Material 1
-  Name = "Material1"
+  Name = "Ideal"
   Density = 1
-  Heat Conductivity = 1.0
+  Heat Conductivity = 5.0
 End
 
 Body Force 1
-  Name = "BodyForce1"
+  Name = "Heating"
   Heat Source = 1
 End
 
 Boundary Condition 1
   Name = "Zero"
-  Target Boundaries(1) = 1
-  Temperature = 1
-
-  Filename = File f.dat
+  Target Boundaries(1) = 1 2
+  Temperature = 0
   Save Scalars = True
 End
 
+Boundary Condition 2
+  Name = "Neumann"
+  Target Boundaries(1) = 3
+End
+
+
+! The norm is the total flux over Dirichlet BCs which should be equal to -1
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=3.0, EPS=1e-4\n" );
-
-$fprintf( stderr, "TEST CASE 2\n");
-Solver 2 :: Operator 1 = Area
-RUN
-$fprintf( stderr, "END TEST CASE 2: Target NRM=8.0, EPS=1e-4\n" );
-
-$fprintf( stderr, "TEST CASE 3\n");
-Solver 2 :: Operator 1 = max
-RUN
-$fprintf( stderr, "END TEST CASE 3: Target NRM=1.1489581, EPS=1e-4\n" );
-
-$fprintf( stderr, "TEST CASE 4\n");
-Solver 2 :: Operator 1 = min
-RUN
-$fprintf( stderr, "END TEST CASE 4: Target NRM=1.0, EPS=1e-4\n" );
-
-$fprintf( stderr, "TEST CASE 5\n");
-Solver 2 :: Operator 1 = int mean
-RUN
-$fprintf( stderr, "END TEST CASE 5: Target NRM=1.0712569, EPS=1e-4\n" );
-
-$fprintf( stderr, "TEST CASE 6\n");
-Solver 2 :: Operator 1 = dofs
-RUN
-$fprintf( stderr, "END TEST CASE 6: Target NRM=981.0, EPS=1e-4\n" );
-
-$fprintf( stderr, "TEST CASE 7\n");
-Solver 2 :: Operator 1 = diffusive flux
-RUN
-$fprintf( stderr, "END TEST CASE 7: Target NRM=-2.9582406, EPS=1e-4\n" );
-
+$fprintf( stderr, "END TEST CASE 1: Target NRM=-1.0, EPS=1e-4\n" );
 
 !End Of File
