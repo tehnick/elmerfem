@@ -714,7 +714,7 @@ Container->solver = solver;
 Container->precond = precond;
 
 /* FPRINTF( STDOUT, "ID no. %i: setup time: %g\n", myid, realtime_()-st ); */
-if (myid==0) FPRINTF( STDOUT, "setup time: %g\n", myid, realtime_()-st );
+if (myid==0) FPRINTF( STDOUT, "setup time: %g\n", realtime_()-st );
 
 }/* SolveHypre1 - matrix conversion and solver setup */
 
@@ -844,7 +844,7 @@ if (Container==NULL)
    for( i=0,k=0; i<local_size; i++ )
      if ( owner[i] ) xvec[i] = txvec[k++];
 
-   if (myid==0) FPRINTF( STDOUT, "solve time: %g\n", myid, realtime_()-st );
+   if (myid==0) FPRINTF( STDOUT, "solve time: %g\n", realtime_()-st );
 /*   FPRINTF( STDOUT, "ID no. %i: solve time: %g\n", myid, realtime_()-st ); */
    free( txvec );
    free( rcols );
