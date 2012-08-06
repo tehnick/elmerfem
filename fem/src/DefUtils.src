@@ -1684,6 +1684,9 @@ CONTAINS
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
 
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
+
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Variable_t), POINTER :: x
     TYPE(Element_t), POINTER :: Element
@@ -1694,6 +1697,12 @@ CONTAINS
 
     Solver => CurrentModel % Solver
     IF ( PRESENT(USolver) ) Solver => USolver
+
+    Params=>GetSolverParams(Solver)
+
+    IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
+      CALL DefaultUpdateMass(M,UElement,USolver); RETURN
+    END IF
 
     Element => CurrentModel % CurrentElement
     IF ( PRESENT(UElement) ) Element => UElement
@@ -1724,12 +1733,21 @@ CONTAINS
 
     REAL(KIND=dp), ALLOCATABLE :: M(:,:),A(:,:), F(:)
 
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
+
     INTEGER :: i,j,n,DOFs
     REAL(KIND=dp) :: dt
     INTEGER, POINTER :: Indexes(:)
 
     Solver => CurrentModel % Solver
     IF ( PRESENT(USolver) ) Solver => USolver
+
+    Params=>GetSolverParams(Solver)
+
+    IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
+      CALL DefaultUpdateMass(M,UElement,USolver); RETURN
+    END IF
 
     Element => CurrentModel % CurrentElement
     IF ( PRESENT(UElement) ) Element => UElement
@@ -1929,12 +1947,22 @@ CONTAINS
     TYPE(Variable_t), POINTER :: x
     TYPE(Element_t), POINTER :: Element
 
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
+
     INTEGER :: n
     REAL(KIND=dp) :: dt
     INTEGER, POINTER :: Indexes(:)
 
     Solver => CurrentModel % Solver
     IF ( PRESENT(USolver) ) Solver => USolver
+
+    Params=>GetSolverParams(Solver)
+
+    IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
+      CALL DefaultUpdateMass(M,UElement,USolver); RETURN
+      CALL DefaultUpdateMass(B,UElement,USolver); RETURN
+    END IF
 
     Element => CurrentModel % CurrentElement
     IF ( PRESENT(UElement) ) Element => UElement
@@ -1965,12 +1993,22 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp), ALLOCATABLE :: M(:,:), B(:,:), A(:,:), F(:)
 
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
+
     INTEGER :: i,j,n,DOFs
     REAL(KIND=dp) :: dt
     INTEGER, POINTER :: Indexes(:)
 
     Solver => CurrentModel % Solver
     IF ( PRESENT(USolver) ) Solver => USolver
+
+    Params=>GetSolverParams(Solver)
+
+    IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
+      CALL DefaultUpdateMass(M,UElement,USolver); RETURN
+      CALL DefaultUpdateMass(B,UElement,USolver); RETURN
+    END IF
 
     Element => CurrentModel % CurrentElement
     IF ( PRESENT(UElement) ) Element => UElement
@@ -3688,6 +3726,23 @@ CONTAINS
   SUBROUTINE DefaultFinishAssembly( Solver )
 !------------------------------------------------------------------------------
     TYPE(Solver_t), OPTIONAL :: Solver
+
+    INTEGER :: order
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
+
+    Params=>GetSolverParams(Solver)
+
+    IF(GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
+      order=GetInteger(Params,'Time Derivative Order',Found)
+      IF(.NOT.Found) order=1
+      SELECT CASE(order)
+      CASE(1)
+        CALL Default1stOrderTimeGlobal(Solver)
+      CASE(2)
+        CALL Default2ndOrderTimeGlobal(Solver)
+      END SELECT
+    END IF
 
     IF ( PRESENT( Solver ) ) THEN
        CALL FinishAssembly( Solver, Solver % Matrix % RHS )
