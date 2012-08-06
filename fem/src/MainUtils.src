@@ -787,6 +787,7 @@ CONTAINS
     INTEGER, POINTER :: Perm(:)
     LOGICAL :: Found, Stat, ComplexFlag, HarmonicAnal,EigAnal,VariableOutput, &
         MGAlgebraic,MultigridActive
+    INTEGER :: MgLevels
     REAL(KIND=dp), POINTER :: Component(:)
     REAL(KIND=dp), POINTER :: freqv(:,:)
     REAL(KIND=dp) :: Freq
@@ -1054,103 +1055,115 @@ CONTAINS
 !      ---------------------------
        IF ( MultigridActive ) THEN
 
+         ! Multigrid may be either solver or preconditioner, it it solver?
+         Solver % MultiGridSolver = ListGetString(Solver % Values, &
+             'Linear System Solver', Found ) == 'multigrid'
+ 
+         ! There are four different methods: algrabraic, cluster, p and geometric
          str = ListGetString( Solver % Values,'MG Method',Found) 
          IF( Found ) THEN
            MGAlgebraic = ( str == 'algebraic' ) .OR. ( str == 'cluster')
          ELSE    
            MGAlgebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) &
-              .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found )
+               .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found )
          END IF
          
-         Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
-             'MG Levels', Found, minv=1 )
          
+         MgLevels = ListGetInteger( Solver % Values, &
+             'MG Levels', Found, minv=1 )         
          IF ( .NOT. Found ) THEN
-           Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
+           MgLevels = ListGetInteger( Solver % Values, &
                'Multigrid Levels', Found, minv=1 )
          END IF
          IF ( .NOT. Found ) THEN
            IF( MGAlgebraic ) THEN 
-             Solver % MultiGridTotal = 10
+             MgLevels = 10
            ELSE
-             Solver % MultiGridTotal = 3
+             CALL Fatal('AddEquationBasics','> MG Levels < must be defined for geometric multigrid!')
            END IF
          END IF
+         Solver % MultiGridTotal = MgLevels
+ 
+
+!         In case of geometric multigrid make the hierarchical meshes
+!         -----------------------------------------------------------
+         IF(.NOT. MGAlgebraic ) THEN 
 
 !         Check if h/2 splitting of mesh requested:
 !         ------------------------------------------
-         Solver % MultiGridEqualSplit = ListGetLogical( &
-             Solver % Values, 'MG Equal Split', Found )
+           Solver % MultiGridEqualSplit = ListGetLogical( &
+               Solver % Values, 'MG Equal Split', Found )
          
-         IF ( Solver % MultiGridEqualSplit ) THEN
-           CALL ParallelInitMatrix( Solver, Solver % Matrix )
-           Solver % MultiGridLevel = 1
-
-           DO WHILE( Solver % MultiGridLevel < Solver % MultiGridTotal )
-             IF ( ASSOCIATED( Solver % Mesh % Child ) ) THEN
-               NewMesh => Solver % Mesh % Child
-               
-               OldMesh   => Solver % Mesh
-               OldMatrix => Solver % Matrix
-               
-               CALL UpdateSolverMesh( Solver, NewMesh )
-               Solver % Mesh % Changed = .FALSE.
-             ELSE
-               NewMesh => SplitMeshEqual( Solver % Mesh )
-               NewMesh % Next => CurrentModel % Meshes
-               CurrentModel % Meshes => NewMesh
-               
-               OldMesh   => Solver % Mesh
-               OldMatrix => Solver % Matrix
-               
-               CALL UpdateSolverMesh( Solver, NewMesh )
-               Solver % Mesh % Changed = .FALSE.
-               
-               NewMesh % Parent => OldMesh
-               OldMesh % Child  => NewMesh
-               NewMesh % Name = OldMesh % Name
-             END IF
-             Newmesh % OutputActive = .TRUE.
-             OldMesh % OutputActive = .FALSE.
-             
-             NewMatrix => Solver % Matrix
-             NewMatrix % Parent => OldMatrix
-             OldMatrix % Child  => NewMatrix
+           IF ( Solver % MultiGridEqualSplit ) THEN
              CALL ParallelInitMatrix( Solver, Solver % Matrix )
-             Solver % MultiGridLevel = Solver % MultiGridLevel + 1
-           END DO
-         ELSE
-           CALL ParallelInitMatrix( Solver, Solver % Matrix )
-           OldMesh   => Solver % Mesh
-           Var => Solver % Variable
-           SaveMatrix => Solver % Matrix
-
-           Solver % MultiGridLevel = 1
-           DO WHILE( Solver % MultiGridLevel < Solver % MultigridTotal )
-             IF ( ASSOCIATED(Solver % Mesh % Parent) ) THEN
-               NewMesh => Solver % Mesh % Parent
-               OldMatrix => Solver % Matrix
-               CALL UpdateSolverMesh( Solver, NewMesh )
-               Solver % Mesh % Changed = .FALSE.
+             Solver % MultiGridLevel = 1
+             
+             DO WHILE( Solver % MultiGridLevel < Solver % MultiGridTotal )
+               IF ( ASSOCIATED( Solver % Mesh % Child ) ) THEN
+                 NewMesh => Solver % Mesh % Child
+                 
+                 OldMesh   => Solver % Mesh
+                 OldMatrix => Solver % Matrix
+                 
+                 CALL UpdateSolverMesh( Solver, NewMesh )
+                 Solver % Mesh % Changed = .FALSE.
+               ELSE
+                 NewMesh => SplitMeshEqual( Solver % Mesh )
+                 NewMesh % Next => CurrentModel % Meshes
+                 CurrentModel % Meshes => NewMesh
+                 
+                 OldMesh   => Solver % Mesh
+                 OldMatrix => Solver % Matrix
+                 
+                 CALL UpdateSolverMesh( Solver, NewMesh )
+                 Solver % Mesh % Changed = .FALSE.
+                 
+                 NewMesh % Parent => OldMesh
+                 OldMesh % Child  => NewMesh
+                 NewMesh % Name = OldMesh % Name
+               END IF
+               Newmesh % OutputActive = .TRUE.
+               OldMesh % OutputActive = .FALSE.
+               
                NewMatrix => Solver % Matrix
-               NewMatrix % Child => OldMatrix
-               OldMatrix % Parent  => NewMatrix
-               CALL ParallelInitMatrix(Solver, Solver % Matrix )
-             END IF
-             Solver % MultiGridLevel = Solver % MultiGridLevel+1
-           END DO
+               NewMatrix % Parent => OldMatrix
+               OldMatrix % Child  => NewMatrix
+               CALL ParallelInitMatrix( Solver, Solver % Matrix )
+               Solver % MultiGridLevel = Solver % MultiGridLevel + 1
+             END DO
+           ELSE
+             CALL ParallelInitMatrix( Solver, Solver % Matrix )
+             OldMesh   => Solver % Mesh
+             Var => Solver % Variable
+             SaveMatrix => Solver % Matrix
+             
+             Solver % MultiGridLevel = 1
+             DO WHILE( Solver % MultiGridLevel < Solver % MultigridTotal )
+               IF ( ASSOCIATED(Solver % Mesh % Parent) ) THEN
+                 NewMesh => Solver % Mesh % Parent
+                 OldMatrix => Solver % Matrix
+                 CALL UpdateSolverMesh( Solver, NewMesh )
+                 Solver % Mesh % Changed = .FALSE.
+                 NewMatrix => Solver % Matrix
+                 NewMatrix % Child => OldMatrix
+                 OldMatrix % Parent  => NewMatrix
+                 CALL ParallelInitMatrix(Solver, Solver % Matrix )
+               END IF
+               Solver % MultiGridLevel = Solver % MultiGridLevel+1
+             END DO
+             
+             Solver % Mesh => OldMesh
+             Solver % Variable => Var
+             Solver % Matrix => SaveMatrix
+             CALL SetCurrentMesh(CurrentModel,Solver % Mesh)
+           END IF
 
-           Solver % Mesh => OldMesh
-           Solver % Variable => Var
-           Solver % Matrix => SaveMatrix
-           CALL SetCurrentMesh(CurrentModel,Solver % Mesh)
+           CALL MeshStabParams( Solver % Mesh )
          END IF
 
-         CALL MeshStabParams( Solver % Mesh )
-         Solver % MultiGridSolver = ListGetString(Solver % Values, &
-             'Linear System Solver', Found ) == 'multigrid'
-         Solver % MultiGridLevel  = Solver % MultiGridTotal
-       END IF
+         Solver % MultiGridLevel = Solver % MultigridTotal
+
+        END IF
 
        ! Set the default verbosity of the iterative solvers accordingly with the 
        ! global verbosity.
