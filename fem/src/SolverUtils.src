@@ -659,19 +659,39 @@ CONTAINS
      TYPE(Solver_t) :: Solver           !< Solver structure.
 !------------------------------------------------------------------------------
      LOGICAL :: GotIt
-     INTEGER :: i,j,k,l,m,Order
-     REAL(KIND=dp) :: s, t
+     INTEGER :: i,j,k,l,m,n,Order
+     REAL(KIND=dp) :: s, t, msum
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
      TYPE(Variable_t), POINTER :: DtVar
      REAL(KIND=dp) :: Dts(Solver % Order)
-     REAL(KIND=dp), POINTER :: PrevSol(:,:)
-     LOGICAL :: ConstantDt
+     REAL(KIND=dp), POINTER :: PrevSol(:,:), ML(:)
+     INTEGER, POINTER :: Rows(:), Cols(:)
+     LOGICAL :: ConstantDt, Lumped, Found
 !------------------------------------------------------------------------------
 
      CALL Info('Add1stOrderTime_CRS','Adding time discretization to CRS matrix')
 
+
      IF ( Solver % Matrix % Lumped ) THEN
-       PRINT *,'Lumping is hidden in to the CRS time integration shcemes'
+       PRINT *,'Performing time-integration with mass lumping'
+       n = SIZE( Force ) 
+       IF( .NOT. ASSOCIATED( Matrix % MassValuesLumped ) ) THEN         
+         ALLOCATE( Matrix % MassValuesLumped( n ) )
+         ML => Matrix % MassValuesLumped 
+         ML = 0.0_dp
+       END IF
+
+       ! Compute rowsum of mass matrix to obtain lumped mass matrix
+       Rows => Matrix % Rows
+       Cols => Matrix % Cols
+       DO i=1,n
+         msum = 0.0_dp
+         ! lumped mass
+         DO j=Rows(i),Rows(i+1)-1
+           msum = msum + Matrix % MassValues(j)
+         END DO
+         ML(i) = msum 
+       END DO
      END IF
 
 !------------------------------------------------------------------------------
@@ -1324,6 +1344,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: Indexes(:), PassPerm(:)
     INTEGER :: BC,i,j,k,l,m,n,t,k1,k2,OffSet
     LOGICAL :: GotIt, periodic, OrderByBCNumbering
+    REAL(KIND=dp), POINTER :: MinDist(:)
     REAL(KIND=dp), POINTER :: WorkA(:,:,:) => NULL()
     REAL(KIND=dp) ::  s
 
@@ -1337,7 +1358,7 @@ CONTAINS
     INTEGER :: NoNodes,NoDims,bf_id,nlen, NOFNodesFound, dim, &
         bndry_start, bndry_end, Upper
     REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:),DiagScaling(:)
-    REAL(KIND=dp) :: MinDist,Dist, Eps
+    REAL(KIND=dp) :: GlobalMinDist,Dist, Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
     TYPE(ValueList_t), POINTER :: ValueList, Params
     LOGICAL :: NodesFound, Passive, OffDiagonal
@@ -1610,6 +1631,7 @@ CONTAINS
           IF ( .NOT. GotIt ) THEN
             Eps = HUGE(Eps)
           ELSE
+            ! We are looking at square of distance
             Eps = Eps**2
           END IF
 
@@ -1617,11 +1639,10 @@ CONTAINS
           NoDims = SIZE(CoordNodes,2)
           
           IF(NoNodes > 0) THEN               
-            ALLOCATE( IndNodes(NoNodes) )
+            ALLOCATE( IndNodes(NoNodes), MinDist(NoNodes) )
             IndNodes = -1
+            MinDist = HUGE( Dist )
             DO j=1,NoNodes
-              MinDist = HUGE(Dist)
-              
               DO i=1,Model % NumberOfNodes
                 IF( Perm(i) == 0) CYCLE
                 
@@ -1630,17 +1651,27 @@ CONTAINS
                 IF(NoDims == 3) Dist = Dist + (Model % Mesh % Nodes % z(i) - CoordNodes(j,3))**2
                 Dist = SQRT(Dist)
                 
-                IF(Dist < MinDist .AND. Dist <= Eps ) THEN
-                  MinDist = Dist
+                IF(Dist < MinDist(j) .AND. Dist <= Eps ) THEN
+                  MinDist(j) = Dist
                   IndNodes(j) = i
                 END IF
               END DO
             END DO
 
+            ! In parallel case eliminate all except the nearest node. 
+            ! This relies on the fact that for each node partition the 
+            ! distance to nearest node is computed accurately. 
+            DO j=1,NoNodes
+              GlobalMinDist = ParallelReduction( MinDist(j), 1 )
+              IF( ABS( GlobalMinDist - MinDist(j) ) > TINY(Dist) ) THEN
+                IndNodes(j) = 0
+              END IF
+            END DO
+
             NOFNodesFound = 0
             DO j=1,NoNodes
                IF ( IndNodes(j)>0 ) THEN
-                 NOFNodesFound=NOFNodesFound+1
+                 NOFNodesFound = NOFNodesFound+1
                  IndNodes(NOFNodesFound) = IndNodes(j)
                END IF
             END DO
@@ -1649,16 +1680,30 @@ CONTAINS
             IF ( NOFNodesFound > 0 ) THEN
               CALL ListAddIntegerArray( ValueList,'Target Nodes', &
                   NOFNodesFound, IndNodes) 
-              DEALLOCATE(IndNodes)
-              NodesFound = .TRUE.               
+              NodesFound = .TRUE.            
+            ELSE
+              ! If no nodes found, add still an empty list and make sure the 
+              ! zero is not treated later on. Otherwise this search would be 
+              ! retreated each time. 
+              CALL ListAddIntegerArray( ValueList,'Target Nodes', &
+                  1, IndNodes) 
             END IF
+
+            ! Finally deallocate the temporal vectors
+            DEALLOCATE( IndNodes, MinDist ) 
           END IF
         END IF
       END IF
       
+      ! If the target coordinates has already been assigned to an empty list 
+      ! cycle over it by testing the 1st node. 
+      IF( NodesFound ) THEN
+        NodeIndexes => ListGetIntegerArray( ValueList,'Target Nodes')
+        IF( NodeIndexes(1) == 0 ) NodesFound = .FALSE. 
+      END IF
+
       IF(NodesFound) THEN           
         Conditional = ListCheckPresent( ValueList, CondName )      
-        NodeIndexes => ListGetIntegerArray( ValueList,'Target Nodes')
         n = SIZE(NodeIndexes)
         CALL SetPointValues(n)
       END IF
@@ -3492,7 +3537,7 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp) :: ForceVector(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Simulation
     INTEGER :: Order
-    LOGICAL :: Transient
+    LOGICAL :: Found
 !------------------------------------------------------------------------------
     Simulation = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
     IF ( Simulation == 'transient' ) THEN
@@ -3508,8 +3553,21 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
-    IF ( Solver % Matrix % FORMAT == MATRIX_LIST ) &
+    IF ( Solver % Matrix % FORMAT == MATRIX_LIST ) THEN
       CALL List_toCRSMatrix(Solver % Matrix)
+    END IF
+
+    IF( ListGetLogical( Solver % Values,'Linear System FCT',Found ) ) THEN
+      IF( Solver % Variable % Dofs == 1 ) THEN
+        CALL CRS_FCTLowOrder( Solver % Matrix )
+      ELSE
+        CALL Fatal('FinishAssembly','FCT scheme implemented only for one dof')
+      END IF
+
+      ! This enforces the time-integration to be performed in a lumped way
+      Solver % Matrix % Lumped = .TRUE.
+    END IF
+
 
 !------------------------------------------------------------------------------
   END SUBROUTINE FinishAssembly

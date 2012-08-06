@@ -2821,13 +2821,15 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !> by the local basis function. To speed up things there is a handle associated
 !> to the given keyword (Name). 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetRealAtIp( List,Name,Handle,Basis,Found,minv,maxv ) RESULT(val)
+   RECURSIVE FUNCTION ListGetRealAtIp( Handle,List,Basis,Name,Found,&
+       Element,minv,maxv ) RESULT(val)
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: List
-     CHARACTER(LEN=*)  :: Name
      TYPE(ValueHandle_t) :: Handle
-     REAL(KIND=dp) :: Basis(:)
+     TYPE(ValueList_t), POINTER :: List
+     REAL(KIND=dp), OPTIONAL :: Basis(:)
+     CHARACTER(LEN=*), OPTIONAL  :: Name
      LOGICAL, OPTIONAL :: Found
+     TYPE(Element_t), POINTER, OPTIONAL :: Element
      REAL(KIND=dp), OPTIONAL :: minv,maxv
      REAL(KIND=dp)  :: val
 !------------------------------------------------------------------------------
@@ -2839,6 +2841,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      INTEGER :: i,j,k,k1,l,l0,l1,lsize,n
      CHARACTER(LEN=MAX_NAME_LEN) ::  cmd, tmp_str
      LOGICAL :: AllGlobal
+     TYPE(Element_t), POINTER :: PElement
 !------------------------------------------------------------------------------
      
      ! If the value is known to be globally constant return it asap.
@@ -2848,12 +2851,14 @@ CALL Info( 'VariableGet', Message, Level=7 )
        val = Handle % ConstantValue
        RETURN
      END IF
-     
+
+     ! Set the default value 
+     val = 0.0_dp
+
      ! If the provided list is the same as last time, also the keyword will
      ! be sitting at the same place, otherwise find it in the new list
-     val = 0.0_dp
      IF( .NOT. ASSOCIATED( List ) ) THEN
-       Found = .FALSE.
+       IF(PRESENT(Found)) Found = .FALSE.
        RETURN
      ELSE IF( ASSOCIATED( List, Handle % List ) ) THEN
        ptr => Handle % ptr       
@@ -2862,21 +2867,35 @@ CALL Info( 'VariableGet', Message, Level=7 )
          val = Handle % Values(1)
          RETURN
        END IF
-     ELSE
-       ptr => ListFind(List,Name,Found)
+     ELSE 
+       IF( PRESENT( Name ) ) THEN
+         ptr => ListFind(List,Name,Found)
+       ELSE IF(.NOT. Handle % Initialized ) THEN
+         CALL Fatal('ListGetRealAtIp','Handle must be initialized if name is not given!')
+       ELSE
+         ptr => ListFind(List,Handle % Name,Found)
+       END IF
+  
        IF ( .NOT.ASSOCIATED(ptr) ) RETURN
        Handle % List => List
        Handle % ptr => ptr
        Handle % ConstantInList = .FALSE.
      END IF
-     
+
      ! If there is no pointer return default value zero
      IF ( .NOT. ASSOCIATED(ptr) ) RETURN
+
+     ! Get the pointer to the element
+     IF( PRESENT( Element) ) THEN
+       PElement => Element
+     ELSE
+       PElement => CurrentModel % CurrentElement
+     END IF
 
      ! If we get back to the same element than last time use the data already 
      ! retrieved. If the element is new the get the data in every node of the 
      ! current element, or only in the 1st node if it is constant. 
-     IF( ASSOCIATED( CurrentModel % CurrentElement, Handle % Element ) ) THEN
+     IF( ASSOCIATED( PElement, Handle % Element ) ) THEN
        n = Handle % Element % TYPE % NumberOfNodes 
        F => Handle % Values       
      ELSE
@@ -2886,13 +2905,12 @@ CALL Info( 'VariableGet', Message, Level=7 )
          Handle % Values = 0.0_dp
          Handle % AllocationsDone = .TRUE.
        END IF
-       
-       Handle % ConstantInElement = .FALSE.
-       Handle % Element => CurrentModel % CurrentElement 
-       n = Handle % Element % TYPE % NumberOfNodes 
-       NodeIndexes => Handle % Element % NodeIndexes
+
+       Handle % Element => PElement
+       n = PElement % TYPE % NumberOfNodes 
+       NodeIndexes => PElement % NodeIndexes
        F => Handle % Values
-       
+
        SELECT CASE(ptr % TYPE)
          
        CASE( LIST_TYPE_CONSTANT_SCALAR )
@@ -2904,7 +2922,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
                  CurrentModel % Mesh % Nodes % z( NodeIndexes(i) ) )
            END DO
          ELSE
-           Handle % ConstantInElement = .TRUE.
            Handle % ConstantInList = .TRUE.           
            
            IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
@@ -2938,7 +2955,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
                ! If the dependency table includes just global values (such as time) 
                ! the values will be the same for all element entries.
                IF( AllGlobal ) THEN
-                 Handle % ConstantInElement = .TRUE.
+                 Handle % ConstantInList = .TRUE.
                  EXIT
                END IF
                
@@ -2947,7 +2964,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
          END DO
          
        CASE( LIST_TYPE_CONSTANT_SCALAR_STR )
-         Handle % ConstantInElement = .TRUE.
+         Handle % ConstantInList = .TRUE.
          
          TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
          WRITE( cmd, '(a,e15.8)' ) 'st = ', TVar % Values(1)
@@ -2982,7 +2999,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
            END IF
 
            IF( AllGlobal ) THEN
-             Handle % ConstantInElement = .TRUE.
+             Handle % ConstantInList = .TRUE.
              EXIT
            END IF
 
@@ -2990,10 +3007,14 @@ CALL Info( 'VariableGet', Message, Level=7 )
        END SELECT
      END IF
 
-     IF( Handle % ConstantInElement ) THEN
+     IF( Handle % ConstantInList ) THEN
        val = F(1)
      ELSE
-       val = SUM( Basis(1:n) * F(1:n) )
+       IF(.NOT. PRESENT(Basis)) THEN
+         CALL Fatal('ListGetRealAtIp','Parameter Basis is required!')
+       ELSE
+         val = SUM( Basis(1:n) * F(1:n) )
+       END IF
      END IF
             
      IF ( PRESENT( minv ) ) THEN
@@ -3021,31 +3042,50 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !> Initializes the handle to save just a little bit for constant valued.
 !> This is not mandatory but may still be used. 
 !------------------------------------------------------------------------------
-   RECURSIVE SUBROUTINE ListInitRealAtIp( Section,Name,Handle,minv,maxv ) 
+   RECURSIVE SUBROUTINE ListInitRealAtIp( Handle,Section,Name,minv,maxv ) 
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=*)  :: Section,Name
      TYPE(ValueHandle_t) :: Handle
+     CHARACTER(LEN=*)  :: Section,Name
      REAL(KIND=dp), OPTIONAL :: minv,maxv
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr, List
-     INTEGER :: i, NoVal
+     INTEGER :: i, n, NoVal
      TYPE(Model_t), POINTER :: Model
      REAL(KIND=dp)  :: val
      LOGICAL :: ConstantEverywhere, Found
+     REAL(KIND=dp), POINTER :: Basis(:)
+     INTEGER, POINTER :: NodeIndexes(:)
+     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
 
      NoVal = 0
      ConstantEverywhere = .TRUE.
      Model => CurrentModel
-     
+     Handle % Name = Name 
+     Handle % Initialized = .TRUE.
+
+     ! Allocate space for temporal values
+     IF(.NOT. Handle % AllocationsDone ) THEN
+       n = CurrentModel % Mesh % MaxElementNodes
+       ALLOCATE( Handle % Values(n) )
+       Handle % Values = 0.0_dp
+       Handle % AllocationsDone = .TRUE.
+     END IF
+
      ! Loop over the full lists and check whether the keyword is constant in all of them
      ! Unfortunately only keywords that are present in all lists can be deduced to be 
      ! truly constant. This is a conservative estimate, but best we can do without 
      ! involving the active elements into the picture.
-     i = 1
+     i = 0
+     Element => CurrentModel % Mesh % Elements(1)
+     CurrentModel % CurrentElement => CurrentModel % Mesh % Elements(1)
+     n = Element % TYPE % NumberOfNodes 
+     ALLOCATE( Basis(n) )
+     Basis = 0.0_dp
+
      DO WHILE(.TRUE.) 
        i = i + 1
-     
+
        SELECT CASE ( Section ) 
        CASE('Material')
          IF(i > Model % NumberOfMaterials) EXIT
@@ -3068,20 +3108,24 @@ CALL Info( 'VariableGet', Message, Level=7 )
          
        END SELECT
        
+       ! If the parameter is not defined in some list we cannot really be sure
+       ! that it is intentionally used as a zero. Hence we cannot assume that the
+       ! keyword is constant. 
        ptr => ListFind(List,Name,Found)
        IF ( .NOT.ASSOCIATED(ptr) ) THEN
          ConstantEverywhere = .FALSE.
          EXIT
        END IF
 
-       IF( ptr % TYPE == LIST_TYPE_CONSTANT_SCALAR .AND. &
-           ptr % PROCEDURE == 0 ) THEN
-         val = ptr % Fvalues(1,1,1)
-       ELSE
+       ! The value must be constant in each list and
+       Handle % ConstantInList = .FALSE.
+       val = ListGetRealAtIp( Handle,List,Basis,Name,minv=minv,maxv=maxv)
+       IF( .NOT. Handle % ConstantInList ) THEN
          ConstantEverywhere = .FALSE.
          EXIT
        END IF
        
+       ! and each list must have the same constant value
        NoVal = NoVal + 1
        IF( NoVal == 1 ) THEN
          Handle % ConstantValue = val
@@ -3091,24 +3135,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
        END IF
      END DO
      
-     IF( ConstantEverywhere ) THEN
-       CALL Info('ListInitRealAtIp','Constant value for keyword: '//TRIM(Name))
-       
-       IF ( PRESENT( minv ) ) THEN
-         IF ( val < minv ) THEN
-           WRITE( Message,*) 'Given value ',val, ' for property: ', '[', TRIM(Name),']', &
-               ' smaller than given minimum: ', minv
-           CALL Fatal( 'ListInitRealAtIp', Message )
-         END IF
-       END IF
-       
-       IF ( PRESENT( maxv ) ) THEN
-         IF ( val > maxv ) THEN
-           WRITE( Message,*) 'Given value ',val, ' for property: ', '[', TRIM(Name),']', &
-               ' larger than given maximum ', maxv
-           CALL Fatal( 'ListInitRealAtIp', Message )
-         END IF
-       END IF
+     IF( ConstantEverywhere ) THEN       
+       WRITE( Message,'(A)') 'Constant keyword: '//TRIM(Name)
+       CALL Info('ListInitRealAtIp',Message,Level=8)
+       WRITE( Message,'(A,ES15.4)') 'Constant value:',val
+       CALL Info('ListInitRealAtIp',Message,Level=8)
      END IF
 
      Handle % ConstantEverywhere = ConstantEverywhere 
@@ -3777,7 +3808,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
       ct = CPUTime() - ct0
       rt = RealTime() - rt0 
       
-      WRITE(Message,'(a,f8.2,f8.2,a)') 'Execution time (CPU,REAL) for '&
+      WRITE(Message,'(a,f9.3,f9.3,a)') 'Execution time (CPU,REAL) for '&
           //TRIM(TimerName)//': ',ct,rt,' (s)'
       CALL Info('CheckTimer',Message,Level=Level)          
 

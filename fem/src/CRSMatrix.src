@@ -1119,7 +1119,7 @@ END FUNCTION CRS_RowSum
 !> Dmitri Kuzmin (2008): "Explicit and implicit FEM-FCT algorithms with flux linearization"
 !> The current implemetation is really just a starting point. 
 !------------------------------------------------------------------------------
-  SUBROUTINE CRS_FCTCorrection( A )
+  SUBROUTINE CRS_FCTLowOrder( A )
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A           !< Initial higher order matrix
 !------------------------------------------------------------------------------
@@ -1133,15 +1133,14 @@ END FUNCTION CRS_RowSum
     IF(.NOT. ASSOCIATED(A % FCT_D) ) THEN
       ALLOCATE( A % FCT_D(SIZE( A % Values) ) ) 
     END IF
-    A % FCT_D = 0.0_dp
-    
+    A % FCT_D = 0.0_dp    
 
     DO i=1,N
       DO k= A % Rows(i), A % Rows(i+1)-1
         j = A % Cols(k)
 
         ! Go through the lower symmetric part (ij) and find the corresponding entry (ji)
-        IF( j >= i ) CYCLE
+        IF( i >= j ) CYCLE
 
         ! First find entry (j,i)
         DO k2 = A % Rows(j), A % Rows(j+1)-1
@@ -1192,7 +1191,7 @@ END FUNCTION CRS_RowSum
     A % Values = A % Values + A % FCT_D
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE CRS_FCTCorrection
+  END SUBROUTINE CRS_FCTLowOrder
 !------------------------------------------------------------------------------
 
  

@@ -179,7 +179,7 @@ MODULE Types
     COMPLEX(KIND=dp),  POINTER :: CMassValues(:),CDampValues(:)
 
 ! For Flux Corrected Transport 
-    REAL(KIND=dp), POINTER CONTIG :: FCT_D(:)
+    REAL(KIND=dp), POINTER :: FCT_D(:), MassValuesLumped(:)
 
     TYPE(ParallelInfo_t), POINTER :: ParallelInfo
     TYPE(SParIterSolverGlobalD_t), POINTER :: ParMatrix
@@ -337,11 +337,12 @@ MODULE Types
      INTEGER, POINTER :: Indexes
      INTEGER :: n 
      REAL(KIND=dp), POINTER :: Values(:)
-     REAL(KIND=dp) :: ConstantValue 
+     REAL(KIND=dp) :: ConstantValue      
+     CHARACTER(LEN=MAX_NAME_LEN) :: Name
+     LOGICAL :: Initialized = .FALSE.
      LOGICAL :: AllocationsDone = .FALSE.
      LOGICAL :: ConstantEverywhere = .FALSE.
      LOGICAL :: ConstantInList = .FALSE.
-     LOGICAL :: ConstantInElement = .FALSE.
    END TYPE ValueHandle_t
 
 !------------------------------------------------------------------------------
