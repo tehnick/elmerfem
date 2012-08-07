@@ -1698,10 +1698,11 @@ CONTAINS
     Solver => CurrentModel % Solver
     IF ( PRESENT(USolver) ) Solver => USolver
 
-    Params=>GetSolverParams(Solver)
+    Params => GetSolverParams(Solver)
 
     IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
-      CALL DefaultUpdateMass(M,UElement,USolver); RETURN
+      CALL DefaultUpdateMass(M,UElement,USolver)
+      RETURN
     END IF
 
     Element => CurrentModel % CurrentElement
@@ -1746,7 +1747,8 @@ CONTAINS
     Params=>GetSolverParams(Solver)
 
     IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
-      CALL DefaultUpdateMass(M,UElement,USolver); RETURN
+      CALL DefaultUpdateMass(M,UElement,USolver)
+      RETURN
     END IF
 
     Element => CurrentModel % CurrentElement
@@ -1803,7 +1805,7 @@ CONTAINS
    INTEGER :: i,j,k,l,n,Order
    REAL(KIND=dp), POINTER :: SaveValues(:) => NULL()
    REAL(KIND=dp) :: FORCE(1), Dts(16)
-   LOGICAL :: ConstantDt, Found
+   LOGICAL :: ConstantDt, Found, HasMass
    TYPE(Variable_t), POINTER :: DtVar
    SAVE STIFF, MASS, X
    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:),MASS(:,:), X(:,:)
@@ -1824,9 +1826,13 @@ CONTAINS
       ALLOCATE( STIFF(1,n),MASS(1,n),X(n,k) )
 
       SaveValues => Solver % Variable % Values
+      STIFF = 0.0_dp
+      MASS = 0.0_dp
+      X = 0.0_dp
    END IF
 
    Order = MIN( Solver % DoneTime, Solver % Order )
+   HasMass = ASSOCIATED( Solver % Matrix % MassValues )
 
    Method = ListGetString( Solver % Values, 'Timestepping Method', Found )
    IF ( Method == 'bdf' ) THEN
@@ -1846,7 +1852,7 @@ CONTAINS
      DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
        n=n+1
        STIFF(1,n) = Solver % Matrix % Values(j)
-       MASS(1,n)  = Solver % Matrix % MassValues(j)
+       IF( HasMass ) MASS(1,n)  = Solver % Matrix % MassValues(j)
        X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
      END DO
      FORCE(1) = Solver % Matrix % RHS(i)
@@ -1889,7 +1895,7 @@ CONTAINS
    INTEGER :: i,j,k,l,n
    REAL(KIND=dp), POINTER :: SaveValues(:) => NULL()
    REAL(KIND=dp) :: FORCE(1)
-   LOGICAL :: Found
+   LOGICAL :: Found, HasDamping, HasMass
    REAL(KIND=dp), ALLOCATABLE, SAVE :: STIFF(:,:),MASS(:,:), DAMP(:,:), X(:,:)
 
    IF ( PRESENT(USolver) ) THEN
@@ -1907,30 +1913,38 @@ CONTAINS
       k = SIZE(Solver % Variable % PrevValues,2)
       ALLOCATE( STIFF(1,n),MASS(1,n),DAMP(1,n),X(n,k) )
       SaveValues => Solver % Variable % Values
-   END IF
 
-   DO i=1,Solver % Matrix % NumberOFRows
-     n = 0
-     DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
-       n=n+1
-       MASS(1,n)  = Solver % Matrix % MassValues(j)
-       DAMP(1,n)  = Solver % Matrix % DampValues(j)
-       STIFF(1,n) = Solver % Matrix % Values(j)
-       X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
-     END DO
-     FORCE(1) = Solver % Matrix % RHS(i)
-     Solver % Matrix % Force(i,1) = FORCE(1)
+      STIFF = 0.0_dp
+      MASS = 0.0_dp
+      DAMP = 0.0_dp
+      X = 0.0_dp
+    END IF
 
-     CALL Bossak2ndOrder( n, Solver % dt, MASS, DAMP, STIFF, &
-      FORCE, X(1:n,3), X(1:n,4), X(1:n,5), Solver % Alpha )
+    HasDamping = ASSOCIATED(Solver % Matrix % DampValues )
+    HasMass = ASSOCIATED(Solver % Matrix % MassValues )
 
-     n = 0
-     DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
-       n=n+1
-       Solver % Matrix % Values(j) = STIFF(1,n)
-     END DO
-     Solver % Matrix % RHS(i) = FORCE(1)
-   END DO
+    DO i=1,Solver % Matrix % NumberOFRows
+      n = 0
+      DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+        n=n+1
+        IF( HasMass ) MASS(1,n) = Solver % Matrix % MassValues(j)
+        IF( HasDamping ) DAMP(1,n) = Solver % Matrix % DampValues(j)
+        STIFF(1,n) = Solver % Matrix % Values(j)
+        X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
+      END DO
+      FORCE(1) = Solver % Matrix % RHS(i)
+      Solver % Matrix % Force(i,1) = FORCE(1)
+      
+      CALL Bossak2ndOrder( n, Solver % dt, MASS, DAMP, STIFF, &
+          FORCE, X(1:n,3), X(1:n,4), X(1:n,5), Solver % Alpha )
+      
+      n = 0
+      DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+        n=n+1
+        Solver % Matrix % Values(j) = STIFF(1,n)
+      END DO
+      Solver % Matrix % RHS(i) = FORCE(1)
+    END DO
 !----------------------------------------------------------------------------
   END SUBROUTINE Default2ndOrderTimeGlobal
 !----------------------------------------------------------------------------
@@ -1961,7 +1975,8 @@ CONTAINS
 
     IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
       CALL DefaultUpdateMass(M,UElement,USolver)
-      CALL DefaultUpdateDamp(B,UElement,USolver); RETURN
+      CALL DefaultUpdateDamp(B,UElement,USolver)
+      RETURN
     END IF
 
     Element => CurrentModel % CurrentElement
@@ -2007,7 +2022,8 @@ CONTAINS
 
     IF (GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
       CALL DefaultUpdateMass(M,UElement,USolver)
-      CALL DefaultUpdateDamp(B,UElement,USolver); RETURN
+      CALL DefaultUpdateDamp(B,UElement,USolver)
+      RETURN
     END IF
 
     Element => CurrentModel % CurrentElement
@@ -3725,30 +3741,39 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishAssembly( Solver )
 !------------------------------------------------------------------------------
-    TYPE(Solver_t), OPTIONAL :: Solver
+    TYPE(Solver_t), OPTIONAL, TARGET :: Solver
 
     INTEGER :: order
     LOGICAL :: Found
     TYPE(ValueList_t), POINTER :: Params
+    TYPE(Solver_t), POINTER :: PSolver
 
-    Params=>GetSolverParams(Solver)
+    IF( PRESENT( Solver ) ) THEN
+      PSolver => Solver
+    ELSE
+      PSolver => CurrentModel % Solver
+    END IF
+
+    Params => GetSolverParams(PSolver)
 
     IF(GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
-      order=GetInteger(Params,'Time Derivative Order',Found)
-      IF(.NOT.Found) order=1
-      SELECT CASE(order)
-      CASE(1)
-        CALL Default1stOrderTimeGlobal(Solver)
-      CASE(2)
-        CALL Default2ndOrderTimeGlobal(Solver)
-      END SELECT
+
+      IF( ListGetString( CurrentModel % Simulation, 'Simulation Type' ) == 'transient') THEN
+        order=GetInteger(Params,'Time Derivative Order',Found)
+        IF(.NOT.Found) order=1
+
+        SELECT CASE(order)
+          
+        CASE(1)  
+          CALL Default1stOrderTimeGlobal(PSolver)
+        CASE(2)
+          CALL Default2ndOrderTimeGlobal(PSolver)
+        END SELECT
+      END IF
     END IF
 
-    IF ( PRESENT( Solver ) ) THEN
-       CALL FinishAssembly( Solver, Solver % Matrix % RHS )
-    ELSE
-       CALL FinishAssembly( CurrentModel % Solver, CurrentModel % Solver % Matrix % RHS )
-    END IF
+    CALL FinishAssembly( PSolver, PSolver % Matrix % RHS )
+
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultFinishAssembly
 !------------------------------------------------------------------------------
