@@ -533,7 +533,7 @@ st  = realtime_();
    /* create preconditioner for Krylov methods */
    /* for Boomer as solver we create it as a   */
    /* preconditioner here and set the pointer  */
-   if (*hypre_method%10 == 0 )      
+   if ((*hypre_method%10 == 0) && (*hypre_method!=10))      
        {
        HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
        static char *argv[5], str[3];
