@@ -851,6 +851,7 @@ printf "int main(int argc, char **argv) { return(1); }" > test.cpp
 dnl run it
 dnl printf "running: $CXX $acx_cxx_verbose_flag test.cpp 2>&1 |grep -e ' -l'\n"
 acx_cxx_verbose_out=`$CXX $acx_cxx_verbose_flag test.cpp 2>&1 |grep -e ' -l'`
+acx_cxx_verbose_out=${acx_cxx_verbose_out//\"/
 acx_cxx_libs=""
 
 dnl get only the -l -L -R flags
