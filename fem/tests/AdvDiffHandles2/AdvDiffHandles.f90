@@ -32,6 +32,9 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 
   Mesh => GetMesh()
 
+  ! Some implementation issues require this:
+  CALL ListAddLogical( Solver % Values,'Use Global Mass Matrix',.TRUE.)
+
   IF ( .NOT. AllocationsDone ) THEN
     N = Solver % Mesh % MaxElementDOFs  ! just big enough for elemental arrays
     ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N), MASS(n,n), STAT=istat )
@@ -62,25 +65,14 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
       CALL LocalMatrix( STIFF, MASS, FORCE, LOAD, Element, n, nd+nb )
 
       CALL DefaultUpdateEquations( STIFF, FORCE )
+
       IF( TransientSimulation ) THEN
         CALL DefaultUpdateMass( MASS )
       END IF
    END DO
 
-   ! Includes 'Linear System FCT'
+   ! Includes 'Linear System FCT' and global time integration
    CALL DefaultFinishAssembly()
-   CALL CheckTimer('AdvDiffSolver::StiffAssembly',Delete=.TRUE.)
-
-   IF (TransientSimulation) THEN     
-     CALL ResetTimer('AdvDiffSolver::MassAssembly')
-     IF(.TRUE.) THEN
-       A => GetMatrix()      
-       CALL Add1stOrderTime_CRS( A, A % rhs, dt, Solver )
-     ELSE
-       CALL Default1stOrderTimeGlobal()
-     END IF
-     CALL CheckTimer('AdvDiffSolver::MassAssembly',Delete=.TRUE.)
-   END  IF
 
    CALL DefaultDirichletBCs()
    ! And finally, solve:
