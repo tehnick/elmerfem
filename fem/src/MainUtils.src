@@ -1062,10 +1062,11 @@ CONTAINS
          ! There are four different methods: algrabraic, cluster, p and geometric
          str = ListGetString( Solver % Values,'MG Method',Found) 
          IF( Found ) THEN
-           MGAlgebraic = ( str == 'algebraic' ) .OR. ( str == 'cluster')
+           MGAlgebraic = ( str == 'algebraic' ) .OR. ( str == 'cluster') .OR. ( str == 'p')
          ELSE    
            MGAlgebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) &
-               .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found )
+               .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found ) &
+               .OR. ListGetLogical( Solver % Values, 'MG Pelement', Found ) 
          END IF
          
          

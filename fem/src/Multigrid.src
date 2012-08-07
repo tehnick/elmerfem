@@ -1422,6 +1422,10 @@ CONTAINS
     
 !------------------------------------------------------------------------------
 
+    IF( ParEnv % PEs > 1 ) THEN
+      CALL Fatal('AMGSolve','This algebraic multigrid is not parallel')
+    END IF
+
     IF(.FALSE.) THEN 
       WRITE(Message,*) 'Starting level ',Level,NewLinearSystem,NewSystem
       CALL Info('AMGSolve',Message)
@@ -5048,6 +5052,11 @@ CONTAINS
       WRITE(Message,'(A,I2)') 'Starting level ',Level
       CALL Info('CMGSolve',Message)
     END IF
+
+    IF( ParEnv % PEs > 1 ) THEN
+      CALL Fatal('CMGSolve','This agglomeration multigrid is not parallel')
+    END IF
+
 
     Mesh => Solver % Mesh    
     Params => Solver % Values
