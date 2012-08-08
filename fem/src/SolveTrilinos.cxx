@@ -25,7 +25,8 @@ see elmerfem/fem/examples/trilinos for an example.
 #endif
 
 // enable this to store matrices, generate debugging output etc
-#define DEBUG_TRILINOS_INTERFACE
+//#define DEBUG_TRILINOS_INTERFACE
+//#define DUMP_IN_TRILINOS_INTERFACE
 
 #define CHECK_ZERO(funcall) {ierr = funcall;\
 if (ierr) {std::cout<<"Trilinos Error "<<ierr<<" returned from call "<<#funcall<<std::endl; return;}}
@@ -252,7 +253,7 @@ void SolveTrilinos1
      }
 
 
-#ifdef DEBUG_TRILINOS_INTERFACE 
+#ifdef DUMP_IN_TRILINOS_INTERFACE 
 CHECK_ZERO(EpetraExt::BlockMapToMatrixMarketFile("ElmerMap.txt",*assemblyMap));
 #endif
 
@@ -270,7 +271,7 @@ CHECK_ZERO(EpetraExt::BlockMapToMatrixMarketFile("ElmerMap.txt",*assemblyMap));
      return;
      }
 
-#ifdef DEBUG_TRILINOS_INTERFACE
+#ifdef DUMP_TRILINOS_INTERFACE
    CHECK_ZERO(EpetraExt::RowMatrixToMatrixMarketFile("ElmerMatrix.txt",*A_elmer));
 #endif
      
@@ -287,7 +288,7 @@ CHECK_ZERO(EpetraExt::BlockMapToMatrixMarketFile("ElmerMap.txt",*assemblyMap));
      return;
      }
 
-#ifdef DEBUG_TRILINOS_INTERFACE 
+#ifdef DUMP_IN_TRILINOS_INTERFACE 
 CHECK_ZERO(EpetraExt::BlockMapToMatrixMarketFile("TrilinosMap.txt",*solveMap));
 #endif
 
@@ -583,9 +584,8 @@ if (!success)
 
    
 
-  
-  // we might not need this all the time, but for now:
-  
+#ifdef DEBUG_TRILINOS_INTERFACE   
+    
   //
   // Compute actual residual
   //
@@ -617,6 +617,7 @@ if (!success)
     ierr=4;
     }
 
+#endif
 
    // import the vectors
    CHECK_ZERO(xview.Import(*x, *exporter, Zero));
@@ -633,6 +634,11 @@ void SolveTrilinos4(int** ContainerPtr)
   {
   ElmerTrilinosContainer* Container = 
         (ElmerTrilinosContainer*)(*ContainerPtr);
+
+#ifdef DEBUG_TRILINOS_INTERFACE  
+std::cerr << "PID "<<Container->comm_->MyPID()<<": destroy Trilinos object "<<std::endl;
+#endif
+
   // remove this container from the list
   if (Container->next_!=Teuchos::null)
     {
