@@ -8,7 +8,7 @@ Header
 End
 
 Simulation
-  Max Output Level = 9
+  Max Output Level = 5
   Coordinate System = "Cartesian 2D"
   Coordinate Mapping(3) = 1 2 3
 
@@ -17,7 +17,7 @@ Simulation
   Output Intervals = 1
 
 ! Output File = "TempDist.dat"
-! Post File = "TempDist.ep"
+  Post File = "TempDist.ep"
 End
 
 Constants
@@ -45,25 +45,20 @@ Solver 1
 
   Linear System Solver = "Multigrid"
 
-  MG PElement=logical True
-  MG Equal Split = False
-
+  MG PElement=Logical True
   Element=p:8
   MG Levels=4
   MG P at Level(4) = Integer 1 2 4 8
 
-  MG Pre Smoothing iterations = 3
-  MG Post Smoothing Iterations = 3
+  MG Pre  Smoothing iterations =  5
+  MG Post Smoothing Iterations = 10
 
-  Linear System Direct Method=umfpack
+  MG Smoother=sgs
 
-  Linear System Iterative Method = "CG"
+  Linear System Direct Method=Umfpack
   Linear System Symmetric = True
   Linear System Max Iterations = 350
   Linear System Convergence Tolerance = 1.0e-08
-  Linear System Preconditioning = Ilu
-  Linear System Residual Output = 1
-  Linear System Abort Not Converged = True
 
   Steady State Convergence Tolerance = 1.0e-05
 End
