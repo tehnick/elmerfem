@@ -1,0 +1,84 @@
+!echo on
+
+Header
+  CHECK KEYWORDS Warn
+  Mesh DB "." "square"
+  Include Path ""
+  Results Directory ""
+End
+
+Simulation
+  Max Output Level = 9
+  Coordinate System = "Cartesian 2D"
+  Coordinate Mapping(3) = 1 2 3
+
+  Simulation Type = "Steady State"
+  Steady State Max Iterations = 1
+  Output Intervals = 1
+
+! Output File = "TempDist.dat"
+! Post File = "TempDist.ep"
+End
+
+Constants
+  Gravity(4) = 0 -1 0 9.82
+  Stefan Boltzmann = 5.67e-08
+End
+
+Body 1
+  Name = "Body1"
+  Body Force = 1
+  Equation = 1
+  Material = 1
+End
+
+Equation 1
+  Name = "Equation1"
+  Active Solvers=1
+End
+
+Solver 1
+  Equation = "T"
+
+  Variable = "T"
+  Procedure="./Poisson" "PoissonSolver"
+
+  Linear System Solver = "Multigrid"
+
+  MG PElement=logical True
+  MG Equal Split = False
+
+  Element=p:8
+  MG Levels=4
+  MG P at Level(4) = Integer 1 2 4 8
+
+  MG Pre Smoothing iterations = 3
+  MG Post Smoothing Iterations = 3
+
+  Linear System Direct Method=umfpack
+
+  Linear System Iterative Method = "CG"
+  Linear System Symmetric = True
+  Linear System Max Iterations = 350
+  Linear System Convergence Tolerance = 1.0e-08
+  Linear System Preconditioning = Ilu
+  Linear System Residual Output = 1
+  Linear System Abort Not Converged = True
+
+  Steady State Convergence Tolerance = 1.0e-05
+End
+
+
+Body Force 1:: Source=1
+
+Boundary Condition 1
+  Target Boundaries = 1
+  T=Real 0
+End
+
+$fprintf( stderr, "TEST CASE 1\n");
+RUN
+$fprintf( stderr, "END TEST CASE 1: Target NRM=0.74347461e-2\n" );
+
+
+!End Of File
