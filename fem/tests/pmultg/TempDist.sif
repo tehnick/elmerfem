@@ -17,7 +17,7 @@ Simulation
   Output Intervals = 1
 
 ! Output File = "TempDist.dat"
-  Post File = "TempDist.ep"
+! Post File = "TempDist.ep"
 End
 
 Constants
@@ -43,17 +43,20 @@ Solver 1
   Variable = "T"
   Procedure="./Poisson" "PoissonSolver"
 
-  Linear System Solver = "Multigrid"
 
-  MG PElement=Logical True
   Element=p:8
-  MG Levels=4
-  MG P at Level(4) = Integer 1 2 4 8
 
+  Linear System Solver = "Iterative"
+  Linear System Iterative Method=CG
+
+  Linear System Preconditioning = Multigrid
+  MG PElement=Logical True
+  MG Levels=4
+  MG P at Level(4) = Integer 1 2 4 8 ! must be increasing &
+                                     ! largest p==element p
+  MG Smoother=SGS
   MG Pre  Smoothing iterations =  5
   MG Post Smoothing Iterations = 10
-
-  MG Smoother=sgs
 
   Linear System Direct Method=Umfpack
   Linear System Symmetric = True
