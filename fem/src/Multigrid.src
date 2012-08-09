@@ -1020,25 +1020,28 @@ CONTAINS
              END DO
              Pmatrix => Matrix2
            END DO
+           DEALLOCATE(Degree)
          END IF
 
-         PMatrix => Matrix1
-         DO l=Level-1,1,-1
-           j = 0
-           m = 0
-           DO i=1,n
-             IF ( Matrix2 % Perm(i) == 0 ) CYCLE
-             j = j + 1
-             DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
-               IF ( Matrix2 % Perm(Matrix1 % Cols(k)) /= 0 ) THEN
-                 m = m + 1
-                 Matrix2 % Values(m) = Matrix1 % Values(k)
-               END IF
+         IF (Level==Solver % MultigridLevel) THEN
+           Matrix2 => Matrix1 % Child
+           DO l=Level-1,1,-1
+             j = 0
+             m = 0
+             DO i=1,n
+               IF ( Matrix2 % Perm(i) == 0 ) CYCLE
+               j = j + 1
+               DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
+                 IF ( Matrix2 % Perm(Matrix1 % Cols(k)) /= 0 ) THEN
+                   m = m + 1
+                   Matrix2 % Values(m) = Matrix1 % Values(k)
+                 END IF
+               END DO
              END DO
+             Matrix2 => Matrix2 % Child
            END DO
-           Matrix2 => PMatrix % Child
-         END DO
-         Matrix2 => Matrix1 % Child
+           Matrix2 => Matrix1 % Child
+         END IF
        END IF
 
 
