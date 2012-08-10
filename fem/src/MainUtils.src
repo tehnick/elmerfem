@@ -121,7 +121,7 @@ CONTAINS
                    CALL Fatal( 'GetMatrixFormat', 'SuperLU solver has not been installed.' )
 #endif
                 CASE( 'pardiso' )
-#ifndef HAVE_PARDISO
+#if !defined(HAVE_PARDISO) && !defined(HAVE_MKL)
                    CALL Fatal( 'GetMatrixFormat', 'Pardiso solver has not been installed.' )
 #endif
                 CASE( 'cholmod','spqr' )

@@ -23,7 +23,7 @@
 !
 !/******************************************************************************
 ! *
-! *  Authors: Juha Ruokolainen, Peter Råback
+! *  Authors: Juha Ruokolainen, Peter Rï¿½back
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -5279,7 +5279,7 @@ CONTAINS
     CASE (3)   
        numEdges = Element % TYPE % NumberOfFaces
     CASE DEFAULT
-       WRITE (*,*) 'MeshUtils::AssignLocalNumber Unsupported dimension'
+       WRITE (*,*) 'MeshUtils::AssignLocalNumber, Unsupported dimension:', Element % TYPE % DIMENSION
        RETURN
     END SELECT
 
@@ -5317,7 +5317,9 @@ CONTAINS
 
           ! Change ordering of global nodes to match that of element
           bMap = getElementBoundaryMap( Element, edgeNumber )
-          EdgeElement % NodeIndexes(1:n) = Element % NodeIndexes(bMap(1:n))
+          DO j=1,n
+          	EdgeElement % NodeIndexes(j) = Element % NodeIndexes(bMap(j))
+		  END DO
 
           ! Copy attributes of edge element to boundary element
           ! Misc attributes

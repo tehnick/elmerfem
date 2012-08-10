@@ -836,6 +836,19 @@ END FUNCTION CRS_RowSum
 
      INTEGER :: i,j,n
      REAL(KIND=dp) :: rsum
+#ifdef HAVE_MKL
+	INTERFACE
+		SUBROUTINE mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
+	 		USE Types
+	 		CHARACTER :: transa
+	 		INTEGER :: m
+	 		REAL(KIND=dp) :: a(*)
+	 		INTEGER :: ia(*), ja(*)
+	 		REAL(KIND=dp) :: x(*), y(*)
+	 	END SUBROUTINE mkl_dcsrgemv
+	END INTERFACE
+#endif
+
 !------------------------------------------------------------------------------
 
      n = A % NumberOfRows
@@ -848,6 +861,10 @@ END FUNCTION CRS_RowSum
       RETURN
    END IF
 
+	! Use MKL to perform mvp if it is available
+#ifdef HAVE_MKL
+	call mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
+#else
 !$omp parallel do private(j,rsum)
      DO i=1,n
         rsum = 0.0d0
@@ -857,6 +874,7 @@ END FUNCTION CRS_RowSum
         v(i) = rsum
      END DO
 !$omp end parallel do
+#endif
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_MatrixVectorMultiply
 !------------------------------------------------------------------------------
@@ -2878,6 +2896,19 @@ END FUNCTION CRS_RowSum
     REAL(KIND=dp), POINTER  CONTIG :: Values(:)
 !   REAL(KIND=dp), POINTER :: Values(:)
 
+#ifdef HAVE_MKL
+	INTERFACE
+		SUBROUTINE mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
+	 		USE Types
+	 		CHARACTER :: transa
+	 		INTEGER :: m
+	 		REAL(KIND=dp) :: a(*)
+	 		INTEGER :: ia(*), ja(*)
+	 		REAL(KIND=dp) :: x(*), y(*)
+	 	END SUBROUTINE mkl_dcsrgemv
+	END INTERFACE
+#endif
+
     INTEGER :: i,j,n
     REAL(KIND=dp) :: s
 !------------------------------------------------------------------------------
@@ -2900,6 +2931,9 @@ END FUNCTION CRS_RowSum
 !--------------------------------------------------------------------
 #ifndef SGI
     IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
+#ifdef HAVE_MKL
+    call mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
+#else
 !$omp parallel do private(j,s)
        DO i=1,n
           s = 0.0d0
@@ -2909,6 +2943,7 @@ END FUNCTION CRS_RowSum
           v(i) = s
        END DO
 !$omp end parallel do
+#endif
     ELSE
        v(1:n) = 0.0d0
        DO i=1,n
@@ -2918,7 +2953,6 @@ END FUNCTION CRS_RowSum
           END DO
        END DO
     END IF
-
 !    IF ( ASSOCIATED( GlobalMatrix % EMatrix ) ) THEN
 !       n = GlobalMatrix % EMatrix % NumberOFRows
 !       Rows   => GlobalMatrix % EMatrix % Rows
