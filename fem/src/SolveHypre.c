@@ -577,7 +577,8 @@ st  = realtime_();
 	 FPRINTF( stderr,"Smooth Type=%d\n",hypre_intpara[5]);
 	 FPRINTF( stderr,"Cycle Type=%d\n",hypre_intpara[6]);
 	 FPRINTF( stderr,"DOFs=%d\n",hypre_intpara[7]);
-       }
+	 FPRINTF( stderr,"StrongThreshold=%g\n",hypre_dppara[0]);
+         }
        HYPRE_BoomerAMGCreate(&precond);
        /* Set some parameters (See Reference Manual for more parameters) */
        HYPRE_BoomerAMGSetNumFunctions(precond, hypre_intpara[7]); /* No. of PDE's */
@@ -598,6 +599,10 @@ st  = realtime_();
        HYPRE_BoomerAMGSetMaxLevels(precond, hypre_intpara[3]); /* levels of coarsening */
        HYPRE_BoomerAMGSetInterpType(precond, hypre_intpara[4]);  /* interpolation type */
        HYPRE_BoomerAMGSetSmoothType(precond, hypre_intpara[5]);  /* smoother type */
+	 /* threshold for strong coupling (default 0.25 recommended for 2D Laplace, 0.5-0.6 
+	 for 3D Laplace, 0.9 for elasticity) */
+	 HYPRE_BoomerAMGSetStrongThreshold(precond, hypre_dppara[0]);  
+
      } else if (*hypre_method%10!=9) {
        fprintf( stderr,"Hypre preconditioning method not implemented\n");
        exit(EXIT_FAILURE);

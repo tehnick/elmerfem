@@ -111,6 +111,7 @@ Teuchos::RCP<Epetra_Export> exporter_;
 Teuchos::RCP<Epetra_CrsMatrix> matrix_;
 Teuchos::RCP<Epetra_Vector> rhs_;
 Teuchos::RCP<Epetra_Vector> sol_;
+Teuchos::RCP<Epetra_MultiVector> coords_; // node coordinates can be used by ML
 
 double scaleFactor_; // scale entire system by a scalar constant, scaleFactor*Ax = scaleFactor*b
                      // enabled by setting "Scale Factor" in xml file
@@ -150,13 +151,15 @@ Teuchos::RCP<Epetra_CrsMatrix> createMatrix
 
 Teuchos::RCP<Epetra_Operator> createPreconditioner(
         Teuchos::RCP<Epetra_CrsMatrix> A,
-        Teuchos::ParameterList& params);
+        Teuchos::ParameterList& params,
+        Teuchos::RCP<Epetra_MultiVector> coords);
 
 Teuchos::RCP<Epetra_Operator> createIfpackPreconditioner(
         Teuchos::RCP<Epetra_CrsMatrix> A, Teuchos::ParameterList& params);
 
 Teuchos::RCP<Epetra_Operator> createMLPreconditioner(
-        Teuchos::RCP<Epetra_CrsMatrix> A, Teuchos::ParameterList& params);
+        Teuchos::RCP<Epetra_CrsMatrix> A, Teuchos::ParameterList& params,
+        Teuchos::RCP<Epetra_MultiVector> coords);
 
 Teuchos::RCP<Belos::SolverManager<ST,MV,OP> > createSolver
         (Teuchos::RCP<OP> A, Teuchos::RCP<OP> P,
@@ -181,6 +184,8 @@ void SolveTrilinos1
   int *n, int *nnz,
   int *rows, int *cols, double *vals,
   int *globaldof, int *owner, char* xmlfile, int* verbosityPtr, int** ContainerPtr,
+  int *num_nodes, 
+  double* xcoords, double* ycoords, double* zcoords,
   int *returnCode)
 {
 
@@ -374,12 +379,45 @@ try {
 
    double scaleFactor = params->get("Scale Factor",1.0);
    if (scaleFactor!=1.0) CHECK_ZERO(A->Scale(scaleFactor));
-     
+
+   Teuchos::RCP<Epetra_MultiVector> coords0=Teuchos::rcp(new Epetra_MultiVector(*assemblyMap,3));
+   Teuchos::RCP<Epetra_MultiVector> coords=Teuchos::rcp(new Epetra_MultiVector(*solveMap,3));
+   
+   int k = *num_nodes;
+   int dof = (int)(assemblyMap->NumMyElements()/k);
+   if (dof*k != assemblyMap->NumMyElements())
+     {
+     ERROR("size mismatch of coord arrays",__FILE__,__LINE__);
+     }
+
+   for (int i=0;i<k; i++)
+     {
+     for (int j=0;j<dof;j++)
+       {
+       (*coords0)[0][dof*i+j] = xcoords[i];
+       (*coords0)[1][dof*i+j] = ycoords[i];
+       (*coords0)[2][dof*i+j] = zcoords[i];
+       }
+     }
+
+   CHECK_ZERO(coords->Export(*coords0, *exporter, Zero));
+   
+   Epetra_Map auxMap(-1,k,0,*comm);
+   Teuchos::RCP<Epetra_MultiVector> auxVec = Teuchos::rcp(new Epetra_MultiVector(auxMap,3));
+   for (int i=0;i<k;i++)
+     { 
+     for (int j=0;j<3;j++)
+       {
+       (*auxVec)[j][i] = (*coords)[j][dof*i];
+       }
+     }
+   
+   coords = auxVec;
    
   ///////////////////////////////////////////////////////////////////
   // create/setup preconditioner                                   //
   ///////////////////////////////////////////////////////////////////
-  Teuchos::RCP<Epetra_Operator> prec = createPreconditioner(A, *params);
+  Teuchos::RCP<Epetra_Operator> prec = createPreconditioner(A, *params, coords);
 
   //////////////////////////////////////////////////////////////
   // Krylov subspace method setup (Belos)                     //
@@ -429,6 +467,7 @@ try {
    Container->solveMap_=solveMap;
    Container->exporter_=exporter;
    Container->matrix_=A;
+   Container->coords_=coords;
    Container->scaleFactor_=scaleFactor;
    Container->rhs_=rhs;
    Container->sol_=sol;
@@ -747,12 +786,13 @@ Teuchos::RCP<Epetra_CrsMatrix> createMatrix
 
 Teuchos::RCP<Epetra_Operator> createPreconditioner(
         Teuchos::RCP<Epetra_CrsMatrix> A, 
-        Teuchos::ParameterList& params)
+        Teuchos::ParameterList& params,
+        Teuchos::RCP<Epetra_MultiVector> coords)
         {
         std::string type="None";
         type=params.get("Preconditioner",type);
         if (type=="Ifpack") return createIfpackPreconditioner(A,params);
-        if (type=="ML") return createMLPreconditioner(A,params);
+        if (type=="ML") return createMLPreconditioner(A,params,coords);
         if (type=="None") return Teuchos::null;
         WARNING("invalid 'Preconditioner', returning null",__FILE__,__LINE__);
         return Teuchos::null;
@@ -803,9 +843,17 @@ Teuchos::RCP<Epetra_Operator> createIfpackPreconditioner(
 
 Teuchos::RCP<Epetra_Operator> createMLPreconditioner(
         Teuchos::RCP<Epetra_CrsMatrix> A,
-        Teuchos::ParameterList& params)
+        Teuchos::ParameterList& params,
+        Teuchos::RCP<Epetra_MultiVector> coords)
   {
   Teuchos::ParameterList& mlParams = params.sublist("ML");
+  
+  if (mlParams.get("aggregation: aux: enable",false)==true)
+    {
+    mlParams.set("x-coordinates",(*coords)[0]);
+    mlParams.set("y-coordinates",(*coords)[1]);
+    mlParams.set("z-coordinates",(*coords)[2]);
+    }
   
   Teuchos::RCP<Epetra_Operator> prec = Teuchos::null;
   
@@ -984,5 +1032,8 @@ Teuchos::RCP<Belos::SolverManager<ST,MV,OP> > createSolver
   return belosSolverPtr;
   }
 
+void TrilinosSetNodeCoords(int* num_nodes, double* x, double* y, double* z)
+  {
+  }
 
 #endif

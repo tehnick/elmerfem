@@ -1343,7 +1343,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       !! create Trilinos matrix and setup solver/preconditioner
       SUBROUTINE SolveTrilinos1( n, nnz, Rows, Cols, Vals, &
            GDOFs, Owner, &
-           xmlfilename, verbosity, triliContainer, ierr) bind(C,name='SolveTrilinos1')
+           xmlfilename, verbosity, triliContainer, n_nodes, &
+           xcoords,ycoords,zcoords,ierr) bind(C,name='SolveTrilinos1')
         
         USE, intrinsic :: iso_c_binding
         
@@ -1355,6 +1356,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
         INTEGER(KIND=c_int) :: verbosity
         CHARACTER(c_char) :: xmlfilename
         INTEGER(KIND=C_INTPTR_T) :: triliContainer
+        INTEGER(KIND=C_INT) :: n_nodes
+        REAL(KIND=c_double) :: xcoords(n_nodes), ycoords(n_nodes), zcoords(n_nodes)
         INTEGER(KIND=C_INT) :: ierr
       END SUBROUTINE SolveTrilinos1
 
@@ -1505,6 +1508,9 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
                  CurrentModel % Solver % Variable % DOFs
             IF (ParEnv % MyPE == 0) CALL WARN('SParIterSolver',Message)
          END IF
+         hypre_dppara(1) = ListGetConstReal( Solver % Values, &
+              'BoomerAMG Strong Threshold', Found )
+         IF (.NOT.Found)  hypre_dppara(1) = 0.25
 !         hypre_intpara() = ListGetInteger( Solver % Values, &
 !              'BoomerAMG  ', Found )
 !         IF (.NOT.Found)  hypre_intpara() = 0
@@ -1612,7 +1618,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       n = SourceMatrix%NumberOfRows ! number of nodes of local elements
       nnz = SourceMatrix%Rows(n+1) ! number of local nonzeros
       
-        verbosity=99 !TODO: get this from the simulation verbosity or something
+        verbosity=0 !TODO: get this from the simulation verbosity or something
         NewSetup=ListGetLogical( Solver % Values, 'Linear System Refactorize',Found ) 
         if (NewSetup) then
           if (SourceMatrix % Trilinos/=0) then
@@ -1629,13 +1635,15 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
               Owner(i) = 1
             END IF
           END DO
-
+          
           CALL SolveTrilinos1(n, nnz, & 
                 SourceMatrix % Rows, &
                 SourceMatrix % Cols, &
                 SourceMatrix % Values, &
                 ParallelInfo%GlobalDofs, Owner, &
-                xmlfile, verbosity, SourceMatrix % Trilinos, ierr)     
+                xmlfile, verbosity, SourceMatrix % Trilinos, &
+                CurrentModel%Nodes%NumberOfNodes, &
+                CurrentModel%Nodes%x, CurrentModel%Nodes%y, CurrentModel%Nodes%z, ierr)     
 
           DEALLOCATE( Owner )
           if (ierr<0) then
