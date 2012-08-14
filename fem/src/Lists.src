@@ -2876,9 +2876,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
          ptr => ListFind(List,Handle % Name,Found)
        END IF
   
-       IF ( .NOT.ASSOCIATED(ptr) ) RETURN
        Handle % List => List
        Handle % ptr => ptr
+
+       IF ( .NOT.ASSOCIATED(ptr) ) RETURN
        Handle % ConstantInList = .FALSE.
      END IF
 
@@ -2899,6 +2900,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
        n = Handle % Element % TYPE % NumberOfNodes 
        F => Handle % Values       
      ELSE
+
        IF( .NOT. Handle % AllocationsDone ) THEN
          n = CurrentModel % Mesh % MaxElementNodes
          ALLOCATE( Handle % Values(n) )
@@ -3011,12 +3013,12 @@ CALL Info( 'VariableGet', Message, Level=7 )
        val = F(1)
      ELSE
        IF(.NOT. PRESENT(Basis)) THEN
-         CALL Fatal('ListGetRealAtIp','Parameter Basis is required!')
+         CALL Fatal('ListGetRealAtIp','Parameter > Basis < is required!')
        ELSE
          val = SUM( Basis(1:n) * F(1:n) )
        END IF
      END IF
-            
+
      IF ( PRESENT( minv ) ) THEN
        IF ( val < minv ) THEN
          WRITE( Message,*) 'Given value ',val, ' for property: ', '[', TRIM(Name),']', &
@@ -3769,6 +3771,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
     ct = CPUTime()
     rt = RealTime()
+
     CALL ListAddConstReal( TimerList,TRIM(TimerName)//' cpu time',ct )
     CALL ListAddConstReal( TimerList,TRIM(TimerName)//' real time',rt )
 
@@ -3799,7 +3802,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
     REAL(KIND=dp) :: ct0,rt0,ct, rt
     REAL(KIND=dp) :: RealTime, CPUTime
     LOGICAL :: Found
-    
+
     IF( TimerPassive ) RETURN
 
     ct0 = ListGetConstReal( TimerList,TRIM(TimerName)//' cpu time',Found) 

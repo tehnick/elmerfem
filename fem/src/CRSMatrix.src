@@ -863,7 +863,7 @@ END FUNCTION CRS_RowSum
 
 	! Use MKL to perform mvp if it is available
 #ifdef HAVE_MKL
-	call mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
+	CALL mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
 #else
 !$omp parallel do private(j,rsum)
      DO i=1,n
@@ -1145,6 +1145,7 @@ END FUNCTION CRS_RowSum
     REAL(KIND=dp) :: Aij,Aji,Aii,Dij,dFij
     LOGICAL :: Found
 
+    CALL Info('CRS_FCTLowOrder','Making low order FCT correction to matrix',Level=6)
 
     N = A % NumberOfRows
 
@@ -1152,6 +1153,11 @@ END FUNCTION CRS_RowSum
       ALLOCATE( A % FCT_D(SIZE( A % Values) ) ) 
     END IF
     A % FCT_D = 0.0_dp    
+
+    IF(.NOT. ASSOCIATED(A % BulkValues) ) THEN
+      ALLOCATE( A % BulkValues(SIZE( A % Values) ) ) 
+    END IF
+    A % BulkValues = A % Values
 
     DO i=1,N
       DO k= A % Rows(i), A % Rows(i+1)-1
@@ -1169,7 +1175,7 @@ END FUNCTION CRS_RowSum
         END DO
         
         IF(.NOT. Found ) THEN
-          CALL Warn('CRS_FCTCorrection','Entry not found, matrix might not be symmetric!')
+          CALL Warn('CRS_FCTLowOrder','Entry not found, matrix might not be symmetric!')
           CYCLE
         END IF
 
@@ -1196,11 +1202,6 @@ END FUNCTION CRS_RowSum
           A % FCT_D(k2) = A % FCT_D(k2) + Dij
           A % FCT_D(A % Diag(i)) = A % FCT_D(A % Diag(i)) - Dij
           A % FCT_D(A % Diag(j)) = A % FCT_D(A % Diag(j)) - Dij          
-
-!          A % Values(k) = A % Values(k) + Dij
-!          A % Values(k2) = A % Values(k2) + Dij
-!          A % Values(A % Diag(i)) = A % Values(A % Diag(i)) - Dij
-!          A % Values(A % Diag(j)) = A % Values(A % Diag(j)) - Dij
         END IF
 
       END DO
@@ -2932,7 +2933,7 @@ END FUNCTION CRS_RowSum
 #ifndef SGI
     IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
 #ifdef HAVE_MKL
-    call mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
+    CALL mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
 #else
 !$omp parallel do private(j,s)
        DO i=1,n

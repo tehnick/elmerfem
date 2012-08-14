@@ -224,8 +224,8 @@
 !          NOTE: This will replace LocalStiffMatrix and LocalForce with the
 !                combined information...
 !------------------------------------------------------------------------------
-           CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-               LocalForce, dt, n, 1, SurfPerm(NodeIndexes), Solver )
+           CALL Default1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
+               LocalForce )
          END IF
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
@@ -234,8 +234,7 @@
            CALL Condensate( N, LocalStiffMatrix,  LocalForce, TimeForce )
          END IF
          
-         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-             ForceVector, LocalForce, n, 1, SurfPerm(NodeIndexes) )
+         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
          
        END DO     !  Of ActiveElements
 
@@ -245,7 +244,7 @@
 !    Dirichlet boundary settings. Actually no need to call it except for
 !    transient simulations.
 !------------------------------------------------------------------------------
-       CALL FinishAssembly( Solver,ForceVector )
+       CALL DefaultFinishAssembly()
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
@@ -515,6 +514,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetDistance( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
+     Use DefUtils
      USE SolverUtils
      USE MaterialModels
      USE Integration
@@ -740,7 +740,7 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Var
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: Element
-    REAL(KIND=dp) :: x0,y0,x1,y1,t,nx(3),ny(3),nz(3),srf(3),w0(3),w1(3),Value,dt, &
+    REAL(KIND=dp) :: x0,y0,x1,y1,t,nx(3),ny(3),nz(3),srf(3),w0(3),w1(3),fval,dt, &
         r1x, r1y, r2x, r2y, aid, Maxsrf, ds1, ds2
     LOGICAL :: FileCreated = .FALSE., FileAppend, GotIt, FileSave, Found, FileNumber
     TYPE(ValueList_t),POINTER :: Material
@@ -907,20 +907,20 @@ CONTAINS
               END IF
 	      m = m + 1              
 
-              Value = 0.0d0
+              fval = 0.0d0
               DO k=1,3
                 l = TriangleIndexes(k)
                 IF ( ASSOCIATED(Var % Perm) ) l = Var % Perm(l)
                 IF(l > 0) THEN
                   IF(onetwo == 1) THEN
-                    Value = Value + w0(k) * (Var % Values(l))
+                    fval = fval + w0(k) * (Var % Values(l))
                   ELSE
-                    Value = Value + w1(k) * (Var % Values(l))
+                    fval = fval + w1(k) * (Var % Values(l))
                   END IF
                 END IF
               END DO
               
-              WRITE(10,'(ES20.11E3)',ADVANCE='NO') Value
+              WRITE(10,'(ES20.11E3)',ADVANCE='NO') fval
               Var => Var % Next          
             END DO
             WRITE(10,'(A)') ' '
@@ -1160,6 +1160,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetIntegrate( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
+     Use DefUtils
      USE SolverUtils
      USE MaterialModels
      USE Integration
@@ -1444,6 +1445,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetCurvature( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
+     USE DefUtils
      USE SolverUtils
      USE Integration
 
@@ -1546,6 +1548,7 @@ CONTAINS
        Element => Solver % Mesh % Elements(Solver % ActiveElements(t))
        n = Element % TYPE % NumberOfNodes
        NodeIndexes => Element % NodeIndexes
+       Model % CurrentElement => Element
  
        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
@@ -1556,8 +1559,7 @@ CONTAINS
        CALL LocalMatrix( LocalStiffMatrix, LocalForce, &
            Surf, Element, n, ElementNodes )
          
-       CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-           ForceVector, LocalForce, n, 1, CurvPerm(NodeIndexes) )
+       CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 
      END DO     
 
@@ -1576,6 +1578,8 @@ CONTAINS
 
            n = Element % TYPE % NumberOfNodes
            NodeIndexes => Element % NodeIndexes
+           Model % CurrentElement => Element
+          
            IF ( ANY( CurvPerm(NodeIndexes) <= 0 ) ) CYCLE         
 
            IF ( Element % TYPE % ElementCode == 101 ) CYCLE
@@ -1621,15 +1625,14 @@ CONTAINS
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
 !------------------------------------------------------------------------------
-          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-              ForceVector, LocalForce, n, 1, CurvPerm(NodeIndexes) )
+          CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 !------------------------------------------------------------------------------
            END IF   
-        END DO   
+        END DO    
       END DO   
 !------------------------------------------------------------------------------
 
-     CALL FinishAssembly( Solver,ForceVector )
+     CALL DefaultFinishAssembly()
      
      at = CPUTime() - at
      WRITE(Message,'(a,F8.2)') 'Assembly done in time (s):',at

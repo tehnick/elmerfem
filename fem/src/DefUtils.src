@@ -1817,19 +1817,20 @@ CONTAINS
    END IF
 
    IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
-      IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,X )
-      n = 0
-      DO i=1,Solver % Matrix % NumberOfRows
-        n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
-      END DO
-      k = SIZE(Solver % Variable % PrevValues,2)
-      ALLOCATE( STIFF(1,n),MASS(1,n),X(n,k) )
-
-      SaveValues => Solver % Variable % Values
-      STIFF = 0.0_dp
-      MASS = 0.0_dp
-      X = 0.0_dp
+     IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,X )
+     n = 0
+     DO i=1,Solver % Matrix % NumberOfRows
+       n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
+     END DO
+     k = SIZE(Solver % Variable % PrevValues,2)
+     ALLOCATE( STIFF(1,n),MASS(1,n),X(n,k) )
+     
+     SaveValues => Solver % Variable % Values
    END IF
+    
+   STIFF = 0.0_dp
+   MASS = 0.0_dp
+   X = 0.0_dp
 
    Order = MIN( Solver % DoneTime, Solver % Order )
    HasMass = ASSOCIATED( Solver % Matrix % MassValues )
@@ -1852,7 +1853,7 @@ CONTAINS
      DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
        n=n+1
        STIFF(1,n) = Solver % Matrix % Values(j)
-       IF( HasMass ) MASS(1,n)  = Solver % Matrix % MassValues(j)
+       IF( HasMass ) MASS(1,n) = Solver % Matrix % MassValues(j)
        X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
      END DO
      FORCE(1) = Solver % Matrix % RHS(i)
@@ -3282,7 +3283,6 @@ CONTAINS
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
              Name, DOF, x % DOFs, x % Perm, Offset, OffDiagonalMatrix )
 
-
 !       Dirichlet BCs for face & edge DOFs:
 !       -----------------------------------
         SaveElement => CurrentModel % CurrentElement
@@ -3766,6 +3766,7 @@ CONTAINS
           
         CASE(1)  
           CALL Default1stOrderTimeGlobal(PSolver)
+
         CASE(2)
           CALL Default2ndOrderTimeGlobal(PSolver)
         END SELECT

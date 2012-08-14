@@ -577,7 +577,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
      n = GetElementNOFNodes()
      ntot = GetElementNOFDOFs()
      NodeIndexes => CurrentElement % NodeIndexes
-     
+
 !------------------------------------------------------------------------------
 !         Memorize the min and max potential as given by Dirichtlet BCs
 !------------------------------------------------------------------------------          
@@ -657,8 +657,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
 !------------------------------------------------------------------------------
-     CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-         ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
+     CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 !------------------------------------------------------------------------------   
    END DO   ! Neumann BCs
 !------------------------------------------------------------------------------
@@ -683,7 +682,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
     CALL DefaultDirichletBCs()
    
- 
+
     at = CPUTime() - at
     WRITE( Message, * ) 'Assembly (s)          :',at
     CALL Info( 'StatElecSolve', Message, Level=4 )

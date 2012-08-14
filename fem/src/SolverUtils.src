@@ -666,20 +666,23 @@ CONTAINS
      REAL(KIND=dp) :: Dts(Solver % Order)
      REAL(KIND=dp), POINTER :: PrevSol(:,:), ML(:)
      INTEGER, POINTER :: Rows(:), Cols(:)
-     LOGICAL :: ConstantDt, Lumped, Found
+     LOGICAL :: ConstantDt, Lumped, Found, IsFCT
 !------------------------------------------------------------------------------
 
      CALL Info('Add1stOrderTime_CRS','Adding time discretization to CRS matrix')
 
+!     IF ( Matrix % Lumped ) THEN
 
-     IF ( Solver % Matrix % Lumped ) THEN
+     IsFCT =  ListGetLogical( Solver % Values,'Linear System FCT',Found ) 
+
+     IF( IsFCT ) THEN
        PRINT *,'Performing time-integration with mass lumping'
        n = SIZE( Force ) 
        IF( .NOT. ASSOCIATED( Matrix % MassValuesLumped ) ) THEN         
          ALLOCATE( Matrix % MassValuesLumped( n ) )
-         ML => Matrix % MassValuesLumped 
-         ML = 0.0_dp
        END IF
+       ML => Matrix % MassValuesLumped 
+       Matrix % Lumped = .TRUE. 
 
        ! Compute rowsum of mass matrix to obtain lumped mass matrix
        Rows => Matrix % Rows
@@ -692,6 +695,8 @@ CONTAINS
          END DO
          ML(i) = msum 
        END DO
+
+       PRINT *,'SUMs:',SUM(ML),SUM(Matrix % MassValues)
      END IF
 
 !------------------------------------------------------------------------------
@@ -725,6 +730,7 @@ CONTAINS
        CALL NewmarkBeta_CRS( dt, Matrix, Force, PrevSol(:,1), Solver % Beta )
 
      END SELECT
+
 !------------------------------------------------------------------------------
    END SUBROUTINE Add1stOrderTime_CRS
 !------------------------------------------------------------------------------
@@ -3539,6 +3545,19 @@ END FUNCTION SearchNodeL
     INTEGER :: Order
     LOGICAL :: Found
 !------------------------------------------------------------------------------
+
+    IF ( Solver % Matrix % FORMAT == MATRIX_LIST ) THEN
+      CALL List_toCRSMatrix(Solver % Matrix)
+    END IF
+
+    IF( ListGetLogical( Solver % Values,'Linear System FCT',Found ) ) THEN
+      IF( Solver % Variable % Dofs == 1 ) THEN
+        CALL CRS_FCTLowOrder( Solver % Matrix )
+      ELSE
+        CALL Fatal('FinishAssembly','FCT scheme implemented only for one dof')
+      END IF
+    END IF
+
     Simulation = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
     IF ( Simulation == 'transient' ) THEN
       Method = ListGetString( Solver % Values, 'Timestepping Method' )
@@ -3552,22 +3571,6 @@ END FUNCTION SearchNodeL
                 ( 1 - Solver % Beta ) * Solver % Matrix % Force(:,2)
       END IF
     END IF
-
-    IF ( Solver % Matrix % FORMAT == MATRIX_LIST ) THEN
-      CALL List_toCRSMatrix(Solver % Matrix)
-    END IF
-
-    IF( ListGetLogical( Solver % Values,'Linear System FCT',Found ) ) THEN
-      IF( Solver % Variable % Dofs == 1 ) THEN
-        CALL CRS_FCTLowOrder( Solver % Matrix )
-      ELSE
-        CALL Fatal('FinishAssembly','FCT scheme implemented only for one dof')
-      END IF
-
-      ! This enforces the time-integration to be performed in a lumped way
-      Solver % Matrix % Lumped = .TRUE.
-    END IF
-
 
 !------------------------------------------------------------------------------
   END SUBROUTINE FinishAssembly

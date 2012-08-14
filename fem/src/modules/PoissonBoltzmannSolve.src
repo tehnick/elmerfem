@@ -319,6 +319,7 @@
 !        should be calculated
 !------------------------------------------------------------------------------
          CurrentElement => Solver % Mesh % Elements(Solver % ActiveElements(t))
+         Model % CurrentElement => CurrentElement
          
          NodeIndexes => CurrentElement % NodeIndexes         
          n = CurrentElement % TYPE % NumberOfNodes
@@ -350,8 +351,7 @@
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-         CALL UpdateGlobalEquations( StiffMatrix,LocalStiffMatrix, &
-             ForceVector, LocalForce,n,1,PotentialPerm(NodeIndexes) )
+         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 !------------------------------------------------------------------------------
        END DO
 
@@ -364,6 +364,7 @@
            Solver % Mesh % NumberOfBoundaryElements
          
          CurrentElement => Solver % Mesh % Elements(t)
+         Model % CurrentElement => CurrentElement
 !------------------------------------------------------------------------------
 !       the element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip em.
@@ -406,8 +407,7 @@
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
 !------------------------------------------------------------------------------
-             CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-                 ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
+             CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 !------------------------------------------------------------------------------
            END IF ! of currentelement bc == bcs(i)
          END DO ! of i=1,model bcs
@@ -420,12 +420,10 @@
 !    Dirichlet boundary settings. Actually no need to call it except for
 !    transient simulations.
 !------------------------------------------------------------------------------
-       CALL FinishAssembly( Solver,ForceVector )
+       CALL DefaultFinishAssembly( )
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-!       CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-!           ComponentName(Solver % Variable),1,1,PotentialPerm )
 
        CALL DefaultDirichletBCs( )
 
@@ -454,7 +452,6 @@
        IF ( RelativeChange < NewtonTol ) NewtonLinearization = .TRUE.
 
        IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
-
      END DO
 
 

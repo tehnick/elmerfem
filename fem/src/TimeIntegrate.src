@@ -440,12 +440,13 @@ CONTAINS
     Stiff => Matrix % Values
     Mass => Matrix % MassValues
 
+
     IF( Matrix % Lumped ) THEN
       MassL => Matrix % MassValuesLumped
-!$omp parallel do private(j,uj,ui,su,mu)
+!$omp parallel do private(j,uj,ui,su)
       DO i=1,n
         su = 0.0_dp
-        ! lumped mass
+        ! lumped st
         DO j=Rows(i),Rows(i+1)-1
           uj = PrevSolution(Cols(j))
           su = su + Stiff(j) * uj
@@ -454,7 +455,7 @@ CONTAINS
         ui = PrevSolution(Cols(j))
 
         Force(i) = Force(i) + (1-Beta)*su + (1._dp/dt)*MassL(i)*ui
-        Stiff(j) = Beta * Stiff(j) + (1._dp/dt) * MassL(i)
+        Stiff(j) = Beta * Stiff(j) + (1.0d0/dt) * MassL(i)
       END DO
 !$omp end parallel do
     ELSE
