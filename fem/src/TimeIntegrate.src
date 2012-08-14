@@ -53,6 +53,7 @@ CONTAINS
 !> This is used also for Implicit Euler with beta=1.0 and
 !> Crank-Nicolson with beta=0.5.
 !------------------------------------------------------------------------------
+
    SUBROUTINE NewmarkBeta( N, dt, MassMatrix, StiffMatrix, &
                    Force, PrevSolution, Beta )
 !------------------------------------------------------------------------------
@@ -68,14 +69,14 @@ CONTAINS
     NB = SIZE( StiffMatrix,1 )
 
     DO i=1,NB
-      s = 0.0d0
-      DO j=1,N
-            s = s + (1.0d0/dt) * MassMatrix(i,j) * PrevSolution(j) - &
+      s = 0.0_dp
+      DO j=1,n
+            s = s + (1/dt) * MassMatrix(i,j) * PrevSolution(j) - &
                       (1-Beta) * StiffMatrix(i,j) * PrevSolution(j)
       END DO
 
-      DO j=1,NB
-         StiffMatrix(i,j) = Beta * StiffMatrix(i,j) + (1.0d0/dt)*MassMatrix(i,j)
+      DO j=1,n
+         StiffMatrix(i,j) = Beta * StiffMatrix(i,j) + (1/dt)*MassMatrix(i,j)
       END DO
       Force(i) = Force(i) + s
     END DO
