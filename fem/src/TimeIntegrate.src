@@ -62,20 +62,21 @@ CONTAINS
     REAL(KIND=dp) :: MassMatrix(:,:),StiffMatrix(:,:),Beta
 
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,NB
+    INTEGER :: i,j,NB1,NB2
 
     REAL(KIND=dp) :: s
 !------------------------------------------------------------------------------
-    NB = SIZE( StiffMatrix,1 )
+    NB1 = SIZE( StiffMatrix,1 )
+    NB2 = SIZE( StiffMatrix,2 )
 
-    DO i=1,NB
+    DO i=1,NB1
       s = 0.0_dp
       DO j=1,n
             s = s + (1/dt) * MassMatrix(i,j) * PrevSolution(j) - &
                       (1-Beta) * StiffMatrix(i,j) * PrevSolution(j)
       END DO
 
-      DO j=1,n
+      DO j=1,NB2
          StiffMatrix(i,j) = Beta * StiffMatrix(i,j) + (1/dt)*MassMatrix(i,j)
       END DO
       Force(i) = Force(i) + s
