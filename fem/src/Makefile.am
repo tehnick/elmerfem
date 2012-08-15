@@ -20,7 +20,7 @@ endif
 
 all-local: $(ELMER_TARGETS)
 
-SUFFIXES: .f90 .so .src 
+SUFFIXES: .f90 .so .src .cpp
 
 if USE_CPP
 # Use basic CPP
@@ -37,6 +37,9 @@ else
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) $(FORTRAN_CPP_FLAG) $(FCPPFLAGS) -c $<
 endif
+
+.cxx.$(OBJEXT):
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 
 nofdeps:
 	sed -e "s/^\([^:^#]*\...OBJEXT.: \)/#\1/g" Makefile > Makefile.nodeps

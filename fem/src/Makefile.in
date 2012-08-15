@@ -513,7 +513,7 @@ EXTRA_DIST = \
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .$(OBJEXT) .$(SHLEXT) .c .f90 .o .obj .src
+.SUFFIXES: .$(OBJEXT) .$(SHLEXT) .c .cxx .f90 .o .obj .src
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/make.lib $(srcdir)/make.dep $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -962,7 +962,7 @@ Walls.$(OBJEXT): Walls.f90
 
 all-local: $(ELMER_TARGETS)
 
-SUFFIXES: .f90 .so .src 
+SUFFIXES: .f90 .so .src .cpp
 
 # Use basic CPP
 @USE_CPP_TRUE@.src.f90:
@@ -976,6 +976,9 @@ SUFFIXES: .f90 .so .src
 
 @USE_CPP_FALSE@.f90.$(OBJEXT):
 @USE_CPP_FALSE@	$(FC) $(FCFLAGS) $(FORTRAN_CPP_FLAG) $(FCPPFLAGS) -c $<
+
+.cxx.$(OBJEXT):
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 
 nofdeps:
 	sed -e "s/^\([^:^#]*\...OBJEXT.: \)/#\1/g" Makefile > Makefile.nodeps
