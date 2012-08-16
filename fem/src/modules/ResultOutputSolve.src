@@ -69,12 +69,12 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   CALL Info( 'ResultOutputSolver', '-------------------------------------')
 
   Params => Solver % Values
-  SaveGid = ListGetLogical(Params,'Gid Format',Found)
-  SaveGmsh = ListGetLogical(Params,'Gmsh Format',Found)
-  SaveVTK = ListGetLogical(Params,'VTK Format',Found)
-  SaveVTU = ListGetLogical(Params,'VTU Format',Found)
-  SaveOpenDx = ListGetLogical(Params,'Dx Format',Found)
-  SaveEP = ListGetLogical(Params,'Elmerpost Format',Found)
+  SaveGid = GetLogical(Params,'Gid Format',Found)
+  SaveGmsh = GetLogical(Params,'Gmsh Format',Found)
+  SaveVTK = GetLogical(Params,'VTK Format',Found)
+  SaveVTU = GetLogical(Params,'VTU Format',Found)
+  SaveOpenDx = GetLogical(Params,'Dx Format',Found)
+  SaveEP = GetLogical(Params,'Elmerpost Format',Found)
 
   OutputFormat = GetString( Params, 'Output Format', Found )
   IF(Found) THEN
@@ -100,18 +100,18 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
 
   IF( .NOT. SubroutineVisited ) THEN
-    IF ( ListGetLogical(Params,'Show Variables',Found) ) THEN
+    IF ( GetLogical(Params,'Show Variables',Found) ) THEN
       CALL CreateListForSaving( Model, Params,.TRUE. )    
     END IF
   END IF
 
   SaveAny = SaveGid .OR. SaveVTK .OR. SaveVTU .OR. SaveOpenDX .OR. SaveGmsh .OR. SaveEp
   IF(.NOT. SaveAny ) THEN
-    CALL Warn('ResultOutputSolver','No output format was defined')
-    RETURN
+    CALL Warn('ResultOutputSolver','No output format given, assuming VTU')
+    SaveVTU = .TRUE.
   END IF
 
-  FilePrefix = ListGetString( Params,'Output File Name',Found)
+  FilePrefix = GetString( Params,'Output File Name',Found)
   IF(.NOT. Found) THEN
     FilePrefix = 'Case'
     CALL ListAddString( Params,'Output File Name',FilePrefix)
@@ -149,7 +149,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 
     ! Optionally skip the writing of given meshes 
     !---------------------------------------------------------------    
-    MeshName = ListGetString( Params,'Mesh Name',Found )
+    MeshName = GetString( Params,'Mesh Name',Found )
     IF(Found) THEN
       nlen = StringToLowerCase( iMeshName, iMesh % Name ) 
       nlen = LEN_TRIM(MeshName)
@@ -269,7 +269,7 @@ END SUBROUTINE ResultOutputSolver
     Mesh => Model % Mesh
 
     IF ( .NOT.PRESENT(ONOEfound) ) THEN
-      ExtCount = ListGetInteger( Solver % Values,'Output Count',GotIt)
+      ExtCount = GetInteger( Solver % Values,'Output Count',GotIt)
     
       IF( GotIt ) THEN
         SavedCount = ExtCount 
@@ -284,7 +284,7 @@ END SUBROUTINE ResultOutputSolver
     IF( GotIt ) THEN
       TimeCount = SUM(TimeSteps)
     ELSE 
-      TimeCount = ListGetInteger( Model % Simulation,'Steady State Max Iterations')
+      TimeCount = GetInteger( Model % Simulation,'Steady State Max Iterations')
     END IF
     
     FilePrefix = GetString( Solver % Values,'Output File Name',GotIt )
@@ -328,10 +328,10 @@ END SUBROUTINE ResultOutputSolver
     FreeSurfaceFlag = .FALSE.
     MoveBoundary    = .FALSE.
     DO i=1,CurrentModel % NumberOfBCs
-      FreeSurfaceFlag = FreeSurfaceFlag .OR. ListGetLogical( &
+      FreeSurfaceFlag = FreeSurfaceFlag .OR. GetLogical( &
           CurrentModel % BCs(i) % Values,'Free Surface', GotIt )
       IF ( FreeSurfaceFlag ) THEN
-        MoveBoundary =  ListGetLogical( &
+        MoveBoundary =  GetLogical( &
             CurrentModel % BCs(i) % Values,'Internal Move Boundary', GotIt )
         
         IF ( .NOT. GotIt ) MoveBoundary = .TRUE.
@@ -345,7 +345,7 @@ END SUBROUTINE ResultOutputSolver
 !------------------------------------------------------------------------------
 ! Initialize stuff for masked saving
 !------------------------------------------------------------------------------
-    Str = ListGetString( Solver % Values,'Mask Variable',MaskExists)
+    Str = GetString( Solver % Values,'Mask Variable',MaskExists)
     MaskAllocated = .FALSE.
     IF( MaskExists ) THEN
       MaskVar => VariableGet(Solver % Mesh % Variables,TRIM(Str))
@@ -355,11 +355,11 @@ END SUBROUTINE ResultOutputSolver
       END IF
     ELSE
       IF( MeshDim == 2 ) THEN
-        Str = ListGetString( Solver % Values,'2D Mask Name',GotIt)    
+        Str = GetString( Solver % Values,'2D Mask Name',GotIt)    
       ELSE IF( MeshDim == 3 ) THEN  
-        Str = ListGetString( Solver % Values,'3D Mask Name',GotIt)    
+        Str = GetString( Solver % Values,'3D Mask Name',GotIt)    
       END IF
-      IF(.NOT. GotIt) Str = ListGetString( Solver % Values,'Mask Name',GotIt) 
+      IF(.NOT. GotIt) Str = GetString( Solver % Values,'Mask Name',GotIt) 
       IF( GotIt ) THEN
         ALLOCATE( MaskPerm( Model % NumberOfNodes ) ) 
         CALL MakePermUsingMask( Model,Solver,Mesh,Str, &
@@ -412,7 +412,7 @@ END SUBROUTINE ResultOutputSolver
     
     Dofs = 0
     ScalarFields = 0
-    On_nodes_on_elements=0
+    On_nodes_on_elements = 0
     DO Vari = 1, 99
       WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
       VarName=ListGetString( Solver % Values, Txt, Found )
@@ -3062,14 +3062,14 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 
   Params => GetSolverParams()
 
-  ExtCount = ListGetInteger( Params,'Output Count',GotIt)
+  ExtCount = GetInteger( Params,'Output Count',GotIt)
   IF( GotIt ) THEN
     nTime = ExtCount
   ELSE
     nTime = nTime + 1
   END IF
 
-  FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
+  FileIndexOffset = GetInteger( Params,'Fileindex offset',GotIt)
   FileIndex = nTime + FileIndexOffset
 
   BinaryOutput = GetLogical( Params,'Binary Output',GotIt)
@@ -3104,7 +3104,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 
   Partitions = ParEnv % PEs
   Part = ParEnv % MyPE
-  Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
+  Parallel = (Partitions > 1) .OR. GetLogical(Params,'Enforce Parallel format',GotIt)
 
   FixedMesh = ListGetLogical(Params,'Fixed Mesh',GotIt)
   Mesh => Model % Mesh
@@ -3115,7 +3115,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   ! Initialize stuff for masked saving
   !------------------------------------------------------------------------------
   MaskAllocated = .FALSE.
-  Str = ListGetString( Params,'Mask Variable',MaskExists)
+  Str = GetString( Params,'Mask Variable',MaskExists)
   IF( MaskExists ) THEN
     MaskVar => VariableGet(Model % Variables,TRIM(Str))
     IF( ASSOCIATED(MaskVar)) MaskPerm => MaskVar % Perm
@@ -3125,11 +3125,11 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
   ELSE
     IF( MeshDim == 2 ) THEN
-      Str = ListGetString( Params,'2D Mask Name',GotIt)    
+      Str = GetString( Params,'2D Mask Name',GotIt)    
     ELSE IF( MeshDim == 3 ) THEN  
-      Str = ListGetString( Params,'3D Mask Name',GotIt)    
+      Str = GetString( Params,'3D Mask Name',GotIt)    
     END IF
-    IF(.NOT. GotIt) Str = ListGetString( Params,'Mask Name',GotIt) 
+    IF(.NOT. GotIt) Str = GetString( Params,'Mask Name',GotIt) 
     IF( GotIt ) THEN
       ALLOCATE( MaskPerm( Mesh % NumberOfNodes ) ) 
       CALL MakePermUsingMask( Model,Solver,Mesh,Str, &
@@ -3178,7 +3178,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
         CALL Info('VtuOutputSolver',Message)
       END IF
     END IF
-  ELSE IF( ListGetLogical( Params,'Save Boundaries Only',GotIt ) ) THEN
+  ELSE IF( GetLogical( Params,'Save Boundaries Only',GotIt ) ) THEN
     ElemFirst = Mesh % NumberOfBulkElements + 1
     ElemLast = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
     NumberOfElements =  Mesh % NumberOfBoundaryElements
@@ -3206,7 +3206,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END DO
     MaskExists = .TRUE.
     CALL Info('VtuOutputSolver','Created a mask for all boundaries')       
-  ELSE IF( ListGetLogical( Params,'Save Bulk Only',GotIt ) ) THEN
+  ELSE IF( GetLogical( Params,'Save Bulk Only',GotIt ) ) THEN
     ElemFirst = 1
     ElemLast = Mesh % NumberOfBulkElements 
     NumberOfElements =  Mesh % NumberOfBulkElements
@@ -3220,7 +3220,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
 
   IF( BinaryOutput ) THEN
-    BufferSize = ListGetInteger( Params,'Binary Output Buffer Size',GotIt)
+    BufferSize = GetInteger( Params,'Binary Output Buffer Size',GotIt)
     IF( .NOT. GotIt ) BufferSize = MAX( NumberOfNodes, NumberOfElements )
     ALLOCATE( Ivals( BufferSize ) ) 
     IF( SinglePrec ) THEN
@@ -3230,7 +3230,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
-  Dir = ListGetString( Params,'Output Directory',GotIt) 
+  Dir = GetString( Params,'Output Directory',GotIt) 
   IF(.NOT. GotIt ) THEN
     IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
       Dir = TRIM(Mesh % Name) 
@@ -3245,14 +3245,14 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( GotActiveModes ) THEN
     MaxModes = SIZE( ActiveModes )
   ELSE
-    MaxModes = ListGetInteger( Params,'Number of EigenModes',GotIt)
-    IF(.NOT. GotIt) MaxModes = ListGetInteger( Params,'Eigen System Values',GotIt)
+    MaxModes = GetInteger( Params,'Number of EigenModes',GotIt)
+    IF(.NOT. GotIt) MaxModes = GetInteger( Params,'Eigen System Values',GotIt)
     IF(.NOT. GotIt) THEN
       DO i=1,Model % NumberOfSolvers
         MaxModes = MAX( MaxModes, &
-            ListGetInteger( Model % Solvers(i) % Values,'Eigen System Values', GotIt ) )
+            GetInteger( Model % Solvers(i) % Values,'Eigen System Values', GotIt ) )
         MaxModes = MAX( MaxModes, &
-            ListGetInteger( Model % Solvers(i) % Values,'Harmonic System Values', GotIt ) )       
+            GetInteger( Model % Solvers(i) % Values,'Harmonic System Values', GotIt ) )       
       END DO
     END IF     
   END IF
@@ -3263,7 +3263,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     FileIndex = 1
   END IF
 
-  WriteIds = ListGetLogical( Params,'Save Geometry Ids',GotIt)  
+  WriteIds = GetLogical( Params,'Save Geometry Ids',GotIt)  
   IF( ElemFirst <= Mesh % NumberOfBulkElements ) THEN
     BCOffset = 100
     DO WHILE( BCOffset <= Model % NumberOfBodies ) 
@@ -3910,7 +3910,7 @@ CONTAINS
       IF( WriteXML ) THEN
         CALL Info('WriteVtuFile','Writing body and BC indexes')
 
-        WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="Ids"'
+        WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="GeometryIds"'
         CALL StrWrite( OutStr )
           
         IF( AsciiOutput ) THEN
@@ -4453,9 +4453,9 @@ CONTAINS
     IF( WriteIds ) THEN
       WRITE( VtuUnit,'(A)') '      <PCellData>'
       IF( AsciiOutput ) THEN
-        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="Ids" format="ascii"/>'
+        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="GeometryIds" format="ascii"/>'
       ELSE
-        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="Ids" format="appended"/>'        
+        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="GeometryIds" format="appended"/>'        
       END IF
       WRITE( VtuUnit,'(A)') '      </PCellData>'
     END IF
