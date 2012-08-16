@@ -1387,7 +1387,9 @@ CONTAINS
                CALL Info( 'InterpolateMeshToMesh','All nodes still found by N^2 dummy search!' )               
              END IF
            END IF
-           IF( TotFails > 0 ) THEN
+           IF( TotFails == 0 ) THEN
+             CALL Info('InterpolateMeshToMesh','Found all nodes in the target mesh',Level=6)
+           ELSE
              WRITE( Message,'(A,I0)') 'Number of points not found: ',TotFails
              CALL Warn( 'InterpolateMeshToMesh', Message )
            END IF
