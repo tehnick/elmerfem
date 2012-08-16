@@ -175,9 +175,9 @@ static void Instructions()
   printf("-partjoin int        : number of partitions in the data to be joined\n");
   printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
-  printf("-partoptim           : apply agressive optimization to node sharing\n");
-  printf("-partbw              : minimize the bandwith of partition-partion couplings\n");
-  printf("-parthypre           : number the nodes continously partitionwise\n");
+  printf("-partoptim           : apply aggressive optimization to node sharing\n");
+  printf("-partbw              : minimize the bandwidth of partition-partion couplings\n");
+  printf("-parthypre           : number the nodes continuously partitionwise\n");
 
   if(0) printf("-names               : conserve name information where applicable\n");
 #if 0
