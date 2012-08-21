@@ -1,7 +1,7 @@
 # A poisson equation solver using the coupled system routines
 #
 run:
-	$(ELMER_GRID) 1 2 angle
+#	$(ELMER_GRID) 1 2 angle
 	$(ELMER_SOLVER)
 
 
