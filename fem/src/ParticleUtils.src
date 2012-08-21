@@ -4852,7 +4852,7 @@ PRINT *,'NoPeriodic',NoPeriodic
       INTEGER, POINTER :: Perm(:), Perm2(:), Indexes(:)
       REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:),Values(:),Values2(:),&
           Values3(:),Basis(:)
-      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,VALUE
+      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,val
       TYPE(Nodes_t) :: Nodes      
       TYPE(Element_t), POINTER :: Element
       TYPE(Variable_t), POINTER :: ParticleVar
@@ -5008,16 +5008,16 @@ PRINT *,'NoPeriodic',NoPeriodic
 
             stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
             
-            VALUE = 0.0_dp
+            val = 0.0_dp
             IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-              VALUE = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+              val = SUM( Basis(1:n) * Values(Perm(Indexes)) )
             ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-              VALUE = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+              val = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
             END IF
           END IF
           
-          IF( ABS( VALUE ) > TINY( VALUE ) ) THEN
-            WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE             
+          IF( ABS( val ) > TINY( val ) ) THEN
+            WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') val             
           ELSE
             WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
           END IF
@@ -5156,31 +5156,33 @@ PRINT *,'NoPeriodic',NoPeriodic
             stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
 
             DO k=1,sdofs                  
-              VALUE = 0.0_dp
+              val = 0.0_dp
               IF( k <= dofs ) THEN
                 IF( ComponentVector ) THEN
                   IF( ALL( Perm( Indexes ) > 0 ) ) THEN
                     IF( k == 1 ) THEN
-                      VALUE = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                      val = SUM( Basis(1:n) * Values(Perm(Indexes)) )
                     ELSE IF( k == 2 ) THEN
-                      VALUE = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+                      val = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
                     ELSE
-                      VALUE = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
+                      val = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
                     END IF
                   END IF
                 ELSE 
                   IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-                    VALUE = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+k) )
-                  ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-                    VALUE = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+k) )
+                    val = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+k) )
+                  ELSE IF ( ComplementExists ) THEN
+                    IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
+                      val = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+k) )
+                    END IF
                   END IF
                 END IF
               END IF
               
-              IF( ABS( VALUE ) < TINY( VALUE ) ) THEN
+              IF( ABS( val ) < TINY( val ) ) THEN
                 WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
               ELSE 
-                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
+                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') val
               END IF
               
             END DO
@@ -5231,15 +5233,15 @@ PRINT *,'NoPeriodic',NoPeriodic
             
           stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
 
-          VALUE = SUM( Basis(1:n) * Nodes % x(1:n) )
-          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
+          val = SUM( Basis(1:n) * Nodes % x(1:n) )
+          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') val
 
-          VALUE = SUM( Basis(1:n) * Nodes % y(1:n) )
-          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
+          val = SUM( Basis(1:n) * Nodes % y(1:n) )
+          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') val
 
 	  IF( dim == 3 ) THEN
-            VALUE = SUM( Basis(1:n) * Nodes % z(1:n) )
-            WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') VALUE
+            val = SUM( Basis(1:n) * Nodes % z(1:n) )
+            WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') val
           END IF
         END IF
 
@@ -5546,7 +5548,7 @@ PRINT *,'NoPeriodic',NoPeriodic
       INTEGER, POINTER :: Perm(:), Perm2(:), Indexes(:)
       REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:),Values(:),Values2(:),&
           Values3(:),Basis(:)
-      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,VALUE
+      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,val
       REAL :: fvalue
       TYPE(Nodes_t) :: Nodes      
       TYPE(Element_t), POINTER :: Element
@@ -5742,7 +5744,7 @@ PRINT *,'NoPeriodic',NoPeriodic
             IF( SinglePrec ) THEN
               k = GridPoints * KIND( fvalue ) * sdofs
             ELSE
-              k = GridPoints * KIND( VALUE ) * sdofs
+              k = GridPoints * KIND( val ) * sdofs
             END IF
             Offset = Offset + KIND(i) + k
             IF( WriteData ) WRITE( VtiUnit ) k
@@ -5765,8 +5767,8 @@ PRINT *,'NoPeriodic',NoPeriodic
                         fvalue = 0.0
                         WRITE( VtiUnit ) fvalue                          
                       ELSE
-                        VALUE = 0.0_dp
-                        WRITE( VtiUnit ) VALUE                          
+                        val = 0.0_dp
+                        WRITE( VtiUnit ) val                          
                       END IF
                     END DO
                   ELSE
@@ -5789,39 +5791,41 @@ PRINT *,'NoPeriodic',NoPeriodic
                     stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
                     
                     DO l=1,sdofs                  
-                      VALUE = 0.0_dp
+                      val = 0.0_dp
                       IF( l <= dofs ) THEN
                         IF( ComponentVector ) THEN
                           IF( ALL( Perm( Indexes ) > 0 ) ) THEN
                             IF( l == 1 ) THEN
-                              VALUE = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                              val = SUM( Basis(1:n) * Values(Perm(Indexes)) )
                             ELSE IF( l == 2 ) THEN
-                              VALUE = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+                              val = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
                             ELSE
-                              VALUE = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
+                              val = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
                             END IF
                           END IF
                         ELSE 
                           IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-                            VALUE = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+l) )
-                          ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-                            VALUE = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+l) )
+                            val = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+l) )
+                          ELSE IF( ComplementExists ) THEN
+                            IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
+                              val = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+l) )
+                            END IF
                           END IF
                         END IF
                       END IF
                       
                       IF( AsciiOutput ) THEN
-                        IF( ABS( VALUE ) < TINY( VALUE ) ) THEN
+                        IF( ABS( val ) < TINY( val ) ) THEN
                           WRITE( OutStr,'(A)') ' 0.0'  
                         ELSE 
-                          WRITE( OutStr,'(ES16.7E3)') VALUE
+                          WRITE( OutStr,'(ES16.7E3)') val
                         END IF
                         CALL StrWrite( OutStr )
                       ELSE IF( SinglePrec ) THEN
-                        fvalue = VALUE
+                        fvalue = val
                         WRITE( VtiUnit ) fvalue
                       ELSE
-                        WRITE( VtiUnit ) VALUE
+                        WRITE( VtiUnit ) val
                       END IF
 
                     END DO
