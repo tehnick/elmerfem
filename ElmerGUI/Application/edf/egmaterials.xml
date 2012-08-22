@@ -230,19 +230,29 @@
     <parameter name="Viscosity" >Variable Temperature; Real MATC "(2.0*3.0*1.916E03 * exp( -139.0E03/(8.314 *(tx+273.15))))^(-1.0/3.0)</parameter>
    </material>
 
-
-  <material name="Silicon (isotropic, 25 C)" >
+  <material name="Silicon (solid)" >
     <parameter name="Density" >2330.0</parameter>
     <parameter name="Youngs modulus" >185.0e9</parameter>    
     <parameter name="Poisson ratio" >0.28</parameter>    
     <parameter name="Heat expansion coeff." >4.68e-6</parameter>
-    <parameter name="Heat conductivity" >148.</parameter>
+    <parameter name="Heat conductivity" >Variable Temperature; Real; 0 156; 300 156; 550 72; 800 43; 1050 29; 1300 25; 1550 23; 1800 21; 3000 21; End</parameter>
     <parameter name="Heat capacity" >555.8</parameter>
+    <parameter name="Emissivity" >0.7</parameter>
     <parameter name="Electric resistivity" >1.0e3</parameter>
     <parameter name="Electric conductivity" >1.0e-3</parameter>
     <parameter name="Sound speed" >8433.0</parameter>
     <parameter name="Melting Point" >1683.0</parameter>
+    <parameter name="Latent heat" >1.8e6</parameter>
   </material>
+  
+  <material name="Silicon (liquid)" >
+    <parameter name="Liquid" >Logical True</parameter>
+    <parameter name="Viscosity" >8.0e-4</parameter>
+    <parameter name="Density" >2570</parameter>
+    <parameter name="Heat conductivity" >50.0</parameter>
+    <parameter name="Emissivity" >0.3</parameter>
+    <parameter name="Heat expansion coeff." >1.08e-4</parameter>
+ </material>
 
   <material name="Fused Silica (25 C)" >
    <parameter name="Density" >2200.0</parameter>
@@ -255,5 +265,5 @@
     <parameter name="Relative Permittivity" >3.75</parameter>
     <parameter name="Melting Point" >1956.0</parameter>
   </material>
-
+ 
 </materiallibrary>
