@@ -18,6 +18,7 @@ DEFINES -= EG_PYTHONQT # Use PythonQt for scripting in post processor?
 #------------------------------------------------------------------------------
 BITS = 32
 
+
 #------------------------------------------------------------------------------
 # Installation directory:
 #------------------------------------------------------------------------------
@@ -26,7 +27,7 @@ isEmpty(ELMERGUI_HOME) {
    ELMER_HOME = $$(ELMER_HOME)
    isEmpty(ELMER_HOME) {
       unix: ELMER_HOME = /usr/local
-      win32: ELMER_HOME = c:\Elmer5.4
+      win32: ELMER_HOME = c:/Elmer7
       macx: ELMER_HOME = /usr/local
    }
    ELMERGUI_HOME = $${ELMER_HOME}/bin
@@ -42,8 +43,8 @@ unix {
 }
 
 win32 {
-   PY_INCLUDEPATH = c:\PYTHON\Python-2.6.1\Include
-   PY_LIBPATH = c:\PYTHON\Python-2.6.1\PCbuild
+   PY_INCLUDEPATH = c:/PYTHON/Python-2.6.1/Include
+   PY_LIBPATH = c:/PYTHON/Python-2.6.1/PCbuild
    PY_LIBS = -lpython26
 }
 
@@ -60,8 +61,8 @@ unix {
 }
 
 win32 {
-  QWT_INCLUDEPATH = c:\Source\Qwt\include
-  QWT_LIBPATH = c:\Source\Qwt\lib
+  QWT_INCLUDEPATH = c:/Source/Qwt/include
+  QWT_LIBPATH = c:/Source/Qwt/lib
   QWT_LIBS = -lqwt5
 }
 
@@ -95,8 +96,8 @@ unix {
 }
 
 win32 {
-   VTK_INCLUDEPATH = c:\Source\VTK\include\vtk-5.4
-   VTK_LIBPATH = c:\Source\VTK\lib\vtk-5.4
+   VTK_INCLUDEPATH = c:/Source/VTK/include/vtk-5.4
+   VTK_LIBPATH = c:/Source/VTK/lib/vtk-5.4
    VTK_LIBS = -lQVTK \
               -lvtkCommon \
               -lvtkDICOMParser \
