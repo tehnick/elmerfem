@@ -73,12 +73,12 @@ if (ierr) {std::cout<<"Trilinos Error "<<ierr<<" returned from call "<<#funcall<
 #include "ml_MultiLevelPreconditioner.h"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#ifdef DEBUG_TRILINOS_INTERFACE
+//#ifdef DEBUG_TRILINOS_INTERFACE
 // only for debugging
 #include "EpetraExt_RowMatrixOut.h"
 #include "EpetraExt_MultiVectorOut.h"
 #include "EpetraExt_BlockMapOut.h"
-#endif
+//#endif
 
 #ifdef HAVE_MPI
 #include <mpi.h>
@@ -368,7 +368,8 @@ try {
 
    if (print_matrix)
    {
-#ifdef DEBUG_TRILINOS_INTERFACE
+#if 1
+//#ifdef DEBUG_TRILINOS_INTERFACE
    std::string filename = params->get("Filename Base","Trilinos")+"Matrix.mtx";
    CHECK_ZERO(EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),*A));
 #else
@@ -707,6 +708,23 @@ std::cerr << "PID "<<Container->comm_->MyPID()<<": destroy Trilinos object "<<st
   MPI_Barrier(MPI_COMM_WORLD);
   }                                                                                                                                         
 
+// this function deletes ALL Trilinos objects created by Elmer that     
+// have not been destroyed properly, yet (by SolveTrilinos4).           
+// It should only be called at the very end of an Elmer run.            
+void TrilinosCleanup(void)
+  {
+#ifdef DEBUG_TRILINOS_INTERFACE  
+  std::cout << "Destroying all remaining Trilinos objects..."<<std::endl;
+#endif
+  Teuchos::RCP<struct ElmerTrilinosContainer> c = containerListHead;
+  while (c!=Teuchos::null)
+    {
+    c=c->next_;
+    if (c!=Teuchos::null) c->previous_ = Teuchos::null;
+    }
+  containerListHead = Teuchos::null;
+  }
+
 }//extern "C"
 
 // creates the map without overlap
@@ -847,6 +865,18 @@ Teuchos::RCP<Epetra_Operator> createMLPreconditioner(
         Teuchos::RCP<Epetra_MultiVector> coords)
   {
   Teuchos::ParameterList& mlParams = params.sublist("ML");
+ 
+  std::string defaults = "SA";
+  if (mlParams.isParameter("default values"))
+    {
+    defaults = mlParams.get("default values",defaults);
+    }
+  else if (mlParams.isParameter("SetDefaults"))
+    {
+    defaults = mlParams.get("SetDefaults",defaults);
+    }
+  
+  ML_Epetra::SetDefaults(defaults,mlParams,NULL,NULL,false);
   
   if (mlParams.get("aggregation: aux: enable",false)==true)
     {

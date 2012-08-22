@@ -107,6 +107,14 @@
 
      INTEGER :: iargc, NoArgs
 
+#ifdef HAVE_TRILINOS
+INTERFACE
+      SUBROUTINE TrilinosCleanup() bind(C,name='TrilinosCleanup')
+      IMPLICIT NONE
+      END SUBROUTINE TrilinosCleanup
+END INTERFACE
+#endif
+
      !
      ! If parallel execution requested, initialize parallel environment:
      !------------------------------------------------------------------
@@ -443,6 +451,10 @@
      IF ( Initialize /= 1 ) CALL Info( 'ElmerSolver', '*** Elmer Solver: ALL DONE ***',Level=3 )
 
      IF ( Initialize <=0 ) CALL FreeModel(CurrentModel)
+
+#ifdef HAVE_TRILINOS
+  CALL TrilinosCleanup()
+#endif
 
      IF ( ParEnv % PEs>1 )  CALL ParallelFinalize()
      CALL Info('ElmerSolver','The end',Level=3)
