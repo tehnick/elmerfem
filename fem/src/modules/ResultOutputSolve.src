@@ -3163,6 +3163,8 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       END DO
       DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
         CurrentElement => Mesh % Elements(i)
+        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE          
+
         IF( ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0) ) THEN
           NumberOfElements = NumberOfElements + 1
           ElemFirst = MIN( ElemFirst, i )
@@ -3187,6 +3189,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     MaskPerm = 0
     DO i=ElemFirst, ElemLast 
       CurrentElement => Mesh % Elements(i)
+      IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
       MaskPerm(CurrentElement % NodeIndexes) = 1
     END DO
     j = 0
@@ -3210,6 +3213,13 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     ElemFirst = 1
     ElemLast = Mesh % NumberOfBulkElements 
     NumberOfElements =  Mesh % NumberOfBulkElements
+
+    DO i=ElemFirst, ElemLast 
+      CurrentElement => Mesh % Elements(i)
+      IF( GetElementFamily( CurrentElement ) == 1 ) THEN
+        NumberOfElements = NumberOfElements - 1
+      END IF
+    END DO   
     NumberOfNodes = Mesh % NumberOfNodes
     CALL Info('VtuOutputSolver','Saving only bulk elements')       
   ELSE
@@ -3217,8 +3227,14 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     NumberOfElements = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
     ElemFirst = 1
     ElemLast = NumberOfElements
+ 
+   DO i=ElemFirst, ElemLast 
+      CurrentElement => Mesh % Elements(i)
+      IF( GetElementFamily( CurrentElement ) == 1 ) THEN
+        NumberOfElements = NumberOfElements - 1
+      END IF
+    END DO
   END IF
-
   IF( BinaryOutput ) THEN
     BufferSize = GetInteger( Params,'Binary Output Buffer Size',GotIt)
     IF( .NOT. GotIt ) BufferSize = MAX( NumberOfNodes, NumberOfElements )
@@ -3871,6 +3887,8 @@ CONTAINS
             ElemVectVal = 0.0
 
             CurrentElement => Model % Elements(i)
+            IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+
             IF( MaskExists ) THEN
               IF( ANY(MaskPerm(CurrentElement % NodeIndexes) == 0) ) CYCLE
             END IF
@@ -3932,6 +3950,8 @@ CONTAINS
         
         DO i = ElemFirst, ElemLast
           CurrentElement => Model % Elements(i)
+          IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+
           IF( MaskExists ) THEN
             IF( ANY(MaskPerm(CurrentElement % NodeIndexes) == 0) ) CYCLE
           END IF
@@ -4054,6 +4074,8 @@ CONTAINS
       k = 0
       DO i = ElemFirst, ElemLast
         CurrentElement => Model % Elements(i)
+        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+
         IF(MaskExists) THEN
           IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
         END IF
@@ -4069,6 +4091,8 @@ CONTAINS
 
       DO i = ElemFirst, ElemLast
         CurrentElement => Model % Elements(i)
+        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+
         n = GetElementNOFNodes(CurrentElement)
        
         IF(MaskExists) THEN
@@ -4119,6 +4143,8 @@ CONTAINS
       cumn = 0
       DO i = ElemFirst, ElemLast
         CurrentElement => Model % Elements(i)
+        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+
         IF(MaskExists) THEN
           IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
         END IF
@@ -4160,6 +4186,8 @@ CONTAINS
 
       DO i = ElemFirst, ElemLast
         CurrentElement => Model % Elements(i)
+        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+
         IF(MaskExists) THEN
           IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
         END IF
