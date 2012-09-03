@@ -1324,7 +1324,7 @@ CONTAINS
      INTEGER :: n,nd
      TYPE(Element_t), POINTER :: Element
 
-     INTEGER :: i,j,k,l,p,q, t, dim,elem, IND(9), BodyId,EqId
+     INTEGER :: i,j,k,l,p,q, t, dim,sdim,elem, IND(9), BodyId,EqId
      LOGICAL :: stat, CSymmetry, Isotropic(2), ComputeFlag
      INTEGER, POINTER :: Visited(:), Indexes(:), Permutation(:)
      REAL(KIND=dp) :: u,v,w,x,y,z,Strain(3,3),Stress(3,3),LGrad(3,3),detJ, &
@@ -1621,6 +1621,10 @@ CONTAINS
           IF ( StressPerm(i) <= 0 ) CYCLE       
           !Stresses: 
           p = 0
+
+          sdim=3
+          IF (dim==2.AND.PlaneStress) sdim=2
+
           DO j=1,3
             DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
               p = p+1
@@ -1628,15 +1632,16 @@ CONTAINS
               PriCache(j,k) = NodalStress(q)
             END DO
           END DO
+
           !Use lapack function to do solve eigenvalues (i.e. principal stresses)
-          CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
+          CALL DSYEV( 'N', 'U', sdim, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
           IF (PriInfo /= 0) THEN !error in dsyev
             PriW = 0; !we probably should put NaN in error
           END IF              
 
-          DO l=1,3
+          DO l=1,sdim
             ! eigenvalues are returned in opposite order 
-            PrincipalStress(3 * (StressPerm(i)-1 )+l) = PriW(4-l)                        
+            PrincipalStress(3 * (StressPerm(i)-1 )+l) = PriW(sdim+1-l)
           END DO
 
           IF(CalcPrincipalAngle) THEN
@@ -1671,9 +1676,9 @@ CONTAINS
                   PriCache(1,2) - PriCache(2,3) )
               PriAngT2 =(PriCache(1,1)-PriW(4-k))/(PriCache(1,2)) + &
                      PriAngT1*PriCache(1,3)/PriCache(1,2)
-              PriAngV(1) = (1/(1+PriAngT1**2 + PriAngT2**2))**0.5
+              PriAngV(1) = (1/(1+PriAngT1**2 + PriAngT2**2))**0.5_dp
               PriAngV(2) = -PriAngT2 * PriAngV(1)
-              PriAngV(3) = PriAngT1 * PriAngV(1)
+              PriAngV(3) =  PriAngT1 * PriAngV(1)
 
               PrincipalAngle(9 * (StressPerm(i)-1 ) +3*(k-1) + 1)    = &
                           (ACOS(PriAngV(1)) ) !angle in radians *360/6.28
@@ -1697,7 +1702,7 @@ CONTAINS
           
           !Strain:
           IF(CalculateStrains)THEN
-            p = 0
+            p=0
             DO j=1,3
               DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
                 p = p+1
@@ -1706,12 +1711,14 @@ CONTAINS
               END DO
             END DO
       
+            sdim=3; if(dim==2.AND..NOT.PlaneStress) sdim=2
+
             !Use lapack function to do solve eigenvalues
-            CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
+            CALL DSYEV( 'N', 'U', sdim, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
             IF(PriInfo /= 0) PriW = 0;
-            DO l=1,3
+            DO l=1,sdim
               ! eigenvalues are returned in opposite order 
-              PrincipalStrain(3 * (StressPerm(i)-1 )+l) = PriW(4-l)
+              PrincipalStrain(3 * (StressPerm(i)-1 )+l) = PriW(sdim+1-l)
             END DO
           END IF ! CalculateStrains
         END DO
