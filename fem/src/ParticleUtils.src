@@ -597,7 +597,7 @@ CONTAINS
       CALL Info('AllocateParticles','There are already enough particles')
       RETURN
     ELSE
-      WRITE(Message,*) 'Allocating number of particles:',NoParticles
+      WRITE(Message,'(A,I0)') 'Allocating number of particles: ',NoParticles
       CALL Info('AllocateParticles',Message)    
     END IF
     
@@ -3963,14 +3963,14 @@ RETURN
     INTEGER :: TimeCount = 0
     TYPE(Variable_t), POINTER :: TimeVar, DistVar, DtVar
     LOGICAL :: GotTimeVar, GotDistVar, MovingMesh
-    REAL(KIND=dp) :: Drag, Mass, ds, dCoord(3),Coord(3)
+    REAL(KIND=dp) :: Drag, Mass, ds, dCoord(3),Coord(3),Velo(3),Speed0,Speed
     INTEGER :: dim, Status, TimeOrder, No, NoMoving
     TYPE(ValueList_t), POINTER :: Params
     INTEGER :: NoParticles
-    LOGICAL :: Found, Visited = .FALSE.,RK2
+    LOGICAL :: Found, Visited = .FALSE.,RK2,HaveSpeed0
     
     SAVE TimeOrder, dim, Mass, Drag, Visited, dCoord, Coord, TimeCount, GotTimeVar, &
-	GotDistVar, TimeVar, DtVar, DistVar, MovingMesh
+	GotDistVar, TimeVar, DtVar, DistVar, MovingMesh,Speed0,HaveSpeed0
 
     
     IF(.NOT. Visited ) THEN
@@ -4008,6 +4008,8 @@ RETURN
  
       DistVar => ParticleVariableGet( Particles,'particle distance')
       GotDistVar = ASSOCIATED( DistVar )
+
+      Speed0 = GetCReal( Params,'Particle Speed Constant',HaveSpeed0 )      
     END IF
 
     NoParticles = Particles % NumberOfParticles
@@ -4051,14 +4053,23 @@ RETURN
         CALL Fatal('ParticleAdvanceTimestep','Unknown time order')
       END IF
 
-
       IF( RK2 .AND. RKStep == 2 ) THEN
-        dCoord(1:dim) = dtime * & 
+        Velo(1:dim) = &
           ( 2 * Particles % Velocity(No,:) - Particles % PrevVelocity(No,:) )
       ELSE
-        dCoord(1:dim) = dtime * Particles % Velocity(No,:) 	
+        Velo(1:dim) = Particles % Velocity(No,:) 	
       END IF
-      ds = SQRT( SUM( dCoord(1:dim)**2 ) )
+
+      IF( HaveSpeed0 ) THEN
+        Speed = SQRT( SUM( Velo(1:dim)**2 ) )
+        IF( Speed > TINY( Speed ) ) THEN
+          dCoord(1:dim) = dtime * Speed0 * Velo(1:dim) / Speed
+        ELSE
+          dCoord(1:dim) = 0.0_dp
+        END IF
+      ELSE
+        dCoord(1:dim) = dtime * Velo(1:dim) 
+      END IF
 
       Particles % PrevCoordinate(No,:) = Particles % Coordinate(No,:)
       Particles % PrevVelocity(No,:) = Particles % Velocity(No,:)
@@ -4070,7 +4081,8 @@ RETURN
       Particles % Coordinate(No,:) = Particles % Coordinate(No,:) + dCoord(1:dim)
 
       IF( GotDistVar ) THEN
-         DistVar % Values(No) = DistVar % Values(No) + ds    
+        ds = SQRT( SUM( dCoord(1:dim)**2 ) )
+        DistVar % Values(No) = DistVar % Values(No) + ds    
       END IF
     END DO
 
@@ -4097,13 +4109,15 @@ RETURN
     REAL(KIND=dp) :: Coord, Rad
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: Params
-    REAL(KIND=dP) :: MinCoord(3), MaxCoord(3)
+    REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), EpsCoord
     INTEGER :: i,j,k,dim, ierr, PeriodicDir(3),NoPeriodic
-    LOGICAL :: Mapped,Reflect,Found,Visited = .FALSE.
-    INTEGER :: Operations, No, NoParticles, Status
+    LOGICAL :: Mapped,Reflect,Found,SaveCount,Visited = .FALSE.
+    INTEGER :: Operations, No, NoParticles, Status, NoCount(6), NoStep
     INTEGER, POINTER :: TmpInteger(:)
+    CHARACTER(LEN=MAX_NAME_LEN) :: Filename
     
-    SAVE Visited, Reflect, PeriodicDir, NoPeriodic, MinCoord, MaxCoord, dim
+    SAVE Visited, Reflect, PeriodicDir, NoPeriodic, MinCoord, MaxCoord, dim, &
+        SaveCount, NoCount, Filename, NoStep
     
     IF( .NOT. Visited ) THEN
       Visited = .TRUE.
@@ -4128,12 +4142,19 @@ RETURN
         END DO
       END IF
       
-      MinCoord = Particles % GlobalMinCoord
-      MaxCoord = Particles % GlobalMaxCoord
+      MinCoord = Particles % GlobalMinCoord 
+      MaxCoord = Particles % GlobalMaxCoord 
+      EpsCoord = EPSILON( EpsCoord ) * MAXVAL( MaxCoord - MinCoord )
+      MinCoord = MinCoord + EpsCoord 
+      MaxCoord = MaxCoord - EpsCoord
 
-PRINT *,'MinCoord',MinCoord
-PRINT *,'MaxCoord',MaxCoord
-PRINT *,'NoPeriodic',NoPeriodic
+      PRINT *,'MinCoord',MinCoord
+      PRINT *,'MaxCoord',MaxCoord
+      PRINT *,'NoPeriodic',NoPeriodic
+
+      Filename = ListGetString( Params,'Box Periodic Filename', SaveCount )
+      NoCount = 0
+      NoStep = 0
     END IF
     
     IF( NoPeriodic == 0 ) RETURN
@@ -4154,20 +4175,34 @@ PRINT *,'NoPeriodic',NoPeriodic
           k = PeriodicDir(j)
           coord = Particles % Coordinate(No,k)
           IF( coord < MinCoord(k) ) THEN
+            IF( SaveCount ) NoCount(2*k-1) = NoCount(2*k-1) + 1
             coord = MaxCoord(k) - MinCoord(k) + coord
             Particles % Coordinate(No,k) = coord
             Mapped = .TRUE.
-         ELSE IF ( coord > MaxCoord(k) ) THEN
+          ELSE IF ( coord > MaxCoord(k) ) THEN
+            IF( SaveCount ) NoCount(2*k) = NoCount(2*k) + 1 
             Coord = MinCoord(k) - MaxCoord(k) + Coord
             Particles % Coordinate(No,k) = coord           
             Mapped = .TRUE.
-         END IF
+          END IF
         END DO
-
+        
         IF(.NOT. Mapped ) EXIT
       END DO
     END DO
     
+    IF( SaveCount ) THEN      
+      IF( NoStep == 0 ) THEN
+        OPEN (10, FILE=FileName )
+      ELSE
+        OPEN (10, FILE=FileName, POSITION='append')
+      END IF
+      NoStep = NoStep + 1
+      WRITE( 10, * ) NoStep, NoCount(1:2*NoPeriodic)
+      CLOSE( 10 )
+    END IF
+
+
   END SUBROUTINE ParticleBoxPeriodic
   
   
