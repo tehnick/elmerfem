@@ -1510,17 +1510,18 @@ CONTAINS
 
       INTERFACE
         SUBROUTINE pardiso(pt, maxfct, mnum, mtype, phase, n, &
-          values, rows, cols, idum, nrhs, iparm, msglvl, b, x, ierror)
+          values, rows, cols, idum, nrhs, iparm, msglvl, b, x, ierror, dparm)
           USE Types
-          REAL(KIND=dp) :: values(*), b(*), x(*)
+          REAL(KIND=dp) :: values(*), b(*), x(*), dparm(*)
           INTEGER(KIND=AddrInt) :: pt(*)
           INTEGER :: idum(*), nrhs, iparm(*), msglvl, ierror
           INTEGER :: maxfct, mnum, mtype, phase, n, rows(*), cols(*)
         END SUBROUTINE pardiso
 
-        SUBROUTINE pardisoinit(pt,mtype,iparm)
+        SUBROUTINE pardisoinit(pt,mtype,solver,iparm,dparm,ierror)
           USE Types
-          INTEGER :: mtype, iparm(*)
+          INTEGER :: mtype, iparm(*),ierror,solver
+          REAL(KIND=dp) :: dparm(*)
           INTEGER(KIND=AddrInt) :: pt(*)
         END SUBROUTINE pardisoinit
       END INTERFACE
@@ -1529,11 +1530,11 @@ CONTAINS
       INTEGER, POINTER :: Iparm(:)
       INTEGER i, j, k, nz, idum(1)
       LOGICAL :: Found, Symm, Posdef
-      REAL*8  waltime1, waltime2, ddum(1)
+      REAL*8  waltime1, waltime2, ddum(1), dparm(64)
 
       LOGICAL :: Factorize, FreeFactorize
       INTEGER :: tlen
-      CHARACTER(LEN=MAX_NAME_LEN) :: threads
+      CHARACTER(LEN=MAX_STRING_LEN) :: threads
 
       REAL(KIND=dp), POINTER :: values(:)
       INTEGER, POINTER  :: rows(:), cols(:)
@@ -1549,7 +1550,7 @@ CONTAINS
             nrhs   = 1
             msglvl = 0
             CALL pardiso(A % PardisoId, maxfct, mnum, mtype, phase, n, &
-             ddum, idum, idum, idum, nrhs, A % PardisoParam, msglvl, ddum, ddum, ierror)
+             ddum, idum, idum, idum, nrhs, A % PardisoParam, msglvl, ddum, ddum, ierror,dparm)
             DEALLOCATE(A % PardisoId, A % PardisoParam)
             A % PardisoId => NULL()
             A % PardisoParam => NULL()
@@ -1610,7 +1611,7 @@ CONTAINS
         IF(ASSOCIATED(A % PardisoId)) THEN
           phase     = -1           ! release internal memory
           CALL pardiso (A % PardisoId, maxfct, mnum, mtype, phase, n, &
-           ddum, idum, idum, idum, nrhs, iparm, msglvl, ddum, ddum, ierror)
+           ddum, idum, idum, idum, nrhs, iparm, msglvl, ddum, ddum, ierror,dparm)
           DEALLOCATE(A % PardisoId, A % PardisoParam)
           A % PardisoId => NULL()
           A % PardisoParam => NULL()
@@ -1618,7 +1619,7 @@ CONTAINS
 
         ALLOCATE(A % PardisoId(64), A % PardisoParam(64))
         iparm => A % PardisoParam
-        CALL pardisoinit(A % PardisoId, mtype, iparm )
+        CALL pardisoinit(A % PardisoId, mtype, 0, iparm, dparm, ierror )
 
 !..     Reordering and Symbolic Factorization, This step also allocates
 !       all memory that is necessary for the factorization
@@ -1637,7 +1638,7 @@ CONTAINS
         IF (iparm(3)<=0) Iparm(3) = 1
 
         CALL pardiso(A % PardisoId, maxfct, mnum, mtype, phase, n, &
-          values, rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, ierror)
+          values, rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, ierror, dparm)
 
         IF (ierror .NE. 0) THEN
           WRITE(*,*) 'The following ERROR was detected: ', ierror
@@ -1647,7 +1648,7 @@ CONTAINS
 !..     Factorization.
         phase     = 22  ! only factorization
         CALL pardiso (A % pardisoId, maxfct, mnum, mtype, phase, n, &
-         values, rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, ierror)
+         values, rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, ierror, dparm)
 
         IF (ierror .NE. 0) THEN
            WRITE(*,*) 'The following ERROR was detected: ', ierror
@@ -1662,7 +1663,7 @@ CONTAINS
                       ! phase, two refinement steps are taken)
 
       CALL pardiso(A % PardisoId, maxfct, mnum, mtype, phase, n, &
-       values, rows, cols, idum, nrhs, iparm, msglvl, b, x, ierror)
+       values, rows, cols, idum, nrhs, iparm, msglvl, b, x, ierror, dparm)
 
 !..   Termination and release of memory
       FreeFactorize = ListGetLogical( Solver % Values, &
@@ -1672,7 +1673,7 @@ CONTAINS
       IF ( Factorize .AND. FreeFactorize ) THEN
         phase     = -1           ! release internal memory
         CALL pardiso (A % PardisoId, maxfct, mnum, mtype, phase, n, &
-          ddum, idum, idum, idum, nrhs, iparm, msglvl, ddum, ddum, ierror)
+          ddum, idum, idum, idum, nrhs, iparm, msglvl, ddum, ddum, ierror, dparm)
 
         DEALLOCATE(A % PardisoId, A % PardisoParam)
         A % PardisoId => NULL()
