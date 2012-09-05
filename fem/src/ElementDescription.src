@@ -3060,6 +3060,66 @@ END IF
 
 
 !------------------------------------------------------------------------------
+!>  Returns just the size of the element at its center.
+!>  providing a more economical way than calling ElementInfo. 
+!------------------------------------------------------------------------------
+   FUNCTION ElementSize( Element, Nodes ) RESULT ( detJ )
+
+     TYPE(Element_t) :: Element
+     TYPE(Nodes_t) :: Nodes
+     REAL(KIND=dp) :: detJ
+
+     REAL(KIND=dp) :: u,v,w
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:)
+     INTEGER :: n,family
+     LOGICAL :: Stat
+
+
+     family = Element % TYPE % ElementCode / 100
+     n = Element % TYPE % NumberOfNodes
+     ALLOCATE( Basis(n) )
+
+     SELECT CASE ( family )
+       
+       CASE ( 1 )
+         DetJ = 1.0_dp
+         RETURN
+
+       CASE ( 2 )
+         u = 0.0_dp
+         v = 0.0_dp
+
+       CASE ( 3 )
+         u = 0.5_dp
+         v = 0.5_dp
+         
+       CASE ( 4 )
+         u = 0.0_dp
+         v = 0.0_dp
+
+       CASE ( 5 )
+         u = 0.5_dp
+         v = 0.5_dp
+         w = 0.5_dp
+
+       CASE ( 8 ) 
+         u = 0.0_dp
+         v = 0.0_dp
+         w = 0.0_dp
+         
+       CASE DEFAULT
+         CALL Fatal('ElementSize','Not implemented for elementtype')
+
+       END SELECT
+
+       Stat = ElementInfo( Element, Nodes, u, v, w, detJ, Basis )
+
+     END FUNCTION ElementSize
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
 !>  Returns Whitney basis vector functions (edge elements W1 in 3D) values
 !>  and Whitney basis function global first derivatives at given point in
 !>  local coordinates.

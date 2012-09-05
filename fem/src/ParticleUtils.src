@@ -1601,6 +1601,64 @@ RETURN
     
   END FUNCTION CharacteristicElementTime
   
+  
+  !------------------------------------------------------------------------
+  !> Finds a random point that is guaranteed within the element
+  !-------------------------------------------------------------------------
+  FUNCTION RandomPointInElement( Element, Nodes ) RESULT ( Coord ) 
+
+    TYPE(Element_t) :: Element
+    TYPE(Nodes_t) :: Nodes
+    REAL(KIND=dp) :: Coord(3)
+
+    REAL(KIND=dp) :: u,v,w,DetJ
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:)
+    INTEGER :: family,n
+    LOGICAL :: Stat
+
+    family = Element % TYPE % ElementCode / 100
+    n = Element % TYPE % NumberOfNodes
+
+    ALLOCATE( Basis(n) )
+
+
+100 SELECT CASE ( family )
+       
+    CASE ( 2 )
+      u = 2*EvenRandom() - 1.0
+      
+    CASE ( 3 )
+      u = EvenRandom()
+      v = EvenRandom()
+      IF( u + v > 1.0_dp ) GOTO 100
+      
+    CASE ( 4 )
+      u = 2*EvenRandom() - 1.0
+      v = 2*EvenRandom() - 1.0
+  
+    CASE ( 5 )
+      u = EvenRandom()
+      v = EvenRandom()
+      w = EvenRandom()
+      IF( u + v + w > 1.0_dp ) GOTO 100
+
+    CASE ( 8 ) 
+      u = 2*EvenRandom() - 1.0
+      v = 2*EvenRandom() - 1.0
+      w = 2*EvenRandom() - 1.0
+      
+    CASE DEFAULT
+      CALL Fatal('RandomPointInElement','Not implemented for elementtype')
+      
+    END SELECT
+
+    Stat = ElementInfo( Element, Nodes, u, v, w, detJ, Basis )
+
+    Coord(1) = SUM( Basis(1:n) * Nodes % x(1:n) )
+    Coord(2) = SUM( Basis(1:n) * Nodes % y(1:n) )
+    Coord(3) = SUM( Basis(1:n) * Nodes % z(1:n) )
+
+  END FUNCTION RandomPointInElement
 
 
   !------------------------------------------------------------------------
@@ -1617,6 +1675,7 @@ RETURN
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Nodes_t) :: Nodes
     INTEGER :: Offset, NewParticles,LastParticle,NoElements
     INTEGER :: dim, ElementIndex
     REAL(KIND=dp), POINTER :: rWork(:,:),Coordinate(:,:), Velocity(:,:)
@@ -1627,13 +1686,16 @@ RETURN
     LOGICAL :: GotIt, GotMask, RequirePositivity, ContinuousNumbering
     REAL(KIND=dp), POINTER :: InitialValues(:,:)
     REAL(KIND=dp) :: mass,boltz,temp,coeff,eps,frac,meanval 
-    REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Diam
+    REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Diam, DetJ, MinDetJ, MaxDetJ
     REAL(KIND=dp), POINTER :: MaskVal(:)
     INTEGER :: nx,ny,nz,nmax,ix,iy,iz,ind
+    LOGICAL :: CheckForSize    
     LOGICAL, POINTER :: DoneParticle(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
     
-    
+    SAVE Nodes
+
+
     Mesh => GetMesh()
     Params => GetSolverParams()
     dim = Particles % Dim
@@ -1651,6 +1713,8 @@ RETURN
     IF( ListGetLogical( Params,'Particle Dt Negative',GotIt ) ) THEN
       Particles % DtSign = -1
     END IF
+
+
 
     !------------------------------------------------------------------------
     ! The user may use a mask to initialize the particles only at a part of the 
@@ -1906,6 +1970,71 @@ RETURN
       END IF
 
 
+    CASE ('elemental random')
+
+      n = Mesh % MaxElementNodes 
+      ALLOCATE( Nodes % x(n), Nodes % y(n),Nodes % z(n) )
+
+      Particles % NumberOfParticles = NewParticles
+      PRINT *,'Initializing particles in elements:',NewParticles,noelements
+
+      MaxDetJ = 0.0_dp
+      MinDetJ = HUGE( MinDetJ )
+      DO i = 1, NoElements
+        j = i
+        IF( GotMask ) j = InvPerm(j)
+        CurrentElement => Mesh % Elements(j)
+        NodeIndexes =>  CurrentElement % NodeIndexes
+        n = CurrentElement % TYPE % NumberOfNodes
+
+        Nodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        Nodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        Nodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+
+        DetJ = ElementSize( CurrentElement, Nodes ) 
+        MaxDetJ = MAX( MaxDetJ, DetJ ) 
+        MinDetJ = MIN( MinDetJ, DetJ )
+      END DO
+      PRINT *,'Maximum size of elements:',MaxDetJ
+      PRINT *,'Minimum size of elements:',MinDetJ
+
+      ! If all elements are of same size then no need to check for size
+      CheckForSize = ( MinDetJ < (1-EPSILON(MaxDetJ))*MaxDetJ )
+
+      i = 0      
+      DO WHILE(.TRUE.) 
+
+        j = CEILING( NoElements * EvenRandom() )
+        IF( GotMask ) j = InvPerm(j)
+                
+        CurrentElement => Mesh % Elements(j)
+        NodeIndexes =>  CurrentElement % NodeIndexes
+        n = CurrentElement % TYPE % NumberOfNodes
+
+        Nodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        Nodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        Nodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+        
+        IF( CheckForSize ) THEN
+          DetJ = ElementSize( CurrentElement, Nodes ) 
+          IF( EvenRandom() * MaxDetJ > DetJ ) CYCLE
+        END IF
+
+        i = i + 1
+        Coord = RandomPointInElement( CurrentElement, Nodes )
+        k = Offset + i
+        Coordinate(k,1:dim) = Coord(1:dim)
+
+        ! Only a bulk element may own a particle
+        IF( j <= Mesh % NumberOfBulkElements ) THEN
+          Particles % ElementIndex(k) = j
+        END IF
+
+        IF( i == NewParticles ) EXIT
+      END DO
+      DEALLOCATE(Nodes % x, Nodes % y, Nodes % z)
+      PRINT *,'done init'
+
     CASE ('elemental ordered')
       NewParticles = MIN(NoElements,NewParticles)
       Particles % NumberOfParticles = NewParticles
@@ -1932,6 +2061,7 @@ RETURN
         END IF
       END DO
       PRINT *,'done init'
+
       
     CASE ('sphere random')
       Diam = GetCReal( Params,'Initial Sphere Radius')
@@ -2190,6 +2320,8 @@ RETURN
     
     Particles % PrevCoordinate = Coordinate
     Particles % PrevVelocity = Velocity
+
+ 
     
   END SUBROUTINE InitializeParticles
 
@@ -2677,6 +2809,7 @@ RETURN
 
 
       IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
+
         ! One likely cause for unsuccessful operation is that the 
         ! initial node and target node are the same
         
@@ -2696,6 +2829,7 @@ RETURN
         ParticleStatus = PARTICLE_HIT
         EXIT
       ELSE 
+
         cons_id = FaceElement % BoundaryInfo % Constraint
         GotBC = .FALSE.
         IF ( cons_id > 0 ) THEN
@@ -2922,7 +3056,11 @@ RETURN
       
       InitLocation = ( Status < PARTICLE_LOCATED ) 
       Velo(1:dim) = GetParticleVelo( Particles, No )       
-      AccurateNow = AccurateAlways
+      IF( Status == PARTICLE_INITIATED ) THEN
+        AccurateNow = .FALSE.
+      ELSE
+        AccurateNow = AccurateAlways
+      END IF
       FaceIndex0 = 0
 
 200   ElementIndex = GetParticleElement( Particles, No )

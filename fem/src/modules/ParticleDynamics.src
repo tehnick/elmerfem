@@ -461,7 +461,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       ContactInteraction, ParticleToField, &
       ParticleInBox, ParticleWall, &
       TrueCollision, StatInfo, ParticleInfo, TimeInfo, Found, &
-      FieldReset, ParticlesLocated, ParticleBunch
+      FieldReset, ParticlesLocated, ParticleBunch, DoParticleScattering
   INTEGER :: i,j,k,n,dim,NoParticles = 0,&
        ElementIndex, VisitedTimes = 0, nstep, istep, OutputInterval, &
        TimeOrder, TimeStepsTaken=0,estindexes(6),&
@@ -477,7 +477,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       WeightVector, ForceVector, TimeOrder, ParticleInBox, &
       tottime, TimeStepsTaken, ParticleStepsTaken,ParticleWall,StatInfo, &
       ParticleInfo, TimeInfo, ForcePerm, TrueCollision, FieldReset, &
-      ParticlesLocated
+      ParticlesLocated,DoParticleScattering
 
 
 !------------------------------------------------------------------------------
@@ -515,6 +515,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         GetLogical( Params,'Box Particle Contact',Found)
 
     ParticleWall = GetLogical( Params,'Wall Particle Contact',Found) 
+
+    DoParticleScattering = GetLogical( Params,'Particle Scattering',Found) 
 
     TrueCollision = .FALSE.
     CALL ListAddLogical( Params,'True Collision Mode',TrueCollision)
@@ -672,13 +674,20 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     !---------------------------------------------------------------
     CALL ParticleAdvanceTimestep( Particles )
 
+
+    ! Do particle scattering from the bulk, for example acoustic scattering
+    !----------------------------------------------------------------------
+    IF( DoParticleScattering ) THEN
+      CALL ParticleScattering( Particles ) 
+    END IF
+
     ! If there are periodic BCs apply them just before locating the particles
     !------------------------------------------------------------------------
     CALL ParticleBoxPeriodic( Particles )
 
     ! Delete the particles that were not found anymore
     !---------------------------------------------------------------
-    CALL DeleteLostParticles(Particles)
+    CALL DeleteLostParticles( Particles )
 
     IF( OutputInterval > 0 .AND. MOD(i,OutputInterval) == 0) THEN
       CALL SaveParticleData( Model,Solver,dt,TransientSimulation )
@@ -728,7 +737,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     CALL ParticleInformation(Particles, ParticleStepsTaken, &
 	TimeStepsTaken, tottime )
   END IF
-
+  
   IF( ParticleToField ) THEN
     WRITE(Message,'(A,ES12.4)') 'Sum of particle effect:',SUM( ForceVector )  
     CALL Info('ParticleDynamics',Message)
@@ -738,15 +747,83 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       CALL Info('ParticleDynamics',Message)
     END IF
   END IF
-
+  
   CALL Info('ParticleDynamics','All done',Level=4)
   CALL Info('ParticleDynamics', '-----------------------------------------', Level=4 )
   
-
- CONTAINS   
   
-   !------------------------------------------------------------------------
-   ! Compute field values at the given points in the FE mesh. 
+CONTAINS   
+  
+  !---------------------------------------------------------
+  !> Advance the particles with a time step. The timestep may
+  !> also be an intermediate Runge-Kutta step.
+  !---------------------------------------------------------
+  SUBROUTINE ParticleScattering( Particles )
+    TYPE(Particle_t), POINTER :: Particles
+    
+    REAL(KIND=dp) :: dt,dt0,Angle,VeloAbs,Pscatter,&
+        Velo(3),Ptest,MFP
+    INTEGER :: No,NoParticles,NoScattered,Status
+    LOGICAL :: Visited,Scatter,Found
+    
+    SAVE Visited,MFP
+    
+    IF(.NOT. Visited ) THEN
+      Params => GetSolverParams()
+      TimeOrder = Particles % TimeOrder
+      dim = Particles % dim
+      
+      IF( .NOT. Particles % DtConstant ) THEN
+        CALL Fatal('ParticleScattering','Timestep should not be variable in this routine!')
+      END IF
+      
+      MFP = ListGetConstReal( Params,'Particle MFP',Found ) 
+      IF(.NOT. Found ) THEN
+        CALL Fatal('ParticleScattering','Keyword > Particle MFP < not given!')
+      END IF
+      
+      Visited = .TRUE.
+    END IF
+    
+    dt = Particles % dTime
+    NoParticles = Particles % NumberOfParticles
+    NoScattered = 0
+    
+    DO No=1, NoParticles
+      
+      Status = Particles % Status(No)
+      
+      IF ( Status >= PARTICLE_LOST ) CYCLE
+      IF ( Status <= PARTICLE_INITIATED ) CYCLE
+      IF ( Status == PARTICLE_WALLBOUNDARY ) CYCLE
+      
+      Velo(1:dim) = Particles % Velocity(No,:) 	
+      VeloAbs = SQRT( SUM( Velo(1:dim) ** 2 ) )
+      
+      Pscatter = 1.0_dp - EXP( -(Dt*VeloAbs) / MFP ) 
+      Ptest = EvenRandom()
+      
+      Scatter = ( Ptest < Pscatter )  
+      
+      IF( Scatter ) THEN        
+        Angle = 2*PI*EvenRandom()        
+        Particles % Velocity(No,1) = COS( Angle ) * Velo(1) - SIN( Angle ) * Velo(2)
+        Particles % Velocity(No,2) = COS( Angle ) * Velo(2) + SIN( Angle ) * Velo(1)
+        NoScattered = NoScattered + 1
+      END IF
+    END DO
+    
+    WRITE(Message,'(A,I0)') 'Number of Scattered particles: ',NoScattered
+    CALL Info('ParticleScattering',Message)
+    
+  END SUBROUTINE ParticleScattering
+  
+
+
+
+
+  !------------------------------------------------------------------------
+  ! Compute field values at the given points in the FE mesh. 
    !-------------------------------------------------------------------------
    SUBROUTINE ParticleFieldInteraction(Particles,dtime,SetParticles,SetFields ) 
      
@@ -900,7 +977,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        Visited = .TRUE.
      END IF
 
-
      ! Normalization and resetting of particle effect on fields
      !-------------------------------------------------------------------------     
      IF( ParticleToField ) THEN       
@@ -925,15 +1001,16 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      DO No = 1, NoParticles
        
        Status = GetParticleStatus( Particles, No )
+
        IF( Status >= PARTICLE_LOST ) CYCLE
        IF( Status <= PARTICLE_INITIATED ) CYCLE
        
        ElementIndex = GetParticleElement( Particles, No )
+
        IF( ElementIndex == 0 ) CYCLE
 
        BulkElement => Mesh % Elements( ElementIndex )
        IF(.NOT. ASSOCIATED( BulkElement ) ) CYCLE
-
 
        Coord = GetParticleCoord( Particles, No )
        Velo = GetParticleVelo( Particles, No )
