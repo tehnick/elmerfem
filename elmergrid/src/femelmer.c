@@ -992,8 +992,8 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
 
 
   /* Save additional connection arising from discontinuous boundaries */
-  if(1) for(j=0;j < MAXBOUNDARIES;j++) {
-    
+  if(0) for(j=0;j < MAXBOUNDARIES;j++) {
+     
     if(bound[j].created == FALSE) continue;
     if(bound[j].nosides == 0) continue;
     if(!bound[j].ediscont) continue;
