@@ -4340,7 +4340,6 @@ RETURN
       CLOSE( 10 )
     END IF
 
-
   END SUBROUTINE ParticleBoxPeriodic
   
   
@@ -4985,8 +4984,16 @@ RETURN
     END DO
 
     SaveNodeFraction = ListGetCReal( Params,'Particle Save Fraction',GotIt)
-    IF(GotIt) NumberOfNodes = NINT( SaveNodeFraction * NumberOfNodes )
-    
+    IF(GotIt) THEN
+      NumberOfNodes = NINT( SaveNodeFraction * NumberOfNodes )
+    ELSE
+      i = ListGetInteger( Params,'Particle Save Number',GotIt)
+      IF( GotIt ) THEN
+        NumberOfNodes = MIN(i,NumberOfNodes)
+      END IF
+    END IF
+
+
     IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
       Dir = TRIM(Mesh % Name) // "/"
     ELSE

@@ -3933,11 +3933,11 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER :: x0(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt, &
-        Tolerance, MaxNorm, eps
+        Tolerance, MaxNorm, eps, Ctarget
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
     INTEGER, TARGET  ::  Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
-    TYPE(Variable_t), POINTER :: iterV, VeloVar, TimestepVar
+    TYPE(Variable_t), POINTER :: iterV, VeloVar, TimestepVar, WeightVar
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, str
     LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore, DoIt, Skip
 
@@ -4233,6 +4233,40 @@ END FUNCTION SearchNodeL
           'Nonlinear Update Exported Variables',Stat)
     END IF
     IF( DoIt ) CALL UpdateExportedVariables( Solver )	
+
+
+    ! Optional a posteriori scaling for the computed fields
+    ! May be usefull for some floating systems where one want to impose some intergral 
+    ! constraints without actually using them. Then first use just one Dirichlet point
+    ! and then fix the level a posteriori using this condition. 
+    DoIt = .FALSE.
+    IF( SteadyState ) THEN 
+      DoIt = ListGetLogical( SolverParams,&
+          'Nonlinear System Set Average Solution',Stat)
+    ELSE 
+      DoIt = ListGetLogical( SolverParams,&
+          'Linear System Set Average Solution',Stat)
+    END IF
+    IF( DoIt ) THEN
+      IF( ParEnv % PEs > 1 ) THEN
+        CALL Fatal('ComputeChange','Setting average value not implemented in parallel!')
+      END IF
+      Ctarget = ListGetCReal( SolverParams,'Average Solution Value',Stat)      
+      str = ListGetString( SolverParams,'Average Solution Weight Variable',Stat)
+      IF( Stat ) THEN
+        WeightVar => VariableGet( Solver % Mesh % Variables, str )
+        IF( .NOT. ASSOCIATED( WeightVar ) ) THEN
+          CALL Fatal('ComputeChange','> Average Solution Weight < missing: '//TRIM(str))
+        END IF
+        IF( SIZE(x) /= SIZE(WeightVar % Values ) ) THEN
+          CALL Fatal('ComputeChange','Field and weight size mismatch: '//TRIM(str))          
+        END IF
+        Ctarget = Ctarget - SUM( WeightVar % Values * x ) / SUM( WeightVar % Values )
+      ELSE
+        Ctarget = Ctarget - SUM(x) / SIZE(x)
+      END IF
+      x = x + Ctarget
+    END IF
 
 
     ! Only 1st order velocity computation implemented so far...
