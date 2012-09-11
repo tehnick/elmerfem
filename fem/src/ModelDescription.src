@@ -220,6 +220,7 @@ CONTAINS
 !> Subroutine for loading the fields from the input file. This may be 
 !> used multiple times. On first calling the ScanOnly should be true 
 !> to allow only the reading of number of fields. 
+!> Performs also some simple sanity tests for the lists. 
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE LoadInputFile( Model, InFileUnit, FileName, &
          MeshDir, MeshName, BaseLoad, ScanOnly, Runc )
@@ -709,7 +710,9 @@ CONTAINS
                 Section, InFileUnit, ScanOnly, Echo )
 
       IF ( .NOT. ScanOnly ) THEN
-        IF ( Section(1:9) == 'constants' ) THEN
+        IF( .NOT. ASSOCIATED( List ) ) THEN
+          CALL Warn('LoadInputFile','Empty section given for: '//TRIM(Section))
+        ELSE IF ( Section(1:9) == 'constants' ) THEN
           Model % Constants => List
         ELSE IF ( Section(1:10) == 'simulation' ) THEN
           Model % Simulation => List
@@ -738,6 +741,61 @@ CONTAINS
 
     IF ( .NOT. ScanOnly )  THEN
 
+      ! Make some sanity checks that all the entries have been defined
+      ! The might be missing entries due to duplicate numbering etc.
+      ! For some fields this is not detrimental, thus just a warning.
+      !--------------------------------------------------------------------
+      DO i = 1, Model % NumberOFBCs
+        IF(.NOT. ASSOCIATED( Model % BCs(i) % Values ) ) THEN
+          WRITE( Message,'(A,I0)') 'Entry missing for: Boundary Condition ',i
+          CALL Warn('LoadInputFile',Message)
+        END IF
+      END DO
+      
+      DO i = 1, Model % NumberOfBodyForces
+        IF(.NOT. ASSOCIATED( Model % BodyForces(i) % Values ) ) THEN
+          WRITE( Message,'(A,I0)') 'Entry missing for: Body Force ',i
+          CALL Warn('LoadInputFile',Message)
+        END IF
+      END DO
+
+      DO i = 1, Model % NumberOfICs
+        IF(.NOT. ASSOCIATED( Model % ICs(i) % Values ) ) THEN
+          WRITE( Message,'(A,I0)') 'Entry missing for: Initial Condition ',i
+          CALL Warn('LoadInputFile',Message)
+        END IF
+      END DO
+      
+      DO i = 1, Model % NumberOfMaterials         
+        IF(.NOT. ASSOCIATED( Model % Materials(i) % Values ) ) THEN
+          WRITE( Message,'(A,I0)') 'Entry missing for: Material ',i
+          CALL Warn('LoadInputFile',Message)
+        END IF
+      END DO
+
+      DO i = 1, Model % NumberOFEquations 
+        IF(.NOT. ASSOCIATED( Model % Equations(i) % Values ) ) THEN
+          WRITE( Message,'(A,I0)') 'Entry missing for: Equation ',i
+          CALL Fatal('LoadInputFile',Message)
+        END IF
+      END DO
+    
+      DO i = 1, Model % NumberOfSolvers         
+        IF(.NOT. ASSOCIATED( Model % Solvers(i) % Values ) ) THEN
+          WRITE( Message,'(A,I0)') 'Entry missing for: Solver ',i
+          CALL Fatal('LoadInputFile',Message)
+        END IF
+      END DO
+
+      DO i = 1, Model % NumberOfBodies
+        IF(.NOT. ASSOCIATED( Model % Bodies(i) % Values ) ) THEN
+          WRITE( Message,'(A,I0)') 'Entry missing for: Body ',i
+          CALL Fatal('LoadInputFile',Message)
+        END IF
+      END DO
+      !--- sanity checks done
+
+
       ! Add default equation, material, ic, bodyforce, and body if not given:
       ! ---------------------------------------------------------------------
       IF ( Model % NumberOFEquations <= 0 ) THEN
@@ -747,7 +805,7 @@ CONTAINS
          CALL ListAddIntegerArray( Model % Equations(1) % Values, 'Active Solvers', &
              Model % NumberOFSolvers, (/ (i,i=1,Model % NumberOfSolvers) /) )
          CALL ListAddString ( Model % Equations(1) % Values, 'Name', 'Default Equation 1' )
-      END IF
+       END IF
 
       IF ( Model % NumberOfMaterials <= 0 ) THEN
          Model % NumberOfMaterials = 1
@@ -781,7 +839,9 @@ CONTAINS
          CALL ListAddInteger( Model % Bodies(1) % Values, 'Initial Condition', 1 )
       END IF
       ! -- done adding default fields
+      
     END IF
+    !--------------------------------------------------------------------
 
     RETURN
 
@@ -1015,7 +1075,7 @@ CONTAINS
 
       CHARACTER(LEN=MAX_NAME_LEN) :: TypeString,Keyword
       CHARACTER(LEN=MAX_STRING_LEN) :: Name,str, Depname
-      LOGICAL :: ReturnType, ScanOnly, String_literal,  SizeGiven, Cubic
+      LOGICAL :: ReturnType, ScanOnly, String_literal,  SizeGiven, Cubic, AllInt
 
       INTEGER(KIND=AddrInt) :: Proc
       INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, TYPE, abuflen=0,maxbuflen=0
@@ -1250,7 +1310,6 @@ CONTAINS
 
             CALL CheckKeyWord( Name,'integer',CheckAbort,FreeNames,Section )
 
-
              Proc = 0
              IF ( str(str_beg:str_beg+9) == 'procedure ' ) THEN
                IF ( .NOT. ScanOnly ) THEN
@@ -1262,6 +1321,20 @@ CONTAINS
                  END IF
                END IF
              ELSE
+! Two different ways of checking that the string is ok as integer
+! The 2nd one just checks for decimal points, and is currently used.
+#if 0
+               k = VERIFY( str( str_beg:),' 0123456789',.FALSE.)
+               IF( k > 0 ) THEN
+                 CALL Fatal('','Invalidr Integer for > '//TRIM(Name)//' < : '// &
+                     TRIM(str( str_beg:)) )                 
+               END IF
+#else
+               IF( INDEX( str( str_beg:),'.') /= 0 ) THEN
+                 CALL Fatal('','Invalidr Integer for > '//TRIM(Name)//' < : '// &
+                     TRIM(str( str_beg:)) )
+               END IF
+#endif
                IF ( SizeGiven ) THEN
                  IF ( .NOT. ScanOnly ) THEN
                    IF (SIZE(IValues)<n1) THEN
@@ -1609,7 +1682,7 @@ CONTAINS
     LOGICAL :: BoundariesOnly
 
     INTEGER, OPTIONAL :: numprocs,mype
-
+ 
     TYPE(Model_t), POINTER :: Model
 
 !------------------------------------------------------------------------------
@@ -1625,7 +1698,7 @@ CONTAINS
     REAL(KIND=dp), POINTER :: h(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: Name,ElementDef
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir,MeshName
-TYPE(valuelist_t), POINTER :: lst
+    TYPE(valuelist_t), POINTER :: lst
 !------------------------------------------------------------------------------
 
     ALLOCATE( Model )
@@ -1652,12 +1725,6 @@ TYPE(valuelist_t), POINTER :: lst
     CALL LoadInputFile( Model,InFileUnit,ModelName,MeshDir,MeshName, .TRUE., .FALSE. )
     IF ( .NOT. OpenFile ) CLOSE( InFileUnit )
 
-!   DO j=1,Model % NumberOfEquations
-!     IF (ListCheckPresent(Model % Equations(j) % Values, 'Element') ) THEN
-!       CALL Error('LM:', 'Depreciated: "Element" keyword  ' // &
-!         'in the "Equation" section, move to "Solver" section(s)' )
-!     END IF
-!   END DO
 
     CALL InitializeOutputLevel()
 
@@ -1690,28 +1757,11 @@ TYPE(valuelist_t), POINTER :: lst
         ALLOCATE(Solver % Def_Dofs(Model % NumberOfBodies,6))
         Solver % Def_Dofs = -1; Solver % Def_Dofs(:,1)=1
       END IF
+
+      ! Define what kind of element we are working with in this solver
+      !-----------------------------------------------------------------
       ElementDef = ListGetString( Solver % Values, 'Element', stat )
    
-!     IF (.NOT.stat) THEN
-!       Name = ListGetString(Solver % Values, 'Equation', stat)
-!       DO j=1,Model % NumberOfEquations
-!         IF (ListCheckPresent(Model % Equations(j) % Values, 'Element') ) THEN
-!           IF (ListGetLogical(Model % Equations(j) % Values,Name,Found) ) THEN
-!             ElementDef=ListGetString(Model % Equations(J) % Values, 'Element',stat)
-!             EXIT
-!           END IF
-!           ActiveSolvers => ListGetIntegerArray(Model % Equations(j) % Values, &
-!                   'Active Solvers', Found )
-!           IF ( Found ) THEN
-!             IF ( ANY(ActiveSolvers==i) ) THEN
-!               ElementDef=ListGetString(Model % Equations(J) % Values,'Element',stat)
-!               EXIT
-!             END IF
-!           END IF
-!         END IF
-!       END DO
-!     END IF
-
       IF ( .NOT. stat ) THEN
         IF ( ListGetLogical( Solver % Values, &
              'Discontinuous Galerkin', stat ) ) THEN
@@ -1779,6 +1829,8 @@ TYPE(valuelist_t), POINTER :: lst
       i = i + 1
     END DO
 
+    ! Check the mesh 
+    !--------------------------------------------------------
     Name = ListGetString( Model % Simulation, 'Mesh', GotIt )
 
     OneMeshName = .FALSE.

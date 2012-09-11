@@ -58,88 +58,84 @@ MODULE MainUtils
 CONTAINS
 
 !------------------------------------------------------------------------------
-  FUNCTION GetMatrixFormat( Model, Equation ) RESULT(FORMAT)
+!> Routine checks the feasibility of solver options.
 !------------------------------------------------------------------------------
-    TYPE(Model_t) :: Model
-    CHARACTER(LEN=*) :: Equation
+  SUBROUTINE CheckSolverOptions( Solver ) 
 !------------------------------------------------------------------------------
-    INTEGER :: FORMAT
-
-    INTEGER :: i
+    TYPE(Solver_t) :: Solver
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
-!
-!
-    FORMAT = MATRIX_CRS
 
-!
-! TODO: The following code always selects the MATRIX_CRS as format
-! and should be removed...
-! -----------------------------------------------------------------
-    DO i=1,Model % NumberOfSolvers
-       FORMAT = MATRIX_CRS
+    Params => Solver % Values
+    str = ListGetString( Params,'Linear System Solver', Found )
 
-       IF (  &
-            ListGetString(Model % Solvers(i) % Values, 'Equation') == Equation &
-            ) THEN
-
-          str = ListGetString( Model % Solvers(i) % Values, & 
-                  'Linear System Solver', Found )
-
-          IF ( str == 'direct' ) THEN
-             str = ListGetString(Model % Solvers(i) % Values, &
-                  'Linear System Direct Method', Found )
-
-             IF ( ParEnv % PEs>1 ) THEN
-               IF ( str /= 'mumps' ) &
-                 CALL Fatal( 'GetMatrixFormat', 'Only MUMPS direct solver' // &
-                                ' implemented in parallel!')
-             ELSE
-               IF ( str == 'mumps' ) &
-                 CALL Fatal( 'GetMatrixFormat', 'Currently no serial version' // &
-                           ' of the MUMPS solver implemented, sorry!')
-             END IF
-
-             IF ( .NOT. Found ) THEN
-             ELSE
-                SELECT CASE( str )
-
-		CASE('banded' )
-
-                CASE( 'umfpack', 'big umfpack' )
+    IF ( str == 'direct' ) THEN
+      str = ListGetString( Params,'Linear System Direct Method', Found )
+      
+      IF( Found ) THEN        
+        IF ( ParEnv % PEs > 1 ) THEN
+          IF ( str /= 'mumps' ) &
+              CALL Fatal( 'CheckSolverOptions', 'Only MUMPS direct solver' // &
+              ' implemented in parallel!')
+        ELSE
+          IF ( str == 'mumps' ) &
+              CALL Fatal( 'CheckSolverOptions', 'Currently no serial version' // &
+              ' of the MUMPS solver implemented, sorry!')
+        END IF
+        
+        SELECT CASE( str )
+          
+        CASE('banded' )
+          
+        CASE( 'umfpack', 'big umfpack' )
 #include "../config.h"
 #ifndef HAVE_UMFPACK
-                   CALL Fatal( 'GetMatrixFormat', 'UMPACK solver has not been installed.' )
+          CALL Fatal( 'CheckSolverOptions', 'UMPACK solver has not been installed.' )
 #endif
-                CASE( 'mumps' )
+        CASE( 'mumps' )
 #ifndef HAVE_MUMPS
-                   CALL Fatal( 'GetMatrixFormat', 'MUMPS solver has not been installed.' )
+          CALL Fatal( 'CheckSolverOptions', 'MUMPS solver has not been installed.' )
 #endif
-                CASE( 'superlu' )
+        CASE( 'superlu' )
 #ifndef HAVE_SUPERLU
-                   CALL Fatal( 'GetMatrixFormat', 'SuperLU solver has not been installed.' )
+          CALL Fatal( 'CheckSolverOptions', 'SuperLU solver has not been installed.' )
 #endif
-                CASE( 'pardiso' )
+        CASE( 'pardiso' )
 #if !defined(HAVE_PARDISO) && !defined(HAVE_MKL)
-                   CALL Fatal( 'GetMatrixFormat', 'Pardiso solver has not been installed.' )
+          CALL Fatal( 'CheckSolverOptions', 'Pardiso solver has not been installed.' )
 #endif
-                CASE( 'cholmod','spqr' )
+        CASE( 'cholmod','spqr' )
 #ifndef HAVE_CHOLMOD
-                   CALL Fatal( 'GetMatrixFormat', 'Cholmod solver has not been installed.' )
+          CALL Fatal( 'CheckSolverOptions', 'Cholmod solver has not been installed.' )
 #endif
-                CASE DEFAULT
-                   CALL Warn( 'GetMatrixFormat', 'Unknown direct solver method: ' // TRIM(str) )
-                   CALL Warn( 'GetMatrixFormat', 'band solver (LAPACK) will be used.' )
-                END SELECT
-             END IF
-          END IF
+        CASE DEFAULT
+          CALL Fatal( 'CheckSolverOptions', 'Unknown direct solver method: ' // TRIM(str) )
+        END SELECT
 
-          EXIT
-       END IF
-    END DO
+      ELSE
+        IF ( ParEnv % PEs <= 1 ) THEN
+#ifdef HAVE_UMFPACK
+          str = 'umfpack'
+#else
+          str = 'banded'
+#endif
+        ELSE
+#ifdef HAVE_MUMPS
+          str = 'mumps'
+#else
+          CALL Fatal( 'CheckSolverOptions', 'There is no direct parallel solver available (MUMPS)')
+#endif
+        END IF
+        CALL Info('CheckSolverOptions','Setting > Linear System Direct Method < to:'//TRIM(str) )
+        CALL ListAddString( Params,'Linear System Direct Method', str )
+      END IF
+    END IF
+
 !------------------------------------------------------------------------------
-  END FUNCTION GetMatrixFormat
+  END SUBROUTINE CheckSolverOptions
 !------------------------------------------------------------------------------
 
 
@@ -572,11 +568,12 @@ CONTAINS
         BandwidthOptimize = ListGetLogical( SolverParams, &
             'Optimize Bandwidth', Found )
         IF ( .NOT. Found ) BandwidthOptimize = .TRUE.
-        MatrixFormat = GetMatrixFormat( CurrentModel, Name )
+        CALL CheckSolverOptions( Solver )
 
         ALLOCATE( Perm(Ndeg) )
 
         Perm = 0
+        MatrixFormat = MATRIX_CRS
         Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
             Perm, DOFs, MatrixFormat, BandwidthOptimize, eq(1:LEN_TRIM(eq)), &
             ListGetLogical( SolverParams,'Discontinuous Galerkin', Found ), &
@@ -1086,7 +1083,7 @@ CONTAINS
            IF( MGAlgebraic ) THEN 
              MgLevels = 10
            ELSE
-             CALL Fatal('AddEquationBasics','> MG Levels < must be defined for geometric multigrid!')
+             CALL Fatal('AddEquationSolution','> MG Levels < must be defined for geometric multigrid!')
            END IF
          END IF
          Solver % MultiGridTotal = MgLevels

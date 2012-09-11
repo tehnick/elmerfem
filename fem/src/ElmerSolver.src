@@ -109,7 +109,7 @@
 
 #ifdef HAVE_TRILINOS
 INTERFACE
-      SUBROUTINE TrilinosCleanup() bind(C,name='TrilinosCleanup')
+      SUBROUTINE TrilinosCleanup() BIND(C,name='TrilinosCleanup')
       IMPLICIT NONE
       END SUBROUTINE TrilinosCleanup
 END INTERFACE
@@ -266,11 +266,19 @@ END INTERFACE
        Scanning  = eq == 'scanning'
        Transient = eq == 'transient'
 
+
+!------------------------------------------------------------------------------
+!      To more conveniently support the use of VTK based visualization there 
+!      is a hack that recognizes VTU suffix and creates a instance of output solver.
+!      Note that this is really quite a dirty hack, and is not a good example.
+!-----------------------------------------------------------------------------
+       CALL AddVtuOutputSolverHack()
+
 !------------------------------------------------------------------------------
 !      Figure out what (flow,heat,stress,...) should be computed, and get
 !      memory for the dofs
 !------------------------------------------------------------------------------
-       CALL AddSolvers
+       CALL AddSolvers()
 
 !------------------------------------------------------------------------------
 !      Time integration and/or steady state steps
@@ -469,18 +477,71 @@ END INTERFACE
               TRIM(Modelname) // '], can not execute.' )
 
    CONTAINS 
+     
+
+     SUBROUTINE AddVtuOutputSolverHack()     
+       TYPE(Solver_t), POINTER :: ABC(:)
+       CHARACTER(LEN=MAX_NAME_LEN) :: str
+       INTEGER :: i,j,k,n
+       TYPE(ValueList_t), POINTER :: Params
+       LOGICAL :: gotIt
+
+       str = ListGetString( CurrentModel % Simulation,'Post File',GotIt) 
+       IF(.NOT. GotIt) RETURN
+       k = INDEX( str,'.vtu' )
+       IF( k == 0 ) RETURN
+       
+       CALL Info('AddVtuOutputSolverHack','Adding Solver to VTU output to file: '&
+           //TRIM(str(1:k-1)))
+     
+       CALL ListRemove( CurrentModel % Simulation,'Post File')
+       n = CurrentModel % NumberOfSolvers+1
+       ALLOCATE( ABC(n) )
+       DO i=1,n-1
+         ABC(i) = CurrentModel % Solvers(i) 
+       END DO
+       CurrentModel % NumberOfSolvers = n
+       DEALLOCATE( CurrentModel % Solvers )
+       CurrentModel % Solvers => ABC
+
+       NULLIFY( CurrentModel % Solvers(n) % Values )
+       CurrentModel % Solvers(n) % PROCEDURE = 0
+       NULLIFY( CurrentModel % Solvers(n) % Matrix )
+       NULLIFY( CurrentModel % Solvers(n) % Values )
+       NULLIFY( CurrentModel % Solvers(n) % Variable )
+       NULLIFY( CurrentModel % Solvers(n) % ActiveElements )
+       CurrentModel % Solvers(n) % NumberOfActiveElements = 0
+
+       NULLIFY( CurrentModel % Solvers(n) % Values )
+       CALL ListAddString(CurrentModel % Solvers(n) % Values,&
+           'Procedure', 'ResultOutputSolve ResultOutputSolver',.FALSE.)
+       CALL ListAddString(CurrentModel % Solvers(n) % Values,'Output Format','vtu')
+       CALL ListAddString(CurrentModel % Solvers(n) % Values,'Output File Name',str(1:k-1))
+       CALL ListAddString(CurrentModel % Solvers(n) % Values,'Exec Solver','after saving')
+       CALL ListAddString(CurrentModel % Solvers(n) % Values,'Equation','VtuOutputSolver')
+
+     END SUBROUTINE AddVtuOutputSolverHack
+
 
 !------------------------------------------------------------------------------
-    SUBROUTINE AddSolvers
+!> Adds flags for active solvers. 
+!------------------------------------------------------------------------------
+    SUBROUTINE AddSolvers()
 !------------------------------------------------------------------------------
       INTEGER :: i,j,k,nlen
       LOGICAL :: InitSolver, Found
 !------------------------------------------------------------------------------
+
+      ! This is a hack that sets Equation flags True for the "Active Solvers".
+      ! The Equation flag is the legacy way of setting a Solver active and is still
+      ! used internally.
+      !----------------------------------------------------------------------------
       DO i=1,CurrentModel % NumberOfSolvers
+
         eq = ListGetString( CurrentModel % Solvers(i) % Values,'Equation', Found )
-        nlen = LEN_TRIM(eq)
      
-       IF ( Found ) THEN
+        IF ( Found ) THEN
+          nlen = LEN_TRIM(eq)
           DO j=1,CurrentModel % NumberOFEquations
              ActiveSolvers => ListGetIntegerArray( CurrentModel % Equations(j) % Values, &
                                 'Active Solvers', Found )
@@ -523,7 +584,7 @@ END INTERFACE
 !------------------------------------------------------------------------------
 !> Adds coordinate and time variables to the current mesh structure. 
 !------------------------------------------------------------------------------
-  SUBROUTINE AddMeshCoordinatesAndTime
+  SUBROUTINE AddMeshCoordinatesAndTime()
 !------------------------------------------------------------------------------
      TYPE(Variable_t), POINTER :: DtVar
 
@@ -563,7 +624,7 @@ END INTERFACE
 !------------------------------------------------------------------------------
 !> Sets initial conditions for the fields. 
 !------------------------------------------------------------------------------
-   SUBROUTINE SetInitialConditions
+   SUBROUTINE SetInitialConditions()
 !------------------------------------------------------------------------------
      USE DefUtils
      INTEGER :: DOFs
@@ -749,7 +810,7 @@ END INTERFACE
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE InitCond
+   SUBROUTINE InitCond()
 !------------------------------------------------------------------------------
      USE DefUtils
      TYPE(Element_t), POINTER :: Edge
@@ -881,7 +942,7 @@ END INTERFACE
 !------------------------------------------------------------------------------
 !> Check if we are restarting are if yes, read in field values.
 !------------------------------------------------------------------------------
-   SUBROUTINE Restart
+   SUBROUTINE Restart()
 !------------------------------------------------------------------------------
      USE DefUtils
      LOGICAL :: Gotit
@@ -889,8 +950,8 @@ END INTERFACE
 !------------------------------------------------------------------------------
 
 
-        RestartFile = ListGetString( CurrentModel % Simulation, &
-                 'Restart File', GotIt )
+     RestartFile = ListGetString( CurrentModel % Simulation, &
+         'Restart File', GotIt )
 
      IF ( GotIt ) THEN
        k = ListGetInteger( CurrentModel % Simulation,'Restart Position',GotIt, &
