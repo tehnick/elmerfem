@@ -1129,6 +1129,86 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_BlockDiagonal
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Removes zeros from the matrix structure.
+!> This might be done in order to save memory, or to speed up the matrix 
+!> operations. One must be carefull since the fact the an entry is zero
+!> does not always imply that it would be zero throughout the simulation.
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_RemoveZeros( A  )
+!-------------------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A     !< The matrix which will be returned with the non-zeros removed
+!-------------------------------------------------------------------------------------------
+    INTEGER :: i,j,k,l,kb,kb0,n,rowkb
+    INTEGER, POINTER :: Cols(:), Rows(:), Diag(:)
+    REAL(KIND=DP) :: val
+    REAL(KIND=DP), POINTER :: Values(:)
+
+    N = A % NumberOfRows
+    
+    ! Count the number of nonzeros
+    ! The diagonal entry is assumed always to exist.
+    kb = 0
+    DO i=1,N
+      DO k= A % Rows(i), A % Rows(i+1)-1
+        l = A % Cols(k)
+        val = A % Values(k)
+        IF( i == l .OR. ABS( val ) > TINY( val) ) THEN
+          kb = kb + 1
+        END IF
+      END DO
+    END DO
+    
+    kb0 = SIZE( A % Values )
+    IF( kb == kb0 ) THEN
+      CALL Info('CRS_RemoveZeros','There are no zeros to remove',Level=6)
+      RETURN
+    END IF
+
+    WRITE( Message,'(A,F8.3,A)') 'Fraction of zeros to remove: ',100.0*(1.0-1.0*kb/kb0),' %'
+    CALL Info('CRS_RemoveZeros', Message)
+
+    ! These are new
+    ALLOCATE(Cols(kb), Values(kb))
+   
+    ! These are overwritten
+    Diag => A % Diag
+    Rows => A % Rows
+
+
+    kb = 1
+    DO i=1,N
+      ! Memorize this as this should not be set before the next loop
+      rowkb = kb
+      DO k = A % Rows(i), A % Rows(i+1)-1
+        l = A % Cols(k)
+        val = A % Values(k) 
+
+        IF( i == l ) THEN
+          Diag(i) = kb
+        ELSE IF( .NOT. ( ABS(val) > TINY(val) ) ) THEN
+          CYCLE
+        END IF
+
+        ! Set the new entry to the matrix
+        Values(kb) = A % Values(k)
+        Cols(kb) = l
+        kb = kb + 1
+
+      END DO
+      Rows(i) = rowkb
+    END DO
+    Rows(N+1) = kb
+
+    DEALLOCATE( A % Values, A % Cols ) 
+    A % Values => Values
+    A % Cols => Cols
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE CRS_RemoveZeros
+!------------------------------------------------------------------------------
  
 !------------------------------------------------------------------------------
 !> Makes a algebraic lower order scheme assuming steady state advection-diffusion equation.
