@@ -492,8 +492,7 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
 		 int nobound,char *prefix,int decimals,int info)
 /* This procedure saves the mesh in a format understood by Gmsh */
 {
-  int material,noknots,noelements,bulkelems,novctrs,sideelems,gmshtype,elemtype,boundtype,
-    minboundtype,maxbulktype,bcoffset;
+  int material,noknots,noelements,bulkelems,novctrs,sideelems,gmshtype,elemtype,boundtype;
   char filename[MAXFILESIZE],outstyle[MAXFILESIZE];
   int i,j,k,l,nodesd1,timesteps,nodesd2,fail;
   int ind[MAXNODESD2];
@@ -506,23 +505,11 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
   }
 
   /* Compute the number of boundary elements and register the minimum BC type */
-  minboundtype = -1;
   sideelems = 0;
   if(nobound) {
     for(j=0;j<nobound;j++) {
-      if(bound[j].created) {
+      if(bound[j].created) 
 	sideelems += bound[j].nosides; 
-	
-	for(i=1;i<=bound[j].nosides;i++) {
-	  boundtype = bound[j].types[i];
-	  if( minboundtype == -1 ) {
-	    minboundtype = boundtype;
-	  }
-	  else {
-	    minboundtype = MIN( minboundtype, boundtype );
-	  }
-	}
-      }
     }
     if(0) printf("number of boundary elements: %d\n",sideelems);
   }
@@ -570,14 +557,12 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
 
   printf("Saving %d element topologies.\n",bulkelems);
 
-  maxbulktype = 0;
   fprintf(out,"$Elements\n");
   fprintf(out,"%d\n",bulkelems+sideelems);
   for(i=1;i<=bulkelems;i++) {
     elemtype = data->elementtypes[i];
     material = data->material[i];
 
-    maxbulktype = MAX( maxbulktype, material );
     gmshtype = ElmerToGmshType( elemtype );
     
     fprintf(out,"%d %d %d %d %d ",i,gmshtype,2,0,material);
@@ -594,22 +579,6 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
     fprintf(out,"\n");    
   }
 
-  /* Set the offset so that BCs and bulk elements may be separated */
-  bcoffset = 0;
-  for(;;) {
-    if( minboundtype + bcoffset <= maxbulktype ) {
-      if( bcoffset == 0 ) 
-	bcoffset = 100;
-      else
-	bcoffset = bcoffset * 10;
-    }
-    else {
-      break;
-    }
-  }
-  printf("Minimum boundary type %d, maximum bulk type %d\n",minboundtype,maxbulktype);
-  printf("Using an offset of %d for the Gmsh boundaries\n",bcoffset);
-
 
   if(nobound) {
     for(j=0;j<nobound;j++) {
@@ -618,7 +587,7 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
       for(i=1;i<=bound[j].nosides;i++) {
 
 	GetBoundaryElement(i,&bound[j],data,ind,&elemtype); 
-	boundtype = bound[j].types[i] + bcoffset;
+	boundtype = bound[j].types[i];
 
 	gmshtype = ElmerToGmshType( elemtype );
     
