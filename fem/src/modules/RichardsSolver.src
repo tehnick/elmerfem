@@ -27,7 +27,7 @@
 ! *
 ! *****************************************************************************
 ! *
-! *  Authors: Peter Råback
+! *  Authors: Peter Råback, Serge-Étienne Parent
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -52,7 +52,8 @@ MODULE PorousMaterials
   IMPLICIT NONE
 
   INTEGER, PARAMETER :: POROSITY_DEFAULT=0, &
-      POROSITY_VAN_GENUCHTEN = 1
+      POROSITY_VAN_GENUCHTEN = 1, &
+      POROSITY_BROOKS_COREY = 2 
 
 CONTAINS
 
@@ -62,7 +63,9 @@ CONTAINS
     TYPE(ValueList_t), POINTER :: Material
     REAL(KIND=dp) :: Basis(:),elempsy(:)
     REAL(KIND=dp) :: psy, kw
-    REAL(KIND=dp) :: kwsat, a, m, n
+    REAL(KIND=dp) :: kwsat
+    REAL(KIND=dp) :: a, m, n ! van Genuchten
+    REAL(KIND=dp) :: aev, lambda ! Brooks and Corey
     REAL(KIND=dp), ALLOCATABLE :: nodalkw(:)
     TYPE(ValueList_t), POINTER :: PrevMaterial => NULL()
     TYPE(Element_t), POINTER :: PrevElement => NULL()
@@ -70,14 +73,16 @@ CONTAINS
     INTEGER :: nnodes, PorosityModelIndex
     LOGICAL :: Found, SameParameters 
     
-    SAVE PrevMaterial,PrevElement,nnodes,PorosityModelIndex,kwsat,a,n,m,nodalkw
+    SAVE PrevMaterial,PrevElement,nnodes,PorosityModelIndex,kwsat,a,n,m,aev,lambda,nodalkw 
     
     ! Parameters for the certain model are assumed to be 
-    ! constant within a material
+    ! constant within a material. This is merely to save a little
+    ! bit of time. 
     !--------------------------------------------------------
     SameParameters = .FALSE.
     IF( ASSOCIATED(Material, PrevMaterial) ) THEN
-      IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN ) THEN
+      IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN .OR. &
+          PorosityModelIndex == POROSITY_BROOKS_COREY ) THEN
         SameParameters = .TRUE.
       ELSE IF( ASSOCIATED(Element,PrevElement)) THEN
         SameParameters = .TRUE.
@@ -86,7 +91,9 @@ CONTAINS
       PrevMaterial => Material 
       PorosityModel = GetString( Material,'Porosity Model',Found)
       IF( PorosityModel == 'van genuchten') THEN
-        PorosityModelIndex = POROSITY_VAN_GENUCHTEN        
+        PorosityModelIndex = POROSITY_VAN_GENUCHTEN
+      ELSE IF( PorosityModel == 'brooks and corey') THEN 
+        PorosityModelIndex = POROSITY_BROOKS_COREY 
       ELSE
         PorosityModelIndex = POROSITY_DEFAULT                
       END IF      
@@ -111,12 +118,25 @@ CONTAINS
       ELSE
         kw=kwsat*(1-(a*psy)**(n*m)*(1+(a*psy)**n)**(-m))**2*(1+(a*psy)**n)**(-m/2)
       END IF
-    ELSE
-      IF(.NOT. SameParameters ) THEN
-        nnodes = Element % Type % NumberOfNodes
-        nodalkw = ListGetReal( Material,'Hydraulic Conductivity',&
-            nnodes,Element % NodeIndexes)
+
+    ELSE IF( PorosityModelIndex == POROSITY_BROOKS_COREY ) THEN
+      IF(.NOT. SameParameters) THEN
+        kwsat = GetConstReal( Material,'Saturated Hydraulic Conductivity')
+        aev = GetConstReal( Material,'Brooks and Corey Air entry value')
+        lambda = GetConstReal( Material,'Brooks and Corey Lambda')
       END IF
+      nnodes = Element % TYPE % NumberOfNodes
+      psy = SUM( Basis(1:nnodes) * elemPsy(1:nnodes) )
+      IF( psy <= aev ) THEN
+        kw = kwsat
+      ELSE
+        kw=kwsat*(psy/aev)**(-2-3*lambda)
+      END IF
+
+    ELSE
+      nnodes = Element % TYPE % NumberOfNodes
+      nodalkw = ListGetReal( Material,'Hydraulic Conductivity',&
+          nnodes,Element % NodeIndexes)
       kw = SUM( Basis(1:nnodes) * nodalkw(1:nnodes) )
     END IF
        
@@ -129,7 +149,9 @@ CONTAINS
     TYPE(ValueList_t), POINTER :: Material
     REAL(KIND=dp) :: Basis(:),ElemPsy(:)
     REAL(KIND=dp) :: psy, teta
-    REAL(KIND=dp) :: tetaR, tetaS, a, m, n    
+    REAL(KIND=dp) :: tetaR, tetaS
+    REAL(KIND=dp) :: a, m, n ! van Genuchten
+    REAL(KIND=dp) :: aev, lambda ! Brooks and Corey
     REAL(KIND=dp), ALLOCATABLE :: Nodalteta(:)
     TYPE(ValueList_t), POINTER :: PrevMaterial => NULL()
     TYPE(Element_t), POINTER :: PrevElement => NULL()
@@ -137,14 +159,15 @@ CONTAINS
     INTEGER :: PorosityModelIndex, nnodes
     LOGICAL :: SameParameters, Found
 
-    SAVE PrevMaterial,PrevElement,nnodes,PorosityModelIndex,nodalteta,tetaR,tetaS,a,n,m
+    SAVE PrevMaterial,PrevElement,nnodes,PorosityModelIndex,nodalteta,tetaR,tetaS,a,n,m,aev,lambda 
     
     ! Parameters for the certain model are assumed to be 
     ! constant within a material
     !--------------------------------------------------------
     SameParameters = .FALSE.
     IF( ASSOCIATED(Material, PrevMaterial) ) THEN
-      IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN ) THEN
+      IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN .OR. &
+          PorosityModelIndex == POROSITY_BROOKS_COREY ) THEN
         SameParameters = .TRUE.
       ELSE IF( ASSOCIATED(Element,PrevElement)) THEN
         SameParameters = .TRUE.
@@ -153,7 +176,9 @@ CONTAINS
       PrevMaterial => Material 
       PorosityModel = GetString( Material,'Porosity Model',Found)
       IF( PorosityModel == 'van genuchten') THEN
-        PorosityModelIndex = POROSITY_VAN_GENUCHTEN        
+        PorosityModelIndex = POROSITY_VAN_GENUCHTEN
+      ELSE IF( PorosityModel == 'brooks and corey') THEN 
+        PorosityModelIndex = POROSITY_BROOKS_COREY 
       ELSE
         PorosityModelIndex = POROSITY_DEFAULT                
         IF( .NOT. ALLOCATED( nodalteta ) ) THEN
@@ -181,12 +206,28 @@ CONTAINS
       ELSE
         teta=tetaR+(tetaS-tetaR)/((1+(a*psy)**n)**m)
       END IF
-    ELSE  
+
+    ELSE IF( PorosityModelIndex == POROSITY_BROOKS_COREY ) THEN
       IF(.NOT. SameParameters) THEN
-        nnodes = Element % Type % NumberOfNodes
-        nodalteta = ListGetReal( Material,'Water Content',&
-            nnodes,Element % NodeIndexes)
+        tetaR = GetConstReal( Material,'Residual Water Content')
+        tetaS = GetConstReal( Material,'Saturated Water Content')
+        aev = GetConstReal( Material,'Brooks and Corey Air entry value')
+        lambda = GetConstReal( Material,'Brooks and Corey Lambda')
       END IF
+
+      nnodes = Element % TYPE % NumberOfNodes
+      psy = SUM( Basis(1:nnodes) * elemPsy(1:nnodes) )
+
+      IF( psy <= aev ) THEN
+        teta = tetaS
+      ELSE
+        teta=tetaR+(tetaS-tetaR)*(psy/aev)**(-lambda)
+      END IF
+
+    ELSE  
+      nnodes = Element % TYPE % NumberOfNodes
+      nodalteta = ListGetReal( Material,'Water Content',&
+          nnodes,Element % NodeIndexes)
       teta = SUM( Basis(1:nnodes) * nodalteta(1:nnodes) )
     END IF
     
@@ -356,14 +397,14 @@ END MODULE PorousMaterials
       
       at  = CPUTime()
       
-      CALL Info( 'RichardsSolver', ' ', Level=4 )
+      CALL Info( 'RichardsSolver', ' ', Level=6 )
       CALL Info( 'RichardsSolver', '-------------------------------------',Level=4 )
       WRITE( Message,'(A,I4,A,I4)') &
           'Nonlinear iteration no.', iter,' of',NonlinearIterMax
       CALL Info( 'RichardsSolver', Message, Level=4 )
       CALL Info( 'RichardsSolver', '-------------------------------------',Level=4 )
-      CALL Info( 'RichardsSolver', ' ', Level=4 )
-      CALL Info( 'RichardsSolver', 'Starting Assembly...', Level=4 )
+      CALL Info( 'RichardsSolver', ' ', Level=6 )
+      CALL Info( 'RichardsSolver', 'Starting Assembly...', Level=6 )
       
       InitSolution = .FALSE.
       IF( iter == 1 .AND. .NOT. SubroutineVisited ) THEN
@@ -453,10 +494,10 @@ END MODULE PorousMaterials
       END DO
       
       CALL DefaultFinishAssembly()
-      CALL Info( 'RichardsSolver', 'Assembly done', Level=4 )
+      CALL Info( 'RichardsSolver', 'Assembly done', Level=6 )
       
       CALL DefaultDirichletBCs()
-      CALL Info( 'RichardsSolver', 'Dirichlet conditions done', Level=4 )
+      CALL Info( 'RichardsSolver', 'Dirichlet conditions done', Level=6 )
       
       !------------------------------------------------------------------------------
       !     Solve the system and check for convergence
@@ -485,11 +526,12 @@ END MODULE PorousMaterials
         WRITE(Message,'(A,I6,A,I6,A)') &
             'Nonlinear iteration converged after ', iter, &
             ' out of max ',NonlinearIterMax,' iterations'
-        CALL INFO('RichardsSolver',Message)
+        CALL INFO('RichardsSolver',Message, Level=4)
         EXIT
       END IF
       
       ! Update matric suction which may be used in the nonlinear iteration as 
+      !----------------------------------------------------------------------
       DO i = 1, Solver % Mesh % NumberOfNodes
         j = TotalHeadPerm( i )
         IF( j == 0 ) CYCLE
