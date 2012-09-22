@@ -2379,18 +2379,18 @@ CALL Info( 'VariableGet', Message, Level=7 )
      END IF
 
      IF ( PRESENT( minv ) ) THEN
-        IF ( L < minv ) THEN
-           WRITE( Message, *) 'Given value ',L,' for property: ','[', TRIM(Name),']', &
-               ' smaller than given minimum: ', minv
-           CALL Fatal( 'ListGetInteger', Message )
-        END IF
+       IF ( L < minv ) THEN
+         WRITE( Message, '(A,I0,A,I0)') 'Given value ',L,' for property: ['//TRIM(Name)//& 
+             '] smaller than given minimum: ', minv
+         CALL Fatal( 'ListGetInteger', Message )
+       END IF
      END IF
 
      IF ( PRESENT( maxv ) ) THEN
         IF ( L > maxv ) THEN
-           WRITE( Message,*) 'Given value ',L,' for property: ','[', TRIM(Name),']', &
-               ' larger than given maximum: ', maxv
-           CALL Fatal( 'ListGetInteger', Message )
+          WRITE( Message, '(A,I0,A,I0)') 'Given value ',L,' for property: ['//TRIM(Name)//& 
+              '] larger than given minimum: ', minv
+          CALL Fatal( 'ListGetInteger', Message )
         END IF
      END IF
 !------------------------------------------------------------------------------
@@ -2416,7 +2416,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( .NOT. ASSOCIATED(ptr % IValues) ) THEN
-       WRITE(Message,*) 'Value type for property [', TRIM(Name), &
+       WRITE(Message,*) 'VALUE TYPE for property [', TRIM(Name), &
                '] not used consistently.'
        CALL Fatal( 'ListGetIntegerArray', Message )
        RETURN
@@ -2514,7 +2514,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
        F = ExecConstRealFunction( ptr % PROCEDURE,CurrentModel,xx,yy,zz )
      ELSE
        IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-         WRITE(Message,*) 'Value type for property [', TRIM(Name), &
+         WRITE(Message,*) 'VALUE TYPE for property [', TRIM(Name), &
                  '] not used consistently.'
          CALL Fatal( 'ListGetConstReal', Message )
        ELSE
@@ -2524,7 +2524,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
      IF ( PRESENT( minv ) ) THEN
         IF ( F < minv ) THEN
-           WRITE( Message, *) 'Given value ', F, ' for property: ', '[', TRIM(Name),']', &
+           WRITE( Message, *) 'Given VALUE ', F, ' for property: ', '[', TRIM(Name),']', &
                ' smaller than given minimum: ', minv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -2532,7 +2532,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
      IF ( PRESENT( maxv ) ) THEN
         IF ( F > maxv ) THEN
-           WRITE( Message, *) 'Given value ', F, ' for property: ', '[', TRIM(Name),']', &
+           WRITE( Message, *) 'Given VALUE ', F, ' for property: ', '[', TRIM(Name),']', &
                ' larger than given maximum: ', maxv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -2614,7 +2614,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
        IF ( str(l0:l1) /= 'coordinate' ) THEN
          Variable => VariableGet( CurrentModel % Variables,TRIM(str(l0:l1)) )
          IF ( .NOT. ASSOCIATED( Variable ) ) THEN
-           WRITE( Message, * ) 'Can''t find independent variable:[', &
+           WRITE( Message, * ) 'Can''t find INDEPENDENT variable:[', &
                TRIM(str(l0:l1)),']' // &
                'for dependent variable:[', TRIM(Name),']'
            CALL Fatal( 'ListGetReal', Message )
@@ -2720,7 +2720,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
          END DO
        ELSE
          IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-           WRITE(Message,*) 'Value type for property [', TRIM(Name), &
+           WRITE(Message,*) 'VALUE TYPE for property [', TRIM(Name), &
                    '] not used consistently.'
            CALL Fatal( 'ListGetReal', Message )
            RETURN
@@ -2740,7 +2740,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
                           NodeIndexes(i), T )
            ELSE
              IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-               WRITE(Message,*) 'Value type for property [', TRIM(Name), &
+               WRITE(Message,*) 'VALUE TYPE for property [', TRIM(Name), &
                        '] not used consistently.'
                CALL Fatal( 'ListGetReal', Message )
                RETURN
@@ -2801,7 +2801,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
      IF ( PRESENT( minv ) ) THEN
         IF ( MINVAL(F(1:n)) < minv ) THEN
-           WRITE( Message,*) 'Given value ', MINVAL(F(1:n)), ' for property: ', '[', TRIM(Name),']', &
+           WRITE( Message,*) 'Given VALUE ', MINVAL(F(1:n)), ' for property: ', '[', TRIM(Name),']', &
                ' smaller than given minimum: ', minv
            CALL Fatal( 'ListGetReal', Message )
         END IF
@@ -2809,7 +2809,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
      IF ( PRESENT( maxv ) ) THEN
         IF ( MAXVAL(F(1:n)) > maxv ) THEN
-           WRITE( Message,*) 'Given value ', MAXVAL(F(1:n)), ' for property: ', '[', TRIM(Name),']', &
+           WRITE( Message,*) 'Given VALUE ', MAXVAL(F(1:n)), ' for property: ', '[', TRIM(Name),']', &
                ' larger than given maximum ', maxv
            CALL Fatal( 'ListGetReal', Message )
         END IF
@@ -2873,7 +2873,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
        IF( PRESENT( Name ) ) THEN
          ptr => ListFind(List,Name,Found)
        ELSE IF(.NOT. Handle % Initialized ) THEN
-         CALL Fatal('ListGetRealAtIp','Handle must be initialized if name is not given!')
+         CALL Fatal('ListGetRealAtIp','Handle must be initialized IF name is not given!')
        ELSE
          ptr => ListFind(List,Handle % Name,Found)
        END IF
