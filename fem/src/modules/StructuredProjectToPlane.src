@@ -31,6 +31,7 @@
 ! *           02101 Espoo, Finland 
 ! *
 ! *  Original Date: 3.3.2008
+! *  Modified Data: 27.9.2012
 ! *
 ! *****************************************************************************/
 
@@ -40,7 +41,7 @@
 !>  been obtained by extrusion in the direction of interest. For the given 
 !>  direction the corresponding top and bottom node is computed for every node
 !>  and this information is used to perform projection to the top or bottom
-!>  plane.
+!>  plane, or alternatively to the whole body. 
 !> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
@@ -148,7 +149,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
   NoVar = 0
   
 
-  debug = .TRUE.
+  debug = .FALSE.
 
   DO WHILE(.TRUE.)
 
@@ -195,7 +196,8 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 
     ! Check that the variable exists for most of the operators 
     !----------------------------------------------------------
-    IF( Oper == 'height' .OR. Oper == 'depth' .OR. Oper == 'index' .OR. Oper == 'dist') THEN
+    IF( Oper == 'height' .OR. Oper == 'depth' .OR. Oper == 'index' .OR. &
+        Oper == 'thickness' .OR. Oper == 'distance' ) THEN
       CONTINUE
     ELSE
       IF( .NOT. GotVar ) THEN
@@ -211,7 +213,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       WRITE (TargetName,'(A,A)') TRIM(Oper)//' '//TRIM(VarName)
     END IF
 
-    IF( Oper == 'height' .OR. Oper == 'depth' .OR. Oper == 'index') THEN
+    IF( Oper == 'height' .OR. Oper == 'depth' .OR. Oper == 'index' .OR. Oper == 'distance' ) THEN
       ReducedDimensional = .FALSE.
     ELSE
       ReducedDimensional = .TRUE.
@@ -235,10 +237,9 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
             TargetName, Dofs )
       END IF
       Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
-      PRINT *,'Created Target Variable: ',TRIM(Var % Name)
+      CALL Info('StructuredProjectToPlane','Created TARGET Variable: '//TRIM(TargetName),Level=9)
     END IF
     IF( Var % Dofs /= Dofs ) THEN
-      PRINT *,'Dofs:',Var % Dofs, Dofs
       CALL Fatal('StructureProjectToPlane','Mismatch in the dofs in fields!')
     END IF
 
@@ -401,7 +402,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
           TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + dx * FieldIn(j)
         END DO
         
-      CASE ('dist')
+      CASE ('thickness')
         TopField = 0.0_dp
         DO i=1,nsize
           itop = TopPointer(i)
@@ -476,6 +477,55 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
             END DO
           END IF
         END DO
+
+ 
+      CASE ('distance') 
+        FieldOut = 0.0_dp
+
+        ! First check the distance to top ('depth')
+        DO i=1,nsize
+          IF( i == TopPointer(i) ) THEN
+            l = i
+            depth = 0.0_dp
+            DO k=1,nsize
+              IF( k > 1 ) THEN
+                depth = depth + (Coord(UpPointer(l)) - Coord(l))
+              END IF
+              IF( ASSOCIATED(PermOut)) THEN
+                IF( PermOut(l) > 0 ) THEN
+                  FieldOut(PermOut(l)) = depth
+                END IF
+              ELSE
+                FieldOut(l) = depth
+              END IF
+              IF( l == BotPointer(l)) EXIT
+              l = DownPointer(l)            
+            END DO
+          END IF
+        END DO
+
+        ! then distance to top ('height')
+        DO i=1,nsize
+          IF( i == BotPointer(i) ) THEN
+            l = i
+            height = 0.0_dp
+            DO k=1,nsize
+              IF( k > 1 ) THEN
+                height = height + (Coord(l) - Coord(DownPointer(l)))
+              END IF
+              IF( ASSOCIATED(PermOut)) THEN
+                IF( PermOut(l) > 0 ) THEN
+                  FieldOut(PermOut(l)) = MIN( height, FieldOut(PermOut(l)))
+                END IF
+              ELSE
+                FieldOut(l) = MIN( height, FieldOut(l))
+              END IF
+              IF( l == TopPointer(l)) EXIT
+              l = UpPointer(l)            
+            END DO
+          END IF
+        END DO
+
         
       CASE default
         CALL Fatal('StructuredProjectToPlane','Unknown operator: '//TRIM(Oper))
@@ -487,10 +537,6 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       ! It could be at the top, but it could also be at the bottom, or everywhere
       !----------------------------------------------------------------------------
       IF( ReducedDimensional ) THEN
-
-        PRINT *,'NoVar',NoVar,dofs,dof
-        PRINT *,'Range:',MINVAL(TopField),MAXVAL(TopField)
-
         k = 0
         DO i=1,nsize
           j = i
@@ -512,7 +558,6 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 
   WRITE(Message,* ) 'Projection time: ',at1-at0
   CALL Info('StructuredProjectToPlane',Message)
-  CALL Info( 'StructuredProjectToPlane','All done')
   CALL Info( 'StructuredProjectToPlane','------------------------------------------')
 
 !------------------------------------------------------------------------------
