@@ -68,8 +68,8 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       NodeIndexes(:),TargetPointer(:),BotPerm(:),&
       PermOut(:),PermIn(:),LevelsetPerm(:),TopPerm(:)
   LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
-      Debug, MaskExist, GotVar, GotOper, BottomTarget, TemporalLayer
-  REAL(KIND=dp) :: dx,UnitVector(3),ElemVector(3),DotPro,Eps,Length,Level,val,q
+      Debug, MaskExist, GotVar, GotOper, BottomTarget, ReducedDimensional
+  REAL(KIND=dp) :: dx,UnitVector(3),ElemVector(3),DotPro,Eps,Length,Level,val,q,depth,height
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: FieldOut(:), FieldIn(:), Levelset(:), Coord(:),TopField(:)
   TYPE(Variable_t), POINTER :: Var, OldVar
@@ -148,7 +148,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
   NoVar = 0
   
 
-  debug = .FALSE.
+  debug = .TRUE.
 
   DO WHILE(.TRUE.)
 
@@ -163,21 +163,12 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       IF ( .NOT. ASSOCIATED( Var ) )  THEN
         CALL Fatal('StructuredProjectToPlane','Variable does not exist: '//TRIM(VarName))
       END IF
-    END IF
-
-    IF( ASSOCIATED( Var ) ) THEN
-      OldVar => Var
-      OldVarName = VarName 
-    ELSE IF( ASSOCIATED( OldVar ) ) THEN
-      Var => OldVar
-      VarName = OldVarName
+      FieldIn => Var % Values
+      PermIn => Var % Perm
+      Dofs = Var % Dofs
     ELSE
-      EXIT
+      Dofs = 1
     END IF
-
-    FieldIn => Var % Values
-    PermIn => Var % Perm
-    Dofs = Var % Dofs
 
 
     ! Read in the operator
@@ -188,12 +179,9 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       ! For the first variable the operator is definately needed
       IF( NoVar > 1 ) THEN
         Oper = OldOper
-      ELSE
-        EXIT
       END IF
     END IF
-    OldOper = Oper
-
+ 
     
     ! Either new field or new operator is needed
     !-----------------------------------------------
@@ -203,7 +191,17 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END IF
       EXIT
     END IF
+    OldOper = Oper
 
+    ! Check that the variable exists for most of the operators 
+    !----------------------------------------------------------
+    IF( Oper == 'height' .OR. Oper == 'depth' .OR. Oper == 'index' .OR. Oper == 'dist') THEN
+      CONTINUE
+    ELSE
+      IF( .NOT. GotVar ) THEN
+        CALL Fatal('StructuredProjectToPlane','Variable required for this operator')
+      END IF
+    END IF
 
     ! Create the projected variable if needed
     !-----------------------------------------------
@@ -213,19 +211,31 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       WRITE (TargetName,'(A,A)') TRIM(Oper)//' '//TRIM(VarName)
     END IF
 
+    IF( Oper == 'height' .OR. Oper == 'depth' .OR. Oper == 'index') THEN
+      ReducedDimensional = .FALSE.
+    ELSE
+      ReducedDimensional = .TRUE.
+    END IF
+
+
     Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
     IF ( .NOT. ASSOCIATED( Var ) )  THEN      
-      WRITE (Name,'(A,I0,A)') 'Target Variable ',NoVar,' At Bottom'
-      IF( ListGetLogical( Params, TRIM(Name), GotIt ) ) THEN
-        CALL VariableAddVector( Mesh % Variables, Solver % Mesh, PSolver, &
-            TargetName, Dofs, Perm = BotPerm)           
-        Var => VariableGet( Mesh % Variables, TRIM(TargetName) )        
+      IF( ReducedDimensional ) THEN
+        WRITE (Name,'(A,I0,A)') 'Target Variable ',NoVar,' At Bottom'
+        IF( ListGetLogical( Params, TRIM(Name), GotIt ) ) THEN
+          CALL VariableAddVector( Mesh % Variables, Solver % Mesh, PSolver, &
+              TargetName, Dofs, Perm = BotPerm)           
+          Var => VariableGet( Mesh % Variables, TRIM(TargetName) )        
+        ELSE 
+          CALL VariableAddVector( Mesh % Variables, Solver % Mesh, PSolver, &
+              TargetName, Dofs, Perm = TopPerm)           
+        END IF
       ELSE
         CALL VariableAddVector( Mesh % Variables, Solver % Mesh, PSolver, &
-            TargetName, Dofs, Perm = TopPerm)           
+            TargetName, Dofs )
       END IF
       Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
-      PRINT *,'Created Target Variable:',TRIM(Var % Name)
+      PRINT *,'Created Target Variable: ',TRIM(Var % Name)
     END IF
     IF( Var % Dofs /= Dofs ) THEN
       PRINT *,'Dofs:',Var % Dofs, Dofs
@@ -235,8 +245,6 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     FieldOut => Var % Values
     PermOut => Var % Perm    
     FieldOut = 0.0_dp
-
-    TemporalLayer = .TRUE.
 
     IF(Oper == 'isosurface') THEN
       WRITE (Name,'(A,I0)') 'Isosurface Variable ',NoVar
@@ -255,8 +263,9 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     ELSE IF ( Oper(1:5) == 'layer' ) THEN
       WRITE (Name,'(A,I0)') 'Layer Index ',NoVar
       layer = GetInteger( Params, Name, GotIt )
-      IF (.NOT.GotIt) &
+      IF (.NOT.GotIt) THEN
         CALL FATAL('StructuredProjectToPlane','no > Layer Index < indicated for output')
+      END IF
     END IF
 
     ! Loop over components
@@ -399,7 +408,10 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
           dx = 0.5*(Coord(UpPointer(i)) - Coord(DownPointer(i)))
           TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + dx 
         END DO
-        
+
+      ! Following three operators may have full dimensional results
+      !--------------------------------------------------------------      
+  
       CASE ('index')
         FieldOut = 0.0_dp
         DO i=1,nsize
@@ -407,7 +419,9 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
             l = i
             DO k=1,nsize
               IF( ASSOCIATED(PermOut)) THEN
-                FieldOut(PermOut(l)) = 1.0_dp * k
+                IF( PermOut(l) > 0 ) THEN
+                  FieldOut(PermOut(l)) = 1.0_dp * k
+                END IF
               ELSE
                 FieldOut(l) = 1.0_dp * k
               END IF
@@ -416,7 +430,52 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
             END DO
           END IF
         END DO
-        TemporalLayer = .FALSE.
+ 
+      CASE ('depth') 
+        FieldOut = 0.0_dp
+        DO i=1,nsize
+          IF( i == TopPointer(i) ) THEN
+            l = i
+            depth = 0.0_dp
+            DO k=1,nsize
+              IF( k > 1 ) THEN
+                depth = depth + (Coord(UpPointer(l)) - Coord(l))
+              END IF
+              IF( ASSOCIATED(PermOut)) THEN
+                IF( PermOut(l) > 0 ) THEN
+                  FieldOut(PermOut(l)) = depth
+                END IF
+              ELSE
+                FieldOut(l) = depth
+              END IF
+              IF( l == BotPointer(l)) EXIT
+              l = DownPointer(l)            
+            END DO
+          END IF
+        END DO
+
+      CASE ('height')
+        FieldOut = 0.0_dp
+        DO i=1,nsize
+          IF( i == BotPointer(i) ) THEN
+            l = i
+            height = 0.0_dp
+            DO k=1,nsize
+              IF( k > 1 ) THEN
+                height = height + (Coord(l) - Coord(DownPointer(l)))
+              END IF
+              IF( ASSOCIATED(PermOut)) THEN
+                IF( PermOut(l) > 0 ) THEN
+                  FieldOut(PermOut(l)) = height
+                END IF
+              ELSE
+                FieldOut(l) = height
+              END IF
+              IF( l == TopPointer(l)) EXIT
+              l = UpPointer(l)            
+            END DO
+          END IF
+        END DO
         
       CASE default
         CALL Fatal('StructuredProjectToPlane','Unknown operator: '//TRIM(Oper))
@@ -427,7 +486,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       ! Finally copy the projected values to the target variable
       ! It could be at the top, but it could also be at the bottom, or everywhere
       !----------------------------------------------------------------------------
-      IF( TemporalLayer ) THEN
+      IF( ReducedDimensional ) THEN
 
         PRINT *,'NoVar',NoVar,dofs,dof
         PRINT *,'Range:',MINVAL(TopField),MAXVAL(TopField)
