@@ -494,7 +494,7 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
 {
   int material,noknots,noelements,bulkelems,novctrs,sideelems,gmshtype,elemtype,boundtype;
   char filename[MAXFILESIZE],outstyle[MAXFILESIZE];
-  int i,j,k,l,nodesd1,timesteps,nodesd2,fail;
+  int i,j,k,l,nodesd1,timesteps,nodesd2,elemind;
   int ind[MAXNODESD2];
   Real *rpart;
   FILE *out;
@@ -565,7 +565,7 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
 
     gmshtype = ElmerToGmshType( elemtype );
     
-    fprintf(out,"%d %d %d %d %d ",i,gmshtype,2,0,material);
+    fprintf(out,"%d %d %d %d %d",i,gmshtype,2,0,material);
 
     nodesd2 = data->elementtypes[i]%100;
 
@@ -575,11 +575,11 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
     ElmerToGmshIndx(elemtype,ind);
 
     for(j=0;j<nodesd2;j++) 
-      fprintf(out,"%d ",ind[j]);
+      fprintf(out," %d",ind[j]);
     fprintf(out,"\n");    
   }
 
-
+  elemind = bulkelems;
   if(nobound) {
     for(j=0;j<nobound;j++) {
       if(bound[j].created == FALSE) continue;
@@ -590,14 +590,15 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
 	boundtype = bound[j].types[i];
 
 	gmshtype = ElmerToGmshType( elemtype );
-    
-	fprintf(out,"%d %d %d %d %d ",i,gmshtype,2,0,boundtype);
+	elemind += 1;
+
+	fprintf(out,"%d %d %d %d %d",elemind,gmshtype,2,0,boundtype);
 	nodesd2 = elemtype%100;
 	
 	ElmerToGmshIndx(elemtype,ind);
 
 	for(k=0;k<nodesd2;k++) 
-	  fprintf(out,"%d ",ind[k]);
+	  fprintf(out," %d",ind[k]);
 	fprintf(out,"\n");	
       }
     }
@@ -683,7 +684,6 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
   fclose(out);
 
   printf("SaveMeshGmsh: All done\n");
-
 
   return(0);
 }
