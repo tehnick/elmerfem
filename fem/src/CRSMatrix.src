@@ -881,6 +881,268 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>  Calculate transpose of A in CRS format: B = A^T
+!------------------------------------------------------------------------------
+     FUNCTION CRS_Transpose( A ) RESULT(B)
+!------------------------------------------------------------------------------
+       IMPLICIT NONE
+       
+       TYPE(Matrix_t), POINTER :: A, B
+       
+       INTEGER, ALLOCATABLE :: Row(:)
+       INTEGER :: NVals
+       INTEGER :: i,j,k,istat,n
+
+       B => AllocateMatrix()
+       
+       NVals = SIZE( A % Values )
+       B % NumberOfRows = MAXVAL( A % Cols )
+
+       ALLOCATE( B % Rows( B % NumberOfRows +1 ), B % Cols( NVals ), &
+           B % Values( Nvals ), B % Diag( B % NumberOfRows ), Row( B % NumberOfRows ), &
+           STAT=istat )
+       IF ( istat /= 0 )  CALL Fatal( 'CRS_Transpose', &
+           'Memory allocation error.' )
+
+       B % Diag = 0
+       Row = 0       
+       DO i = 1, NVals
+         Row( A % Cols(i) ) = Row( A % Cols(i) ) + 1
+       END DO
+       
+       B % Rows(1) = 1
+       DO i = 1, B % NumberOfRows
+         B % Rows(i+1) = B % Rows(i) + Row(i)
+       END DO
+       B % Cols = 0
+       
+       DO i = 1, B % NumberOfRows
+         Row(i) = B % Rows(i)
+       END DO
+      
+       DO i = 1, A % NumberOfRows
+
+         DO j = A % Rows(i), A % Rows(i+1) - 1
+           k = A % Cols(j)
+
+           IF ( Row(k) < B % Rows(k+1) ) THEN 
+             B % Cols( Row(k) ) = i
+             B % Values( Row(k) ) = A % Values(j)
+             Row(k) = Row(k) + 1
+           ELSE
+             WRITE( Message, * ) 'Trying to access non-existent column', i,k,j
+             CALL Error( 'CRS_Transpose', Message )
+             RETURN
+           END IF
+         END DO
+       END DO
+
+       DEALLOCATE( Row )
+
+!------------------------------------------------------------------------------
+     END FUNCTION CRS_Transpose
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!>    Matrix vector product (v = A^T u) for a matrix given in CRS format.
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_TransposeMatrixVectorMultiply( A,u,v )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp), DIMENSION(*), INTENT(IN) :: u   !< Vector to be multiplied
+    REAL(KIND=dp), DIMENSION(*), INTENT(OUT) :: v  !< Result vector
+    TYPE(Matrix_t), INTENT(IN) :: A                !< Structure holding matrix
+!------------------------------------------------------------------------------
+     INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
+     REAL(KIND=dp), POINTER  CONTIG :: Values(:)
+
+     INTEGER :: i,j,k,n
+     REAL(KIND=dp) :: rsum
+
+!------------------------------------------------------------------------------
+
+     n = A % NumberOfRows
+     Rows   => A % Rows
+     Cols   => A % Cols
+     Values => A % Values
+
+     v(1:n) = 0.0_dp
+     DO i=1,n
+       DO j=Rows(i),Rows(i+1)-1
+         k = Cols(j)
+         v(k) = v(k) + u(i) * Values(j)
+       END DO
+     END DO
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE CRS_TransposeMatrixVectorMultiply
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Add another matrix B to matrix A, and eliminate B
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_MergeMatrix( A,B,PermA,PermB )
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t), POINTER :: A                !< Structure holding the master matrix
+    TYPE(Matrix_t), POINTER :: B                !< Structure holding the slave matrix
+    INTEGER, POINTER, OPTIONAL :: PermA(:)
+    INTEGER, POINTER, OPTIONAL :: PermB(:)
+!------------------------------------------------------------------------------
+     INTEGER, POINTER  CONTIG :: ColsA(:),RowsA(:),ColsB(:),RowsB(:),Rows(:),Cols(:)
+     REAL(KIND=dp), POINTER  CONTIG :: ValuesA(:),ValuesB(:),Values(:)
+     INTEGER :: i,j,k,n,nA,nB,kb,iA,iB
+     LOGICAL :: Set,UsePerm
+!------------------------------------------------------------------------------
+     REAL(kind=dp) :: sumA, sumB
+
+     IF(.NOT. ASSOCIATED(A)) THEN
+       CALL Fatal('CRS_MergeMatrix','A not associated')
+     ELSE IF(.NOT. ASSOCIATED(B)) THEN
+       CALL Fatal('CRS_MergeMatrix','B not associated')
+     END IF
+
+     PRINT *,'Init A:',SUM( A % Values )
+     PRINT *,'Init B:',SUM( B % Values )
+
+     UsePerm = PRESENT( PermA ) 
+
+     IF( UsePerm ) THEN
+       IF(.NOT. PRESENT( PermB ) ) THEN
+         CALL Fatal('CRS_MergeMatrix','Either both PermA and PermB or neither')
+       END IF
+        
+       n = SIZE(PermA)
+       IF( SIZE(PermB) /= n ) THEN
+         CALL Fatal('CRS_MergeMatrix','Mismatch in perm size')
+       END IF
+     ELSE
+       n = A % NumberOfRows
+       IF( n /= B % NumberOfRows ) THEN
+         CALL Fatal('CRS_MergeMatrix','Mismatch in matrix size')
+       END IF
+     END IF
+
+     RowsA   => A % Rows
+     ColsA   => A % Cols
+     ValuesA => A % Values
+
+     RowsB   => B % Rows
+     ColsB   => B % Cols
+     ValuesB => B % Values
+
+     Set = .FALSE.
+     sumA = 0.0_dp
+     sumB = 0.0_dp
+
+100  kb = 0
+     IF( UsePerm ) THEN
+       DO i=1,n
+         iA = PermA(i)
+         iB = PermB(i)
+         IF( iA > 0 .AND. iB > 0 ) THEN
+           PRINT *,'CRS_MergeMatrix: code more',iA,iB
+           STOP
+         END IF
+
+         IF( iA > 0 ) THEN
+           nA = RowsA(iA+1)-RowsA(iA) 
+         ELSE
+           nA = 0
+         END IF
+         IF( iB > 0 ) THEN
+           nB = RowsB(iB+1)-RowsB(iB)
+         ELSE
+           nB = 0
+         END IF
+
+ !        PRINT *,'iA',i,n,iA,iB,nA,nB
+
+         IF( nA > 0 ) THEN           
+           DO j=RowsA(iA),RowsA(iA+1)-1
+             kb = kb + 1
+             IF( Set ) THEN
+               Cols(kb) = ColsA(j)
+               Values(kb) = ValuesA(j)
+!               PRINT *,'A:',iA,kb,Cols(kb),Values(kb)
+               sumA = sumA + ValuesA(j)
+             END IF
+           END DO
+         ELSE IF( nB > 0 ) THEN
+           DO j=RowsB(iB),RowsB(iB+1)-1
+             kb = kb + 1
+             IF( Set ) THEN
+               Cols(kb) = ColsB(j)
+               Values(kb) = ValuesB(j)
+               sumB = sumB + ValuesB(j)
+             END IF
+           END DO
+         END IF
+         IF( Set ) THEN
+           Rows(i+1) = kb+1
+         END IF
+       END DO
+     ELSE
+       DO i=1,n
+         nA = RowsA(i+1)-RowsA(i) 
+         nB = RowsB(i+1)-RowsB(i)
+!         PRINT *,'nA',i,nA,nB
+         IF( nA > 0 .AND. nB > 0 ) THEN
+           PRINT *,'CRS_MergeMatrix: code more',nA,nB
+           CYCLE
+         ELSE IF( nA > 0 ) THEN
+           DO j=RowsA(i),RowsA(i+1)-1
+             kb = kb + 1
+             IF( Set ) THEN
+               Cols(kb) = ColsA(j)
+               Values(kb) = ValuesA(j)
+             END IF
+           END DO
+         ELSE IF( nB > 0 ) THEN
+           DO j=RowsB(i),RowsB(i+1)-1
+             kb = kb + 1
+             IF( Set ) THEN
+               Cols(kb) = ColsB(j)
+               Values(kb) = ValuesB(j)
+             END IF
+           END DO
+         END IF
+         IF( Set ) THEN
+           Rows(i+1) = kb+1
+         END IF
+       END DO
+     END IF
+
+     IF( kb == 0 ) THEN
+       CALL Fatal('CRS_MergeMatrix','Union size is zero?')
+     END IF
+     
+     IF(.NOT. Set) THEN
+       PRINT *,'allocating:',kb,n
+       ALLOCATE( Rows(n+1), Cols(kb), Values( kb ) )
+       Rows(1) = 1
+       Set = .TRUE.
+       PRINT *,'Done Allocating and going now really'
+       GOTO 100
+     END IF
+     
+     DEALLOCATE( RowsA, RowsB, ColsA, ColsB, ValuesA, ValuesB )     
+     B % NumberOfRows = 0
+
+     A % Rows => Rows
+     A % Cols => Cols
+     A % Values => Values
+     A % NumberOfRows = n
+
+     PRINT *,'SUM merged: ',SUM( A % Values )
+
+     PRINT *,'Done Merging'
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE CRS_MergeMatrix
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
 !>    Matrix vector product (v = Au) for a matrix given in CRS format
 !>    assuming complex valued matrix equation.
 !------------------------------------------------------------------------------

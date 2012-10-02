@@ -4756,69 +4756,6 @@ CONTAINS
 
 
 
-!------------------------------------------------------------------------------
-!>  Calculate transpose of A in CRS format: B = A^T
-!------------------------------------------------------------------------------
-     FUNCTION CRS_Transpose( A ) RESULT(B)
-!------------------------------------------------------------------------------
-       USE CRSMatrix
-       IMPLICIT NONE
-       
-       TYPE(Matrix_t), POINTER :: A, B
-       
-       INTEGER, ALLOCATABLE :: Row(:)
-       INTEGER :: NVals
-       INTEGER :: i,j,k,istat,n
-
-       B => AllocateMatrix()
-       
-       NVals = SIZE( A % Values )
-       B % NumberOfRows = MAXVAL( A % Cols )
-
-       ALLOCATE( B % Rows( B % NumberOfRows +1 ), B % Cols( NVals ), &
-           B % Values( Nvals ), B % Diag( B % NumberOfRows ), Row( B % NumberOfRows ), &
-           STAT=istat )
-       IF ( istat /= 0 )  CALL Fatal( 'CRS_Transpose', &
-           'Memory allocation error.' )
-
-       B % Diag = 0
-       Row = 0       
-       DO i = 1, NVals
-         Row( A % Cols(i) ) = Row( A % Cols(i) ) + 1
-       END DO
-       
-       B % Rows(1) = 1
-       DO i = 1, B % NumberOfRows
-         B % Rows(i+1) = B % Rows(i) + Row(i)
-       END DO
-       B % Cols = 0
-       
-       DO i = 1, B % NumberOfRows
-         Row(i) = B % Rows(i)
-       END DO
-      
-       DO i = 1, A % NumberOfRows
-
-         DO j = A % Rows(i), A % Rows(i+1) - 1
-           k = A % Cols(j)
-
-           IF ( Row(k) < B % Rows(k+1) ) THEN 
-             B % Cols( Row(k) ) = i
-             B % Values( Row(k) ) = A % Values(j)
-             Row(k) = Row(k) + 1
-           ELSE
-             WRITE( Message, * ) 'Trying to access non-existent column', i,k,j
-             CALL Error( 'CRS_Transpose', Message )
-             RETURN
-           END IF
-         END DO
-       END DO
-
-       DEALLOCATE( Row )
-
-!------------------------------------------------------------------------------
-     END FUNCTION CRS_Transpose
-!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
