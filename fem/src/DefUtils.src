@@ -4476,6 +4476,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      INTEGER, ALLOCATABLE :: CPerm(:)
      INTEGER:: i,j,k,n,t,ll
+     LOGICAL :: Found
      TYPE(ValueList_t), POINTER :: BC
      TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
@@ -4493,9 +4494,7 @@ CONTAINS
        BC=>GetBC()
        IF(.NOT.ASSOCIATED(BC)) CYCLE
 
-       Projector=>Model % BCs(GetBCid()) % PMatrix
-       IF(.NOT.ASSOCIATED(Projector)) CYCLE
-
+       IF (.NOT.ListCheckPresent(BC,'Mortar BC')) CYCLE
          
        IF(.NOT.ASSOCIATED(A)) THEN
          A=>AllocateMatrix()
@@ -4589,7 +4588,7 @@ CONTAINS
     type(element_t),pointer::oelement,el
 !------------------------------------------------------------------------------
 
-    id=GetInteger(GetBC(),'Periodic BC')
+    id=GetInteger(GetBC(),'Mortar BC')
     oelement=>Null()
     DO i=1,GetNOFBoundaryElements()
       el=>Mesh % Elements( Mesh % NumberOfBulkElements+i)
