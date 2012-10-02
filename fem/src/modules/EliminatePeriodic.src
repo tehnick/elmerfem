@@ -151,7 +151,7 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
                              END IF
                              R(PeriodicNodes,1) = l
                              R(PeriodicNodes,2) = m
-                          ELSE if ( projector % values(k) /= 0.0d0 ) Then
+                          ELSE IF ( projector % values(k) /= 0.0d0 ) THEN
                           END IF
                        END IF
                     END DO
@@ -160,7 +160,7 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
           ELSE
              DO j=Solver % Mesh % NumberOfBulkElements+1, Solver % Mesh % NumberOfBulkElements + &
                          Solver % Mesh % NumberOfBoundaryElements
-                IF ( Solver % Mesh % Elements(j) % Type % ElementCode /= 102 ) CYCLE
+                IF ( Solver % Mesh % Elements(j) % TYPE % ElementCode /= 102 ) CYCLE
 
                 l = Perm( Solver % Mesh % Elements(j) % NodeIndexes(1) )
                 m = Perm( Solver % Mesh % Elements(j) % NodeIndexes(2) )
@@ -224,7 +224,7 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
      C % Diag = 0
      CALL CRS_SortMatrixValues( C )
 
-     C_Trans => CRS_Transpose( C, .FALSE. )
+     C_Trans => CRS_TransposeLocal( C, .FALSE. )
      RedA => C
      C => C_Trans
      C_Trans => RedA
@@ -271,14 +271,14 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
   WRITE( Message, * ) 'Constructing the reduced matrix...'
   CALL Info( 'EliminatePeriodic', Message, Level=5 )
 
-  A_Trans => CRS_Transpose( A, EigAnal )
+  A_Trans => CRS_TransposeLocal( A, EigAnal )
 
   NULLIFY( BB )
   CALL CRS_MatrixMatrixMultiply( BB, A_Trans, C_Trans, EigAnal )
   CALL FreeMatrix( A_Trans )
   CALL Info( 'EliminatePeriodic', Message, Level=5 )
 
-  BB_Trans => CRS_Transpose( BB, EigAnal )
+  BB_Trans => CRS_TransposeLocal( BB, EigAnal )
   CALL FreeMatrix( BB )
 
   CALL Info( 'EliminatePeriodic', Message, Level=5 )
@@ -295,7 +295,7 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
 !   Solve the system
 !------------------------------------------------------------------------------
   RedA % Lumped    = A % Lumped
-  RedA % Complex   = A % Complex
+  RedA % COMPLEX   = A % COMPLEX
   RedA % Symmetric = A % Symmetric
 
   at = CPUtime()
@@ -454,7 +454,7 @@ CONTAINS
        IF( d(i) == i ) THEN 
           j = j + 1
           Perm(i) = j 
-       END if 
+       END IF 
     END DO 
 
     IDC = NOFRows - j 
@@ -519,7 +519,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !>  Calculate transpose of A in CRS format: B = A^T.
 !------------------------------------------------------------------------------
-  FUNCTION CRS_Transpose( A, MVal ) RESULT(B)
+  FUNCTION CRS_TransposeLocal( A, MVal ) RESULT(B)
 !------------------------------------------------------------------------------
     USE CRSMatrix
     IMPLICIT NONE
@@ -566,7 +566,7 @@ CONTAINS
                 Row(k) = Row(k) + 1
              ELSE
                 WRITE( Message, * ) 'Trying to access non-existent column', i,k
-                !ALL Error( 'CRS_Transpose', Message )
+                !ALL Error( 'CRS_TransposeLocal', Message )
                 RETURN
              END IF
           END DO
@@ -581,7 +581,7 @@ CONTAINS
                 Row(k) = Row(k) + 1
              ELSE
                 WRITE( Message, * ) 'Trying to access non-existent column', i,k
-                CALL Error( 'CRS_Transpose', Message )
+                CALL Error( 'CRS_TransposeLocal', Message )
                 RETURN
              END IF
           END DO
@@ -591,7 +591,7 @@ CONTAINS
     DEALLOCATE( Row )
 
 !------------------------------------------------------------------------------
-  END FUNCTION CRS_Transpose
+  END FUNCTION CRS_TransposeLocal
 !------------------------------------------------------------------------------
 
 

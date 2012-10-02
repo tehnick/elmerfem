@@ -706,7 +706,7 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
      ALLOCATE( f ( C % NumberOfRows ) )
 
      NULLIFY( RedA )
-     C_Trans => CRS_Transpose( C )
+     C_Trans => CRS_TransposeLocal( C )
      AllocationsDone = .TRUE.
 
   END IF
@@ -739,7 +739,7 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
   WRITE( Message, * ) 'Constructing the reduced matrix ...'
   CALL Info( 'RigidBody', Message, Level=5 )
 
-  A_Trans => CRS_Transpose( BMatrix, EigAnal, ASSOCIATED( BMatrix % DampValues ) )
+  A_Trans => CRS_TransposeLocal( BMatrix, EigAnal, ASSOCIATED( BMatrix % DampValues ) )
 
   NULLIFY( BB )
   CALL CRS_MatrixMatrixMultiply( BB, A_Trans, C_Trans, EigAnal, &
@@ -750,7 +750,7 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
 
 !  CALL Info( 'RigidBody', Message, Level=5 )
 
-  BB_Trans => CRS_Transpose( BB, EigAnal, ASSOCIATED( BMatrix % DampValues ) )
+  BB_Trans => CRS_TransposeLocal( BB, EigAnal, ASSOCIATED( BMatrix % DampValues ) )
 
   CALL LocalFreeMatrix( BB )
   NULLIFY( BB )
@@ -1278,7 +1278,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  FUNCTION CRS_Transpose( A, MVal, DVal ) RESULT(B)
+  FUNCTION CRS_TransposeLocal( A, MVal, DVal ) RESULT(B)
 !------------------------------------------------------------------------------
 !
 !  Calculate transpose of A in CRS format: B = A^T
@@ -1307,7 +1307,7 @@ CONTAINS
 
     ALLOCATE( B % Rows( B % NumberOfRows +1 ), B % Cols( NVals ), &
         B % Values( Nvals ), B % Diag( B % NumberOfRows ), STAT=istat )
-    IF ( istat /= 0 )  CALL Fatal( 'CRS_Transpose', &
+    IF ( istat /= 0 )  CALL Fatal( 'CRS_TransposeLocal', &
         'Memory allocation error.' )
     IF ( Mass )  ALLOCATE( B % MassValues( NVals ) )
     IF ( Damp )  ALLOCATE( B % DampValues( NVals ) )
@@ -1342,7 +1342,7 @@ CONTAINS
                 Row(k) = Row(k) + 1
              ELSE
                 WRITE( Message, * ) 'Trying to access non-existent column', i,k
-                CALL Error( 'CRS_Transpose', Message )
+                CALL Error( 'CRS_TransposeLocal', Message )
                 RETURN
              END IF
           END DO
@@ -1357,7 +1357,7 @@ CONTAINS
                 Row(k) = Row(k) + 1
              ELSE
                 WRITE( Message, * ) 'Trying to access non-existent column', i,k
-                CALL Error( 'CRS_Transpose', Message )
+                CALL Error( 'CRS_TransposeLocal', Message )
                 RETURN
              END IF
           END DO
@@ -1367,7 +1367,7 @@ CONTAINS
     DEALLOCATE( Row )
 
 !------------------------------------------------------------------------------
-  END FUNCTION CRS_Transpose
+  END FUNCTION CRS_TransposeLocal
 !------------------------------------------------------------------------------
 
 
