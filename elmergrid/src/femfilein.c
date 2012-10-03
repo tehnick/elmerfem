@@ -3132,7 +3132,8 @@ omstart:
       }
     }
 
-    else if(strstr(line,"# number of domains")) {
+    else if(strstr(line,"# number of geometric entity indices") || 
+	    strstr(line,"# number of domains")) {
 
       cp = line;
       k = next_int(&cp);
