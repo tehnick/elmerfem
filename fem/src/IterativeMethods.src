@@ -441,23 +441,50 @@ CONTAINS
     ! Parameters
     INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
     REAL(KIND=dp), DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
-    REAL(KIND=dp) :: &
+    REAL(KIND=dp), target :: &
        xvec(HUTI_NDIM),rhsvec(HUTI_NDIM),work(HUTI_WRKDIM,HUTI_NDIM)
 
     INTEGER :: ndim
     INTEGER :: Rounds, OutputInterval, PolynomialDegree
     REAL(KIND=dp) :: MinTol, MaxTol, Residual
     LOGICAL :: Converged, Diverged
+
+    INTEGER :: nc
+    REAL(KIND=dp), POINTER :: x(:),b(:)
+
+    LOGICAL :: Constrained
+
+    TYPE(MAtrix_t), POINTER :: CM
+
+    CM => GlobalMatrix % ConstraintMatrix
+    Constrained = ASSOCIATED(CM)
     
     ndim = HUTI_NDIM
+
+    x=>xvec
+    b=>rhsvec
+    nc = 0
+    IF (Constrained) THEN
+      nc=CM % NumberOfRows
+      allocate(x(ndim+nc),b(ndim+nc))
+      x(1:ndim)=xvec; x(ndim+1:)=0._dp
+      b(1:ndim)=rhsvec; b(ndim+1:)=0._dp
+    END IF
+
     Rounds = HUTI_MAXIT
     MinTol = HUTI_TOLERANCE
     MaxTol = HUTI_MAXTOLERANCE
     OutputInterval = HUTI_DBUGLVL 
     PolynomialDegree = HUTI_BICGSTABL_L 
  
-    CALL RealBiCGStabl(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, MaxTol, &
+    CALL RealBiCGStabl(ndim+nc, GlobalMatrix, x,b, Rounds, MinTol, MaxTol, &
         Converged, Diverged, OutputInterval, PolynomialDegree )
+
+    IF(Constrained) THEN
+      xvec=x(1:ndim)
+      rhsvec=b(1:ndim)
+      DEALLOCATE(x,b)
+    END IF
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
@@ -465,6 +492,28 @@ CONTAINS
 
   CONTAINS
 
+!-----------------------------------------------------------------------------------
+    SUBROUTINE ConstraintMV(A,n,u,v)
+!-----------------------------------------------------------------------------------
+      TYPE(Matrix_t) :: A
+      INTEGER :: n,i,j,nc
+      REAL(KIND=dp) :: u(:),v(:)
+!-----------------------------------------------------------------------------------
+      IF(.NOT.Constrained) RETURN
+
+      nc = A % NumberOfRows
+ 
+      DO i=1,nc
+        v(n-nc+i)=0._dp
+        DO j = A % Rows(i),A % Rows(i+1)-1
+          v(n-nc+i) = v(n-nc+i) + A % Values(j)*u(A % Cols(j))
+          v(A % Cols(j)) = V(A % Cols(j)) + A % Values(j)*u(n-nc+i)
+        END DO
+      END DO
+
+!-----------------------------------------------------------------------------------
+    END SUBROUTINE ConstraintMV
+!-----------------------------------------------------------------------------------
 
 !-----------------------------------------------------------------------------------
 !>   The subroutine has been written using as a starting point the work of D.R. Fokkema 
@@ -498,7 +547,6 @@ CONTAINS
       
       IF ( ALL(x == 0.0d0) ) x = b
 
-      
       zero = 0.0d0
       one =  1.0d0
 
@@ -517,7 +565,9 @@ CONTAINS
       yl = y0+1
       y = yl+1
     
-      CALL matvecsubr( x, work(1:n,r), ipar )
+      CALL matvecsubr( x, work(1:n-nc,r), ipar )
+      CALL constraintmv( cm,n,x,work(:,r) )
+
       work(1:n,r) = b(1:n) - work(1:n,r)
       bnrm  = normfun(n, b(1:n), 1 )
       rnrm0 = normfun(n, work(1:n,r), 1 )
@@ -562,8 +612,11 @@ CONTAINS
           DO j=0,k-1
             work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
           ENDDO
-          CALL pcondlsubr( t, work(1:n,u+k-1), ipar )
-          CALL matvecsubr( t, work(1:n,u+k),   ipar )
+          CALL pcondlsubr( t, work(1:n-nc,u+k-1), ipar )
+
+          IF(constrained) t(n-nc+1:n)=work(n-nc+1:n,u+k-1)
+          CALL matvecsubr( t, work(:,u+k),   ipar )
+          CALL constraintmv( cm,n,t,work(:,u+k))
 
           sigma = dotprodfun(n, work(1:n,rr), 1, work(1:n,u+k), 1 )
           IF (sigma == zero) THEN
@@ -575,7 +628,10 @@ CONTAINS
             work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
           ENDDO
           CALL pcondlsubr( t, work(1:n,r+k-1), ipar )
-          CALL matvecsubr( t, work(1:n,r+k),   ipar )
+          IF(constrained) t(n-nc+1:n)=work(n-nc+1:n,r+k-1)
+          CALL matvecsubr( t, work(:,r+k), ipar )
+          CALL constraintmv( cm,n,t, work(:,r+k))
+
           rnrm = normfun(n, work(1:n,r), 1 )
           mxnrmx = MAX (mxnrmx, rnrm)
           mxnrmr = MAX (mxnrmr, rnrm)
@@ -666,7 +722,10 @@ CONTAINS
         IF (rcmp) THEN
           ! PRINT *, 'Performing residual update...'
           CALL pcondlsubr( t, x, ipar )
+          IF(constrained) t(n-nc+1:n)=x(n-nc+1:n)
           CALL matvecsubr( t, work(1:n,r), ipar )
+          CALL constraintmv( cm,n,t, work(:,r))
+
           work(1:n,r) = work(1:n,bp) - work(1:n,r)
           mxnrmr = rnrm
           IF (xpdt) THEN

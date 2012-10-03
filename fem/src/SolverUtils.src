@@ -5443,7 +5443,11 @@ END FUNCTION SearchNodeL
         A % ConstraintMatrix => Btmp
       END IF
 
-      CALL SolveWithLinearRestriction( A,b,x,Norm,DOFs,Solver )
+      IF(ListGetLogical(Params,'No Explicit Constrained Matrix',Found)) THEN
+        CALL SolveLinearSystem( A,b,x,Norm,DOFs,Solver )
+      ELSE
+        CALL SolveWithLinearRestriction( A,b,x,Norm,DOFs,Solver )
+      END IF
 
       IF ( ASSOCIATED(Btmp) ) THEN
         CALL FreeMatrix(Btmp)
