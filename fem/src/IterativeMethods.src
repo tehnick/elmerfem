@@ -454,9 +454,10 @@ CONTAINS
 
     LOGICAL :: Constrained
 
-    TYPE(MAtrix_t), POINTER :: CM
+    TYPE(Matrix_t), POINTER :: A,CM
 
-    CM => GlobalMatrix % ConstraintMatrix
+    A => GlobalMatrix
+    CM => A % ConstraintMatrix
     Constrained = ASSOCIATED(CM)
     
     ndim = HUTI_NDIM
@@ -477,7 +478,7 @@ CONTAINS
     OutputInterval = HUTI_DBUGLVL 
     PolynomialDegree = HUTI_BICGSTABL_L 
  
-    CALL RealBiCGStabl(ndim+nc, GlobalMatrix, x,b, Rounds, MinTol, MaxTol, &
+    CALL RealBiCGStabl(ndim+nc, A,x,b, Rounds, MinTol, MaxTol, &
         Converged, Diverged, OutputInterval, PolynomialDegree )
 
     IF(Constrained) THEN
@@ -493,21 +494,25 @@ CONTAINS
   CONTAINS
 
 !-----------------------------------------------------------------------------------
-    SUBROUTINE ConstraintMV(A,n,u,v)
+    SUBROUTINE ConstraintMV(CM,n,u,v)
 !-----------------------------------------------------------------------------------
-      TYPE(Matrix_t) :: A
+      TYPE(Matrix_t) :: CM
       INTEGER :: n,i,j,nc
       REAL(KIND=dp) :: u(:),v(:)
 !-----------------------------------------------------------------------------------
+      REAL(KIND=dp) :: s
+!-----------------------------------------------------------------------------------
       IF(.NOT.Constrained) RETURN
 
-      nc = A % NumberOfRows
- 
+      nc = CM % NumberOfRows
+      s = 1._dp
       DO i=1,nc
         v(n-nc+i)=0._dp
-        DO j = A % Rows(i),A % Rows(i+1)-1
-          v(n-nc+i) = v(n-nc+i) + A % Values(j)*u(A % Cols(j))
-          v(A % Cols(j)) = v(A % Cols(j)) + A % Values(j)*u(n-nc+i)
+        DO j = CM % Rows(i),CM % Rows(i+1)-1
+          IF(ASSOCIATED(A % DiagScaling)) &
+            s=A % DiagScaling(CM % Cols(j))
+          v(n-nc+i) = v(n-nc+i) + s*CM % Values(j)*u(CM % Cols(j))
+          v(CM % Cols(j)) = v(CM % Cols(j)) + s*CM % Values(j)*u(n-nc+i)
         END DO
       END DO
 !-----------------------------------------------------------------------------------
