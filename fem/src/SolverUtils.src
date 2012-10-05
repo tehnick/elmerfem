@@ -1424,26 +1424,32 @@ CONTAINS
 
    ActivePart = .FALSE.
    DO BC=1,Model % NumberOfBCs
-     IF ( .NOT. ListGetLogical( Model % BCs(BC) % Values, &
+     IF ( ListGetLogical( Model % BCs(BC) % Values, &
          'Periodic BC ' // Name(1:nlen), GotIt ) ) ActivePart(BC) = .TRUE.
-     IF ( .NOT. ListGetLogical( Model % BCs(BC) % Values, &
+     IF ( ListGetLogical( Model % BCs(BC) % Values, &
          'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) ActivePart(BC) = .TRUE.
    END DO
 
    IF( ANY(ActivePart) ) THEN    
-     !!!!!!!!! Periodic BCs do not yet consider the offset
+     IF( Offset > 0 ) THEN
+       CALL Fatal('SetDirichletBoundaries','Periodicity not considered with offset')
+     END IF
 
      ALLOCATE( DonePeriodic( Model % Mesh % NumberOFNodes ) )
      DonePeriodic = .FALSE.
      DO BC=1,Model % NumberOfBCs
-       CALL SetPeriodicBoundariesPass1( Model, A, b, Name, DOF, &
-               NDOFs, Perm, BC, DonePeriodic )
+       IF( ActivePart(BC) ) THEN
+         CALL SetPeriodicBoundariesPass1( Model, A, b, Name, DOF, &
+             NDOFs, Perm, BC, DonePeriodic )
+       END IF
      END DO
      
      DonePeriodic = .FALSE.
      DO BC=1,Model % NumberOfBCs
-       CALL SetPeriodicBoundariesPass2( Model, A, b, Name, DOF, &
-               NDOFs, Perm, BC, DonePeriodic )
+       IF(ActivePart(BC)) THEN       
+         CALL SetPeriodicBoundariesPass2( Model, A, b, Name, DOF, &
+             NDOFs, Perm, BC, DonePeriodic )
+       END IF
      END DO
      DEALLOCATE( DonePeriodic ) 
    END IF
@@ -2247,10 +2253,12 @@ CONTAINS
         END DO
       END DO
     ELSE
+
       ALLOCATE(F)
       F = A
       F % RHS => F % BulkRHS
       F % Values => F % BulkValues
+
       DO i=1,Projector % NumberOfRows
          ii = Projector % InvPerm(i)
          k = Perm(ii)

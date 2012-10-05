@@ -1202,57 +1202,158 @@ END SUBROUTINE GetMaxDefs
 
 
 
+
 !------------------------------------------------------------------------------
-  FUNCTION PeriodicProjector( Model, Mesh, This, Trgt, cdim ) RESULT(Projector)
+!> Given two interface meshes check the angle between them using the normal
+!> vectors of the first element. Also check that all other elements are
+!> aligned with the first one. Only then is it possible to determine the angle.
 !------------------------------------------------------------------------------
+  SUBROUTINE CheckInterfaceMeshAngle(BMesh1, BMesh2, Angles, GotAngles) 
+!------------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    REAL(KIND=dp) :: Angles(3)
+    LOGICAL :: GotAngles
+    !---------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: PMesh
+    TYPE(Element_t), POINTER :: Element
+    TYPE(Nodes_t) :: ElementNodes
+    INTEGER, POINTER :: NodeIndexes(:)
+    INTEGER :: i,j,k,n
+    REAL(KIND=dp) :: Normal(3), Normal1(3), Normal2(3), Dot1Min, Dot2Min, Alpha
+    LOGICAL :: ConstantNormals
+
+    ! Currently check of the normal direction is not enforced since at this stage 
+    ! CurrentModel % Nodes may not exist!
+    ! This means that there may be a 180 error in the directions. 
+    ! Therefore an angle smaller than 180 is always chosen.
+    !-----------------------------------------------------------------------------
+    N = MAX( BMesh1 % MaxElementNodes, BMesh2 % MaxElementNodes )
+    ALLOCATE(ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n) )
+ 
+    DO k=1,2
+      IF( k == 1 ) THEN
+        PMesh => BMesh1
+      ELSE
+        PMesh => BMesh2
+      END IF
+
+      ! we use the Dot2Min and Normal2 temporarily also for first mesh, with k=1
+      !-------------------------------------------------------------------------
+      DO i=1, PMesh % NumberOfBoundaryElements
+        Element => PMesh % Elements(i)
+        
+        n = Element % TYPE % NumberOfNodes
+        NodeIndexes => Element % NodeIndexes
+
+        ElementNodes % x(1:n) = PMesh % Nodes % x(NodeIndexes(1:n))
+        ElementNodes % y(1:n) = PMesh % Nodes % y(NodeIndexes(1:n))
+        ElementNodes % z(1:n) = PMesh % Nodes % z(NodeIndexes(1:n))           
+        
+        Normal = NormalVector( Element, ElementNodes, Check = .FALSE. ) 
+
+        ! we use the Dot2Min and Normal2 temporarily also for first mesh, with k=1
+        !-------------------------------------------------------------------------       
+        IF( i == 1 ) THEN
+          Normal2 = Normal
+          Dot2Min = 1.0_dp
+        ELSE
+          Dot2min = MIN( Dot2Min, SUM( Normal * Normal2 ) )
+        END IF
+      END DO
+
+      IF( k == 1 ) THEN
+        Normal1 = Normal2 
+        Dot1Min = Dot2Min
+      END IF
+    END DO
+
+    ConstantNormals = ( 1 - Dot1Min < 1.0d-6 ) .AND. ( 1 - Dot2Min < 1.0e-6 )     
+    IF( ConstantNormals ) THEN
+      WRITE(Message,'(A,3ES12.3)') 'Master normal: ',Normal1
+      CALL Info('CheckInterfaceMeshAngle',Message,Level=8)    
+      
+      WRITE(Message,'(A,3ES12.3)') 'Initial Target normal: ',Normal2
+      CALL Info('CheckInterfaceMeshAngle',Message,Level=8)    
+            
+      ! The full angle between the two normals
+      Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
+      WRITE(Message,'(A,ES12.3)') &
+          'Suggested angle between two normals in degs (+/- 180): ',Alpha 
+      CALL Info('CheckInterfaceMeshAngle',Message,Level=8)
+    ELSE
+      CALL Warn('CheckInterfaceMeshAngle','Could not suggest rotation angle')
+    END IF
+
+
+    GotAngles = .FALSE.
+    Angles = 0.0_dp
+    IF( .NOT. ConstantNormals ) THEN
+      CALL Warn('CheckInterfaceMeshAngle','Normals are not constant, cannot test for rotation!')
+    ELSE IF( Alpha > EPSILON( Alpha ) ) THEN
+      ! Rotation should be performed 
+      DO i=1,3
+        IF( ABS ( Normal1(i) - Normal2(i) ) < EPSILON( Alpha ) ) THEN
+          GotAngles = .TRUE.            
+          WRITE(Message,'(A,I0,A,ES12.3)') &
+              'Rotation around axis ',i,' in degs ',Alpha 
+          CALL Info('CheckInterfaceMeshAngle',Message,Level=8)
+          Angles(i) = Alpha
+          EXIT
+        END IF
+      END DO
+      IF(.NOT. GotAngles ) THEN
+        CALL Warn('CheckInterfaceMeshAngle','could not define rotation axis, improve algorithm!')
+      END IF
+    END IF
+
+    DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z )
+    
+  END SUBROUTINE CheckInterfaceMeshAngle
+
+
+
+!------------------------------------------------------------------------------
+!> Create master and slave mesh for the interface in order to at a later 
+!> stage create projector matrix to implement periodicity or mortar elements.
+!------------------------------------------------------------------------------
+  SUBROUTINE CreateInterfaceMeshes( Model, Mesh, This, Trgt, BMesh1, BMesh2, &
+      InvPerm1, InvPerm2 ) 
+!------------------------------------------------------------------------------    
     TYPE(Model_t) :: Model
     INTEGER :: This, Trgt
-    INTEGER, OPTIONAL :: cdim
     TYPE(Mesh_t) :: Mesh
     TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
-
-    INTEGER :: i,j,k,l,m,n,n1,n2,k1,k2, Constraint, DIM, NoBothActive
-    TYPE(Nodes_t) :: Nodes
+    INTEGER :: i,j,k,l,m,n,n1,n2,k1,k2,ind,Constraint,DIM,NoBothActive
     TYPE(Element_t), POINTER :: Element, Elements(:)
-    LOGICAL :: GotIt, GotRotate, ThisActive, TargetActive, ConstantNormals, &
-        UseQuadrantTree
-    INTEGER, POINTER :: NodeIndexes(:), Perm1(:), Perm2(:), &
+    LOGICAL :: ThisActive, TargetActive
+    INTEGER, POINTER :: NodeIndexes(:), Perm1(:), Perm2(:), PPerm(:), &
                  InvPerm1(:), InvPerm2(:)
-    TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2
-    TYPE(Nodes_t) :: ElementNodes
-    REAL(KIND=dp), POINTER :: PArray(:,:) => NULL()
-    REAL(KIND=dp) :: x(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
-           TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist, alpha, Angles(3), &
-           x1_min(3), x1_max(3), x2_min(3), x2_max(3), x2r_min(3), x2r_max(3), scl(3), &
-           ds, s1, s2, Normal1(3), Normal2(3), Dot1Min, Dot2Min, Normal2r(3)
+    TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
 
-    SAVE Parray
-!------------------------------------------------------------------------------
+    IF ( This <= 0 .OR. Trgt <= 0 ) THEN
+      CALL Fatal('CreateInterfaceMeshes','Invalied target boundaries')
+    END IF
 
-
-    DIM = CoordinateSystemDimension()
-
-    NULLIFY( Projector )
-    IF ( This <= 0 .OR. Trgt <= 0 ) RETURN
-
+! Interface meshes consist of boundary elements only    
     Elements => Mesh % Elements( Mesh % NumberOfBulkElements+1: )
 
-!
 !   Search elements in this boundary and its periodic
 !   counterpart:
 !   --------------------------------------------------
     n1 = 0
     n2 = 0
     DO i=1, Mesh % NumberOfBoundaryElements
-       Constraint = Elements(i) % BoundaryInfo % Constraint
-       IF ( Model % BCs(This) % Tag == Constraint ) n1 = n1 + 1
-       IF ( Model % BCs(Trgt) % Tag == Constraint ) n2 = n2 + 1
+      Constraint = Elements(i) % BoundaryInfo % Constraint
+      IF ( Model % BCs(This) % Tag == Constraint ) n1 = n1 + 1
+      IF ( Model % BCs(Trgt) % Tag == Constraint ) n2 = n2 + 1
     END DO
 
-    IF ( n1 <= 0 .OR. n2 <= 0 ) RETURN
-    CALL Info('PeriodicProjector','Starting to build',Level=8)
+    IF ( n1 <= 0 .OR. n2 <= 0 ) THEN
+      CALL Warn('CreateInterfaceMeshes','There are no active boundaries!')
+    END IF
 
+    CALL Info('CreateInterfaceMeshes','Starting to build',Level=8)
 
 !   Initialize mesh structures for boundaries, this
 !   is for getting the mesh projector:
@@ -1265,13 +1366,6 @@ END SUBROUTINE GetMaxDefs
     CALL AllocateVector( Perm1, Mesh % NumberOfNodes )
     CALL AllocateVector( Perm2, Mesh % NumberOfNodes )
  
-    N = Mesh % MaxElementNodes
-
-    CALL AllocateVector( ElementNodes % x, n )
-    CALL AllocateVector( ElementNodes % y, n )
-    CALL AllocateVector( ElementNodes % z, n )
- 
-!
 !   Fill in the mesh element structures with the
 !   boundary elements:
 !   ---------------------------------------------
@@ -1281,116 +1375,67 @@ END SUBROUTINE GetMaxDefs
     Perm2 = 0
     BMesh1 % MaxElementNodes = 0
     BMesh2 % MaxElementNodes = 0
-    Dot1Min = HUGE( Dot1Min ) 
-    Dot2Min = HUGE( Dot2Min )
     NoBothActive = 0
 	
     DO i=1, Mesh % NumberOfBoundaryElements
-       Element => Elements(i)
-       IF ( dim > 1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
-
-       Constraint = Element % BoundaryInfo % Constraint
-       
-       ThisActive = ( Model % BCs(This) % Tag == Constraint )
-       TargetActive = ( Model % BCs(Trgt) % Tag == Constraint ) 
-
-       IF( ThisActive .OR. TargetActive ) THEN
-         n = Element % TYPE % NumberOfNodes
-         Model % CurrentElement => Element
-         NodeIndexes => Element % NodeIndexes
-
-         ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes(1:n))
-         ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes(1:n))
-         ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes(1:n))           
-
-! Currently check is not enforced since at this stage CurrentModel % Nodes does not exist!
-! This means that there may be a 180 error in the directions. 
-! Therefore an angle smaller than 180 is always chosen.
-         Normal = NormalVector( Element, ElementNodes, Check = .FALSE. ) 
-
-         IF( ThisActive .AND. TargetActive ) THEN
-           NoBothActive = NoBothActive + 1
-         END IF
-       END IF
-
-       IF ( ThisActive ) THEN
-         IF( n1 == 0 ) THEN
-           Normal1 = Normal
-         ELSE
-           Dot1min = MIN( Dot1Min, SUM( Normal * Normal1 ) )
-         END IF
-
-         n1 = n1 + 1
-         BMesh1 % MaxElementNodes = MAX( BMesh1 % MaxElementNodes, n )
-         BMesh1 % Elements(n1) = Elements(i)
-         CALL AllocateVector(BMesh1 % Elements(n1) % NodeIndexes,n )
-         BMesh1 % Elements(n1) % NodeIndexes =  Elements(i) % NodeIndexes
-         NULLIFY( BMesh1 % Elements(n1) % EdgeIndexes )
-         NULLIFY( BMesh1 % Elements(n1) % FaceIndexes )
-         Perm1( Elements(i) % NodeIndexes ) = 1
-       END IF
-
-       IF ( TargetActive ) THEN
-         IF( n2 == 0 ) THEN
-           Normal2 = Normal
-         ELSE
-           Dot2min = MIN( Dot2Min, SUM( Normal * Normal2 ) )
-         END IF
-               
-         n2 = n2 + 1
-         BMesh2 % MaxElementNodes = MAX( BMesh2 % MaxElementNodes, n )
-         BMesh2 % Elements(n2) = Elements(i)
-         CALL AllocateVector(BMesh2 % Elements(n2) % NodeIndexes,n )
-         BMesh2 % Elements(n2) % NodeIndexes =  Elements(i) % NodeIndexes
-         NULLIFY( BMesh2 % Elements(n2) % EdgeIndexes )
-         NULLIFY( BMesh2 % Elements(n2) % FaceIndexes )
-         Perm2( Elements(i) % NodeIndexes ) = 1
-       END IF
+      Element => Elements(i)
+      IF ( dim > 1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
+      
+      Constraint = Element % BoundaryInfo % Constraint
+      
+      ThisActive = ( Model % BCs(This) % Tag == Constraint )
+      TargetActive = ( Model % BCs(Trgt) % Tag == Constraint ) 
+      
+      IF(.NOT. (ThisActive .OR. TargetActive ) ) CYCLE
+      IF( ThisActive .AND. TargetActive ) NoBothActive = NoBothActive + 1
+      
+      ! Set the pointers accordingly so we need to code the complex stuff
+      ! only once.
+      IF ( ThisActive ) THEN
+        n1 = n1 + 1
+        ind = n1
+        PMesh => BMesh1
+        PPerm => Perm1
+      ELSE
+        n2 = n2 + 1
+        ind = n2
+        PMesh => BMesh2
+        PPerm => Perm2
+      END IF
+      
+      n = Element % TYPE % NumberOfNodes        
+      PMesh % MaxElementNodes = MAX( PMesh % MaxElementNodes, n )
+      PMesh % Elements(ind) = Elements(i)
+      CALL AllocateVector(PMesh % Elements(ind) % NodeIndexes,n )
+      PMesh % Elements(ind) % NodeIndexes =  Elements(i) % NodeIndexes
+      NULLIFY( PMesh % Elements(ind) % EdgeIndexes )
+      NULLIFY( PMesh % Elements(ind) % FaceIndexes )
+      PPerm( Elements(i) % NodeIndexes ) = 1
     END DO
-    
+  
     IF( NoBothActive > 0 ) THEN
-      WRITE(Message,'(A,I0)') 'Nodes belonging to both Master and Target: ',NoBothActive
-      CALL Warn('PeriodicProjector',Message)
+      WRITE(Message,'(A,I0)') 'Elements belonging to both Master and Target: ',NoBothActive
+      CALL Fatal('CreateInterfaceMeshes',Message)
     END IF
-
-    ConstantNormals = ( 1 - Dot1Min < 1.0d-6 ) .AND. ( 1 - Dot2Min < 1.0e-6 )     
-    IF( ConstantNormals ) THEN
-      ! The full angle between the two normals
-       Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
-       WRITE(Message,'(A,ES12.3)') &
-           'Suggested angle between two normals in degs: ',Alpha 
-       CALL Info('PeriodicProjector',Message,Level=8)
-    END IF
-    
-    BMesh1 % NumberOfBulkElements = n1
-    BMesh2 % NumberOfBulkElements = n2
-
+        
 !   Fill in the mesh node structures with the
 !   boundary nodes:
 !   -----------------------------------------
-    BMesh2 % NumberOfNodes = COUNT( Perm2==1 )
-    BMesh1 % NumberOfNodes = COUNT( Perm1==1 )
-    
-   
-    IF (BMesh1 % NumberOfNodes==0 .OR. BMesh2 % NumberOfNOdes==0) THEN
-      CALL Warn('PeriodicProjector','No active nodes on periodic boundary!')
-      
-      DO i=1,BMesh1 % NumberOfBulkElements
-        DEALLOCATE( BMesh1 % Elements(i) % NodeIndexes )
-      END DO
-      
-      DO i=1,BMesh2 % NumberOfBulkElements
-        DEALLOCATE( BMesh2 % Elements(i) % NodeIndexes )
-      END DO
+    BMesh1 % NumberOfBulkElements = n1
+    BMesh2 % NumberOfBulkElements = n2
 
-      DEALLOCATE( BMesh1 % Elements, BMesh2 % Elements )
-      DEALLOCATE( Perm1, Perm2, BMesh1, BMesh2 )
-      RETURN
-    ELSE
-      WRITE(Message,'(A,I0,A,I0)') 'Number of periodic nodes: ',&
-          BMesh1 % NumberOfNodes, ', ',BMesh2 % NumberOfNOdes
-      CALL Info('PeriodicProjector',Message,Level=8)    
+    BMesh2 % NumberOfNodes = COUNT( Perm2 > 0 )
+    BMesh1 % NumberOfNodes = COUNT( Perm1 > 0 )
+
+    ! As there were some active boundary elements this condition should 
+    ! really never be possible   
+    IF (BMesh1 % NumberOfNodes==0 .OR. BMesh2 % NumberOfNOdes==0) THEN
+      CALL Fatal('CreateInterfaceMeshes','No active nodes on periodic boundary!')
     END IF
+
+    WRITE(Message,'(A,I0,A,I0)') 'Number of periodic nodes: ',&
+        BMesh1 % NumberOfNodes, ', ',BMesh2 % NumberOfNOdes
+    CALL Info('CreateInterfaceMeshes',Message,Level=8)    
     
     ALLOCATE( BMesh1 % Nodes )
     CALL AllocateVector( BMesh1 % Nodes % x, BMesh1 % NumberOfNodes ) 
@@ -1405,155 +1450,12 @@ END SUBROUTINE GetMaxDefs
     CALL AllocateVector( InvPerm1, BMesh1 % NumberOfNodes )
     CALL AllocateVector( InvPerm2, BMesh2 % NumberOfNodes )
 
-    x1_min = HUGE( dp ); x1_max = -HUGE( dp )
-    x2_min = HUGE( dp ); x2_max = -HUGE( dp )
-    x2r_min = HUGE( dp ); x2r_max = -HUGE( dp )
-    
-! Initialize the mapping matrices
-    x = 0.0d0
-    Identity = 0.0d0
-    DO i=1,4
-       Identity(i,i) = 1.0d0
-    END DO
-    
-    TrsMatrix = Identity
-    RotMatrix = Identity
-    SclMatrix = Identity
-    
-!   Rotations:
-!   These are called first since they are not accounted for in the 
-!   automatic scaling and translation.
-!   ---------
 
-
-    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-        'Periodic BC Rotate', GotRotate )
-    IF( GotRotate ) THEN
-      Angles(1:3) = Parray(1:3,1)   
-    ELSE
-      Angles = 0.0_dp
-      IF( ListGetLogical( Model % BCs(This) % Values, &
-          'Periodic BC Rotate Automatic', GotIt ) ) THEN
-        
-        IF( .NOT. ConstantNormals ) THEN
-          CALL Fatal('PeriodicProjector','Normals are not constant, cannot test for rotation!')
-        ELSE IF( Alpha > EPSILON( Alpha ) ) THEN
-          ! Rotation should be performed 
-          DO i=1,3
-            IF( ABS ( Normal1(i) - Normal2(i) ) < EPSILON( ds ) ) THEN
-              GotRotate = .TRUE.            
-              WRITE(Message,'(A,I0,A,ES12.3)') &
-                  'Rotation around axis ',i,' in degs ',Alpha 
-              CALL Info('PeriodicProjector',Message,Level=8)
-              Angles(i) = Alpha
-              EXIT
-            END IF
-          END DO
-          IF(.NOT. GotRotate ) THEN
-            CALL Fatal('PeriodicProjector','could not define rotation axis, improve algorithm!')
-          END IF
-        END IF
-      END IF
-    END IF
-
-    IF ( GotRotate ) THEN
-      WRITE(Message,'(A,3ES12.3)') 'Rotating target with: ',Angles
-      CALL Info('PeriodicProjector',Message,Level=8)    
-      
-      DO i=1,SIZE(Parray,1)
-        Alpha = Angles(i) * PI / 180
-        IF( ABS(Alpha) < TINY(Alpha) ) CYCLE 
-        TrfMatrix = Identity
-
-        SELECT CASE(i)
-        CASE(1)
-          TrfMatrix(2,2) =  COS(Alpha)
-          TrfMatrix(2,3) = -SIN(Alpha) 
-          TrfMatrix(3,2) =  SIN(Alpha)
-          TrfMatrix(3,3) =  COS(Alpha)
-        CASE(2)
-          TrfMatrix(1,1) =  COS(Alpha)
-          TrfMatrix(1,3) = -SIN(Alpha)
-          TrfMatrix(3,1) =  SIN(Alpha)
-          TrfMatrix(3,3) =  COS(Alpha)
-        CASE(3)
-          TrfMatrix(1,1) =  COS(Alpha)
-          TrfMatrix(1,2) = -SIN(Alpha)
-          TrfMatrix(2,1) =  SIN(Alpha)
-          TrfMatrix(2,2) =  COS(Alpha)
-        END SELECT
-        
-        RotMatrix = MATMUL( RotMatrix, TrfMatrix )
-      END DO
-           
-      ! Check the rotated normal vector of the first Target element. 
-      ! This is mainly done for debugging purposes. 
-      !--------------------------------------------------------------
-      IF( ConstantNormals ) THEN
-        DO i=1, Mesh % NumberOfBoundaryElements
-          Element => Elements(i)
-          IF ( dim > 1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
-          
-          Constraint = Element % BoundaryInfo % Constraint
-          
-          IF ( Model % BCs(Trgt) % Tag /= Constraint ) CYCLE
-          
-          n = Element % TYPE % NumberOfNodes
-          Model % CurrentElement => Element
-          NodeIndexes => Element % NodeIndexes
-          
-          ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes(1:n))
-          ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes(1:n))
-          ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes(1:n))           
-          
-          DO j=1,n
-            k = NodeIndexes(j)
-            x(1) = Mesh % Nodes % x(k)
-            x(2) = Mesh % Nodes % y(k)
-            x(3) = Mesh % Nodes % z(k)      
-            x(4) = 1.0_dp
-            
-            x = MATMUL( RotMatrix, x )   
-            
-            ElementNodes % x(j) = x(1)
-            ElementNodes % y(j) = x(2)
-            ElementNodes % z(j) = x(3)
-          END DO
-          
-          Normal2r = NormalVector( Element, ElementNodes, Check = .FALSE. ) 
-          EXIT
-        END DO
-
-        WRITE(Message,'(A,3ES12.3)') 'Master normal: ',Normal1
-        CALL Info('PeriodicProjector',Message,Level=8)    
-
-        WRITE(Message,'(A,3ES12.3)') 'Initial Target normal: ',Normal2
-        CALL Info('PeriodicProjector',Message,Level=8)    
-        
-        WRITE(Message,'(A,3ES12.3)') 'Rotated Target normal: ',Normal2r
-        CALL Info('PeriodicProjector',Message,Level=8)    
-      
-        Alpha = ACOS( SUM( Normal1 * Normal2 ) ) * 180 / PI
-        WRITE(Message,'(A,ES12.5)') 'Angle between Master and initial Target: ',Alpha
-        CALL Info('PeriodicProjector',Message,Level=8)    
-
-        Alpha = ACOS( SUM( Normal1 * Normal2r ) ) * 180 / PI
-        WRITE(Message,'(A,ES12.5)') 'Angle between Master and rotated Target: ',Alpha
-        CALL Info('PeriodicProjector',Message,Level=5)    
-
-        IF( ABS( Alpha ) > 1.0e-2 .AND. ABS( Alpha - 180 ) > 1.0e-2 ) THEN
-          CALL Warn('PeriodicProjector','Rotation may be incorrect!')
-        END IF
-
-      END IF
-
-    END IF
-
-
-    ! Create the master and target meshes that only include the active elements
+    ! Now, create the master and target meshes that only include the active elements
     !---------------------------------------------------------------------------
     k1 = 0; k2 = 0
     DO i=1,Mesh % NumberOfNodes
+
       IF ( Perm1(i) > 0 ) THEN
         k1 = k1 + 1
         Perm1(i) = k1
@@ -1562,15 +1464,6 @@ END SUBROUTINE GetMaxDefs
         BMesh1 % Nodes % x(k1) = Mesh % Nodes % x(i)
         BMesh1 % Nodes % y(k1) = Mesh % Nodes % y(i)
         BMesh1 % Nodes % z(k1) = Mesh % Nodes % z(i)
-        
-        x(1) = Mesh % Nodes % x(i)
-        x(2) = Mesh % Nodes % y(i)
-        x(3) = Mesh % Nodes % z(i)
-        
-        DO j = 1,3
-          x1_min(j) = MIN( x1_min(j), x(j) )
-          x1_max(j) = MAX( x1_max(j), x(j) )
-        END DO
       END IF
       
       IF ( Perm2(i) > 0 ) THEN
@@ -1578,155 +1471,15 @@ END SUBROUTINE GetMaxDefs
         Perm2(i) = k2
         InvPerm2(k2) = i
         
-        x(1) = Mesh % Nodes % x(i)
-        x(2) = Mesh % Nodes % y(i)
-        x(3) = Mesh % Nodes % z(i)
-      
-        DO j = 1,3
-          x2_min(j) = MIN( x2_min(j), x(j) )
-          x2_max(j) = MAX( x2_max(j), x(j) )
-        END DO
-        
-        IF( GotRotate ) THEN
-          x(4) = 1.0_dp
-          x = MATMUL( RotMatrix, x )
-          DO j = 1,3
-            x2r_min(j) = MIN( x2r_min(j), x(j) )
-            x2r_max(j) = MAX( x2r_max(j), x(j) )
-          END DO
-        END IF
-        
-        BMesh2 % Nodes % x(k2) = x(1)
-        BMesh2 % Nodes % y(k2) = x(2)
-        BMesh2 % Nodes % z(k2) = x(3)
+        BMesh2 % Nodes % x(k2)= Mesh % Nodes % x(i)
+        BMesh2 % Nodes % y(k2)= Mesh % Nodes % y(i)
+        BMesh2 % Nodes % z(k2)= Mesh % Nodes % z(i)
       END IF
     END DO
 
-    WRITE(Message,'(A,3ES12.3)') 'Minimum values for this periodic BC:  ',x1_min
-    CALL Info('PeriodicProjector',Message,Level=8)    
-    WRITE(Message,'(A,3ES12.3)') 'Minimum values for target periodic BC:',x2_min
-    CALL Info('PeriodicProjector',Message,Level=8)    
-    IF( GotRotate ) THEN
-      WRITE(Message,'(A,3ES12.3)') 'Minimum values for rotated target:    ',x2r_min
-      CALL Info('PeriodicProjector',Message,Level=8)    
-    END IF
-     
-    WRITE(Message,'(A,3ES12.3)') 'Maximum values for this periodic BC:  ',x1_max
-    CALL Info('PeriodicProjector',Message,Level=8)    
-    WRITE(Message,'(A,3ES12.3)') 'Maximum values for target periodic BC:',x2_max
-    CALL Info('PeriodicProjector',Message,Level=8)    
-    IF( GotRotate ) THEN
-      WRITE(Message,'(A,3ES12.3)') 'Maximum values for rotated target:    ',x2r_max
-      CALL Info('PeriodicProjector',Message,Level=8)    
-    END IF
-
-    WRITE(Message,'(A,3ES12.3)') 'Bounding box for this periodic BC:  ',x1_max-x1_min
-    CALL Info('PeriodicProjector',Message,Level=8)    
-    WRITE(Message,'(A,3ES12.3)') 'Bounding box for target periodic BC:',x2_max-x2_min
-    CALL Info('PeriodicProjector',Message,Level=8)    
-    IF( GotRotate ) THEN
-      WRITE(Message,'(A,3ES12.3)') 'Bounding box for rotated target:    ',x2r_max-x2r_min
-      CALL Info('PeriodicProjector',Message,Level=8)    
-    END IF
-
-    IF( .NOT. GotRotate ) THEN
-      x2r_min = x2_min
-      x2r_max = x2_max
-    END IF
-    
-   
-
-!   Scales:
-!   -------
-    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                   'Periodic BC Scale', Gotit )
-
-    IF ( GotIt ) THEN
-      DO i=1,SIZE(Parray,1)
-        SclMatrix(i,i) = Parray(i,1)
-      END DO
-    ELSE
-      ! Define scaling from the bounding boxes
-      !----------------------------------------------------------------------
-      
-      IF( .FALSE. ) THEN
-        ! This makes scaling componentwise
-        ! Currently it is disabled!
-        DO i=1,3
-          scl(i) = x2r_max(i) - x2r_min(i)
-          
-          IF( ABS( scl(i) ) > AEPS ) THEN
-            scl(i) = ( x1_max(i) - x1_min(i) ) / scl(i)
-          ELSE
-            scl(i) = 1.0_dp
-          END IF
-        END DO
-      ELSE        
-        ! This assumes isotropic scaling since the previous
-        ! was prone to errors when the surfaces were almost, 
-        ! but not quite, aligned with some coordinate direction.
-        s1 = SUM( ( x1_max(1:3) - x1_min(1:3) ) ** 2 )
-        s2 = SUM( ( x2r_max(1:3) - x2r_min(1:3) ) ** 2 )
-        IF( s2 > EPSILON( s2 ) ) THEN
-          scl(1:3)  = SQRT( s1 / s2 )
-        ELSE
-          scl(1:3) = 1.0_dp
-        END IF
-      END IF
-
-      WRITE(Message,'(A,3ES12.3)') 'Scaling with: ',scl(1:3)
-      CALL Info('PeriodicProjector',Message)
-      DO i=1,3 
-        SclMatrix(i,i) = scl(i)        
-      END DO
-    END IF
-
-
-!   Transform the target boundary on top of this
-!   boundary (hopefully):
-!   --------------------------------------------
-
-!   NULLIFY( PArray )
-!
-!   Translations:
-!   -------------
-    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                 'Periodic BC Translate', Gotit )
-
-    ! Define translations so that the lower left corner is the same
-    IF ( .NOT. gotit ) THEN
-      DO i=1,3
-        TrsMatrix(4,i) = x1_min(i) - SclMatrix(i,i) * x2r_min(i)
-      END DO
-      WRITE(Message,'(A,3ES12.3)') 'Translation: ',TrsMatrix(4,1:3)
-      CALL Info('PeriodicProjector',Message)
-    ELSE
-      DO i=1,SIZE(Parray,1)
-         TrsMatrix(4,i) = Parray(i,1)
-      END DO
-    END IF
-
-    TrfMatrix = MATMUL( SclMatrix, TrsMatrix )
-
-
-!    If whole transf. matrix given, it will override
-!    all the other settings:
-!    ------------------------------------------------
-     Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                  'Periodic BC Matrix', Gotit )
-     IF ( GotIt ) THEN
-       DO i=1,SIZE(Parray,1)
-         DO j=1,SIZE(Parray,2)
-           TrfMatrix(i,j) = Parray(j,i)
-         END DO
-       END DO
-     END IF
-
-
-
-!   Renumber the element node pointers to use
+!   Finally, Renumber the element node pointers to use
 !   only boundary nodes:
-!   -----------------------------------------
+!   ---------------------------------------------------
     DO i=1,n1
        BMesh1 % Elements(i) % NodeIndexes = &
           Perm1(BMesh1 % Elements(i) % NodeIndexes )
@@ -1737,63 +1490,317 @@ END SUBROUTINE GetMaxDefs
            Perm2(BMesh2 % Elements(i) % NodeIndexes)
     END DO
 
+    DEALLOCATE( Perm1, Perm2 )
+  END SUBROUTINE CreateInterfaceMeshes
+  !---------------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------------
+  !> Given two meshes that should occupy the same domain in space 
+  !> use rotation, scaling and translation to achive this goal.
+  !---------------------------------------------------------------------------
+  SUBROUTINE OverlayIntefaceMeshes(BMesh1, BMesh2, BParams )
+  !---------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    TYPE(Valuelist_t), POINTER :: BParams
+    !--------------------------------------------------------------------------
+    LOGICAL :: GotIt, GotRotate
+    REAL(KIND=dp) :: x1_min(3),x1_max(3),x2_min(3),x2_max(3),x2r_min(3),x2r_max(3)
+    REAL(KIND=dp) :: x(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
+           TrfMatrix(4,4),Identity(4,4),Angles(3),Alpha,scl(3),s1,s2
+    REAL(KIND=dp), POINTER :: PArray(:,:)
+    INTEGER :: i,j,k
+
+   
+    ! First, check the bounding boxes
+    !---------------------------------------------------------------------------
+    x1_min(1) = MINVAL( BMesh1 % Nodes % x )
+    x1_min(2) = MINVAL( BMesh1 % Nodes % y )
+    x1_min(3) = MINVAL( BMesh1 % Nodes % z )
+    
+    x1_max(1) = MAXVAL( BMesh1 % Nodes % x )
+    x1_max(2) = MAXVAL( BMesh1 % Nodes % y )
+    x1_max(3) = MAXVAL( BMesh1 % Nodes % z )
+
+    WRITE(Message,'(A,3ES12.3)') 'Minimum values for this periodic BC:  ',x1_min
+    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,3ES12.3)') 'Maximum values for this periodic BC:  ',x1_max
+    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,3ES12.3)') 'Bounding box for this periodic BC:    ',x1_max-x1_min
+    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+
+    x2_min(1) = MINVAL( BMesh2 % Nodes % x )
+    x2_min(2) = MINVAL( BMesh2 % Nodes % y )
+    x2_min(3) = MINVAL( BMesh2 % Nodes % z )
+    
+    x2_max(1) = MAXVAL( BMesh2 % Nodes % x )
+    x2_max(2) = MAXVAL( BMesh2 % Nodes % y )
+    x2_max(3) = MAXVAL( BMesh2 % Nodes % z )
+    
+    WRITE(Message,'(A,3ES12.3)') 'Minimum values for target periodic BC:',x2_min
+    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,3ES12.3)') 'Maximum values for target periodic BC:',x2_max
+    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,3ES12.3)') 'Bounding box for target periodic BC:  ',x2_max-x2_min
+    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+
+!    If whole transformation matrix given, it will be used directly
+!    --------------------------------------------------------------
+    Parray => ListGetConstRealArray( BParams,'Periodic BC Matrix', Gotit )
+    IF ( GotIt ) THEN
+      DO i=1,SIZE(Parray,1)
+        DO j=1,SIZE(Parray,2)
+          TrfMatrix(i,j) = Parray(j,i)
+        END DO
+      END DO
+    ELSE    
+      ! Otherwise check for rotation, scaling and translation
+      !------------------------------------------------------
+
+      ! Initialize the mapping matrices
+      Identity = 0.0d0
+      DO i=1,4
+        Identity(i,i) = 1.0d0
+      END DO      
+      TrsMatrix = Identity
+      RotMatrix = Identity
+      SclMatrix = Identity
+      
+      !   Rotations:
+      !   These are called first since they are not accounted for in the 
+      !   automatic scaling and translation.
+      !   ---------------------------------------------------------------      
+      Angles = 0.0_dp
+      Parray => ListGetConstRealArray( BParams,'Periodic BC Rotate', GotRotate )
+      IF( GotRotate ) THEN
+        Angles(1:3) = Parray(1:3,1)   
+      ELSE
+        IF( ListGetLogical( BParams,'Periodic BC Rotate Automatic', GotIt) ) THEN
+          CALL CheckInterfaceMeshAngle( BMesh1, BMesh2, Angles, GotRotate ) 
+        END IF
+      END IF
+
+      IF ( GotRotate ) THEN
+        WRITE(Message,'(A,3ES12.3)') 'Rotating target with: ',Angles
+        CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+        
+        DO i=1,3
+          Alpha = Angles(i) * PI / 180
+          IF( ABS(Alpha) < TINY(Alpha) ) CYCLE 
+          TrfMatrix = Identity
+          
+          SELECT CASE(i)
+          CASE(1)
+            TrfMatrix(2,2) =  COS(Alpha)
+            TrfMatrix(2,3) = -SIN(Alpha) 
+            TrfMatrix(3,2) =  SIN(Alpha)
+            TrfMatrix(3,3) =  COS(Alpha)
+          CASE(2)
+            TrfMatrix(1,1) =  COS(Alpha)
+            TrfMatrix(1,3) = -SIN(Alpha)
+            TrfMatrix(3,1) =  SIN(Alpha)
+            TrfMatrix(3,3) =  COS(Alpha)
+          CASE(3)
+            TrfMatrix(1,1) =  COS(Alpha)
+            TrfMatrix(1,2) = -SIN(Alpha)
+            TrfMatrix(2,1) =  SIN(Alpha)
+            TrfMatrix(2,2) =  COS(Alpha)
+          END SELECT
+          
+          RotMatrix = MATMUL( RotMatrix, TrfMatrix )
+        END DO
+        
+        DO i = 1, BMesh2 % NumberOfNodes          
+          x(1) = BMesh2 % Nodes % x(i)
+          x(2) = BMesh2 % Nodes % y(i)
+          x(3) = BMesh2 % Nodes % z(i)
+          
+          x(4) = 1.0_dp
+          x = MATMUL( RotMatrix, x )
+          
+          BMesh2 % Nodes % x(i) = x(1)
+          BMesh2 % Nodes % y(i) = x(2)
+          BMesh2 % Nodes % z(i) = x(3)
+        END DO
+        
+        x2r_min(1) = MINVAL( BMesh2 % Nodes % x )
+        x2r_min(2) = MINVAL( BMesh2 % Nodes % y )
+        x2r_min(3) = MINVAL( BMesh2 % Nodes % z )
+        
+        x2r_max(1) = MAXVAL( BMesh2 % Nodes % x )
+        x2r_max(2) = MAXVAL( BMesh2 % Nodes % y )
+        x2r_max(3) = MAXVAL( BMesh2 % Nodes % z )
+        
+        WRITE(Message,'(A,3ES12.3)') 'Minimum values for rotated target:',x2r_min
+        CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+        
+        WRITE(Message,'(A,3ES12.3)') 'Maximum values for rotated target:',x2r_max
+        CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+        
+        WRITE(Message,'(A,3ES12.3)') 'Bounding box for rotated target: ',x2r_max-x2r_min
+        CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+      ELSE
+        x2r_min = x2_min
+        x2r_max = x2_max
+      END IF
+   
+!   Scaling:
+!   This is either given or enforced by requiring bounding boxes to be of the same size 
+!   -----------------------------------------------------------------------------------
+      Parray => ListGetConstRealArray( BParams,'Periodic BC Scale', Gotit )      
+      IF ( GotIt ) THEN
+        DO i=1,SIZE(Parray,1)
+          SclMatrix(i,i) = Parray(i,1)
+        END DO
+      ELSE
+        ! Define scaling from the bounding boxes
+        ! This assumes isotropic scaling since component-wise scaling 
+        ! was prone to errors.
+        !------------------------------------------------------
+        s1 = SUM( ( x1_max(1:3) - x1_min(1:3) ) ** 2 )
+        s2 = SUM( ( x2r_max(1:3) - x2r_min(1:3) ) ** 2 )
+        IF( s2 > EPSILON( s2 ) ) THEN
+          scl(1:3)  = SQRT( s1 / s2 )
+        ELSE
+          scl(1:3) = 1.0_dp
+        END IF
+        
+        WRITE(Message,'(A,3ES12.3)') 'Scaling with: ',scl(1:3)
+        CALL Info('OverlayInterfaceMeshes',Message)
+        DO i=1,3 
+          SclMatrix(i,i) = scl(i)        
+        END DO
+      END IF
+      
+!   Translations:
+!   And finally define translations
+!   -------------
+      Parray => ListGetConstRealArray( BParams,'Periodic BC Translate', Gotit )
+      IF ( gotit ) THEN
+        DO i=1,SIZE(Parray,1)
+          TrsMatrix(4,i) = Parray(i,1)
+        END DO
+      ELSE
+        ! Define translations so that the lower left corner is the same
+        !-------------------------------------------------------------
+        DO i=1,3
+          TrsMatrix(4,i) = x1_min(i) - SclMatrix(i,i) * x2r_min(i)
+        END DO
+        WRITE(Message,'(A,3ES12.3)') 'Translation: ',TrsMatrix(4,1:3)
+        CALL Info('OverlayInterfaceMeshes',Message)
+      END IF
+      TrfMatrix = MATMUL( SclMatrix, TrsMatrix )
+    END IF 
+
 !    Now transform the coordinates:
 !    ------------------------------
-     DO i=1,BMesh2 % NumberOfNodes
-        x(1) = BMesh2 % Nodes % x(i)
-        x(2) = BMesh2 % Nodes % y(i)
-        x(3) = BMesh2 % Nodes % z(i)
-        x(4) = 1.0d0
-        x = MATMUL( x, TrfMatrix ) 
-        BMesh2 % Nodes % x(i) = x(1) / x(4)
-        BMesh2 % Nodes % y(i) = x(2) / x(4) 
-        BMesh2 % Nodes % z(i) = x(3) / x(4)
-     END DO
-!
+    DO i=1,BMesh2 % NumberOfNodes
+      x(1) = BMesh2 % Nodes % x(i)
+      x(2) = BMesh2 % Nodes % y(i)
+      x(3) = BMesh2 % Nodes % z(i)
+      x(4) = 1.0d0
+      x = MATMUL( x, TrfMatrix ) 
+      BMesh2 % Nodes % x(i) = x(1) / x(4)
+      BMesh2 % Nodes % y(i) = x(2) / x(4) 
+      BMesh2 % Nodes % z(i) = x(3) / x(4)
+    END DO
+
+    IF(.FALSE.) THEN
+      x2r_min(1) = MINVAL( BMesh2 % Nodes % x )
+      x2r_min(2) = MINVAL( BMesh2 % Nodes % y )
+      x2r_min(3) = MINVAL( BMesh2 % Nodes % z )
+      
+      x2r_max(1) = MAXVAL( BMesh2 % Nodes % x )
+      x2r_max(2) = MAXVAL( BMesh2 % Nodes % y )
+      x2r_max(3) = MAXVAL( BMesh2 % Nodes % z )
+      
+      WRITE(Message,'(A,3ES12.3)') 'Minimum values for transformed target:',x2r_min
+      CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+      
+      WRITE(Message,'(A,3ES12.3)') 'Maximum values for transformed target:',x2r_max
+      CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
+      
+      WRITE(Message,'(A,3ES12.3)') 'Bounding box for transformed target:  ',x2r_max-x2r_min
+      CALL Info('OverlayInterfaceMeshes',Message,Level=8)   
+    END IF
+
+  END SUBROUTINE OverlayIntefaceMeshes
+
+
+!------------------------------------------------------------------------------
+!> Create a projector between Master and Target boundaries. 
+!------------------------------------------------------------------------------
+  FUNCTION PeriodicProjector( Model, Mesh, This, Trgt, cdim ) RESULT(Projector)
+!------------------------------------------------------------------------------
+    TYPE(Model_t) :: Model
+    INTEGER :: This, Trgt
+    INTEGER, OPTIONAL :: cdim
+    TYPE(Mesh_t) :: Mesh
+    TYPE(Matrix_t), POINTER :: Projector
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,k,n,dim
+    LOGICAL :: GotIt, UseQuadrantTree
+    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
+    REAL(KIND=dp) :: rowsum
+!------------------------------------------------------------------------------
+    
+    DIM = CoordinateSystemDimension()
+    
+    NULLIFY( Projector )
+    IF ( This <= 0 .OR. Trgt <= 0 ) RETURN
+
+    CALL CreateInterfaceMeshes( Model, Mesh, This, Trgt, Bmesh1, BMesh2, &
+        InvPerm1, InvPerm2 ) 
+
+    CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
+    
 !    Get the mesh projetor, which now contains
 !    weigths between the two boundaries nodes:
 !    ------------------------------------------
-     UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
-     IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
 
-     Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )
+    UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
+    IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
+    Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
 
-     Projector % InvPerm => InvPerm1
-     DO i=1,Projector % NumberOfRows
-        DO j=Projector % Rows(i),Projector % Rows(i+1)-1
-           k = Projector % Cols(j)    
-           IF ( k > 0 ) Projector % Cols(j) = InvPerm2(k)
-        END DO
-     END DO
+    n = SIZE( InvPerm1 ) 
+    Projector % InvPerm => InvPerm1
 
-!
+    DO i=1,Projector % NumberOfRows
+      rowsum = 0.0_dp
+      DO j=Projector % Rows(i),Projector % Rows(i+1)-1
+        k = Projector % Cols(j)    
+        rowsum = rowsum + Projector % Values(j)
+        IF ( k > 0 ) Projector % Cols(j) = InvPerm2(k)
+      END DO
+!      PRINT *,'rowsum',i,rowsum
+    END DO
+    
+
 !    Deallocate mesh structures:
 !    ---------------------------
-     DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z )
+    DO k=1,2
+      IF( k == 1 ) THEN
+        PMesh => BMesh1 
+      ELSE
+        PMesh => BMesh2
+      END IF
 
-     DO i=1,BMesh1 % NumberOfBulkElements
-        DEALLOCATE( BMesh1 % Elements(i) % NodeIndexes )
-     END DO
-     DEALLOCATE( BMesh1 % Elements )
-     CALL FreeQuadrantTree( BMesh1 % RootQuadrant )
+      DO i=1,PMesh % NumberOfBulkElements
+        DEALLOCATE( PMesh % Elements(i) % NodeIndexes )
+      END DO
+      DEALLOCATE( PMesh % Elements )
+      CALL FreeQuadrantTree( PMesh % RootQuadrant )
+      
+      DEALLOCATE( PMesh % Nodes % x )
+      DEALLOCATE( PMesh % Nodes % y )
+      DEALLOCATE( PMesh % Nodes % z )
+      DEALLOCATE( PMesh % Nodes )
+    END DO
 
-     DO i=1,BMesh2 % NumberOfBulkElements
-        DEALLOCATE( BMesh2 % Elements(i) % NodeIndexes )
-     END DO
-     DEALLOCATE( BMesh2 % Elements )
-     CALL FreeQuadrantTree( BMesh2 % RootQuadrant )
+    DEALLOCATE( InvPerm2, BMesh1, BMesh2 )
+    NULLIFY( InvPerm1 )
 
-     DEALLOCATE( BMesh2 % Nodes % x )
-     DEALLOCATE( BMesh2 % Nodes % y )
-     DEALLOCATE( BMesh2 % Nodes % z )
-     DEALLOCATE( BMesh2 % Nodes )
-
-     DEALLOCATE( BMesh1 % Nodes % x )
-     DEALLOCATE( BMesh1 % Nodes % y )
-     DEALLOCATE( BMesh1 % Nodes % z )
-     DEALLOCATE( BMesh1 % Nodes )
-
-     DEALLOCATE( Perm1, Perm2, InvPerm2, BMesh1, BMesh2 )
 !------------------------------------------------------------------------------
   END FUNCTION PeriodicProjector
 !------------------------------------------------------------------------------

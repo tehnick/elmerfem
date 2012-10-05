@@ -1100,8 +1100,8 @@ CONTAINS
        TYPE(Quadrant_t), POINTER :: LeafQuadrant
        TYPE(Element_t),POINTER :: Element
        
-       REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:)
-       REAL(KIND=dp) :: BoundingBox(6), detJ, u,v,w,s
+       REAL(KIND=dp), ALLOCATABLE :: Basis(:),Vals(:),dBasisdx(:,:)
+       REAL(KIND=dp) :: BoundingBox(6), detJ, u,v,w,s,val,rowsum
        
        LOGICAL :: UseQTree, TryQTree, Stat, UseProjector
        TYPE(Quadrant_t), POINTER :: RootQuadrant
@@ -1115,9 +1115,9 @@ CONTAINS
        TYPE(Epntr_t), ALLOCATABLE :: ElemPtrs(:)
        
        INTEGER, ALLOCATABLE:: RInd(:)
-       LOGICAL :: Found, EpsAbsGiven,EpsRelGiven, MaskExists
-       INTEGER :: eps_tries
-       REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_global, eps_local
+       LOGICAL :: Found, EpsAbsGiven,EpsRelGiven, MaskExists, ProjectorAllocated
+       INTEGER :: eps_tries, nrow
+       REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_global, eps_local, eps_basis
        REAL(KIND=dp), POINTER :: Values(:), LocalU(:), LocalV(:), LocalW(:)
 !------------------------------------------------------------------------------
 
@@ -1131,7 +1131,7 @@ CONTAINS
          
          DO WHILE( ASSOCIATED( Projector ) )
            IF ( ASSOCIATED(Projector % Mesh, OldMesh) ) THEN
-             IF ( PRESENT(OldVariables) ) CALL ApplyProjector
+             IF ( PRESENT(OldVariables) ) CALL ApplyProjector()
              RETURN
            END IF
            Projector => Projector % Next
@@ -1402,65 +1402,102 @@ CONTAINS
 !      ---------------------------------------------------------
        IF ( PRESENT(Projector) ) THEN
           n = NewMesh % NumberOfNodes
+          ALLOCATE( Basis(OldMesh % MaxElementNodes), Vals(OldMesh % MaxElementNodes) )
+
+          ! The critical value of basis function that is accepted to the 
+          ! projector. Note that the sum of weights is one, so this
+          ! we know the scale for this one. 
+          eps_basis = ListGetConstReal( CurrentModel % Simulation,  &
+              'Interpolation Basis Epsilon', Stat )
+          IF(.NOT. Stat) eps_basis = 0.0d-12
 
           ALLOCATE( Rows(n+1) )
           Rows(1) = 1
-          DO i=2,n+1
-             IF ( ASSOCIATED( ElemPtrs(i-1) % Element ) ) THEN
-               Rows(i) = Rows(i-1) + &
-                   ElemPtrs(i-1) % Element % TYPE % NumberOfNodes
-             ELSE
-               Rows(i) = Rows(i-1)+1
-             END IF
-          END DO
+          ProjectorAllocated = .FALSE.
 
-          ALLOCATE( Cols(Rows(n+1)-1), Values(Rows(n+1)-1) )
-          Cols   = 0
-          Values = 0
+100       nrow = 1
 
-          ALLOCATE( Projector )
-          Projector % Matrix => AllocateMatrix()
-          Projector % Matrix % NumberOfRows = n
-          Projector % Matrix % Rows   => Rows
-          Projector % Matrix % Cols   => Cols 
-          Projector % Matrix % Values => Values
-
-          Projector % Next => NewMesh % Projector
-          NewMesh % Projector => Projector
-          NewMesh % Projector % Mesh => OldMesh
-
-          ALLOCATE( RInd(OldMesh % NumberOfNodes), Basis(OldMesh % MaxElementNodes) )
-          RInd = 0
-
-          Found = .TRUE.
           DO i=1,n
-             Element => ElemPtrs(i) % Element
-             IF ( .NOT. ASSOCIATED( Element ) ) THEN
-               Found = .FALSE.
-               Cols(Rows(i))=1
-               Values(Rows(i))=0._dp
-               CYCLE
-             END IF
 
-             k = Element % TYPE % NumberOfNodes
-             NodeIndexes => Element % NodeIndexes
-             RInd(NodeIndexes) = RInd(NodeIndexes)+1
+            Element => ElemPtrs(i) % Element
+            Found = ASSOCIATED( Element ) 
+            
+            IF( .NOT. Found ) THEN
+              ! It seems unnecessary to make a matrix entry in case no target element is found!
+              IF(.FALSE.) THEN
+                IF( ProjectorAllocated ) THEN
+                  Cols(nrow) = 1
+                  Values(nrow) = 0._dp
+                END IF
+                nrow = nrow + 1
+              END IF
+            ELSE
+              k = Element % TYPE % NumberOfNodes
 
-             u = LocalU(i)
-             v = LocalV(i)
-             w = LocalW(i)
+              NodeIndexes => Element % NodeIndexes
+              
+              u = LocalU(i)
+              v = LocalV(i)
+              w = LocalW(i)
+ 
+              Basis(1:k) = 0.0d0
+              DO j=1,k
+                Basis(j) = 1.0d0
+                Vals(j) = InterpolateInElement(Element,Basis,u,v,w)
+                Basis(j) = 0.0d0
+              END DO
+              
+              rowsum = 0.0_dp
+              DO j=1,k
+                IF( ABS( vals(j) ) < eps_basis ) CYCLE
+                rowsum = rowsum + vals(j)
+                IF( .NOT. ProjectorAllocated ) nrow = nrow + 1
+              END DO
+              
+              IF( ProjectorAllocated ) THEN
+                DO j=1,k
+                  IF( ABS( vals(j) ) < eps_basis ) CYCLE
 
-             Basis(1:k) = 0.0d0
-             DO j=1,k
-                l = Rows(i) + j - 1
-                Cols(l)   = NodeIndexes(j)
-                Basis(j)  = 1.0d0
-                Values(l) = &
-                   InterpolateInElement(Element,Basis,u,v,w)
-                Basis(j)  = 0.0d0
-             END DO
-          END DO
-          DEALLOCATE( Basis, ElemPtrs, LocalU, LocalV, LocalW )
+                  Rind(NodeIndexes(j)) = Rind(NodeIndexes(j)) + 1
+                  Cols(nrow) = NodeIndexes(j)
+
+                  ! Always normalize the weights to one!
+                  Values(nrow) = vals(j) / rowsum
+                  nrow = nrow + 1
+                END DO
+                ! PRINT *,'i',i,nrow,rowsum
+              END IF                
+            END IF
+
+            Rows(i+1) = nrow
+         END DO
+
+         IF( .NOT. ProjectorAllocated ) THEN
+            ALLOCATE( Cols(Rows(n+1)-1), Values(Rows(n+1)-1) )
+            Cols   = 0
+            Values = 0
+            
+            ALLOCATE( Projector )
+            Projector % Matrix => AllocateMatrix()
+            Projector % Matrix % NumberOfRows = n
+            Projector % Matrix % Rows   => Rows
+            Projector % Matrix % Cols   => Cols 
+            Projector % Matrix % Values => Values
+            
+            Projector % Next => NewMesh % Projector
+            NewMesh % Projector => Projector
+            NewMesh % Projector % Mesh => OldMesh
+            
+            ALLOCATE( RInd(OldMesh % NumberOfNodes) )
+            RInd = 0
+
+            ProjectorAllocated = .TRUE.
+            
+            GOTO 100
+          END IF
+
+
+          DEALLOCATE( Basis, Vals, ElemPtrs, LocalU, LocalV, LocalW )
 !
 !         Store also the transpose of the projector:
 !         ------------------------------------------ 
