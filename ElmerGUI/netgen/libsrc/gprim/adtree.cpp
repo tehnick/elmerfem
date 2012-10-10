@@ -223,7 +223,7 @@ namespace netgen
     if (node->data)
       {
 	ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	for (int i = 0; i < dim; i++)
 	  ost << node->data[i] << " ";
 	ost << endl;
@@ -454,7 +454,7 @@ namespace netgen
     if (node->data)
       {
 	ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	for (int i = 0; i < 3; i++)
 	  ost << node->data[i] << " ";
 	ost << endl;
@@ -732,7 +732,7 @@ namespace netgen
     if (node->data)
       {
 	ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	ost << " from " << node->minx << " - " << node->minx + node->dist*ADTN_DIV << "  ";
 	for (int i = 0; i < 3; i++)
 	  ost << node->data[i] << " ";
@@ -976,7 +976,7 @@ namespace netgen
     if (node->data)
       {
 	//      ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	for (int i = 0; i < 3; i++)
 	  ost << node->data[i] << " ";
 	ost << endl;
@@ -1233,7 +1233,7 @@ namespace netgen
     if (node->data)
       {
 	ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	for (i = 0; i < 3; i++)
 	  ost << node->data[i] << " ";
 	ost << endl;
@@ -1510,7 +1510,7 @@ namespace netgen
     if (node->data)
       {
 	ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	for (i = 0; i < 3; i++)
 	  ost << node->data[i] << " ";
 	ost << endl;
@@ -1754,7 +1754,7 @@ namespace netgen
     if (node->data)
       {
 	ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	for (int i = 0; i < 6; i++)
 	  ost << node->data[i] << " ";
 	ost << endl;
@@ -2044,7 +2044,7 @@ namespace netgen
     if (node->data)
       {
 	ost << node->pi << ": ";
-	ost << node->nchilds << " childs, ";
+	ost << node->nchilds << " children , ";
 	for (i = 0; i < 6; i++)
 	  ost << node->data[i] << " ";
 	ost << endl;

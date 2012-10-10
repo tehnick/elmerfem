@@ -688,7 +688,7 @@ void MainWindow::createActions()
 
   // Solver -> Parallel settings
   parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings..."), this);
-  parallelSettingsAct->setStatusTip(tr("Choose parametes and methods for parallel solution"));
+  parallelSettingsAct->setStatusTip(tr("Choose parameters and methods for parallel solution"));
   connect(parallelSettingsAct, SIGNAL(triggered()), this, SLOT(parallelSettingsSlot()));
 
   // Solver -> Run solver

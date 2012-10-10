@@ -123,7 +123,7 @@ extern int OBJECT_DISPLAY_LIST_BASE;  // display-list id for a geometric object 
 
 extern int MAX_NOF_SPLIT_COMBINE_INFOS; // max array size <--> max undo level for mesh boundary splitting/combining
 
-// Character separators in the paramater data string
+// Character separators in the parameter data string
 extern const short MAX_NOF_PARAMETER_DATA_STRINGS;    // Max nof separate ';' separated "string-data" slots
 extern const short MAX_NOF_PARAMETER_VARIABLES; // Max nof indipendent variables in parameters slots
 extern const short MAX_PARAMETER_FIELD_NAME_LENGTH; // Max length for a field/variable name

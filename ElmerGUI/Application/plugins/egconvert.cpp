@@ -1965,7 +1965,7 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
     }
   } 
 
-  printf("Succesfully read the mesh from the Triangle input file.\n");
+  printf("Successfully read the mesh from the Triangle input file.\n");
 
   return(0);
 }
@@ -2084,7 +2084,7 @@ printf("ALLOCATED=%d\n",allocated);
     goto allocate;
   }
 
-  printf("Succesfully read the mesh from the Medit input file.\n");
+  printf("Successfully read the mesh from the Medit input file.\n");
 
   return(0);
 }
@@ -2930,7 +2930,7 @@ allocate:
 
   ElementsToBoundaryConditions(data,bound,FALSE,info);
 
-  printf("Succesfully read the mesh from the Gmsh input file.\n");
+  printf("Successfully read the mesh from the Gmsh input file.\n");
 
   return(0);
 }
@@ -3130,7 +3130,7 @@ omstart:
     RenumberMaterialTypes(data,bound,info);
   }
 
-  if(info) printf("Succesfully read the mesh from the Gmsh input file.\n");
+  if(info) printf("Successfully read the mesh from the Gmsh input file.\n");
 
   return(0);
 }

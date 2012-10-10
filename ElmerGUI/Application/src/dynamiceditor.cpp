@@ -447,7 +447,7 @@ void DynamicEditor::textChangedSlot(QString text)
       hash[q].label->show();
     } else {
       hash[q].widget->setEnabled(false);
-      if ( widget_visible != "Unkown" ) {
+      if ( widget_visible != "Unknown" ) {
         hash[q].label->hide();
         hash[q].widget->hide();
       }

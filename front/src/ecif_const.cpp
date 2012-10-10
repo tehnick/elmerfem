@@ -152,7 +152,7 @@ int OBJECT_DISPLAY_LIST_BASE = 1000;  // display-list id for a geometric object 
 
 int MAX_NOF_SPLIT_COMBINE_INFOS = 16; // max array size <--> max undo level for mesh boundary splitting/combining
 
-// Character separators in the paramater data string
+// Character separators in the parameter data string
 const short MAX_NOF_PARAMETER_DATA_STRINGS = 1024;  // Max nof separate ';' separeated "string-data" slots
 const short MAX_NOF_PARAMETER_VARIABLES = 4;      // Max nof indipendent variables in parameters slots
 const short MAX_PARAMETER_FIELD_NAME_LENGTH = 81; // Max length for a field/variable name

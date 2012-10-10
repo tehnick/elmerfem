@@ -345,7 +345,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 
     if(strcmp(argv[arg],"-in") ==0 ) {
       if(arg+1 >= argc) {
-	printf("The secondary input file name is required as a paramater\n");
+	printf("The secondary input file name is required as a parameter\n");
 	return(1);
       }
       else {
@@ -357,7 +357,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 
     if(strcmp(argv[arg],"-out") == 0) {
       if(arg+1 >= argc) {
-	printf("The output name is required as a paramater\n");
+	printf("The output name is required as a parameter\n");
 	return(2);
       }
       else {
@@ -593,7 +593,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     }
     if(strcmp(argv[arg],"-partition") == 0) {
       if(arg+dim >= argc) {
-	printf("The number of partitions in %d dims is required as paramaters.\n",dim);
+	printf("The number of partitions in %d dims is required as parameters.\n",dim);
 	return(13);
       }
       else {
@@ -811,7 +811,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-infofile") == 0) {
       eg->timeron = TRUE;
       if(arg+1 >= argc) {
-	printf("The output name is required as a paramater\n");
+	printf("The output name is required as a parameter\n");
 	return(2);
       }
       else {

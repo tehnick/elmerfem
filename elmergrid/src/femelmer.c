@@ -2202,7 +2202,7 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 
   PartitionNodesByElements(data,info);
 
-  if(info) printf("Succesfully made a partitioning with %d to %d elements.\n",minpart,maxpart);
+  if(info) printf("Successfully made a partitioning with %d to %d elements.\n",minpart,maxpart);
 
   return(0);
 }
@@ -2444,7 +2444,7 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 
   PartitionElementsByNodes(data,info);
 
-  if(info) printf("Succesfully made a partitioning with %d to %d nodes.\n",minpart,maxpart);
+  if(info) printf("Successfully made a partitioning with %d to %d nodes.\n",minpart,maxpart);
 
   return(0);
 }
@@ -2602,7 +2602,7 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
   free_Ivector(epart,0,noelements-1);
   free_Ivector(npart,0,nn-1);
 
-  if(info) printf("Succesfully made a Metis partition using the element mesh.\n");
+  if(info) printf("Successfully made a Metis partition using the element mesh.\n");
 
   return(0);
 }
@@ -2822,7 +2822,7 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
 
   free_Ivector(npart,0,noknots-1);
 
-  if(info) printf("Succesfully made a Metis partition using the dual graph.\n");
+  if(info) printf("Successfully made a Metis partition using the dual graph.\n");
 
   return(0);
 }
@@ -3279,7 +3279,7 @@ static void RenumberPartitions(struct FemType *data,int info)
 
   if(info) {
     printf("There are %d connections alltogether\n",totcon);
-    printf("There are %.3lf connnections between partitions in average\n",1.0*totcon/partitions);
+    printf("There are %.3lf connections between partitions in average\n",1.0*totcon/partitions);
   }
 
 
@@ -3707,7 +3707,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   bulktypes =  Imatrix(1,partitions,minelemtype,maxelemtype);
   bcnodedummy = Ivector(1,noknots);
 
-  /* Order the nodes so that the different partitions have a continous interval of nodes.
+  /* Order the nodes so that the different partitions have a continuous interval of nodes.
      This information is used only just before the saving of node indexes in each instance. 
      This feature was coded for collaboration with Hypre library that assumes this. */
   reorder = parthypre;

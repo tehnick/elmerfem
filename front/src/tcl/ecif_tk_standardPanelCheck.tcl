@@ -1379,7 +1379,7 @@ proc GridH::parameterHasVertexParents {pid} {
 }
 
 
-# Nof elements-type density paramater cannot be attached to a vertex!
+# Nof elements-type density parameter cannot be attached to a vertex!
 #
 proc GridH::parameterTargetCheckProc {paramter_id {accept_var ""} } {
   global GridH Info ObjectTable
@@ -1632,7 +1632,7 @@ proc GridParameter::parameterHasNonStructuredParents {pid} {
 }
 
 
-# Structured mesh paramater cannot be attached to a non-structurerd body!
+# Structured mesh parameter cannot be attached to a non-structurerd body!
 #
 proc GridParameter::parameterTargetCheckProc {paramter_id {accept_var ""} } {
   global GridParameter Info ObjectTable

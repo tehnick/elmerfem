@@ -202,7 +202,7 @@
 #define PACKAGE_VERSION ""
 
 /* svn revision */
-#define REVISION "5622M"
+#define REVISION "5860M"
 
 /* Detected platform. */
 /* #undef SGI */
@@ -232,7 +232,7 @@
 /* #undef SUNOS */
 
 /* Version number of package */
-#define VERSION "6.1"
+#define VERSION "7.0"
 
 /* Detected platform2. */
 /* #undef WIN32 */

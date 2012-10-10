@@ -243,7 +243,7 @@ extern "C" void STDCALLBULL FC_FUNC(viewfactorsaxis,VIEWFACTORSAXIS)
 	}
       }
     }
-    if(parents != nsurf) printf("Inconsistant number of parents found %d (vs. %d)\n",parents,nsurf);
+    if(parents != nsurf) printf("Inconsistent number of parents found %d (vs. %d)\n",parents,nsurf);
     
 
 

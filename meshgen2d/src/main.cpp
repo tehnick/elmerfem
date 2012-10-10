@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 		{
 			if (modelfile == NULL) // First parameter without "--" is the input file
 				modelfile = argv[i];
-			else if (meshdir == NULL) // Second paramater without "--" is the output directory
+			else if (meshdir == NULL) // Second parameter without "--" is the output directory
 				meshdir = argv[i];
 			else
 			{

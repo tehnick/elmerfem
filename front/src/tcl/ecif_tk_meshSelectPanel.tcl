@@ -130,7 +130,7 @@ proc MeshSelect::openPanel {} {
 
   #-Label
   frame $m.lf
-  label $m.lf.l -text "Mesh paramater:" -width $lwid
+  label $m.lf.l -text "Mesh parameter:" -width $lwid
   pack $m.lf.l -side top -anchor w
 
   #-Entry
