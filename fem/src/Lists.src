@@ -1401,6 +1401,7 @@ CONTAINS
 !      will use the existing projector to interpolate values:
 !      ---------------------------------------------------------
        IF ( PRESENT(Projector) ) THEN
+
           n = NewMesh % NumberOfNodes
           ALLOCATE( Basis(OldMesh % MaxElementNodes), Vals(OldMesh % MaxElementNodes) )
 
@@ -1423,7 +1424,7 @@ CONTAINS
             Found = ASSOCIATED( Element ) 
             
             IF( .NOT. Found ) THEN
-              ! It seems unnecessary to make a matrix entry in case no target element is found!
+             ! It seems unnecessary to make a matrix entry in case no target element is found!
               IF(.FALSE.) THEN
                 IF( ProjectorAllocated ) THEN
                   Cols(nrow) = 1
@@ -1454,6 +1455,7 @@ CONTAINS
                 IF( .NOT. ProjectorAllocated ) nrow = nrow + 1
               END DO
               
+
               IF( ProjectorAllocated ) THEN
                 DO j=1,k
                   IF( ABS( vals(j) ) < eps_basis ) CYCLE
@@ -1463,9 +1465,8 @@ CONTAINS
 
                   ! Always normalize the weights to one!
                   Values(nrow) = vals(j) / rowsum
-                  nrow = nrow + 1
+                  nrow = nrow + 1                  
                 END DO
-                ! PRINT *,'i',i,nrow,rowsum
               END IF                
             END IF
 
@@ -1492,18 +1493,21 @@ CONTAINS
             RInd = 0
 
             ProjectorAllocated = .TRUE.
-            
+
             GOTO 100
           END IF
 
 
           DEALLOCATE( Basis, Vals, ElemPtrs, LocalU, LocalV, LocalW )
-!
+
 !         Store also the transpose of the projector:
 !         ------------------------------------------ 
           Projector % TMatrix => NULL()
           IF ( Found ) THEN
             n = OldMesh % NumberOfNodes
+            ! Needed for some matrices
+            n = MAX( n, MAXVAL( Projector % Matrix % Cols ) )
+
             ALLOCATE( Rows(n+1) )
             Rows(1) = 1
             DO i=2,n+1
@@ -1530,6 +1534,7 @@ CONTAINS
           END IF
 
           DEALLOCATE(RInd)
+
           IF ( PRESENT(OldVariables) ) CALL ApplyProjector
        END IF
 

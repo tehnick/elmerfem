@@ -23,7 +23,7 @@
 !
 !/******************************************************************************
 ! *
-! *  Authors: Juha Ruokolainen, Peter Rï¿½back
+! *  Authors: Juha Ruokolainen, Peter Råback
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -1727,6 +1727,448 @@ END SUBROUTINE GetMaxDefs
   END SUBROUTINE OverlayIntefaceMeshes
 
 
+
+
+
+  !---------------------------------------------------------------------------
+  !> Given two interface meshes for nonconforming rotating boundaries make 
+  !> a coordinate transformation to (phi,z) level where the interpolation
+  !> accuracy is not limited by the curvilinear coordinates. Also ensure
+  !> that the target mesh is mannipulated so that it include the angle interval
+  !> of the master nodes. 
+  !---------------------------------------------------------------------------
+  SUBROUTINE RotationalInterfaceMeshes(BMesh1, BMesh2, DoublePerm, BParams )
+  !---------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    INTEGER, POINTER :: DoublePerm(:)
+    TYPE(Valuelist_t), POINTER :: BParams
+    !--------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: PMesh
+    TYPE(Element_t), POINTER :: Element, TmpElements(:)
+    REAL(KIND=dp) :: x1_min(3),x1_max(3),x2_min(3),x2_max(3),&
+        x1r_min(3),x1r_max(3),x2r_min(3),x2r_max(3)
+    REAL(KIND=dp) :: x(3), xcyl(3),rad2deg,F1min,F1max,F2min,F2max,dFii1,dFii2,eps_rad,rad,&
+        err1,err2
+    REAL(KIND=dp), POINTER :: TmpCoord(:)
+    REAL(KIND=dp),ALLOCATABLE :: Angles(:),Ratios(:)
+    LOGICAL, ALLOCATABLE :: KeepNode(:), MoveNode(:), KeepElem(:), MoveElem(:)
+    INTEGER, ALLOCATABLE :: NRatios(:)
+    INTEGER, POINTER :: NodeIndexes(:)
+    INTEGER :: i,j,k,n,ind,Nmax,Nmin,Nfii,Nnodes,MaxElemNodes,NElems,DoubleElems,DoubleNodes
+    LOGICAL :: AllocationsDone 
+
+    ! We choose degrees as they are more intuitive
+    rad2deg = 180.0_dp / PI
+    MaxElemNodes = BMesh2 % MaxElementNodes 
+    ALLOCATE( Angles(MaxElemNodes), Ratios(MaxElemNodes), NRatios(MaxElemNodes) )
+    
+    Nnodes = BMesh2 % NumberOfNodes
+    NElems = BMesh2 % NumberOfBulkElements
+
+    ! Go trough master (k=1) and target mesh (k=2)
+    !--------------------------------------------
+    DO k=1,2
+     
+      IF( k == 1 ) THEN
+        PMesh => BMesh1
+      ELSE
+        PMesh => BMesh2
+      END IF
+
+      ! Check the initial bounding boxes
+      !---------------------------------------------------------------------------
+      x2_min(1) = MINVAL( PMesh % Nodes % x )
+      x2_min(2) = MINVAL( PMesh % Nodes % y )
+      x2_min(3) = MINVAL( PMesh % Nodes % z )
+      
+      x2_max(1) = MAXVAL( PMesh % Nodes % x )
+      x2_max(2) = MAXVAL( PMesh % Nodes % y )
+      x2_max(3) = MAXVAL( PMesh % Nodes % z )
+      
+      IF( k == 1 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Inital extrama for this boundary',Level=8)
+      ELSE IF( k == 2 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Initial extrama for target boundary',Level=8)
+      END IF
+      WRITE(Message,'(A,3ES12.3)') 'Minimum values:   ',x2_min
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+      WRITE(Message,'(A,3ES12.3)') 'Maximum values:   ',x2_max
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+      ! Memorize the bounding box of the master mesh
+      !--------------------------------------------------------------------------
+      IF( k == 1 ) THEN
+        x1_min = x2_min
+        x1_max = x2_max
+      END IF
+
+      ! Do the actual coordinate transformation
+      !---------------------------------------------------------------------------
+      DO i=1,PMesh % NumberOfNodes
+        x(1) = PMesh % Nodes % x(i)
+        x(2) = PMesh % Nodes % y(i)
+        
+        ! Set the angle to be the first coordinate as it may sometimes be the 
+        ! only nonzero coordinate. Z-coordinate is always unchanged. 
+        !------------------------------------------------------------------------
+        PMesh % Nodes % x(i) = rad2deg * ATAN2( x(2), x(1)  )
+        PMesh % Nodes % y(i) = SQRT( x(1)**2 + x(2)**2)
+      END DO
+
+
+
+      DO i=1, PMesh % NumberOfBulkElements
+        Element => BMesh2 % Elements(i)
+        n = Element % TYPE % NumberOfNodes        
+        NodeIndexes => Element % NodeIndexes
+        Angles(1:n) = PMesh % Nodes % x(NodeIndexes)
+        dFii1 = MAXVAL( Angles(1:n) ) - MINVAL( Angles(1:n) )
+        IF( dFii1 > 90 ) THEN
+          PRINT *,'Nodes X2:'
+          DO j=1,PMesh % NumberOfNodes
+            PRINT *,'i',i,PMesh % Nodes % x(j)
+          END DO
+          CALL Fatal('RotationalInterfaceMeshe','Difference in angle greater than 90 deg in one element!')
+        END IF
+      END DO
+
+
+      ! Check the transformed bounding boxes
+      !---------------------------------------------------------------------------
+      x2r_min(1) = MINVAL( PMesh % Nodes % x )
+      x2r_min(2) = MINVAL( PMesh % Nodes % y )
+      x2r_min(3) = MINVAL( PMesh % Nodes % z )
+      
+      x2r_max(1) = MAXVAL( PMesh % Nodes % x )
+      x2r_max(2) = MAXVAL( PMesh % Nodes % y )
+      x2r_max(3) = MAXVAL( PMesh % Nodes % z )
+      
+      IF( k == 1 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Transformed extrame for this boundary',Level=8)
+      ELSE IF( k == 2 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Transformed extrame for target boundary',Level=8)
+      END IF
+      WRITE(Message,'(A,3ES12.3)') 'Minimum values:   ',x2r_min
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+      WRITE(Message,'(A,3ES12.3)') 'Maximum values:   ',x2r_max
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+      ! Memorize the bounding box for the 1st mesh
+      IF( k == 1 ) THEN
+        x1r_min = x2r_min
+        x1r_max = x2r_max
+      END IF
+    END DO
+
+    eps_rad = 1.0d-4 
+    rad = 0.5_dp * ( x1r_min(2) + x1r_max(2) )
+    
+    err1 = ( x1r_max(2) - x1r_min(2) ) / rad
+    err2 = ( x2r_max(2) - x2r_min(2) ) / rad
+
+    WRITE(Message,'(A,ES12.3)') 'Discrepancy from constant radius:',err1
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+    WRITE(Message,'(A,ES12.3)') 'Discrepancy from constant radius:',err2
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+    IF( err1 > eps_rad .OR. err2 > eps_rad ) THEN
+      CALL Fatal('RotationalInterfaceMeshes','Discrepancy of radius deemed too large!')
+    END IF
+
+
+    ! Ok, so we have concluded that the interface has constant radius
+    ! therefore the constant radius may be removed from the mesh description.
+    !---------------------------------------------------------------------------
+    Bmesh1 % Nodes % y = 0.0_dp
+    BMesh2 % Nodes % y = 0.0_dp
+
+
+    ! Check whether the z-coordinate is constant or not.
+    ! Constant z-coordinate implies 1D system, otherwise 2D system.
+    !---------------------------------------------------------------------------
+    err1 = ( x1r_max(3) - x1r_min(3) ) / rad
+    err2 = ( x2r_max(3) - x2r_min(3) ) / rad
+    
+    IF( err1 < eps_rad .AND. err2 < eps_rad ) THEN
+      CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 1D')
+      Bmesh1 % Nodes % z = 0.0_dp
+      Bmesh2 % Nodes % z = 0.0_dp
+      Bmesh1 % MeshDim = 1
+      Bmesh2 % MeshDim = 1      
+    ELSE
+      CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 2D')
+      TmpCoord => Bmesh1 % Nodes % Z
+      Bmesh1 % Nodes % Z => Bmesh1 % Nodes % Y
+      BMesh1 % Nodes % Y => TmpCoord
+      TmpCoord => Bmesh2 % Nodes % Z
+      Bmesh2 % Nodes % Z => Bmesh2 % Nodes % Y
+      BMesh2 % Nodes % Y => TmpCoord
+      Bmesh1 % MeshDim = 2
+      Bmesh2 % MeshDim = 2      
+    END IF
+
+    ! Ok, the problem is now reduced to that of phi-coordinate.
+    !---------------------------------------------------------------------------
+
+    F1min = x1r_min(1) 
+    F1max = x1r_max(1)
+    dFii1 = F1max-F1min
+    WRITE(Message,'(A,ES12.3)') 'Minimum angle:',F1min
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Maximum angle:',F1max
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Delta angle:  ',dFii1
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+  
+    F2min = x2r_min(1) 
+    F2max = x2r_max(1)
+    dFii2 = F2max-F2min
+    WRITE(Message,'(A,ES12.3)') 'Minimum angle 2:',F2min
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Maximum angle 2:',F2max
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Delta angle 2:  ',dFii2
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+    err1 = ABS( dFii1 - dFii2 ) / dFii1 
+    WRITE(Message,'(A,ES12.3)') 'Discrepancy in total angle:',err1
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)        
+    IF( err1 > eps_rad ) THEN
+      CALL Fatal('ationalInterfaceMeshes','Discrepancy in total angle deemed too large')
+    END IF
+
+
+    PRINT *,'Fmax ratio:',(F2max-F1min)/dFii1
+    PRINT *,'Fmin ratio:',(F2min-F1min)/dFii1
+
+    Nfii = FLOOR( (F2min-F1min) / dFii1 )
+    PRINT *,'Nfii:',Nfii
+
+    ! Make an offset for the target nodes so that they are
+    ! in the right angle sector. 
+    BMesh2 % Nodes % x = BMesh2 % Nodes % x - Nfii * dFii1 
+
+ 
+    ALLOCATE( DoublePerm( Nnodes ), KeepNode( Nnodes), MoveNode( Nnodes) )
+    ALLOCATE( KeepElem( NElems ), MoveElem( NElems) )
+    DoublePerm = 0
+    KeepNode = .FALSE.
+    MoveNode = .FALSE.
+    KeepElem = .FALSE.
+    MoveElem = .FALSE.
+    AllocationsDone = .FALSE.
+
+100 DoubleNodes = 0
+    DoubleElems = 0
+
+    DO i=1, NElems
+      Element => BMesh2 % Elements(i)
+      n = Element % TYPE % NumberOfNodes        
+      NodeIndexes => Element % NodeIndexes
+      Angles(1:n) = BMesh2 % Nodes % x(NodeIndexes)
+      Ratios(1:n) = ( Angles(1:n) - F1min ) / dFii1
+      NRatios(1:n) = FLOOR(Ratios(1:n))
+
+      Nmin = MINVAL( NRatios(1:n) )
+      Nmax = MAXVAL( NRatios(1:n) )
+
+      IF( Nmin == 1 .AND. Nmax == 1) THEN
+!        PRINT *,'1: ',Angles(1:n)
+        MoveElem(i) = .TRUE.
+        MoveNode(NodeIndexes(1:n)) = .TRUE.
+      ELSE IF( Nmin == 0 .AND. Nmax == 0 ) THEN
+!        PRINT *,'O: ',Angles(1:n)
+        KeepElem(i) = .TRUE.
+        KeepNode(NodeIndexes(1:n)) = .TRUE.
+      ELSE IF( Nmin == 0 .AND. Nmax == 1 ) THEN
+!        PRINT *,'2: ',Angles(1:n)
+        KeepElem(i) = .TRUE.
+        MoveElem(i) = .TRUE.
+        KeepNode(NodeIndexes(1:n)) = .TRUE.
+        MoveNode(NodeIndexes(1:n)) = .TRUE.
+      ELSE
+        CALL fatal('','Nratios should be 0 or 1')
+      END IF      
+    END DO
+
+    DoubleNodes = COUNT( KeepNode .AND. MoveNode )
+    DoubleElems = COUNT( KeepElem .AND. MoveElem )
+
+    PRINT *,'Number of double elements:',DoubleElems
+    PRINT *,'Number of double nodes:   ',DoubleNodes
+    
+    IF( DoubleElems == 0 ) THEN
+      PRINT *,'No additional elements needed, exiting...'
+      STOP
+    END IF
+    IF( DoubleNodes == 0 ) THEN
+      PRINT *,'No additional nodes needed, exiting...'
+      STOP
+    END IF
+    
+    CALL INfo('RotationalInterfaceMeshes',&
+        'Now allocating more nodes and elements',Level=8)
+    NULLIFY( TmpElements ) 
+    ALLOCATE( TmpElements( NElems + DoubleElems ) )
+    TmpElements(1:Nelems) = BMesh2 % Elements(1:Nelems)
+    
+    NULLIFY( TmpCoord ) 
+    ALLOCATE( TmpCoord( Nnodes + DoubleNodes ) )
+    TmpCoord(1:Nnodes) = BMesh2 % Nodes % x(1:Nnodes)
+    DEALLOCATE( BMesh2 % Nodes % x )
+    BMesh2 % Nodes % x => TmpCoord
+    
+    NULLIFY( TmpCoord ) 
+    ALLOCATE( TmpCoord(Nnodes + DoubleNodes) )
+    TmpCoord(1:Nnodes) = BMesh2 % Nodes % y(1:Nnodes)
+    DEALLOCATE( BMesh2 % Nodes % y )
+    BMesh2 % Nodes % y => TmpCoord
+    
+    NULLIFY( TmpCoord ) 
+    ALLOCATE( TmpCoord(Nnodes + DoubleNodes ) )
+    TmpCoord(1:Nnodes) = BMesh2 % Nodes % z(1:Nnodes)
+    DEALLOCATE( BMesh2 % Nodes % z )
+    BMesh2 % Nodes % z => TmpCoord
+
+    
+    j = 0
+    DO i=1,Nnodes
+      IF( KeepNode(i) .AND. MoveNode(i) ) THEN
+        j = j + 1
+        BMesh2 % Nodes % x(Nnodes+j) = BMesh2 % Nodes % x(i) - dFii1 
+        BMesh2 % Nodes % y(Nnodes+j) = BMesh2 % Nodes % y(i)
+        BMesh2 % Nodes % z(Nnodes+j) = BMesh2 % Nodes % z(i)          
+        DoublePerm(i) = j + Nnodes
+      ELSE IF( MoveNode(i) ) THEN
+        BMesh2 % Nodes % x(i) = BMesh2 % Nodes % x(i) - dFii1           
+      ELSE IF( KeepNode(i) ) THEN
+        CONTINUE
+      ELSE
+        CALL Fatal('RotationalInterfaceMeshes','All nodes should be either kept or moving!')
+      END IF
+    END DO
+ 
+   
+    DoubleElems = 0
+    DO i=1, NElems
+      Element => BMesh2 % Elements(i)
+      n = Element % TYPE % NumberOfNodes        
+      NodeIndexes => Element % NodeIndexes
+
+      IF( KeepElem(i) .AND. MoveElem(i) ) THEN
+        PRINT *,'adding element',i
+        DoubleElems = DoubleElems + 1
+        
+        ind = BMesh2 % NumberOfBulkElements + DoubleElems
+        BMesh2 % Elements(ind) = Element
+        CALL AllocateVector(BMesh2 % Elements(ind) % NodeIndexes,MaxElemNodes )
+        DO j=1,n
+          k = Element % NodeIndexes(j)
+          IF( DoublePerm(k) > 0 ) THEN
+            BMesh2 % Elements(ind) % NodeIndexes(j) = DoublePerm(k)
+          ELSE
+            CALL Fatal('RotationalInterfaceMeshes','For this element there should be moving nodes!')
+          END IF
+        END DO
+        NULLIFY( BMesh2 % Elements(ind) % EdgeIndexes )
+        NULLIFY( BMesh2 % Elements(ind) % FaceIndexes )
+      ELSE IF( MoveElem(i) ) THEN
+        DO j=1,n
+          k = Element % NodeIndexes(j)
+          IF( DoublePerm(k) > 0 ) THEN
+            BMesh2 % Elements(i) % NodeIndexes(j) = DoublePerm(k)
+          END IF
+        END DO
+      END IF
+    END DO
+    BMesh2 % NumberOfBulkElements = NElems + DoubleElems
+
+    IF(.FALSE.) THEN
+      PRINT *,'Final Elements of Bmesh2:',DoubleElems
+      DO i = 1, NElems + DoubleElems
+        NodeIndexes => Bmesh2 % Elements(i) % NodeIndexes
+        n = Element % TYPE % NumberOfNodes                
+        PRINT *,'i',i,n,NodeIndexes,BMesh2 % Nodes % x( NodeIndexes(1:n) )
+      END DO
+      
+      PRINT *,'Final Nodes of Bmesh2:',DoubleElems
+      DO i = 1, Bmesh2 % NumberOfNodes + DoubleNodes 
+        PRINT *,'i',i,BMesh2 % Nodes % x(i), BMesh2 % Nodes % y(i), Bmesh2 % Nodes % z(i)
+      END DO
+      
+      PRINT *,'Final Nodes of Bmesh1:'
+      DO i = 1, Bmesh1 % NumberOfNodes 
+        PRINT *,'i',i,BMesh1 % Nodes % x(i), BMesh1 % Nodes % y(i), Bmesh1 % Nodes % z(i)
+      END DO
+    END IF
+
+  END SUBROUTINE RotationalInterfaceMeshes
+
+
+
+!------------------------------------------------------------------------------
+!> Eliminate redundant columns pointed by the DoublePerm vector.
+!> The columns refer to the ghost nodes that were created to allow periodicity
+!> of the mortar piece.
+!------------------------------------------------------------------------------
+  SUBROUTINE EliminateRedundantColumns( A, DoublePerm )
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t), INTENT(IN) :: A     !< Structure holding matrix
+    INTEGER, POINTER :: DoublePerm(:)   !< Indexes of the additional columns         
+!------------------------------------------------------------------------------
+    INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
+    REAL(KIND=dp), POINTER  CONTIG :: Values(:)
+    INTEGER :: i,j,k,n,DoubleNodes
+    INTEGER, ALLOCATABLE :: InvPerm(:)
+!------------------------------------------------------------------------------
+
+     IF( .NOT. ASSOCIATED( DoublePerm ) ) THEN
+       CALL Warn('EliminateRedundantColumns','DoublePerm not associated, returning')
+       RETURN
+     END IF
+     
+     IF( MAXVAL( DoublePerm ) == 0 ) THEN
+       CALL Warn('EliminateRedundantColumns','DoublePerm all zero, returning')
+       RETURN
+     END IF
+     
+     n = A % NumberOfRows
+     Rows   => A % Rows
+     Cols   => A % Cols
+     Values => A % Values
+     
+     DoubleNodes = COUNT( DoublePerm > 0 )      
+     ALLOCATE( InvPerm( DoubleNodes ) )
+     n = SIZE( DoublePerm )     
+
+     ! Create the inverse structure for the redundant columns
+     DO i=1,n
+       j = DoublePerm(i)
+       IF( j > 0 ) THEN
+         InvPerm( j - n ) = i
+       END IF
+     END DO
+     
+     ! Now switch the ghost entries to the primary entry
+     DO i=1,SIZE( Cols ) 
+       j = Cols(i)
+       IF( j > n ) THEN
+         PRINT *,'Cols',j,InvPerm( j - n)
+         Cols(i) = InvPerm( j - n ) 
+       END IF
+     END DO
+         
+!------------------------------------------------------------------------------
+   END SUBROUTINE EliminateRedundantColumns
+!------------------------------------------------------------------------------
+
+
+
 !------------------------------------------------------------------------------
 !> Create a projector between Master and Target boundaries. 
 !------------------------------------------------------------------------------
@@ -1739,8 +2181,8 @@ END SUBROUTINE GetMaxDefs
     TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,n,dim
-    LOGICAL :: GotIt, UseQuadrantTree
-    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    LOGICAL :: GotIt, UseQuadrantTree, RotationalProjector
+    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:),DoublePerm(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
     REAL(KIND=dp) :: rowsum
 !------------------------------------------------------------------------------
@@ -1752,28 +2194,40 @@ END SUBROUTINE GetMaxDefs
 
     CALL CreateInterfaceMeshes( Model, Mesh, This, Trgt, Bmesh1, BMesh2, &
         InvPerm1, InvPerm2 ) 
-
-    CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
     
-!    Get the mesh projetor, which now contains
-!    weigths between the two boundaries nodes:
-!    ------------------------------------------
-
+    RotationalProjector = ListGetLogical( Model % Simulation,'Rotational Projector',GotIt )
+    IF( RotationalProjector ) THEN
+      CALL RotationalInterfaceMeshes( BMesh1, BMesh2, DoublePerm, Model % BCs(This) % Values )
+    ELSE
+      CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
+    END IF
+    
+    ! Get the mesh projetor, which now contains
+    ! weigths between the two boundaries nodes:
+    !------------------------------------------
     UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
     IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
+
     Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
 
+    IF( RotationalProjector ) THEN
+      CALL EliminateRedundantColumns( Projector, DoublePerm )
+    END IF
+
+    ! Now return from the indexes of the interface mesh system to the 
+    ! original mesh system.
+    !-----------------------------------------------------------------
     n = SIZE( InvPerm1 ) 
     Projector % InvPerm => InvPerm1
 
     DO i=1,Projector % NumberOfRows
-      rowsum = 0.0_dp
+      ! rowsum = 0.0_dp
       DO j=Projector % Rows(i),Projector % Rows(i+1)-1
         k = Projector % Cols(j)    
-        rowsum = rowsum + Projector % Values(j)
         IF ( k > 0 ) Projector % Cols(j) = InvPerm2(k)
+        ! rowsum = rowsum + Projector % Values(j)
       END DO
-!      PRINT *,'rowsum',i,rowsum
+      ! PRINT *,'rowsum',i,rowsum
     END DO
     
 
@@ -1786,12 +2240,18 @@ END SUBROUTINE GetMaxDefs
         PMesh => BMesh2
       END IF
 
-      DO i=1,PMesh % NumberOfBulkElements
+      DO i=1,SIZE( PMesh % Elements ) 
         DEALLOCATE( PMesh % Elements(i) % NodeIndexes )
       END DO
-      DEALLOCATE( PMesh % Elements )
+
+      ! For some reason this causes problems in certain cases!!!
+      ! Don't know how and where to fix it yet
+      IF( .NOT. (k==2 .AND. RotationalProjector)  ) THEN
+        DEALLOCATE( PMesh % Elements )
+      END IF
+
       CALL FreeQuadrantTree( PMesh % RootQuadrant )
-      
+
       DEALLOCATE( PMesh % Nodes % x )
       DEALLOCATE( PMesh % Nodes % y )
       DEALLOCATE( PMesh % Nodes % z )
@@ -6165,7 +6625,7 @@ CONTAINS
     
     !---------------------------------------------------------------
     SUBROUTINE CoordinateTransformation( CoordTransform, R )
-      CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CoordTransform
+      CHARACTER(LEN=MAX_NAME_LEN) :: CoordTransform
       REAL(KIND=dp) :: R(3)
       !---------------------------------------------------------------
       REAL(KIND=dp) :: Rtmp(3)
