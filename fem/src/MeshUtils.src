@@ -1317,12 +1317,13 @@ END SUBROUTINE GetMaxDefs
 !> stage create projector matrix to implement periodicity or mortar elements.
 !------------------------------------------------------------------------------
   SUBROUTINE CreateInterfaceMeshes( Model, Mesh, This, Trgt, BMesh1, BMesh2, &
-      InvPerm1, InvPerm2 ) 
+      InvPerm1, InvPerm2, Success ) 
 !------------------------------------------------------------------------------    
     TYPE(Model_t) :: Model
     INTEGER :: This, Trgt
     TYPE(Mesh_t) :: Mesh
     TYPE(Matrix_t), POINTER :: Projector
+    LOGICAL :: Success
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,m,n,n1,n2,k1,k2,ind,Constraint,DIM,NoBothActive
     TYPE(Element_t), POINTER :: Element, Elements(:)
@@ -1351,6 +1352,8 @@ END SUBROUTINE GetMaxDefs
 
     IF ( n1 <= 0 .OR. n2 <= 0 ) THEN
       CALL Warn('CreateInterfaceMeshes','There are no active boundaries!')
+      Success = .FALSE.
+      RETURN
     END IF
 
     CALL Info('CreateInterfaceMeshes','Starting to build',Level=8)
@@ -1376,10 +1379,10 @@ END SUBROUTINE GetMaxDefs
     BMesh1 % MaxElementNodes = 0
     BMesh2 % MaxElementNodes = 0
     NoBothActive = 0
-	
+
     DO i=1, Mesh % NumberOfBoundaryElements
       Element => Elements(i)
-      IF ( dim > 1 .AND. Element % TYPE % ElementCode < 200 ) CYCLE
+      IF ( Element % TYPE % ElementCode < 200 ) CYCLE
       
       Constraint = Element % BoundaryInfo % Constraint
       
@@ -1402,22 +1405,23 @@ END SUBROUTINE GetMaxDefs
         PMesh => BMesh2
         PPerm => Perm2
       END IF
-      
+
       n = Element % TYPE % NumberOfNodes        
       PMesh % MaxElementNodes = MAX( PMesh % MaxElementNodes, n )
       PMesh % Elements(ind) = Elements(i)
+
       CALL AllocateVector(PMesh % Elements(ind) % NodeIndexes,n )
-      PMesh % Elements(ind) % NodeIndexes =  Elements(i) % NodeIndexes
+      PMesh % Elements(ind) % NodeIndexes(1:n) = Element % NodeIndexes(1:n)
       NULLIFY( PMesh % Elements(ind) % EdgeIndexes )
       NULLIFY( PMesh % Elements(ind) % FaceIndexes )
-      PPerm( Elements(i) % NodeIndexes ) = 1
+      PPerm( Element % NodeIndexes(1:n) ) = 1
     END DO
   
     IF( NoBothActive > 0 ) THEN
       WRITE(Message,'(A,I0)') 'Elements belonging to both Master and Target: ',NoBothActive
       CALL Fatal('CreateInterfaceMeshes',Message)
     END IF
-        
+
 !   Fill in the mesh node structures with the
 !   boundary nodes:
 !   -----------------------------------------
@@ -1449,7 +1453,6 @@ END SUBROUTINE GetMaxDefs
     
     CALL AllocateVector( InvPerm1, BMesh1 % NumberOfNodes )
     CALL AllocateVector( InvPerm2, BMesh2 % NumberOfNodes )
-
 
     ! Now, create the master and target meshes that only include the active elements
     !---------------------------------------------------------------------------
@@ -1740,7 +1743,7 @@ END SUBROUTINE GetMaxDefs
   SUBROUTINE RotationalInterfaceMeshes(BMesh1, BMesh2, DoublePerm, BParams )
   !---------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
-    INTEGER, POINTER :: DoublePerm(:)
+    INTEGER :: DoublePerm(:)
     TYPE(Valuelist_t), POINTER :: BParams
     !--------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: PMesh
@@ -1748,7 +1751,7 @@ END SUBROUTINE GetMaxDefs
     REAL(KIND=dp) :: x1_min(3),x1_max(3),x2_min(3),x2_max(3),&
         x1r_min(3),x1r_max(3),x2r_min(3),x2r_max(3)
     REAL(KIND=dp) :: x(3), xcyl(3),rad2deg,F1min,F1max,F2min,F2max,dFii1,dFii2,eps_rad,rad,&
-        err1,err2
+        err1,err2,dF,dFMax,Fii
     REAL(KIND=dp), POINTER :: TmpCoord(:)
     REAL(KIND=dp),ALLOCATABLE :: Angles(:),Ratios(:)
     LOGICAL, ALLOCATABLE :: KeepNode(:), MoveNode(:), KeepElem(:), MoveElem(:)
@@ -1817,20 +1820,21 @@ END SUBROUTINE GetMaxDefs
         PMesh % Nodes % y(i) = SQRT( x(1)**2 + x(2)**2)
       END DO
 
-
-
+      dFii1 = 0.0_dp
+      dFMax = 0.0_dp
       DO i=1, PMesh % NumberOfBulkElements
-        Element => BMesh2 % Elements(i)
+        Element => PMesh % Elements(i)
         n = Element % TYPE % NumberOfNodes        
         NodeIndexes => Element % NodeIndexes
         Angles(1:n) = PMesh % Nodes % x(NodeIndexes)
-        dFii1 = MAXVAL( Angles(1:n) ) - MINVAL( Angles(1:n) )
-        IF( dFii1 > 90 ) THEN
-          PRINT *,'Nodes X2:'
+        dF = MAXVAL( Angles(1:n) ) - MINVAL( Angles(1:n) )
+        
+        IF( dF > 180.0_dp ) THEN
           DO j=1,PMesh % NumberOfNodes
-            PRINT *,'i',i,PMesh % Nodes % x(j)
-          END DO
-          CALL Fatal('RotationalInterfaceMeshe','Difference in angle greater than 90 deg in one element!')
+            Fii =  PMesh % Nodes % x(j)
+            IF( Fii < 0.0_dp ) PMesh % Nodes % x(j) = Fii + 360.0_dp
+          END DO          
+          CALL Info('RotationalInterfaceMesh','Angle greater than 180 deg in one element, adding 360 degs!')
         END IF
       END DO
 
@@ -1943,6 +1947,14 @@ END SUBROUTINE GetMaxDefs
     END IF
 
 
+    err1 = ABS( F2min - F1min ) / dFii1
+    err2 = ABS( F2max - F1max ) / dFii1
+    IF( err1 < eps_rad .AND. err2 < eps_rad ) THEN
+      CALL Info('RotationalInterfaceMeshes','The angle interval already ok, nothing further to do')
+      RETURN
+    END IF
+
+
     PRINT *,'Fmax ratio:',(F2max-F1min)/dFii1
     PRINT *,'Fmin ratio:',(F2min-F1min)/dFii1
 
@@ -1953,8 +1965,9 @@ END SUBROUTINE GetMaxDefs
     ! in the right angle sector. 
     BMesh2 % Nodes % x = BMesh2 % Nodes % x - Nfii * dFii1 
 
- 
-    ALLOCATE( DoublePerm( Nnodes ), KeepNode( Nnodes), MoveNode( Nnodes) )
+    ! ALLOCATE( DoublePerm( Nnodes ) )
+
+    ALLOCATE( KeepNode( Nnodes), MoveNode( Nnodes) )
     ALLOCATE( KeepElem( NElems ), MoveElem( NElems) )
     DoublePerm = 0
     KeepNode = .FALSE.
@@ -1986,13 +1999,13 @@ END SUBROUTINE GetMaxDefs
         KeepElem(i) = .TRUE.
         KeepNode(NodeIndexes(1:n)) = .TRUE.
       ELSE IF( Nmin == 0 .AND. Nmax == 1 ) THEN
-!        PRINT *,'2: ',Angles(1:n)
+        PRINT *,'2: ',i,NodeIndexes(1:n),Angles(1:n)
         KeepElem(i) = .TRUE.
         MoveElem(i) = .TRUE.
         KeepNode(NodeIndexes(1:n)) = .TRUE.
         MoveNode(NodeIndexes(1:n)) = .TRUE.
       ELSE
-        CALL fatal('','Nratios should be 0 or 1')
+        CALL fatal('RotationalInterfaceMeshes','Nratios should be 0 or 1')
       END IF      
     END DO
 
@@ -2016,6 +2029,8 @@ END SUBROUTINE GetMaxDefs
     NULLIFY( TmpElements ) 
     ALLOCATE( TmpElements( NElems + DoubleElems ) )
     TmpElements(1:Nelems) = BMesh2 % Elements(1:Nelems)
+    DEALLOCATE( BMesh2 % Elements ) 
+    BMesh2 % Elements => TmpElements
     
     NULLIFY( TmpCoord ) 
     ALLOCATE( TmpCoord( Nnodes + DoubleNodes ) )
@@ -2053,7 +2068,7 @@ END SUBROUTINE GetMaxDefs
       END IF
     END DO
  
-   
+
     DoubleElems = 0
     DO i=1, NElems
       Element => BMesh2 % Elements(i)
@@ -2068,11 +2083,14 @@ END SUBROUTINE GetMaxDefs
         BMesh2 % Elements(ind) = Element
         CALL AllocateVector(BMesh2 % Elements(ind) % NodeIndexes,MaxElemNodes )
         DO j=1,n
-          k = Element % NodeIndexes(j)
+          k = NodeIndexes(j)
           IF( DoublePerm(k) > 0 ) THEN
             BMesh2 % Elements(ind) % NodeIndexes(j) = DoublePerm(k)
           ELSE
-            CALL Fatal('RotationalInterfaceMeshes','For this element there should be moving nodes!')
+            PRINT *,'i',i,NodeIndexes(1:n),DoublePerm(NodeIndexes(1:n))
+            PRINT *,'KeepNode:',KeepNode(NodeIndexes(1:n))
+            PRINT *,'MoveNodes:',MoveNode(NodeIndexes(1:n))
+            CALL Warn('RotationalInterfaceMeshes','For this element there should be moving nodes!')
           END IF
         END DO
         NULLIFY( BMesh2 % Elements(ind) % EdgeIndexes )
@@ -2118,8 +2136,8 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
   SUBROUTINE EliminateRedundantColumns( A, DoublePerm )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), INTENT(IN) :: A     !< Structure holding matrix
-    INTEGER, POINTER :: DoublePerm(:)   !< Indexes of the additional columns         
+    TYPE(Matrix_t), INTENT(IN) :: A        !< Structure holding matrix
+    INTEGER, ALLOCATABLE :: DoublePerm(:)  !< Indexes of the additional columns         
 !------------------------------------------------------------------------------
     INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
     REAL(KIND=dp), POINTER  CONTIG :: Values(:)
@@ -2127,8 +2145,8 @@ END SUBROUTINE GetMaxDefs
     INTEGER, ALLOCATABLE :: InvPerm(:)
 !------------------------------------------------------------------------------
 
-     IF( .NOT. ASSOCIATED( DoublePerm ) ) THEN
-       CALL Warn('EliminateRedundantColumns','DoublePerm not associated, returning')
+     IF( .NOT. ALLOCATED( DoublePerm ) ) THEN
+       CALL Warn('EliminateRedundantColumns','DoublePerm not allocated, returning')
        RETURN
      END IF
      
@@ -2149,20 +2167,15 @@ END SUBROUTINE GetMaxDefs
      ! Create the inverse structure for the redundant columns
      DO i=1,n
        j = DoublePerm(i)
-       IF( j > 0 ) THEN
-         InvPerm( j - n ) = i
-       END IF
+       IF( j > 0 ) InvPerm( j - n ) = i
      END DO
      
      ! Now switch the ghost entries to the primary entry
      DO i=1,SIZE( Cols ) 
        j = Cols(i)
-       IF( j > n ) THEN
-         PRINT *,'Cols',j,InvPerm( j - n)
-         Cols(i) = InvPerm( j - n ) 
-       END IF
+       IF( j > n ) Cols(i) = InvPerm( j - n ) 
      END DO
-         
+
 !------------------------------------------------------------------------------
    END SUBROUTINE EliminateRedundantColumns
 !------------------------------------------------------------------------------
@@ -2181,8 +2194,9 @@ END SUBROUTINE GetMaxDefs
     TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,n,dim
-    LOGICAL :: GotIt, UseQuadrantTree, RotationalProjector
-    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:),DoublePerm(:)
+    LOGICAL :: GotIt, UseQuadrantTree, RotationalProjector, Success
+    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    INTEGER, ALLOCATABLE :: DoublePerm(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
     REAL(KIND=dp) :: rowsum
 !------------------------------------------------------------------------------
@@ -2193,10 +2207,12 @@ END SUBROUTINE GetMaxDefs
     IF ( This <= 0 .OR. Trgt <= 0 ) RETURN
 
     CALL CreateInterfaceMeshes( Model, Mesh, This, Trgt, Bmesh1, BMesh2, &
-        InvPerm1, InvPerm2 ) 
-    
+        InvPerm1, InvPerm2, Success ) 
+    IF(.NOT. Success) RETURN
+
     RotationalProjector = ListGetLogical( Model % Simulation,'Rotational Projector',GotIt )
     IF( RotationalProjector ) THEN
+      ALLOCATE( DoublePerm( BMesh2 % NumberOfNodes ) ) 
       CALL RotationalInterfaceMeshes( BMesh1, BMesh2, DoublePerm, Model % BCs(This) % Values )
     ELSE
       CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
@@ -2212,6 +2228,7 @@ END SUBROUTINE GetMaxDefs
 
     IF( RotationalProjector ) THEN
       CALL EliminateRedundantColumns( Projector, DoublePerm )
+      DEALLOCATE( DoublePerm )
     END IF
 
     ! Now return from the indexes of the interface mesh system to the 
@@ -2221,42 +2238,43 @@ END SUBROUTINE GetMaxDefs
     Projector % InvPerm => InvPerm1
 
     DO i=1,Projector % NumberOfRows
-      ! rowsum = 0.0_dp
-      DO j=Projector % Rows(i),Projector % Rows(i+1)-1
-        k = Projector % Cols(j)    
-        IF ( k > 0 ) Projector % Cols(j) = InvPerm2(k)
-        ! rowsum = rowsum + Projector % Values(j)
-      END DO
-      ! PRINT *,'rowsum',i,rowsum
+       rowsum = 0.0_dp
+       DO j=Projector % Rows(i),Projector % Rows(i+1)-1
+         k = Projector % Cols(j)    
+         IF ( k > 0 ) Projector % Cols(j) = InvPerm2(k)
+         rowsum = rowsum + Projector % Values(j)
+!         PRINT *,'Pij',i,Projector % Cols(j), Projector % Values(j)
+       END DO
     END DO
     
-
 !    Deallocate mesh structures:
 !    ---------------------------
-    DO k=1,2
-      IF( k == 1 ) THEN
-        PMesh => BMesh1 
-      ELSE
-        PMesh => BMesh2
-      END IF
+    ! For some reason this causes problems in certain cases!!!
+    ! Don't know how and where to fix it yet
+    IF( .NOT. RotationalProjector  ) THEN
 
-      DO i=1,SIZE( PMesh % Elements ) 
-        DEALLOCATE( PMesh % Elements(i) % NodeIndexes )
-      END DO
-
-      ! For some reason this causes problems in certain cases!!!
-      ! Don't know how and where to fix it yet
-      IF( .NOT. (k==2 .AND. RotationalProjector)  ) THEN
+      DO k=1,2
+        
+        IF( k == 1 ) THEN
+          PMesh => BMesh1 
+        ELSE
+          PMesh => BMesh2
+        END IF
+        
+        DO i=1,SIZE( PMesh % Elements ) 
+          DEALLOCATE( PMesh % Elements(i) % NodeIndexes )
+        END DO
+        
         DEALLOCATE( PMesh % Elements )
-      END IF
-
-      CALL FreeQuadrantTree( PMesh % RootQuadrant )
-
-      DEALLOCATE( PMesh % Nodes % x )
-      DEALLOCATE( PMesh % Nodes % y )
-      DEALLOCATE( PMesh % Nodes % z )
-      DEALLOCATE( PMesh % Nodes )
-    END DO
+        
+        CALL FreeQuadrantTree( PMesh % RootQuadrant )
+        
+        DEALLOCATE( PMesh % Nodes % x )
+        DEALLOCATE( PMesh % Nodes % y )
+        DEALLOCATE( PMesh % Nodes % z )
+        DEALLOCATE( PMesh % Nodes )
+      END DO
+    END IF
 
     DEALLOCATE( InvPerm2, BMesh1, BMesh2 )
     NULLIFY( InvPerm1 )
