@@ -35,6 +35,46 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Initialization for the primary solver i.e. MeshSolver.
+!------------------------------------------------------------------------------
+ SUBROUTINE MeshSolver_Init( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL ::  TransientSimulation
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: Params
+  INTEGER :: dim
+  LOGICAL :: Found, Calculate
+
+  Params => Solver % Values
+  dim = CoordinateSystemDimension()
+
+  Calculate = ListGetLogical( Params,'Compute Mesh Velocity',Found ) 
+  IF(.NOT. Found ) Calculate = .TRUE.
+
+  IF( Calculate ) THEN
+    IF( TransientSimulation ) THEN
+      IF( dim == 2 ) THEN
+        CALL ListAddString( Params,&
+            NextFreeKeyword('Exported Variable',Params),&
+            '-dofs 2 Mesh Velocity')        
+      ELSE
+        CALL ListAddString( Params,&
+            NextFreeKeyword('Exported Variable',Params),&
+            '-dofs 3 Mesh Velocity')                  
+      END IF
+    END IF    
+  END IF
+
+END SUBROUTINE MeshSolver_Init
+
+
+!------------------------------------------------------------------------------
 !> Subroutine for extending displacement in mesh smoothly over 
 !> the domain. The intended use of the solver is in fluid-structure interaction, 
 !> for example. In transient cases the solver also computes the mesh velocity. 
@@ -73,9 +113,9 @@
 
   REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
        LOAD(:,:),FORCE(:), ElasticModulus(:,:,:),PoissonRatio(:), &
-       Alpha(:,:), Beta(:), PrevUpdate(:)
+       Alpha(:,:), Beta(:)
 
-  SAVE STIFF, LOAD, FORCE, MeshVelocity, AllocationsDone, PrevUpdate, &
+  SAVE STIFF, LOAD, FORCE, MeshVelocity, AllocationsDone, &
        ElasticModulus, PoissonRatio, TPerm, Alpha, Beta
 
 !------------------------------------------------------------------------------
@@ -83,15 +123,17 @@
   REAL(KIND=dp) :: at,at0,CPUTime,RealTime
 !------------------------------------------------------------------------------
 
-
 !------------------------------------------------------------------------------
 ! Get variables needed for solution
 !------------------------------------------------------------------------------
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
+  NULLIFY( MeshVelocity ) 
   IF ( TransientSimulation ) THEN
-     MeshSol      => VariableGet( Solver % Mesh % Variables, 'Mesh Velocity' )
-     MeshVelocity => MeshSol % Values
+    MeshSol      => VariableGet( Solver % Mesh % Variables, 'Mesh Velocity' )
+    IF( ASSOCIATED( MeshSol ) ) THEN
+      MeshVelocity => MeshSol % Values
+    END IF
   END IF
 
   MeshSol => Solver % Variable
@@ -158,9 +200,6 @@
           ElasticModulus( 6,6,N ), PoissonRatio( N ), &
           FORCE( STDOFs*N ), STIFF( STDOFs*N,STDOFs*N ),  &
           LOAD( 4,N ),STAT=istat )
-
-     maxu = ListGetConstReal( Solver % Values, 'Max Mesh Update', Found )
-     IF ( Found ) ALLOCATE( PRevUpdate( SIZE(MeshUpdate) ) )
 
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'MeshSolve', 'Memory allocation error.' )
@@ -294,11 +333,6 @@
 !------------------------------------------------------------------------------
   PrevUNorm = UNorm
 
-  maxu = GetConstReal( Solver % Values, 'Max Mesh Update', Found )
-  IF ( Found ) THEN
-     PrevUpdate = MeshUpdate
-  END IF
-
   UNorm = DefaultSolve()
 
   IF ( UNorm + PrevUNorm  /= 0.0d0 ) THEN
@@ -313,72 +347,47 @@
   CALL Info( 'MeshSolve', Message, Level=4 )
 
   
-
   IF ( TransientSimulation ) THEN
-      ComputeMeshVelocity = ListGetLogical( Solver % Values, 'Compute Mesh Velocity', Found )
-      IF ( .NOT. Found ) ComputeMeshVelocity = .TRUE.
-
-      IF ( ComputeMeshVelocity ) THEN
-         k = MIN( SIZE(Solver % Variable % PrevValues,2), Solver % DoneTime )
-
-	     j = ListGetInteger( Solver % Values,'Compute Mesh Velocity Order', Found)
-	     IF( Found ) THEN
-	       k = MIN( k, j )        
-         ELSE
-	       k = 1
-	     END IF
-	   
-         SELECT CASE(k)
-         CASE(0)
-            MeshVelocity = 0._dp
-         CASE(1)
-            MeshVelocity = ( MeshUpdate - Solver % Variable % PrevValues(:,1) ) / dt
-         CASE(2)
-            MeshVelocity = ( &
-                MeshUpdate - (4.0d0/3.0d0)*Solver % Variable % PrevValues(:,1) &
-                           + (1.0d0/3.0d0)*Solver % Variable % PrevValues(:,2) ) / dt
-         CASE DEFAULT
-            MeshVelocity = ( &
-                MeshUpdate - (18.0d0/11.0d0)*Solver % Variable % PrevValues(:,1) &
-                           + ( 9.0d0/11.0d0)*Solver % Variable % PrevValues(:,2) &
-                           - ( 2.0d0/11.0d0)*Solver % Variable % PrevValues(:,3) ) / dt
-          END SELECT
+    ComputeMeshVelocity = ListGetLogical( Solver % Values, 'Compute Mesh Velocity', Found )
+    IF ( .NOT. Found ) ComputeMeshVelocity = .TRUE.
+    
+    IF ( ComputeMeshVelocity ) THEN
+      k = MIN( SIZE(Solver % Variable % PrevValues,2), Solver % DoneTime )
+      
+      j = ListGetInteger( Solver % Values,'Compute Mesh Velocity Order', Found)
+      IF( Found ) THEN
+        k = MIN( k, j )        
       ELSE
-         MeshVelocity = 0.0d0
+        k = 1
       END IF
+      
+      SELECT CASE(k)
+      CASE(0)
+        MeshVelocity = 0._dp
+      CASE(1)
+        MeshVelocity = ( MeshUpdate - Solver % Variable % PrevValues(:,1) ) / dt
+      CASE(2)
+        MeshVelocity = ( &
+            MeshUpdate - (4.0d0/3.0d0)*Solver % Variable % PrevValues(:,1) &
+            + (1.0d0/3.0d0)*Solver % Variable % PrevValues(:,2) ) / dt
+      CASE DEFAULT
+        MeshVelocity = ( &
+            MeshUpdate - (18.0d0/11.0d0)*Solver % Variable % PrevValues(:,1) &
+            + ( 9.0d0/11.0d0)*Solver % Variable % PrevValues(:,2) &
+            - ( 2.0d0/11.0d0)*Solver % Variable % PrevValues(:,3) ) / dt
+      END SELECT
+
+    ELSE IF( ASSOCIATED( MeshVelocity ) ) THEN 
+      MeshVelocity = 0.0d0
+    END IF
   END IF
-#if 0
-  maxu = ListGetConstReal( Solver % Values, 'Max Mesh Update', Found )
-  IF ( gotit ) THEN
-#if 0
-     DO i=1,SIZE(MeshUpdate)
-       IF ( ABS( PrevUpdate(i)-MeshUpdate(i) ) > maxu ) THEN
-          IF ( MeshUpdate(i) > PrevUpdate(i) ) THEN
-             MeshUpdate(i) = PrevUpdate(i) + maxu
-          ELSE
-             MeshUpdate(i) = PrevUpdate(i) - maxu
-          END IF
-       END IF
-     END DO
-#else
-     DO i=1,SIZE(MeshUpdate)
-       IF ( ABS( MeshUpdate(i) ) > maxu ) THEN
-          IF ( MeshUpdate(i) > 0 ) THEN
-             MeshUpdate(i) =  maxu
-          ELSE
-             MeshUpdate(i) = -maxu
-          END IF
-       END IF
-     END DO
-#endif
-  END IF
-#endif
+
 
   IF ( ASSOCIATED( StressSol ) ) THEN
-     CALL DisplaceMesh( Solver % Mesh, MeshUpdate,   1, TPerm,      STDOFs )
-     CALL DisplaceMesh( Solver % Mesh, Displacement, 1, StressPerm, STDOFs, .FALSE.)
+    CALL DisplaceMesh( Solver % Mesh, MeshUpdate,   1, TPerm,      STDOFs )
+    CALL DisplaceMesh( Solver % Mesh, Displacement, 1, StressPerm, STDOFs, .FALSE.)
   ELSE
-     CALL DisplaceMesh( Solver % Mesh, MeshUpdate,   1, MeshPerm,   STDOFs )
+    CALL DisplaceMesh( Solver % Mesh, MeshUpdate,   1, MeshPerm,   STDOFs )
   END IF
 
   CONTAINS
@@ -519,7 +528,7 @@
    SAVE Nodes
 !------------------------------------------------------------------------------
 
-   dim = Element % Type % Dimension + 1
+   dim = Element % TYPE % DIMENSION + 1
    CALL GetElementNodes( Nodes )
 
    FORCE = 0.0D0

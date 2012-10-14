@@ -688,8 +688,8 @@
 !          NOTE: This will replace LocalStiffMatrix and LocalForce with the
 !                combined information...
 !------------------------------------------------------------------------------
-           CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-             LocalForce,dt,n,1,SpeciesPerm(NodeIndexes),Solver )
+           CALL Default1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
+             LocalForce )
          END IF
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
@@ -699,8 +699,8 @@
            CALL Condensate( N, LocalStiffMatrix,  LocalForce, TimeForce )
          END IF
 
-         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-          ForceVector, LocalForce, n, 1, SpeciesPerm(NodeIndexes) )
+         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
+
 !------------------------------------------------------------------------------
        END DO     !  Bulk elements
 !------------------------------------------------------------------------------

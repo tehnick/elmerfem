@@ -1382,7 +1382,6 @@ END SUBROUTINE GetMaxDefs
 
     DO i=1, Mesh % NumberOfBoundaryElements
       Element => Elements(i)
-      IF ( Element % TYPE % ElementCode < 200 ) CYCLE
       
       Constraint = Element % BoundaryInfo % Constraint
       
@@ -1733,6 +1732,141 @@ END SUBROUTINE GetMaxDefs
   END SUBROUTINE OverlayIntefaceMeshes
 
 
+  !---------------------------------------------------------------------------
+  !> Create a projector for mapping between interfaces using the Galerkin method
+  !> A temporal mesh structure with a node for each Gaussian integration point is 
+  !> created. The this projector matrix is transferred to a projector on the nodal
+  !> coordinates.   
+  !---------------------------------------------------------------------------
+  FUNCTION WeightedProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, UseQuadrantTree ) RESULT ( Projector )
+  !---------------------------------------------------------------------------
+    ! USE SolverUtils
+    USE Lists
+
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    LOGICAL :: UseQuadrantTree
+    TYPE(Matrix_t), POINTER :: Projector
+    !--------------------------------------------------------------------------
+    TYPE(Matrix_t), POINTER :: GaussProjector
+    TYPE(Nodes_t), POINTER :: GaussNodes, RealNodes, ElementNodes
+    TYPE(Element_t), POINTER :: Element
+    INTEGER :: i,j,k,l,n,p,q,NoNodes, NoGaussPoints
+    INTEGER, POINTER :: NodeIndexes(:),Rows(:),Cols(:)
+    REAL(KIND=dp), POINTER :: Basis(:), Values(:)
+    REAL(KIND=dp) :: u,v,w,val,detJ
+    TYPE(GaussIntegrationPoints_t) :: IntegStuff
+    LOGICAL :: Stat
+
+      
+    ALLOCATE( GaussNodes, ElementNodes )
+    RealNodes => Bmesh1 % Nodes
+    NoNodes = Bmesh1 % NumberOfNodes
+
+    ! Calculate the total number of Gaussian integration points
+    ! and allocate space for the node structures. 
+    !----------------------------------------------------------
+    NoGaussPoints = 0
+    DO i=1, BMesh1 % NumberOfBulkElements
+      Element => BMesh1 % Elements(i)
+      IntegStuff = GaussPoints( Element )      
+      NoGaussPoints = NoGaussPoints + IntegStuff % n
+    END DO
+    
+    PRINT *,'NumberOfNodes',NoNodes
+    PRINT *,'NumberOfGaussPoints',NoGaussPoints
+    ALLOCATE( GaussNodes % x(NoGaussPoints), GaussNodes % y(NoGaussPoints), GaussNodes % z(NoGaussPoints))
+    n = BMesh1 % MaxElementNodes
+    ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), Basis(n) )
+
+    ! Create the nodal coordinates for all Gaussian integration points
+    !-----------------------------------------------------------------    
+    NoGaussPoints = 0
+    DO i=1, BMesh1 % NumberOfBulkElements
+      Element => BMesh1 % Elements(i)
+      n = Element % TYPE % NumberOfNodes        
+      NodeIndexes => Element % NodeIndexes
+      ElementNodes % x(1:n) = RealNodes % x(NodeIndexes(1:n))
+      ElementNodes % y(1:n) = RealNodes % y(NodeIndexes(1:n))
+      ElementNodes % z(1:n) = RealNodes % z(NodeIndexes(1:n))
+      
+      IntegStuff = GaussPoints( Element )      
+      DO j=1,IntegStuff % n
+        NoGaussPoints = NoGaussPoints + 1
+        u = IntegStuff % u(j)
+        v = IntegStuff % v(j)
+        w = IntegStuff % w(j)
+        Stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis )
+        GaussNodes % x(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % x(1:n) )
+        GaussNodes % y(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % y(1:n) )
+        GaussNodes % z(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % z(1:n) )
+      END DO
+    END DO
+
+    BMesh1 % Nodes => GaussNodes
+    BMesh1 % NumberOfNodes = NoGaussPoints
+
+    ! Create the projector for Gaussian integration points
+    !-----------------------------------------------------------------
+    GaussProjector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
+
+    ! Transfer the projector on the Gaussian points to that on
+    ! nodal points utilizing the flexibility of the list matrix.
+    !-----------------------------------------------------------
+    Projector => AllocateMatrix()
+    Projector % format = MATRIX_LIST
+
+    Values => GaussProjector % Values
+    Cols => GaussProjector % Cols
+    Rows => GaussProjector % Rows
+
+    DO i=1, BMesh1 % NumberOfBulkElements
+      Element => BMesh1 % Elements(i)
+      n = Element % TYPE % NumberOfNodes        
+      NodeIndexes => Element % NodeIndexes
+      ElementNodes % x(1:n) = RealNodes % x(NodeIndexes(1:n))
+      ElementNodes % y(1:n) = RealNodes % y(NodeIndexes(1:n))
+      ElementNodes % z(1:n) = RealNodes % z(NodeIndexes(1:n))
+      
+      IntegStuff = GaussPoints( Element )      
+      DO j=1,IntegStuff % n
+        NoGaussPoints = NoGaussPoints + 1
+        u = IntegStuff % u(j)
+        v = IntegStuff % v(j)
+        w = IntegStuff % w(j)
+        Stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis )
+        
+
+        ! Belo List_ commands are used instead of generic matrix commands as we know
+        ! that the matrix format is list, and otherwise there would be a cyclic dependence
+        ! between MeshUtils and SolverUtils.
+        DO p=1,n
+          val = detJ * IntegStuff % s(j) * Basis(p)
+          DO q=1,n
+            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(l), InvPerm1(NodeIndexes(l)), &
+                Basis(q) * val ) 
+          END DO
+
+          DO q = Rows(NoGaussPoints), Rows(NoGaussPoints+1)-1
+            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(l), InvPerm2(Cols(q)), &
+                -Values(q) * val ) 
+          END DO
+        END DO
+      END DO
+    END DO
+
+    CALL List_ToCRSMatrix( Projector )
+    BMesh1 % Nodes => RealNodes
+    BMesh1 % NumberOfNodes = NoNodes
+
+    ! Finally, deallocate permanent storage
+    !----------------------------------------------------------------
+    DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z )
+    DEALLOCATE( GaussNodes % x, GaussNodes % y, GaussNodes % z )
+    DEALLOCATE( ElementNodes, GaussNodes )
+
+  END FUNCTION WeightedProjector
+!------------------------------------------------------------------------------
 
 
 
@@ -1887,13 +2021,11 @@ END SUBROUTINE GetMaxDefs
       CALL Fatal('RotationalInterfaceMeshes','Discrepancy of radius deemed too large!')
     END IF
 
-
     ! Ok, so we have concluded that the interface has constant radius
     ! therefore the constant radius may be removed from the mesh description.
     !---------------------------------------------------------------------------
     Bmesh1 % Nodes % y = 0.0_dp
     BMesh2 % Nodes % y = 0.0_dp
-
 
     ! Check whether the z-coordinate is constant or not.
     ! Constant z-coordinate implies 1D system, otherwise 2D system.
@@ -1905,8 +2037,10 @@ END SUBROUTINE GetMaxDefs
       CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 1D')
       Bmesh1 % Nodes % z = 0.0_dp
       Bmesh2 % Nodes % z = 0.0_dp
-      Bmesh1 % MeshDim = 1
-      Bmesh2 % MeshDim = 1      
+
+      ! Some pieces of the code cannot work with 1D meshes
+      Bmesh1 % MeshDim = 2
+      Bmesh2 % MeshDim = 2      
     ELSE
       CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 2D')
       TmpCoord => Bmesh1 % Nodes % Z
@@ -2201,6 +2335,7 @@ END SUBROUTINE GetMaxDefs
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
     INTEGER, ALLOCATABLE :: DoublePerm(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
+    TYPE(Nodes_t), POINTER :: MeshNodes, GaussNodes
     REAL(KIND=dp) :: rowsum
 !------------------------------------------------------------------------------
     
@@ -2209,10 +2344,16 @@ END SUBROUTINE GetMaxDefs
     NULLIFY( Projector )
     IF ( This <= 0 .OR. Trgt <= 0 ) RETURN
 
+    ! Create temporal mesh structures that are utilized when making the 
+    ! projector between "This" and "Trgt" boundary.
+    !--------------------------------------------------------------------------------
     CALL CreateInterfaceMeshes( Model, Mesh, This, Trgt, Bmesh1, BMesh2, &
         InvPerm1, InvPerm2, Success ) 
     IF(.NOT. Success) RETURN
 
+    ! The projector is assumed to be either a rotational projector with no translation
+    ! and rotation, or then generic one with possible coordinate mapping.
+    !---------------------------------------------------------------------------------
     RotationalProjector = ListGetLogical( Model % Simulation,'Rotational Projector',GotIt )
     IF( RotationalProjector ) THEN
       ALLOCATE( DoublePerm( BMesh2 % NumberOfNodes ) ) 
@@ -2227,8 +2368,15 @@ END SUBROUTINE GetMaxDefs
     UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
     IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
 
-    Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
+    IF(ListGetLogical( Model % Simulation,'Galerkin Projector',GotIt ) ) THEN
+      Projector => WeightedProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, UseQuadrantTree )
+    ELSE
+      Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
+    END IF
 
+    ! For rotational case there are some "ghost" elements and "ghost" nodes
+    ! which need to be eliminated from the system.
+    !----------------------------------------------------------------------
     IF( RotationalProjector ) THEN
       CALL EliminateRedundantColumns( Projector, DoublePerm )
       DEALLOCATE( DoublePerm )
@@ -2250,8 +2398,8 @@ END SUBROUTINE GetMaxDefs
        END DO
     END DO
     
-!    Deallocate mesh structures:
-!    ---------------------------
+    ! Deallocate mesh structures:
+    !---------------------------------------------------------------
     ! For some reason this causes problems in certain cases!!!
     ! Don't know how and where to fix it yet
     IF( .NOT. RotationalProjector  ) THEN
