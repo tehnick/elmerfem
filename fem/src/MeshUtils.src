@@ -1309,12 +1309,16 @@ END SUBROUTINE GetMaxDefs
     DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z )
     
   END SUBROUTINE CheckInterfaceMeshAngle
+!------------------------------------------------------------------------------
 
 
 
 !------------------------------------------------------------------------------
 !> Create master and slave mesh for the interface in order to at a later 
 !> stage create projector matrix to implement periodicity or mortar elements.
+!> The idea is to use a reduced set of elements and thereby speed up the 
+!> mapping process. Also this gives more flexibility in transformation
+!> operations since the nodes may be ereased after use. 
 !------------------------------------------------------------------------------
   SUBROUTINE CreateInterfaceMeshes( Model, Mesh, This, Trgt, BMesh1, BMesh2, &
       InvPerm1, InvPerm2, Success ) 
@@ -1331,6 +1335,8 @@ END SUBROUTINE GetMaxDefs
     INTEGER, POINTER :: NodeIndexes(:), Perm1(:), Perm2(:), PPerm(:), &
                  InvPerm1(:), InvPerm2(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
+
+    CALL Info('CreateInterfaceMeshes','Making a list of elements at interface',Level=9)
 
     IF ( This <= 0 .OR. Trgt <= 0 ) THEN
       CALL Fatal('CreateInterfaceMeshes','Invalied target boundaries')
@@ -1356,13 +1362,13 @@ END SUBROUTINE GetMaxDefs
       RETURN
     END IF
 
-    CALL Info('CreateInterfaceMeshes','Starting to build',Level=8)
 
 !   Initialize mesh structures for boundaries, this
 !   is for getting the mesh projector:
 !   ------------------------------------------------
-    BMesh1 => AllocateMesh()
-    BMesh2 => AllocateMesh()
+! Allocation here seems problematic
+!    BMesh1 => AllocateMesh()
+!    BMesh2 => AllocateMesh()
 
     CALL AllocateVector( BMesh1 % Elements,n1 )
     CALL AllocateVector( BMesh2 % Elements,n2 )
@@ -1407,7 +1413,7 @@ END SUBROUTINE GetMaxDefs
 
       n = Element % TYPE % NumberOfNodes        
       PMesh % MaxElementNodes = MAX( PMesh % MaxElementNodes, n )
-      PMesh % Elements(ind) = Elements(i)
+      PMesh % Elements(ind) = Element
 
       CALL AllocateVector(PMesh % Elements(ind) % NodeIndexes,n )
       PMesh % Elements(ind) % NodeIndexes(1:n) = Element % NodeIndexes(1:n)
@@ -1438,7 +1444,7 @@ END SUBROUTINE GetMaxDefs
 
     WRITE(Message,'(A,I0,A,I0)') 'Number of periodic nodes: ',&
         BMesh1 % NumberOfNodes, ', ',BMesh2 % NumberOfNOdes
-    CALL Info('CreateInterfaceMeshes',Message,Level=8)    
+    CALL Info('CreateInterfaceMeshes',Message,Level=9)    
     
     ALLOCATE( BMesh1 % Nodes )
     CALL AllocateVector( BMesh1 % Nodes % x, BMesh1 % NumberOfNodes ) 
@@ -1531,8 +1537,6 @@ END SUBROUTINE GetMaxDefs
     CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
     WRITE(Message,'(A,3ES12.3)') 'Maximum values for this periodic BC:  ',x1_max
     CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
-    WRITE(Message,'(A,3ES12.3)') 'Bounding box for this periodic BC:    ',x1_max-x1_min
-    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
 
     x2_min(1) = MINVAL( BMesh2 % Nodes % x )
     x2_min(2) = MINVAL( BMesh2 % Nodes % y )
@@ -1545,8 +1549,6 @@ END SUBROUTINE GetMaxDefs
     WRITE(Message,'(A,3ES12.3)') 'Minimum values for target periodic BC:',x2_min
     CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
     WRITE(Message,'(A,3ES12.3)') 'Maximum values for target periodic BC:',x2_max
-    CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
-    WRITE(Message,'(A,3ES12.3)') 'Bounding box for target periodic BC:  ',x2_max-x2_min
     CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
 
 !    If whole transformation matrix given, it will be used directly
@@ -1641,9 +1643,6 @@ END SUBROUTINE GetMaxDefs
         
         WRITE(Message,'(A,3ES12.3)') 'Maximum values for rotated target:',x2r_max
         CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
-        
-        WRITE(Message,'(A,3ES12.3)') 'Bounding box for rotated target: ',x2r_max-x2r_min
-        CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
       ELSE
         x2r_min = x2_min
         x2r_max = x2_max
@@ -1724,12 +1723,10 @@ END SUBROUTINE GetMaxDefs
       
       WRITE(Message,'(A,3ES12.3)') 'Maximum values for transformed target:',x2r_max
       CALL Info('OverlayInterfaceMeshes',Message,Level=8)    
-      
-      WRITE(Message,'(A,3ES12.3)') 'Bounding box for transformed target:  ',x2r_max-x2r_min
-      CALL Info('OverlayInterfaceMeshes',Message,Level=8)   
     END IF
 
   END SUBROUTINE OverlayIntefaceMeshes
+  !---------------------------------------------------------------------------
 
 
   !---------------------------------------------------------------------------
@@ -1738,7 +1735,8 @@ END SUBROUTINE GetMaxDefs
   !> created. The this projector matrix is transferred to a projector on the nodal
   !> coordinates.   
   !---------------------------------------------------------------------------
-  FUNCTION WeightedProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, UseQuadrantTree ) RESULT ( Projector )
+  FUNCTION WeightedProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, UseQuadrantTree ) &
+      RESULT ( Projector )
   !---------------------------------------------------------------------------
     ! USE SolverUtils
     USE Lists
@@ -1757,7 +1755,6 @@ END SUBROUTINE GetMaxDefs
     REAL(KIND=dp) :: u,v,w,val,detJ
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
     LOGICAL :: Stat
-
       
     ALLOCATE( GaussNodes, ElementNodes )
     RealNodes => Bmesh1 % Nodes
@@ -1773,8 +1770,8 @@ END SUBROUTINE GetMaxDefs
       NoGaussPoints = NoGaussPoints + IntegStuff % n
     END DO
     
-    PRINT *,'NumberOfNodes',NoNodes
-    PRINT *,'NumberOfGaussPoints',NoGaussPoints
+    WRITE( Message,'(A,I0,A,I0)') 'Number of nodes and gauss points:'&
+        ,NoNodes,' and ',NoGaussPoints
     ALLOCATE( GaussNodes % x(NoGaussPoints), GaussNodes % y(NoGaussPoints), GaussNodes % z(NoGaussPoints))
     n = BMesh1 % MaxElementNodes
     ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), Basis(n) )
@@ -1814,7 +1811,7 @@ END SUBROUTINE GetMaxDefs
     ! nodal points utilizing the flexibility of the list matrix.
     !-----------------------------------------------------------
     Projector => AllocateMatrix()
-    Projector % format = MATRIX_LIST
+    Projector % FORMAT = MATRIX_LIST
 
     Values => GaussProjector % Values
     Cols => GaussProjector % Cols
@@ -1836,10 +1833,10 @@ END SUBROUTINE GetMaxDefs
         w = IntegStuff % w(j)
         Stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis )
         
-
-        ! Belo List_ commands are used instead of generic matrix commands as we know
+        ! Below List_ commands are used instead of generic matrix commands as we know
         ! that the matrix format is list, and otherwise there would be a cyclic dependence
         ! between MeshUtils and SolverUtils.
+        !-----------------------------------------------------------------
         DO p=1,n
           val = detJ * IntegStuff % s(j) * Basis(p)
           DO q=1,n
@@ -1863,11 +1860,10 @@ END SUBROUTINE GetMaxDefs
     !----------------------------------------------------------------
     DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z )
     DEALLOCATE( GaussNodes % x, GaussNodes % y, GaussNodes % z )
-    DEALLOCATE( ElementNodes, GaussNodes )
+    DEALLOCATE( ElementNodes, GaussNodes, Basis )
 
   END FUNCTION WeightedProjector
 !------------------------------------------------------------------------------
-
 
 
   !---------------------------------------------------------------------------
@@ -2037,10 +2033,6 @@ END SUBROUTINE GetMaxDefs
       CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 1D')
       Bmesh1 % Nodes % z = 0.0_dp
       Bmesh2 % Nodes % z = 0.0_dp
-
-      ! Some pieces of the code cannot work with 1D meshes
-      Bmesh1 % MeshDim = 2
-      Bmesh2 % MeshDim = 2      
     ELSE
       CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 2D')
       TmpCoord => Bmesh1 % Nodes % Z
@@ -2049,9 +2041,11 @@ END SUBROUTINE GetMaxDefs
       TmpCoord => Bmesh2 % Nodes % Z
       Bmesh2 % Nodes % Z => Bmesh2 % Nodes % Y
       BMesh2 % Nodes % Y => TmpCoord
-      Bmesh1 % MeshDim = 2
-      Bmesh2 % MeshDim = 2      
     END IF
+
+    ! Some pieces of the code cannot work with 1D meshes, this choice is ok for all steps
+    Bmesh1 % MeshDim = 2
+    Bmesh2 % MeshDim = 2      
 
     ! Ok, the problem is now reduced to that of phi-coordinate.
     !---------------------------------------------------------------------------
@@ -2083,14 +2077,12 @@ END SUBROUTINE GetMaxDefs
       CALL Fatal('ationalInterfaceMeshes','Discrepancy in total angle deemed too large')
     END IF
 
-
     err1 = ABS( F2min - F1min ) / dFii1
     err2 = ABS( F2max - F1max ) / dFii1
     IF( err1 < eps_rad .AND. err2 < eps_rad ) THEN
       CALL Info('RotationalInterfaceMeshes','The angle interval already ok, nothing further to do')
       RETURN
     END IF
-
 
     PRINT *,'Fmax ratio:',(F2max-F1min)/dFii1
     PRINT *,'Fmin ratio:',(F2min-F1min)/dFii1
@@ -2101,8 +2093,6 @@ END SUBROUTINE GetMaxDefs
     ! Make an offset for the target nodes so that they are
     ! in the right angle sector. 
     BMesh2 % Nodes % x = BMesh2 % Nodes % x - Nfii * dFii1 
-
-    ! ALLOCATE( DoublePerm( Nnodes ) )
 
     ALLOCATE( KeepNode( Nnodes), MoveNode( Nnodes) )
     ALLOCATE( KeepElem( NElems ), MoveElem( NElems) )
@@ -2149,16 +2139,18 @@ END SUBROUTINE GetMaxDefs
     DoubleNodes = COUNT( KeepNode .AND. MoveNode )
     DoubleElems = COUNT( KeepElem .AND. MoveElem )
 
-    PRINT *,'Number of double elements:',DoubleElems
-    PRINT *,'Number of double nodes:   ',DoubleNodes
+    WRITE( Message,'(A,I0)') 'Number Of double elements:',DoubleElems
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)
+    WRITE( Message,'(A,I0)') 'Number Of double nodes:',DoubleNodes
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)
     
     IF( DoubleElems == 0 ) THEN
-      PRINT *,'No additional elements needed, exiting...'
-      STOP
+      CALL Warn('RotationalInterfaceMesh','No additional elements needed, exiting...')
+      RETURN
     END IF
     IF( DoubleNodes == 0 ) THEN
-      PRINT *,'No additional nodes needed, exiting...'
-      STOP
+      CALL Warn('RotationalInterfaceMesh','No additional nodes needed, exiting...')
+      RETURN
     END IF
     
     CALL INfo('RotationalInterfaceMeshes',&
@@ -2213,7 +2205,7 @@ END SUBROUTINE GetMaxDefs
       NodeIndexes => Element % NodeIndexes
 
       IF( KeepElem(i) .AND. MoveElem(i) ) THEN
-        PRINT *,'adding element',i
+        ! PRINT *,'adding element',i
         DoubleElems = DoubleElems + 1
         
         ind = BMesh2 % NumberOfBulkElements + DoubleElems
@@ -2227,7 +2219,7 @@ END SUBROUTINE GetMaxDefs
             PRINT *,'i',i,NodeIndexes(1:n),DoublePerm(NodeIndexes(1:n))
             PRINT *,'KeepNode:',KeepNode(NodeIndexes(1:n))
             PRINT *,'MoveNodes:',MoveNode(NodeIndexes(1:n))
-            CALL Warn('RotationalInterfaceMeshes','For this element there should be moving nodes!')
+            CALL Fatal('RotationalInterfaceMeshes','For this element there should be moving nodes!')
           END IF
         END DO
         NULLIFY( BMesh2 % Elements(ind) % EdgeIndexes )
@@ -2347,6 +2339,9 @@ END SUBROUTINE GetMaxDefs
     ! Create temporal mesh structures that are utilized when making the 
     ! projector between "This" and "Trgt" boundary.
     !--------------------------------------------------------------------------------
+    BMesh1 => AllocateMesh()
+    BMesh2 => AllocateMesh()
+    
     CALL CreateInterfaceMeshes( Model, Mesh, This, Trgt, Bmesh1, BMesh2, &
         InvPerm1, InvPerm2, Success ) 
     IF(.NOT. Success) RETURN
@@ -2354,7 +2349,16 @@ END SUBROUTINE GetMaxDefs
     ! The projector is assumed to be either a rotational projector with no translation
     ! and rotation, or then generic one with possible coordinate mapping.
     !---------------------------------------------------------------------------------
-    RotationalProjector = ListGetLogical( Model % Simulation,'Rotational Projector',GotIt )
+    WRITE( Message,'(A,I0,A,I0)') 'Creating projector between BCs ',This,' and ',Trgt
+    CALL Info('PeriodicProjector',Message)
+
+    RotationalProjector = ListGetLogical( Model % BCs(This) % Values,&
+        'Rotational Projector',GotIt )
+    IF(.NOT. GotIt ) THEN
+      RotationalProjector = ListGetLogical( Model % BCs(Trgt) % Values,&
+          'Rotational Projector',GotIt )
+    END IF
+
     IF( RotationalProjector ) THEN
       ALLOCATE( DoublePerm( BMesh2 % NumberOfNodes ) ) 
       CALL RotationalInterfaceMeshes( BMesh1, BMesh2, DoublePerm, Model % BCs(This) % Values )
@@ -2368,7 +2372,7 @@ END SUBROUTINE GetMaxDefs
     UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
     IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
 
-    IF(ListGetLogical( Model % Simulation,'Galerkin Projector',GotIt ) ) THEN
+    IF(ListGetLogical( Model % BCs(This) % Values,'Galerkin Projector',GotIt ) ) THEN
       Projector => WeightedProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, UseQuadrantTree )
     ELSE
       Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    

@@ -6562,6 +6562,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 SUBROUTINE MortarRobinSolver(A,x,b,Solver)
 !------------------------------------------------------------------------------
     USE Types
+    USE Lists
     USE MeshUtils
 
     TYPE(Matrix_t), POINTER :: A
@@ -6591,17 +6592,17 @@ SUBROUTINE MortarRobinSolver(A,x,b,Solver)
 
     ! If mortar BC given, compute boundary mesh projector:
     ! ------------------------------------------------------
-    DO i = 1,Model % NumberOfBCs
-      IF( ASSOCIATED( Model % BCs(i) % PMatrix ) ) THEN
-        CALL Fatal('MortarRobinSolver','Implement reuse of projectors')
-      END IF
-    END DO
-
     j = 0
     DO i = 1,Model % NumberOfBCs
       k = ListGetInteger( Model % BCs(i) % Values, 'Mortar BC', Found, &
           minv=1, maxv=Model % NumberOFBCs )
       IF(.NOT. Found) CYCLE
+
+      IF( ASSOCIATED( Model % BCs(i) % PMatrix ) ) THEN
+        WRITE ( Message,'(A,I0)') 'Projector exists already for boundary: ',i
+        CALL Fatal('MortarRobinSolver',Message)
+      END IF
+
       j = j + 1
       IF( j > 1 ) THEN
         CALL Fatal('MortarRobinSolver','Implemented only for one projector')
