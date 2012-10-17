@@ -102,10 +102,13 @@
 
      REAL(KIND=dp) :: RealTime,tt
 
-     LOGICAL :: FirstLoad = .TRUE., FirstTime=.TRUE.
+     LOGICAL :: FirstLoad = .TRUE., FirstTime=.TRUE., Found
      LOGICAL :: Silent, Version, GotModelName
 
      INTEGER :: iargc, NoArgs
+
+     INTEGER :: ExtrudeLevels
+     TYPE(Mesh_t), POINTER :: ExtrudedMesh
 
 #ifdef HAVE_TRILINOS
 INTERFACE
@@ -233,6 +236,16 @@ END INTERFACE
          
          OPEN( Unit=InFileUnit, Action='Read',File=ModelName,Status='OLD',ERR=20 )
          CurrentModel => LoadModel( ModelName,.FALSE.,ParEnv % PEs,ParEnv % MyPE )
+
+         ExtrudeLevels=GetInteger(CurrentModel % Simulation,'Extruded Mesh Levels',Found)
+         IF(ExtrudeLevels>1) THEN
+           ExtrudedMesh => MeshExtrude(CurrentModel % Meshes, ExtrudeLevels-2)
+           DO i=1,CurrentModel % NumberOfSolvers
+             IF(ASSOCIATED(CurrentModel % Solvers(i) % Mesh,CurrentModel % Meshes)) &
+               CurrentModel % Solvers(i) % Mesh => ExtrudedMesh 
+           END DO
+           CurrentModel % Meshes => ExtrudedMesh
+         END IF
          
          IF(.NOT. Silent ) THEN
             CALL Info( 'MAIN', '-------------------------------------')
