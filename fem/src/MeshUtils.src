@@ -2480,7 +2480,6 @@ END SUBROUTINE GetMaxDefs
       END DO
       CALL MPI_ALLREDUCE(j,gnodes,1, &
            MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
-
     END IF
 
 
@@ -2502,7 +2501,7 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Nodes % z(cnt) = w*z_top + (1-w)*z_bot
 
         IF (isParallel) THEN
-          PI_out % Interface(cnt) = PI_in% Interface(j)
+          PI_out % Interface(cnt) = PI_in % Interface(j)
 
           PI_out % NeighbourList(cnt) % Neighbours => &
             PI_in % NeighbourList(j) % Neighbours
