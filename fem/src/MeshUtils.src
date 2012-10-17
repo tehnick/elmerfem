@@ -2506,7 +2506,7 @@ END SUBROUTINE GetMaxDefs
     Mesh_out % NumberOfNodes=cnt
 
     n=SIZE(Mesh_in % Elements)
-    ALLOCATE(Mesh_out % Elements(n*(in_levels+3)) )
+    ALLOCATE(Mesh_out % Elements(n*(in_levels+1)) )
 
     ! Generate volume bulk elements:
     ! ------------------------------
@@ -2530,8 +2530,6 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Elements(cnt) % NDOFs = 8
 
         ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(8)) 
-        Mesh_out % Elements(cnt) % BodyId = &
-           Mesh_in % Elements(j) % BodyId
         Mesh_out % Elements(cnt) % NodeIndexes = ind
         Mesh_out % Elements(cnt) % ElementIndex = cnt
         Mesh_out % Elements(cnt) % Type => GetElementType(808)
