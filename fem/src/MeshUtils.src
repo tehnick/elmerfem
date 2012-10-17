@@ -2440,22 +2440,20 @@ END SUBROUTINE GetMaxDefs
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE MeshExtrude(Mesh_bot, Mesh_out)
+  FUNCTION MeshExtrude(Mesh_in, in_levels) RESULT(Mesh_out)
 !------------------------------------------------------------------------------
-    TYPE(Mesh_t), POINTER :: Mesh_bot, Mesh_out
+    TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid
     INTEGER :: nnodes,gnodes,ierr
     REAL(KIND=dp)::x_top,y_top,z_top,x_bot,y_bot,z_bot,w
 !------------------------------------------------------------------------------
     Mesh_out => AllocateMesh()
-!   Mesh_out = Mesh_bot
-
-    in_levels=2
+!   Mesh_out = Mesh_in
 
     ! Generate volume nodal points:
     ! -----------------------------
-    n=Mesh_bot % NumberOfNodes
+    n=Mesh_in % NumberOfNodes
     nnodes=(in_levels+2)*n
     ALLOCATE( Mesh_out % Nodes % x(nnodes) )
     ALLOCATE( Mesh_out % Nodes % y(nnodes) )
@@ -2466,8 +2464,8 @@ END SUBROUTINE GetMaxDefs
       ALLOCATE(Mesh_out % ParallelInfo % GlobalDOFs(nnodes))
       ALLOCATE(Mesh_out % ParallelInfo % NeighbourList(nnodes))
       j=0
-      DO i=1,Mesh_bot % NumberOfNodes
-        IF (Mesh_bot % ParallelInfo % NeighbourList(i) % &
+      DO i=1,Mesh_in % NumberOfNodes
+        IF (Mesh_in % ParallelInfo % NeighbourList(i) % &
             Neighbours(1)== ParEnv % MyPE ) j=j+1
       END DO
       CALL MPI_ALLREDUCE(j,gnodes,1, &
@@ -2477,13 +2475,13 @@ END SUBROUTINE GetMaxDefs
     cnt=0
     DO i=0,in_levels+1
       w = i/(in_levels+1._dp)
-      DO j=1,Mesh_bot % NumberOfNodes
-        x_bot = Mesh_bot % Nodes % x(j)
-        y_bot = Mesh_bot % Nodes % y(j)
+      DO j=1,Mesh_in % NumberOfNodes
+        x_bot = Mesh_in % Nodes % x(j)
+        y_bot = Mesh_in % Nodes % y(j)
         z_bot = 0._dp
 
-        x_top = Mesh_bot % Nodes % x(j)
-        y_top = Mesh_bot % Nodes % y(j)
+        x_top = Mesh_in % Nodes % x(j)
+        y_top = Mesh_in % Nodes % y(j)
         z_top = 1._dp
 
         cnt=cnt+1
@@ -2493,13 +2491,13 @@ END SUBROUTINE GetMaxDefs
 
         IF(ParEnv % Pes>1) THEN
           Mesh_out % ParallelInfo % Interface(cnt) = &
-              Mesh_bot % ParallelInfo % Interface(j)
+              Mesh_in % ParallelInfo % Interface(j)
 
           Mesh_out % ParallelInfo % NeighbourList(cnt) % Neighbours => &
-              Mesh_bot % ParallelInfo % NeighbourList(j) % Neighbours
+              Mesh_in % ParallelInfo % NeighbourList(j) % Neighbours
 
           Mesh_out % ParallelInfo % GlobalDOFs(cnt) = &
-              Mesh_bot % ParallelInfo % GlobalDOFs(j)* &
+              Mesh_in % ParallelInfo % GlobalDOFs(j)* &
                     i*gnodes
         END IF
 
@@ -2507,33 +2505,33 @@ END SUBROUTINE GetMaxDefs
     END DO
     Mesh_out % NumberOfNodes=cnt
 
-    n=SIZE(Mesh_bot % Elements)
+    n=SIZE(Mesh_in % Elements)
     ALLOCATE(Mesh_out % Elements(n*(in_levels+3)) )
 
     ! Generate volume bulk elements:
     ! ------------------------------
     cnt=0
-    n=Mesh_bot % NumberOfNodes
+    n=Mesh_in % NumberOfNodes
     DO i=0,in_levels
-      DO j=1,Mesh_bot % NumberOfBulkElements
-        ind(1) = Mesh_bot % Elements(j) % NodeIndexes(1)+i*n
-        ind(2) = Mesh_bot % Elements(j) % NodeIndexes(2)+i*n
-        ind(3) = Mesh_bot % Elements(j) % NodeIndexes(3)+i*n
-        ind(4) = Mesh_bot % Elements(j) % NodeIndexes(4)+i*n
+      DO j=1,Mesh_in % NumberOfBulkElements
+        ind(1) = Mesh_in % Elements(j) % NodeIndexes(1)+i*n
+        ind(2) = Mesh_in % Elements(j) % NodeIndexes(2)+i*n
+        ind(3) = Mesh_in % Elements(j) % NodeIndexes(3)+i*n
+        ind(4) = Mesh_in % Elements(j) % NodeIndexes(4)+i*n
 
-        ind(5) = Mesh_bot % Elements(j) % NodeIndexes(1)+(i+1)*n
-        ind(6) = Mesh_bot % Elements(j) % NodeIndexes(2)+(i+1)*n
-        ind(7) = Mesh_bot % Elements(j) % NodeIndexes(3)+(i+1)*n
-        ind(8) = Mesh_bot % Elements(j) % NodeIndexes(4)+(i+1)*n
+        ind(5) = Mesh_in % Elements(j) % NodeIndexes(1)+(i+1)*n
+        ind(6) = Mesh_in % Elements(j) % NodeIndexes(2)+(i+1)*n
+        ind(7) = Mesh_in % Elements(j) % NodeIndexes(3)+(i+1)*n
+        ind(8) = Mesh_in % Elements(j) % NodeIndexes(4)+(i+1)*n
 
         cnt=cnt+1
 
-        Mesh_out % Elements(cnt) = Mesh_bot % Elements(j)
+        Mesh_out % Elements(cnt) = Mesh_in % Elements(j)
         Mesh_out % Elements(cnt) % NDOFs = 8
 
         ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(8)) 
         Mesh_out % Elements(cnt) % BodyId = &
-           Mesh_bot % Elements(j) % BodyId
+           Mesh_in % Elements(j) % BodyId
         Mesh_out % Elements(cnt) % NodeIndexes = ind
         Mesh_out % Elements(cnt) % ElementIndex = cnt
         Mesh_out % Elements(cnt) % Type => GetElementType(808)
@@ -2545,38 +2543,38 @@ END SUBROUTINE GetMaxDefs
     ! -------------------------------------------------------
     max_bid=0
     DO i=0,in_levels
-      DO j=1,Mesh_bot % NumberOfBoundaryElements
-        k = j + Mesh_bot % NumberOfBulkElements
+      DO j=1,Mesh_in % NumberOfBoundaryElements
+        k = j + Mesh_in % NumberOfBulkElements
 
         cnt=cnt+1
 
-        Mesh_out % Elements(cnt) = Mesh_bot % Elements(k)
+        Mesh_out % Elements(cnt) = Mesh_in % Elements(k)
         Mesh_out % Elements(cnt) % NDOFs = 4
 
         ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4)) 
 
         ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
         Mesh_out % Elements(cnt) % BoundaryInfo = &
-           Mesh_bot % Elements(k) % BoundaryInfo
+           Mesh_in % Elements(k) % BoundaryInfo
 
-        max_bid = MAX(max_bid, Mesh_bot % Elements(k) % &
+        max_bid = MAX(max_bid, Mesh_in % Elements(k) % &
                 BoundaryInfo % Constraint)
 
-        IF(ASSOCIATED(Mesh_bot % Elements(k) % BoundaryInfo % Left)) THEN
-          l=Mesh_bot % Elements(k) % BoundaryInfo % Left % ElementIndex
+        IF(ASSOCIATED(Mesh_in % Elements(k) % BoundaryInfo % Left)) THEN
+          l=Mesh_in % Elements(k) % BoundaryInfo % Left % ElementIndex
           Mesh_out % Elements(cnt) % BoundaryInfo % Left => &
-             Mesh_out % Elements(Mesh_bot % NumberOfBulkElements*i+l)
+             Mesh_out % Elements(Mesh_in % NumberOfBulkElements*i+l)
         END IF
-        IF(ASSOCIATED(Mesh_bot % Elements(k) % BoundaryInfo % Right)) THEN
-          l=Mesh_bot % Elements(k) % BoundaryInfo % Right % ElementIndex
+        IF(ASSOCIATED(Mesh_in % Elements(k) % BoundaryInfo % Right)) THEN
+          l=Mesh_in % Elements(k) % BoundaryInfo % Right % ElementIndex
           Mesh_out % Elements(cnt) % BoundaryInfo % Right => &
-             Mesh_out % Elements(Mesh_bot % NumberOfBulkElements*i+l)
+             Mesh_out % Elements(Mesh_in % NumberOfBulkElements*i+l)
         END IF
 
-        ind(1) = Mesh_bot % Elements(k) % NodeIndexes(1)+i*n
-        ind(2) = Mesh_bot % Elements(k) % NodeIndexes(2)+i*n
-        ind(3) = Mesh_bot % Elements(k) % NodeIndexes(2)+(i+1)*n
-        ind(4) = Mesh_bot % Elements(k) % NodeIndexes(1)+(i+1)*n
+        ind(1) = Mesh_in % Elements(k) % NodeIndexes(1)+i*n
+        ind(2) = Mesh_in % Elements(k) % NodeIndexes(2)+i*n
+        ind(3) = Mesh_in % Elements(k) % NodeIndexes(2)+(i+1)*n
+        ind(4) = Mesh_in % Elements(k) % NodeIndexes(1)+(i+1)*n
 
         Mesh_out % Elements(cnt) % NodeIndexes = ind(1:4)
         Mesh_out % Elements(cnt) % ElementIndex = cnt + &
@@ -2587,10 +2585,10 @@ END SUBROUTINE GetMaxDefs
 
     ! Add bottom boundary:
     ! --------------------
-    DO i=1,Mesh_bot % NumberOfBulkElements
+    DO i=1,Mesh_in % NumberOfBulkElements
       cnt=cnt+1
 
-      Mesh_out % Elements(cnt) = Mesh_bot % Elements(i)
+      Mesh_out % Elements(cnt) = Mesh_in % Elements(i)
       Mesh_out % Elements(cnt) % NDOFs = 4
 
       ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
@@ -2602,7 +2600,7 @@ END SUBROUTINE GetMaxDefs
 
       ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4))
       Mesh_out % Elements(cnt) % NodeIndexes = &
-        Mesh_bot % Elements(i) % NodeIndexes
+        Mesh_in % Elements(i) % NodeIndexes
       Mesh_out % Elements(cnt) % ElementIndex = cnt + &
              Mesh_out % NumberOfBulkElements
       Mesh_out % Elements(cnt) % Type => GetElementType(404)
@@ -2610,22 +2608,22 @@ END SUBROUTINE GetMaxDefs
 
     ! Add top boundary:
     ! -----------------
-    DO i=1,Mesh_bot % NumberOfBulkElements
+    DO i=1,Mesh_in % NumberOfBulkElements
       cnt=cnt+1
 
-      Mesh_out % Elements(cnt) = Mesh_bot % Elements(i)
+      Mesh_out % Elements(cnt) = Mesh_in % Elements(i)
       Mesh_out % Elements(cnt) % NDOFs = 4
 
       ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
       Mesh_out % Elements(cnt) % BoundaryInfo % Left => &
-           Mesh_out % Elements(in_levels*Mesh_bot % NumberOfBulkElements+i)
+           Mesh_out % Elements(in_levels*Mesh_in % NumberOfBulkElements+i)
       Mesh_out % Elements(cnt) % BoundaryInfo % Right => Null()
 
       Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid+2
 
       ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4))
       Mesh_out % Elements(cnt) % NodeIndexes = &
-        Mesh_bot % Elements(i) % NodeIndexes+(in_Levels+1)*n
+        Mesh_in % Elements(i) % NodeIndexes+(in_Levels+1)*n
       Mesh_out % Elements(cnt) % ElementIndex = cnt + &
              Mesh_out % NumberOfBulkElements
       Mesh_out % Elements(cnt) % Type => GetElementType(404)
@@ -2633,14 +2631,14 @@ END SUBROUTINE GetMaxDefs
 
     Mesh_out % NumberOfBoundaryElements=cnt-Mesh_out % NumberOfBulkElements
 
-    Mesh_out % Name=Mesh_bot % Name
+    Mesh_out % Name=Mesh_in % Name
     Mesh_out % MaxElementDOFs  = 8
     Mesh_out % MaxElementNodes = 8
     Mesh_out % MeshDim = 3
     CurrentModel % Dimension = 3
 !   CALL WriteMeshToDisk( Mesh_out, 'test')
 !------------------------------------------------------------------------------
-  END SUBROUTINE MeshExtrude
+  END FUNCTION MeshExtrude
 !------------------------------------------------------------------------------
 
 
