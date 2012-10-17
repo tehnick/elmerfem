@@ -6559,7 +6559,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 !> you do not need to have division of the domain into two subproblems. 
 !> This is probably done at the expense of convergence speed. 
 !------------------------------------------------------------------------------
-SUBROUTINE MortarRobinSolver(A,x,b,Solver)
+  SUBROUTINE MortarRobinSolver(A,x,b,Solver)
 !------------------------------------------------------------------------------
     USE Types
     USE Lists
@@ -6585,10 +6585,17 @@ SUBROUTINE MortarRobinSolver(A,x,b,Solver)
     SAVE AllocationsDone, PermA, PermB, DirValues, Px, q, PTq, DirB, &
         Projector, ProjectorB, MortarNodes
 
-
+    
     Model => CurrentModel 
     Mesh => Solver % Mesh
     Params => Solver % Values
+
+    VarPerm => Solver % Variable % Perm
+    DO i=1,SIZE(VarPerm)
+      IF( VarPerm(i) /= i ) THEN
+        CALL Fatal('MortarRobinSolver','Currently coded assuming Perm(i)=i')
+      END IF
+    END DO
 
     ! If mortar BC given, compute boundary mesh projector:
     ! ------------------------------------------------------
@@ -6597,17 +6604,17 @@ SUBROUTINE MortarRobinSolver(A,x,b,Solver)
       k = ListGetInteger( Model % BCs(i) % Values, 'Mortar BC', Found, &
           minv=1, maxv=Model % NumberOFBCs )
       IF(.NOT. Found) CYCLE
-
+      
       IF( ASSOCIATED( Model % BCs(i) % PMatrix ) ) THEN
         WRITE ( Message,'(A,I0)') 'Projector exists already for boundary: ',i
         CALL Fatal('MortarRobinSolver',Message)
       END IF
-
+      
       j = j + 1
       IF( j > 1 ) THEN
         CALL Fatal('MortarRobinSolver','Implemented only for one projector')
       END IF
-
+      
       Projector =>  PeriodicProjector( Model, Mesh, i, k )      
       IF ( .NOT. ASSOCIATED( Projector ) ) THEN
         CALL Fatal('MortarRobinSolver','Could not create projector!')
@@ -6617,165 +6624,153 @@ SUBROUTINE MortarRobinSolver(A,x,b,Solver)
       ProjectorB => PeriodicProjector( Model, Mesh, k, i )
       IF ( .NOT. ASSOCIATED( ProjectorB ) ) THEN
         CALL Fatal('MortarRobinSolver','Could not create inverse projector!')        
-      END IF           
-   END DO
+      END IF
+    END DO
 
-   N = Mesh % NumberOfNodes
-   IF(.NOT. AllocationsDone ) THEN
-     ALLOCATE( PermA(n), PermB(n), Px(n), q(n), PTq(n), DirB(n) )
-     ALLOCATE( DirValues( SIZE( A % Values ) ) )
-     AllocationsDone = .TRUE.
+    DO i=1,SIZE( Projector % InvPerm )
+    END DO
+    
+    N = Mesh % NumberOfNodes
+    IF(.NOT. AllocationsDone ) THEN
+      ALLOCATE( PermA(n), PermB(n), Px(n), q(n), PTq(n), DirB(n) )
+      ALLOCATE( DirValues( SIZE( A % Values ) ) )
+      AllocationsDone = .TRUE.
+      
+      ! We have the InvPerm, use that to create Perm for forward and 
+      ! backward projectors.
+      !--------------------------------------------------------------------
+      PermA = 0
+      NodesA = SIZE( Projector % InvPerm )
+      DO i=1,NodesA
+        j = Projector % InvPerm(i)
+        PermA(j) = i
+      END DO
+      
+      PermB = 0
+      NodesB = SIZE( ProjectorB % InvPerm )
+      DO i=1,NodesB
+        j = ProjectorB % InvPerm(i)
+        PermB(j) = i
+      END DO
 
-     ! These permutation vectors are needed because the PeriodicProjector
-     ! operates on just the boundary nodes.
-     ! This could done in some prettier manner.
-     !--------------------------------------------------------------------
-     PermA = 0
-     NodesA = 0
-     CALL MakePermUsingMask( CurrentModel,Solver,Mesh,'Mortar BC Master', &
-         .FALSE., PermA, NodesA )
-     CALL MakePermUsingMask( CurrentModel,Solver,Mesh,'Mortar BC Slave', &
-         .FALSE., PermB, NodesB )
-     VarPerm => Solver % Variable % Perm
-     DO i=1,SIZE(VarPerm)
-       IF( VarPerm(i) /= i ) THEN
-         CALL Fatal('MortarRobinSolver','Currently coded assuming Perm(i)=i')
-       END IF
-     END DO
-     ! Renumbering because the numbering from MakePermUsingMask 
-     ! seems to conflict otherwise with the numbering given by
-     ! PeriodicProjector.
-     j = 0
-     DO i=1,n
-       IF( PermA(i) > 0 ) THEN
-         j = j + 1
-         PermA(i) = j
-       END IF
-     END DO
-     j = 0
-     DO i=1,n
-       IF( PermB(i) > 0 ) THEN
-         j = j + 1
-         PermB(i) = j
-       END IF
-     END DO
-
-     PRINT *,'Master nodes: ',NodesA
-     PRINT *,'Slave nodes:  ',NodesB
-     IF( NodesA == 0 .OR. NodesB == 0 ) THEN
-       CALL Fatal('MortarRobinSolver','There must be both master and slave nodes!')
-     END IF
-     MortarNodes = NodesA + NodesB     
-   END IF
-   DirValues = A % Values
-   SaveValues => A % Values
-   DirB = B
-
-   ! Unite the projectors into one when using a symmetric process
-   CALL CRS_MergeMatrix( Projector, ProjectorB, PermA, PermB  )
-
-   ! Not needed if the transpose matrix-vector product is used
-   ! ProjectorTrans => CRS_Transpose( Projector )
-
-   ! Set the name space for the Robin-Robin iterations 
-   !---------------------------------------------------
-   CALL ListSetNameSpace('outer:')
-
-   ! Create weight for enforcing Dirichlet conditions
-   ! It seems that symmetric pair, e.g. 1 and 1 is not optimal
-   ! but 10 and 0.1 are much better...
-   !-------------------------------------------------------------
-   cA = ListGetConstReal( Params,'Dirichlet Coefficient',Found)
-   IF(.NOT. Found) cA = 10.0_dp
-
-   cB = ListGetConstReal( Params,'Dirichlet Coefficient Slave',Found)
-   IF(.NOT. Found) cb = 1.0 / cA
-
-   ALLOCATE( DirWeight(N) )
-   DirWeight = 0.0_dp
-   DO i=1,n
-     IF( PermA(i) > 0 ) THEN
-       IF( PermB(i) > 0 ) THEN
-         CALL Fatal('MortarRobinSolver','Node cannot be both slave and master!')
-       END IF
-       DirWeight(i) = cA * A % Values( A % Diag(i) )
-     ELSE IF( PermB(i) > 0 ) THEN
-       DirWeight(i) = cB * A % Values( A % Diag(i) )       
-     END IF
-     j = A % Diag(i)
-     DirValues(j) = DirValues(j) + DirWeight(i)
-   END DO
-
-   ! How large part of the values at the r.h.s. are projected vs. own
-   cx = ListGetConstReal( Params,'Projected Value Fraction',Found)
-   IF(.NOT. Found ) cx = 0.5_dp
-
-   ! How large part of the fluxes at the r.h.s. are projected vs. own
-   cq = ListGetConstReal( Params,'Projected Flux Fraction',Found)
-   IF(.NOT. Found ) cq = 0.5_dp
-
-   MaxIter = ListGetInteger( Params,'Linear System Max Iterations',Found)
-   
-   CALL Info('MortarRobinSolver','Performing Robin-Robin iteration')
-
-   DO iter = 1, MaxIter 
-     ! Compute the projected solution
-     CALL MatrixVectorMultiply( Projector, x, Px )
-     
-     ! Compute the nodal loads 
-     A % Values => SaveValues
-     CALL MatrixVectorMultiply( A, x, q )
-
-     ! Compute projected loads
-     ! Both alternative seem to work similarly
-     CALL TransposeMatrixVectorMultiply( Projector, q, PTq )
-     ! CALL MatrixVectorMultiply( ProjectorTrans, q, PTq )
-
-     ! Compute the new r.h.s.
-     dxsum = 0.0_dp
-     dqsum = 0.0_dp
-     xmean = 0.0_dp
-     DO i=1,n
-       IF( PermA(i) > 0 .OR. PermB(i) > 0 ) THEN
+      PRINT *,'Master nodes: ',NodesA
+      PRINT *,'Slave nodes:  ',NodesB
+      IF( NodesA == 0 .OR. NodesB == 0 ) THEN
+        CALL Fatal('MortarRobinSolver','There must be both master and slave nodes!')
+      END IF
+      MortarNodes = NodesA + NodesB     
+    END IF
+    DirValues = A % Values
+    SaveValues => A % Values
+    DirB = B
+    
+    ! Unite the projectors into one when using a symmetric process
+    CALL CRS_MergeMatrix( Projector, ProjectorB, PermA, PermB  )
+    
+    ! Not needed if the transpose matrix-vector product is used
+    ! ProjectorTrans => CRS_Transpose( Projector )
+    
+    ! Set the name space for the Robin-Robin iterations 
+    !---------------------------------------------------
+    CALL ListSetNameSpace('outer:')
+    
+    ! Create weight for enforcing Dirichlet conditions
+    ! It seems that symmetric pair, e.g. 1 and 1 is not optimal
+    ! but 10 and 0.1 are much better...
+    !-------------------------------------------------------------
+    cA = ListGetConstReal( Params,'Dirichlet Coefficient',Found)
+    IF(.NOT. Found) cA = 10.0_dp
+    
+    cB = ListGetConstReal( Params,'Dirichlet Coefficient Slave',Found)
+    IF(.NOT. Found) cb = 1.0 / cA
+    
+    ALLOCATE( DirWeight(N) )
+    DirWeight = 0.0_dp
+    DO i=1,n
+      IF( PermA(i) > 0 ) THEN
+        IF( PermB(i) > 0 ) THEN
+          CALL Fatal('MortarRobinSolver','Node cannot be both slave and master!')
+        END IF
+        DirWeight(i) = cA * A % Values( A % Diag(i) )
+      ELSE IF( PermB(i) > 0 ) THEN
+        DirWeight(i) = cB * A % Values( A % Diag(i) )       
+      END IF
+      j = A % Diag(i)
+      DirValues(j) = DirValues(j) + DirWeight(i)
+    END DO
+    
+    ! How large part of the values at the r.h.s. are projected vs. own
+    cx = ListGetConstReal( Params,'Projected Value Fraction',Found)
+    IF(.NOT. Found ) cx = 0.5_dp
+    
+    ! How large part of the fluxes at the r.h.s. are projected vs. own
+    cq = ListGetConstReal( Params,'Projected Flux Fraction',Found)
+    IF(.NOT. Found ) cq = 0.5_dp
+    
+    MaxIter = ListGetInteger( Params,'Linear System Max Iterations',Found)
+    
+    CALL Info('MortarRobinSolver','Performing Robin-Robin iteration')
+    
+    DO iter = 1, MaxIter 
+      ! Compute the projected solution
+      CALL MatrixVectorMultiply( Projector, x, Px )
+      
+      ! Compute the nodal loads 
+      A % Values => SaveValues
+      CALL MatrixVectorMultiply( A, x, q )
+      
+      ! Compute projected loads
+      ! Both alternative seem to work similarly
+      CALL TransposeMatrixVectorMultiply( Projector, q, PTq )
+      ! CALL MatrixVectorMultiply( ProjectorTrans, q, PTq )
+      
+      ! Compute the new r.h.s.
+      dxsum = 0.0_dp
+      dqsum = 0.0_dp
+      xmean = 0.0_dp
+      DO i=1,n
+        IF( PermA(i) > 0 .OR. PermB(i) > 0 ) THEN
           DirB(i) = B(i) + DirWeight(i) * ((1-cx)*x(i)+cx*Px(i)) + (1-cq)*q(i)-cq*PTq(i)
-!         PRINT *,'x',PermA(i),PermB(i),i,DirB(i),x(i),Px(i),q(i),PTq(i)
+          !         PRINT *,'x',PermA(i),PermB(i),i,DirB(i),x(i),Px(i),q(i),PTq(i)
+          
+          ! Sum up some data for monitoring purposes
+          dxsum = dxsum + ABS( x(i) - Px(i) )
+          dqsum = dqsum + ABS( q(i) - PTq(i) )
+          xmean = xmean + x(i)
+        END IF
+      END DO
+      
+      dxsum = dxsum / MortarNodes
+      dqsum = dqsum / MortarNodes
+      xmean = xmean / MortarNodes
 
-        ! Sum up some data for monitoring purposes
-         dxsum = dxsum + ABS( x(i) - Px(i) )
-         dqsum = dqsum + ABS( q(i) - PTq(i) )
-         xmean = xmean + x(i)
-       END IF
-     END DO
-
-     dxsum = dxsum / MortarNodes
-     dqsum = dqsum / MortarNodes
-     xmean = xmean / MortarNodes
-
-     CALL ListSetNameSpace('inner:')
-     A % Values => DirValues
-
-     ! In case no inner method (other than 'mortar') is defined enforce it to 'iterative'
-     IF( ListGetString( Params,'Linear System Solver',Found) == 'mortar') THEN
-       CALL ListAddString( Params,'inner: Linear System Solver','iterative')
-     END IF
-
-     IF(.TRUE.) THEN
-       CALL SolveLinearSystem( A, DirB, &
-           x, InnerNorm, Solver % Variable % Dofs, Solver )       
-       PRINT *,'iter:',iter,'Norm:',InnerNorm,'<dx>:',dxsum,'<dq>:',dqsum,'<xmean>:',xmean
-     ELSE
-       CALL IterSolver( A, x, DirB, Solver ) 
-       PRINT *,'iter:',iter,'<dx>:',dxsum,'<dq>:',dqsum,'<xmean>:',xmean
-     END IF
-   END DO
-
-   A % Values => SaveValues
-   CALL ListSetNameSpace('')
-
-   CALL FreeMatrix( Projector )
-
-   CALL Info('MortarRobinSolver','all done')
-
+      CALL ListSetNameSpace('inner:')
+      A % Values => DirValues
+      
+      ! In case no inner method (other than 'mortar') is defined enforce it to 'iterative'
+      IF( ListGetString( Params,'Linear System Solver',Found) == 'mortar') THEN
+        CALL ListAddString( Params,'inner: Linear System Solver','iterative')
+      END IF
+      
+      IF(.TRUE.) THEN
+        CALL SolveLinearSystem( A, DirB, &
+            x, InnerNorm, Solver % Variable % Dofs, Solver )       
+        PRINT *,'iter:',iter,'Norm:',InnerNorm,'<dx>:',dxsum,'<dq>:',dqsum,'<xmean>:',xmean
+      ELSE
+        CALL IterSolver( A, x, DirB, Solver ) 
+        PRINT *,'iter:',iter,'<dx>:',dxsum,'<dq>:',dqsum,'<xmean>:',xmean
+      END IF
+    END DO
+    
+    A % Values => SaveValues
+    CALL ListSetNameSpace('')
+    
+    CALL FreeMatrix( Projector )
+    ! Activating the line below seems to cause memery leaks
+    ! CALL FreeMatrix( ProjectorB )
+    
+    CALL Info('MortarRobinSolver','all done')
+    
 !------------------------------------------------------------------------------
   END SUBROUTINE MortarRobinSolver
 !------------------------------------------------------------------------------

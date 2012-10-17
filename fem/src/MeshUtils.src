@@ -1729,20 +1729,67 @@ END SUBROUTINE GetMaxDefs
   !---------------------------------------------------------------------------
 
 
+
+!------------------------------------------------------------------------------
+!> Eliminate redundant columns pointed by the DoublePerm vector.
+!> The columns refer to the ghost nodes that were created to allow periodicity
+!> of the mortar piece.
+!------------------------------------------------------------------------------
+  SUBROUTINE EliminateRedundantColumns( Cols, DoublePerm )
+!------------------------------------------------------------------------------
+    INTEGER, POINTER :: Cols(:)            !< Columns of the sparse matrix
+    INTEGER, ALLOCATABLE :: DoublePerm(:)  !< Indexes of the additional columns         
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,n,DoubleNodes
+    INTEGER, ALLOCATABLE :: InvPerm(:)
+!------------------------------------------------------------------------------
+
+     IF( .NOT. ALLOCATED( DoublePerm ) ) THEN
+       CALL Warn('EliminateRedundantColumns','DoublePerm not allocated, returning')
+       RETURN
+     END IF
+     
+     IF( MAXVAL( DoublePerm ) == 0 ) THEN
+       CALL Warn('EliminateRedundantColumns','DoublePerm all zero, returning')
+       RETURN
+     END IF
+          
+     DoubleNodes = COUNT( DoublePerm > 0 )      
+     ALLOCATE( InvPerm( DoubleNodes ) )
+     n = SIZE( DoublePerm )     
+
+     ! Create the inverse structure for the redundant columns
+     DO i=1,n
+       j = DoublePerm(i)
+       IF( j > 0 ) InvPerm( j - n ) = i
+     END DO
+     
+     ! Now switch the ghost entries to the primary entry
+     DO i=1,SIZE( Cols ) 
+       j = Cols(i)
+       IF( j > n ) Cols(i) = InvPerm( j - n ) 
+     END DO
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE EliminateRedundantColumns
+!------------------------------------------------------------------------------
+
+
   !---------------------------------------------------------------------------
   !> Create a projector for mapping between interfaces using the Galerkin method
   !> A temporal mesh structure with a node for each Gaussian integration point is 
   !> created. The this projector matrix is transferred to a projector on the nodal
   !> coordinates.   
   !---------------------------------------------------------------------------
-  FUNCTION WeightedProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, UseQuadrantTree ) &
+   FUNCTION WeightedProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, &
+       UseQuadrantTree, DoublePerm ) &
       RESULT ( Projector )
   !---------------------------------------------------------------------------
-    ! USE SolverUtils
     USE Lists
 
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    INTEGER, ALLOCATABLE :: DoublePerm(:)
     LOGICAL :: UseQuadrantTree
     TYPE(Matrix_t), POINTER :: Projector
     !--------------------------------------------------------------------------
@@ -1817,6 +1864,11 @@ END SUBROUTINE GetMaxDefs
     Cols => GaussProjector % Cols
     Rows => GaussProjector % Rows
 
+    ! One needs to eliminate the references to ghost nodes before actually forming 
+    ! the Galerkin projector.
+    !-----------------------------------------------------------------------------
+    CALL EliminateRedundantColumns( Cols, DoublePerm )
+
     DO i=1, BMesh1 % NumberOfBulkElements
       Element => BMesh1 % Elements(i)
       n = Element % TYPE % NumberOfNodes        
@@ -1864,6 +1916,61 @@ END SUBROUTINE GetMaxDefs
 
   END FUNCTION WeightedProjector
 !------------------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------------
+  !> Create a projector for mapping between interfaces using the Galerkin method
+  !> A temporal mesh structure with a node for each Gaussian integration point is 
+  !> created. The this projector matrix is transferred to a projector on the nodal
+  !> coordinates.   
+  !---------------------------------------------------------------------------
+   FUNCTION NodalProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, &
+       UseQuadrantTree, DoublePerm ) &
+      RESULT ( Projector )
+  !---------------------------------------------------------------------------
+    ! USE SolverUtils
+    USE Lists
+
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    INTEGER, ALLOCATABLE :: DoublePerm(:)
+    LOGICAL :: UseQuadrantTree
+    TYPE(Matrix_t), POINTER :: Projector
+    !--------------------------------------------------------------------------
+    INTEGER :: i,j,k,n
+    INTEGER, POINTER :: Rows(:),Cols(:)
+    REAL(KIND=dp), POINTER :: Values(:)
+
+    ! Create the projector using nodal points 
+    ! This corresponds to numerical integration of the collocation method.
+    !-----------------------------------------------------------------
+    Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
+
+    Values => Projector % Values
+    Cols => Projector % Cols
+    Rows => Projector % Rows
+
+    ! One needs to eliminate the references to ghost nodes before actually forming 
+    ! the projector.
+    !-----------------------------------------------------------------------------
+    CALL EliminateRedundantColumns( Cols, DoublePerm )
+
+    ! Now return from the indexes of the interface mesh system to the 
+    ! original mesh system.
+    !-----------------------------------------------------------------
+    n = SIZE( InvPerm1 ) 
+    Projector % InvPerm => InvPerm1
+
+    DO i=1,Projector % NumberOfRows
+       DO j = Rows(i), Rows(i+1)-1
+         k = Cols(j)    
+         IF ( k > 0 ) Cols(j) = InvPerm2(k)
+       END DO
+    END DO
+
+  END FUNCTION NodalProjector
+!------------------------------------------------------------------------------
+
 
 
   !---------------------------------------------------------------------------
@@ -2255,75 +2362,27 @@ END SUBROUTINE GetMaxDefs
     END IF
 
   END SUBROUTINE RotationalInterfaceMeshes
-
-
-
-!------------------------------------------------------------------------------
-!> Eliminate redundant columns pointed by the DoublePerm vector.
-!> The columns refer to the ghost nodes that were created to allow periodicity
-!> of the mortar piece.
-!------------------------------------------------------------------------------
-  SUBROUTINE EliminateRedundantColumns( A, DoublePerm )
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), INTENT(IN) :: A        !< Structure holding matrix
-    INTEGER, ALLOCATABLE :: DoublePerm(:)  !< Indexes of the additional columns         
-!------------------------------------------------------------------------------
-    INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
-    REAL(KIND=dp), POINTER  CONTIG :: Values(:)
-    INTEGER :: i,j,k,n,DoubleNodes
-    INTEGER, ALLOCATABLE :: InvPerm(:)
-!------------------------------------------------------------------------------
-
-     IF( .NOT. ALLOCATED( DoublePerm ) ) THEN
-       CALL Warn('EliminateRedundantColumns','DoublePerm not allocated, returning')
-       RETURN
-     END IF
-     
-     IF( MAXVAL( DoublePerm ) == 0 ) THEN
-       CALL Warn('EliminateRedundantColumns','DoublePerm all zero, returning')
-       RETURN
-     END IF
-     
-     n = A % NumberOfRows
-     Rows   => A % Rows
-     Cols   => A % Cols
-     Values => A % Values
-     
-     DoubleNodes = COUNT( DoublePerm > 0 )      
-     ALLOCATE( InvPerm( DoubleNodes ) )
-     n = SIZE( DoublePerm )     
-
-     ! Create the inverse structure for the redundant columns
-     DO i=1,n
-       j = DoublePerm(i)
-       IF( j > 0 ) InvPerm( j - n ) = i
-     END DO
-     
-     ! Now switch the ghost entries to the primary entry
-     DO i=1,SIZE( Cols ) 
-       j = Cols(i)
-       IF( j > n ) Cols(i) = InvPerm( j - n ) 
-     END DO
-
-!------------------------------------------------------------------------------
-   END SUBROUTINE EliminateRedundantColumns
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
-!> Create a projector between Master and Target boundaries. 
+!> Create a projector between Master and Target boundaries.
+!> The projector may be a nodal projector x=Px or a weigted 
+!> Galerking projector such that Qx=Px. In the first case the projector 
+!> will be P and in the second case [Q-P]. 
 !------------------------------------------------------------------------------
-  FUNCTION PeriodicProjector( Model, Mesh, This, Trgt, cdim ) RESULT(Projector)
+  FUNCTION PeriodicProjector( Model, Mesh, This, Trgt, cdim, &
+      Galerkin ) RESULT(Projector)
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     INTEGER :: This, Trgt
     INTEGER, OPTIONAL :: cdim
     TYPE(Mesh_t) :: Mesh
     TYPE(Matrix_t), POINTER :: Projector
+    LOGICAL, OPTIONAL :: Galerkin
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,n,dim
-    LOGICAL :: GotIt, UseQuadrantTree, RotationalProjector, Success
+    LOGICAL :: GotIt, UseQuadrantTree, Rotational, Success, IntGalerkin
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
     INTEGER, ALLOCATABLE :: DoublePerm(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
@@ -2334,11 +2393,28 @@ END SUBROUTINE GetMaxDefs
     DIM = CoordinateSystemDimension()
     
     NULLIFY( Projector )
-    IF ( This <= 0 .OR. Trgt <= 0 ) RETURN
+    IF ( This <= 0 .OR. Trgt <= 0 ) RETURN    
+
+    ! Check whether to use rotational projector or not
+    !--------------------------------------------------------------------------
+    Rotational = ListGetLogical( Model % BCs(This) % Values,&
+        'Rotational Projector',GotIt )
+    IF(.NOT. GotIt ) Rotational = ListGetLogical( Model % BCs(Trgt) % Values,&
+          'Rotational Projector',GotIt )
+
+    ! Whether to choose nodal or Galerkin projector is determined by an optional
+    ! flag. The default is the nodal projector.
+    !--------------------------------------------------------------------------
+    IF( PRESENT( Galerkin) ) THEN
+      IntGalerkin = Galerkin
+    ELSE
+      IntGalerkin = .FALSE.
+    END IF
+
 
     ! Create temporal mesh structures that are utilized when making the 
     ! projector between "This" and "Trgt" boundary.
-    !--------------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     BMesh1 => AllocateMesh()
     BMesh2 => AllocateMesh()
     
@@ -2350,89 +2426,81 @@ END SUBROUTINE GetMaxDefs
     ! and rotation, or then generic one with possible coordinate mapping.
     !---------------------------------------------------------------------------------
     WRITE( Message,'(A,I0,A,I0)') 'Creating projector between BCs ',This,' and ',Trgt
-    CALL Info('PeriodicProjector',Message)
+    CALL Info('PeriodicProjector',Message,Level=8)
 
-    RotationalProjector = ListGetLogical( Model % BCs(This) % Values,&
-        'Rotational Projector',GotIt )
-    IF(.NOT. GotIt ) THEN
-      RotationalProjector = ListGetLogical( Model % BCs(Trgt) % Values,&
-          'Rotational Projector',GotIt )
-    END IF
 
-    IF( RotationalProjector ) THEN
+    ! If the interface is rotational move to (phi,z) plane and create ghost 
+    ! elements and nodes if needed.
+    ! Otherwise make the two meshes to coinside using rotation, translation &
+    ! scaling. 
+    !---------------------------------------------------------------------------------
+    IF( Rotational ) THEN
       ALLOCATE( DoublePerm( BMesh2 % NumberOfNodes ) ) 
       CALL RotationalInterfaceMeshes( BMesh1, BMesh2, DoublePerm, Model % BCs(This) % Values )
     ELSE
       CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
     END IF
     
-    ! Get the mesh projetor, which now contains
-    ! weigths between the two boundaries nodes:
-    !------------------------------------------
+    ! Create the mesh projector, and if needed, also eliminate the ghost nodes
+    ! There are two choices of projector: a nodal projector P in x=Px, and a 
+    ! Galerkin projector [Q-P] in Qx=Px. 
+    !------------------------------------------------------------------------
     UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
     IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
 
-    IF(ListGetLogical( Model % BCs(This) % Values,'Galerkin Projector',GotIt ) ) THEN
-      Projector => WeightedProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, UseQuadrantTree )
+    IF( IntGalerkin ) THEN
+      Projector => WeightedProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
+          UseQuadrantTree, DoublePerm )
     ELSE
-      Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
+      Projector => NodalProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
+          UseQuadrantTree, DoublePerm )    
     END IF
 
-    ! For rotational case there are some "ghost" elements and "ghost" nodes
-    ! which need to be eliminated from the system.
+    ! Remove the reference to ghost nodes.
     !----------------------------------------------------------------------
-    IF( RotationalProjector ) THEN
-      CALL EliminateRedundantColumns( Projector, DoublePerm )
+    IF( Rotational ) THEN
       DEALLOCATE( DoublePerm )
     END IF
-
-    ! Now return from the indexes of the interface mesh system to the 
-    ! original mesh system.
-    !-----------------------------------------------------------------
-    n = SIZE( InvPerm1 ) 
-    Projector % InvPerm => InvPerm1
-
-    DO i=1,Projector % NumberOfRows
-       rowsum = 0.0_dp
-       DO j=Projector % Rows(i),Projector % Rows(i+1)-1
-         k = Projector % Cols(j)    
-         IF ( k > 0 ) Projector % Cols(j) = InvPerm2(k)
-         rowsum = rowsum + Projector % Values(j)
-!         PRINT *,'Pij',i,Projector % Cols(j), Projector % Values(j)
-       END DO
-    END DO
-    
+   
     ! Deallocate mesh structures:
     !---------------------------------------------------------------
-    ! For some reason this causes problems in certain cases!!!
-    ! Don't know how and where to fix it yet
-    IF( .NOT. RotationalProjector  ) THEN
-
-      DO k=1,2
+    DO k=1,2
         
-        IF( k == 1 ) THEN
-          PMesh => BMesh1 
-        ELSE
-          PMesh => BMesh2
-        END IF
-        
-        DO i=1,SIZE( PMesh % Elements ) 
-          DEALLOCATE( PMesh % Elements(i) % NodeIndexes )
-        END DO
-        
-        DEALLOCATE( PMesh % Elements )
-        
-        CALL FreeQuadrantTree( PMesh % RootQuadrant )
-        
-        DEALLOCATE( PMesh % Nodes % x )
-        DEALLOCATE( PMesh % Nodes % y )
-        DEALLOCATE( PMesh % Nodes % z )
-        DEALLOCATE( PMesh % Nodes )
+      IF( k == 1 ) THEN
+        PMesh => BMesh1 
+      ELSE
+        PMesh => BMesh2
+      END IF
+      
+      DO i=1,SIZE( PMesh % Elements ) 
+        DEALLOCATE( PMesh % Elements(i) % NodeIndexes )
       END DO
+      
+      DEALLOCATE( PMesh % Elements )
+      
+      CALL FreeQuadrantTree( PMesh % RootQuadrant )
+      
+      DEALLOCATE( PMesh % Nodes % x )
+      DEALLOCATE( PMesh % Nodes % y )
+      DEALLOCATE( PMesh % Nodes % z )
+      DEALLOCATE( PMesh % Nodes )
+
+      DEALLOCATE( PMesh ) 
+    END DO
+
+    DEALLOCATE( InvPerm2 )
+
+    ! The nodal projector retains the InvPerm1 in its structure
+    ! so do not get rid of that.
+    !--------------------------------------------------------------------
+    IF( IntGalerkin ) THEN
+      DEALLOCATE( InvPerm1 ) 
+    ELSE
+      NULLIFY( InvPerm1 )
     END IF
 
-    DEALLOCATE( InvPerm2, BMesh1, BMesh2 )
-    NULLIFY( InvPerm1 )
+    CALL Info('PeriodicProjector','Projector created, now exiting...',Level=8)
+
 
 !------------------------------------------------------------------------------
   END FUNCTION PeriodicProjector
