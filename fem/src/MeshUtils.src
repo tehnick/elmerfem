@@ -2445,32 +2445,44 @@ END SUBROUTINE GetMaxDefs
     TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid
+    TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
+    LOGICAL :: isParallel
     REAL(KIND=dp)::x_top,y_top,z_top,x_bot,y_bot,z_bot,w
 !------------------------------------------------------------------------------
     Mesh_out => AllocateMesh()
 !   Mesh_out = Mesh_in
 
+
+    isParallel = ParEnv % PEs>1
+
     ! Generate volume nodal points:
     ! -----------------------------
     n=Mesh_in % NumberOfNodes
     nnodes=(in_levels+2)*n
+
     ALLOCATE( Mesh_out % Nodes % x(nnodes) )
     ALLOCATE( Mesh_out % Nodes % y(nnodes) )
     ALLOCATE( Mesh_out % Nodes % z(nnodes) )
 
-    IF(ParEnv % PEs>1) THEN
-      ALLOCATE(Mesh_out % ParallelInfo % Interface(nnodes))
-      ALLOCATE(Mesh_out % ParallelInfo % GlobalDOFs(nnodes))
-      ALLOCATE(Mesh_out % ParallelInfo % NeighbourList(nnodes))
+    IF (isParallel) THEN
+      PI_in  => Mesh_in % ParallelInfo
+      PI_out => Mesh_out % ParallelInfo
+
+      ALLOCATE(PI_out % NeighbourList(nnodes))
+      ALLOCATE(PI_out % Interface(nnodes))
+      ALLOCATE(PI_out % GlobalDOFs(nnodes))
+
       j=0
       DO i=1,Mesh_in % NumberOfNodes
-        IF (Mesh_in % ParallelInfo % NeighbourList(i) % &
-            Neighbours(1)== ParEnv % MyPE ) j=j+1
+        IF (PI_in % NeighbourList(i) % &
+            Neighbours(1) == ParEnv % MyPE ) j=j+1
       END DO
       CALL MPI_ALLREDUCE(j,gnodes,1, &
            MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
+
     END IF
+
 
     cnt=0
     DO i=0,in_levels+1
@@ -2489,16 +2501,13 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Nodes % y(cnt) = w*y_top + (1-w)*y_bot
         Mesh_out % Nodes % z(cnt) = w*z_top + (1-w)*z_bot
 
-        IF(ParEnv % Pes>1) THEN
-          Mesh_out % ParallelInfo % Interface(cnt) = &
-              Mesh_in % ParallelInfo % Interface(j)
+        IF (isParallel) THEN
+          PI_out % Interface(cnt) = PI_in% Interface(j)
 
-          Mesh_out % ParallelInfo % NeighbourList(cnt) % Neighbours => &
-              Mesh_in % ParallelInfo % NeighbourList(j) % Neighbours
+          PI_out % NeighbourList(cnt) % Neighbours => &
+            PI_in % NeighbourList(j) % Neighbours
 
-          Mesh_out % ParallelInfo % GlobalDOFs(cnt) = &
-              Mesh_in % ParallelInfo % GlobalDOFs(j) + &
-                    i*gnodes
+          PI_out % GlobalDOFs(cnt) = PI_in % GlobalDOFs(j)+i*gnodes
         END IF
 
       END DO
@@ -2580,6 +2589,12 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Elements(cnt) % Type => GetElementType(404)
       END DO
     END DO
+
+    IF(isParallel) THEN
+      j=max_bid
+     CALL MPI_ALLREDUCE(j,max_bid,1, &
+           MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+    END IF
 
     ! Add bottom boundary:
     ! --------------------
