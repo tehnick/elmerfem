@@ -2508,6 +2508,116 @@ END SUBROUTINE GetMaxDefs
 
 
 !------------------------------------------------------------------------------
+  SUBROUTINE UnitSegmentDivision( w, n )
+    REAL(KIND=dp), ALLOCATABLE :: w(:)
+    INTEGER :: n
+    !---------------------------------------------------------------
+    INTEGER :: i,J,iter,maxiter
+    REAL(KIND=dp) :: q,h1,hn,minhn,err_eps,err,xn
+    REAL(KIND=dp), ALLOCATABLE :: wold(:),h(:)
+    LOGICAL :: Found, GotRatio
+    TYPE(Nodes_t) :: Nodes
+    
+    ! Linear distribution and an initial guess for the generic case
+    !---------------------------------------------------------------
+
+    ! Geometric division
+    !---------------------------------------------------------------
+    q = ListGetConstReal(CurrentModel % Simulation,'Extruded Mesh Ratio',GotRatio)
+    IF( GotRatio ) THEN
+      CALL Info('UnitSegmentDivision','Creating geometric division',Level=5)
+
+      h1 = (1-q**(1.0_dp/(n+1)))/(1-q)
+      w(0) = 0.0_dp
+      hn = h1;
+      DO i=1,n
+        w(i) = w(i-1) + hn;
+        hn = hn * ( q**(1.0_dp/(n+1)) )
+      END DO
+      w(n+1) = 1.0_dp
+
+
+    ! Generic division given by a function
+    !-----------------------------------------------------------------------
+    ELSE IF( ListCheckPresent( CurrentModel % Simulation,'Extruded Mesh Density') ) THEN
+
+      CALL Info('UnitSegmentDivision','Creating functional division',Level=5)
+
+      ! Initial guess is an even distribtion
+      DO i=0,n+1     
+        w(i) = i/(n+1._dp)
+      END DO
+
+      ALLOCATE( wold(0:n+1),h(1:n+1))
+      wold = w
+
+      ! paramaters that determine the accuracy of the iteration
+      maxiter = 10000
+      err_eps = 1.0e-6
+
+      ! Iterate to have a density distribution
+      !---------------------------------------
+      DO iter=1,maxiter
+        
+        minhn = HUGE(minhn)
+        wold = w
+
+        ! Compute the point in the local mesh xn \in [0,1]  
+        ! and get the mesh parameter for that element from
+        ! external function.
+        !---------------------------------------------------
+        DO i=1,n+1
+          xn = (w(i)+w(i-1))/2.0_dp
+          minhn = MIN( minhn, w(i)-w(i-1) )
+          h(i) = ListGetFun( CurrentModel % Simulation,'Extruded Mesh Density', xn )
+        END DO
+
+        ! Utilize symmetric Gauss-Seidel to compute the new positions, w(i).
+        ! from a weigted mean of the desired elemental densities, h(i).
+        ! Note that something more clever could be applied here. 
+        ! This was just a first implementation...
+        !-------------------------------------------------------------
+        DO i=1,n
+          w(i) = (w(i-1)*h(i+1)+w(i+1)*h(i))/(h(i)+h(i+1))
+        END DO
+        DO i=n,1,-1
+          w(i) = (w(i-1)*h(i+1)+w(i+1)*h(i))/(h(i)+h(i+1))
+        END DO
+        
+        ! If the maximum error is small compared to the minumum elementsize then exit
+        !-----------------------------------------------------------------------------
+        err = MAXVAL( ABS(w-wold))/minhn
+
+        IF( err < err_eps ) THEN
+          WRITE( Message, '(A,I0,A)') 'Convergence obtained in ',iter,' iterations'
+          CALL Info('UnitSegmentDivision', Message, Level=9 )
+          EXIT
+        END IF
+      END DO
+
+      IF( iter > maxiter ) THEN
+        CALL Warn('UnitSegmentDivision','No convergence obtained for the unit mesh division!')
+      END IF
+    ELSE
+      CALL Info('UnitSegmentDivision','Creating linear division',Level=5)
+      DO i=0,n+1     
+        w(i) = i/(n+1._dp)
+      END DO
+    END IF
+
+    CALL Info('UnitSegmentDivision','Mesh division ready',Level=9)
+    DO i=0,n+1
+      WRITE( Message, '(A,I0,A,ES12.4)') 'w(',i,') : ',w(i)
+      CALL Info('UnitSegmentDivision', Message, Level=9 )
+    END DO
+
+
+  END SUBROUTINE UnitSegmentDivision
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
   FUNCTION MeshExtrude(Mesh_in, in_levels) RESULT(Mesh_out)
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
@@ -2515,8 +2625,9 @@ END SUBROUTINE GetMaxDefs
     INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid
     TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
-    LOGICAL :: isParallel
+    LOGICAL :: isParallel, Found
     REAL(KIND=dp)::x_top,y_top,z_top,x_bot,y_bot,z_bot,w
+    REAL(KIND=dp), ALLOCATABLE :: Wtable(:)
 !------------------------------------------------------------------------------
     Mesh_out => AllocateMesh()
 !   Mesh_out = Mesh_in
@@ -2538,7 +2649,7 @@ END SUBROUTINE GetMaxDefs
       PI_out => Mesh_out % ParallelInfo
 
       ALLOCATE(PI_out % NeighbourList(nnodes))
-      ALLOCATE(PI_out % Interface(nnodes))
+      ALLOCATE(PI_out % INTERFACE(nnodes))
       ALLOCATE(PI_out % GlobalDOFs(nnodes))
 
       j=0
@@ -2551,9 +2662,19 @@ END SUBROUTINE GetMaxDefs
     END IF
 
 
+    ! Create the division for the 1D unit mesh
+    !--------------------------------------------
+    ALLOCATE( Wtable( 0: in_levels + 1 ) )
+    CALL UnitSegmentDivision( Wtable, in_levels ) 
+
+
     cnt=0
     DO i=0,in_levels+1
-      w = i/(in_levels+1._dp)
+
+      
+!      w = i/(in_levels+1._dp)
+      w = Wtable( i ) 
+
       DO j=1,Mesh_in % NumberOfNodes
         x_bot = Mesh_in % Nodes % x(j)
         y_bot = Mesh_in % Nodes % y(j)
@@ -2569,7 +2690,7 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Nodes % z(cnt) = w*z_top + (1-w)*z_bot
 
         IF (isParallel) THEN
-          PI_out % Interface(cnt) = PI_in % Interface(j)
+          PI_out % INTERFACE(cnt) = PI_in % INTERFACE(j)
 
           PI_out % NeighbourList(cnt) % Neighbours => &
             PI_in % NeighbourList(j) % Neighbours
@@ -2608,7 +2729,7 @@ END SUBROUTINE GetMaxDefs
         ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(8)) 
         Mesh_out % Elements(cnt) % NodeIndexes = ind
         Mesh_out % Elements(cnt) % ElementIndex = cnt
-        Mesh_out % Elements(cnt) % Type => GetElementType(808)
+        Mesh_out % Elements(cnt) % TYPE => GetElementType(808)
       END DO
     END DO
     Mesh_out % NumberOfBulkElements=cnt
@@ -2653,9 +2774,21 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Elements(cnt) % NodeIndexes = ind(1:4)
         Mesh_out % Elements(cnt) % ElementIndex = cnt + &
                Mesh_out % NumberOfBulkElements
-        Mesh_out % Elements(cnt) % Type => GetElementType(404)
+        Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
       END DO
     END DO
+
+    
+    j = ListGetInteger( CurrentModel % Simulation,'First Extuded BC',Found )
+    IF( Found ) THEN
+      IF( j <= max_bid ) THEN
+        CALL Warn('MeshExtrude','Given > First Extruded BC < should be larger than previous max!')
+      END IF
+      max_bid = j - 1
+    END IF
+    WRITE( Message,'(A,I0)') 'First Extruded BC set to: ',max_bid+1
+    CALL Info('ExtrudeMesh',Message,Level=8)
+
 
     IF(isParallel) THEN
       j=max_bid
@@ -2674,7 +2807,7 @@ END SUBROUTINE GetMaxDefs
       ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
       Mesh_out % Elements(cnt) % BoundaryInfo % Left => &
            Mesh_out % Elements(i)
-      Mesh_out % Elements(cnt) % BoundaryInfo % Right => Null()
+      Mesh_out % Elements(cnt) % BoundaryInfo % Right => NULL()
 
       Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid+1
 
@@ -2683,7 +2816,7 @@ END SUBROUTINE GetMaxDefs
         Mesh_in % Elements(i) % NodeIndexes
       Mesh_out % Elements(cnt) % ElementIndex = cnt + &
              Mesh_out % NumberOfBulkElements
-      Mesh_out % Elements(cnt) % Type => GetElementType(404)
+      Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
     END DO
 
     ! Add top boundary:
@@ -2697,7 +2830,7 @@ END SUBROUTINE GetMaxDefs
       ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
       Mesh_out % Elements(cnt) % BoundaryInfo % Left => &
            Mesh_out % Elements(in_levels*Mesh_in % NumberOfBulkElements+i)
-      Mesh_out % Elements(cnt) % BoundaryInfo % Right => Null()
+      Mesh_out % Elements(cnt) % BoundaryInfo % Right => NULL()
 
       Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid+2
 
@@ -2706,7 +2839,7 @@ END SUBROUTINE GetMaxDefs
         Mesh_in % Elements(i) % NodeIndexes+(in_Levels+1)*n
       Mesh_out % Elements(cnt) % ElementIndex = cnt + &
              Mesh_out % NumberOfBulkElements
-      Mesh_out % Elements(cnt) % Type => GetElementType(404)
+      Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
     END DO
 
     Mesh_out % NumberOfBoundaryElements=cnt-Mesh_out % NumberOfBulkElements
@@ -2715,9 +2848,10 @@ END SUBROUTINE GetMaxDefs
     Mesh_out % MaxElementDOFs  = 8
     Mesh_out % MaxElementNodes = 8
     Mesh_out % MeshDim = 3
-    CurrentModel % Dimension = 3
+    CurrentModel % DIMENSION = 3
 !   CALL WriteMeshToDisk( Mesh_out, 'test')
 !------------------------------------------------------------------------------
+
   END FUNCTION MeshExtrude
 !------------------------------------------------------------------------------
 

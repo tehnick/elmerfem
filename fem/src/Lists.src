@@ -2860,6 +2860,90 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+
+!------------------------------------------------------------------------------
+!> Gets a real valued parameter in one single point with value x.
+!> Note that this uses same logical on sif file as ListGetReal 
+!> but the variable is just a dummy as the dependent function is 
+!> assumed to be set inside the code. This should be used with caution
+!> is it sets some confusing limitations to the user. 
+!------------------------------------------------------------------------------
+   RECURSIVE FUNCTION ListGetFun( List,Name,x,Found,minv,maxv ) RESULT(F)
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: List
+     CHARACTER(LEN=*)  :: Name
+     REAL(KIND=dp) :: x     
+     REAL(KIND=dp)  :: f
+     LOGICAL, OPTIONAL :: Found
+     REAL(KIND=dp), OPTIONAL :: minv,maxv
+!------------------------------------------------------------------------------
+     TYPE(Variable_t), POINTER :: Variable, CVar, TVar
+     TYPE(ValueList_t), POINTER :: ptr
+     REAL(KIND=dp) :: T(1)
+     INTEGER :: i,j,k,k1,l,l0,l1,lsize
+     CHARACTER(LEN=MAX_NAME_LEN) ::  cmd, tmp_str
+     LOGICAL :: AllGlobal
+!------------------------------------------------------------------------------
+
+     F = 0.0_dp
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
+
+     k = 0
+     T(1) = x
+
+     SELECT CASE(ptr % TYPE)
+
+     CASE( LIST_TYPE_VARIABLE_SCALAR )
+
+       IF ( ptr % PROCEDURE /= 0 ) THEN
+         F = ExecRealFunction( ptr % PROCEDURE,CurrentModel, k, T(1) )
+       ELSE
+         IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
+           WRITE(Message,*) 'VALUE TYPE for property [', TRIM(Name), &
+               '] not used consistently.'
+           CALL Fatal( 'ListGetFun', Message )
+           RETURN
+         END IF
+         F = InterpolateCurve( ptr % TValues,ptr % FValues(1,1,:), &
+             X, ptr % CubicCoeff )
+       END IF
+
+     CASE( LIST_TYPE_VARIABLE_SCALAR_STR )
+       WRITE( cmd, * ) 'tx=', X
+       k1 = LEN_TRIM(cmd)
+       CALL matc( cmd, tmp_str, k1 )
+       
+       cmd = ptr % CValue
+       k1 = LEN_TRIM(cmd)
+       CALL matc( cmd, tmp_str, k1 )
+       READ( tmp_str(1:k1), * ) F
+
+     CASE DEFAULT
+       CALL Fatal('ListGetFun','LIST_TYPE not implemented!')
+
+     END SELECT
+
+     IF ( PRESENT( minv ) ) THEN
+        IF ( F < minv ) THEN
+           WRITE( Message,*) 'Given VALUE ', F, ' for property: ', '[', TRIM(Name),']', &
+               ' smaller than given minimum: ', minv
+           CALL Fatal( 'ListGetFun', Message )
+        END IF
+     END IF
+
+     IF ( PRESENT( maxv ) ) THEN
+        IF ( F > maxv ) THEN
+           WRITE( Message,*) 'Given VALUE ', F, ' for property: ', '[', TRIM(Name),']', &
+               ' larger than given maximum ', maxv
+           CALL Fatal( 'ListGetFun', Message )
+        END IF
+     END IF
+
+   END FUNCTION ListGetFun
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
 !> Gets a real valued parameter in the Gaussian integration point defined 
 !> by the local basis function. To speed up things there is a handle associated
