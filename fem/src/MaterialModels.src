@@ -225,6 +225,8 @@ this ise not in USE
 
      CHARACTER(LEN=MAX_NAME_LEN) :: str
 
+     LOGICAL :: SetArrheniusFactor=.FALSE.
+
      INTERFACE
         FUNCTION MaterialUserFunction( Proc,Model,Element,Nodes,n,nd, &
              Basis,dBasisdx,Viscosity,Velo, dVelodx ) RESULT(s)
@@ -287,62 +289,71 @@ this ise not in USE
         IF (.NOT.GotIt) c2n(1:n) = 3.0_dp
         c2 = SUM( Basis(1:n) * c2n(1:n) )
         s = ss/4.0_dp ! the second invariant is not taken from the strain rate tensor, but rather 2*strain rate tensor (that's why we divide by 4 = 2**2)        
-        NodalTemperature(1:n) = ListGetReal(Material, 'Constant Temperature', n, Element % NodeIndexes, GotIt) !we are happy as is
-        IF(.NOT.GotIt) THEN !we have to find a temperature field
+        
+        SetArrheniusFactor = GetLogical(Material, 'Set Arrhenius Factor', GotIt)
+        IF ( (.NOT.GotIt) .OR. .NOT.(SetArrheniusFactor)) THEN
+           NodalTemperature(1:n) = ListGetReal(Material, 'Constant Temperature', n, Element % NodeIndexes, GotIt) !we are happy as is
+           IF(.NOT.GotIt) THEN !we have to find a temperature field
 
-           TemperatureName = GetString(Material, 'Temperature Field Variable', GotIt)
-           IF (.NOT.GotIt) WRITE(TemperatureName,'(A)') 'Temperature'
-           TempSol => VariableGet( CurrentModel % Variables,TRIM(TemperatureName))
-           IF ( ASSOCIATED( TempSol) ) THEN
-              TempPerm    => TempSol % Perm
-              Temperature => TempSol % Values   
-              Temp =  SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
-           ELSE
-              WRITE(Message, '(A,A,A)') 'Could not find variable ',&
-                   TRIM(TemperatureName),' to inquire temperatur field for Glen'
-              CALL FATAL('EffectiveViscosity',Message)
-           END IF
+              TemperatureName = GetString(Material, 'Temperature Field Variable', GotIt)
+              IF (.NOT.GotIt) WRITE(TemperatureName,'(A)') 'Temperature'
+              TempSol => VariableGet( CurrentModel % Variables,TRIM(TemperatureName))
+              IF ( ASSOCIATED( TempSol) ) THEN
+                 TempPerm    => TempSol % Perm
+                 Temperature => TempSol % Values   
+                 Temp =  SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
+              ELSE
+                 WRITE(Message, '(A,A,A)') 'Could not find variable ',&
+                      TRIM(TemperatureName),' to inquire temperatur field for Glen'
+                 CALL FATAL('EffectiveViscosity',Message)
+              END IF
            
-        ELSE
-           Temp = SUM(Basis(1:n) * NodalTemperature(1:n))
-        END IF
+           ELSE
+              Temp = SUM(Basis(1:n) * NodalTemperature(1:n))
+           END IF
         
-        R = GetConstReal( CurrentModel % Constants,'Gas Constant',GotIt)
-        IF (.NOT.GotIt) R = 8.314_dp
-        ! lets for the time being have this hardcoded
-        Tlimit = GetConstReal(Material, 'Limit Temperature', GotIt)
-        IF (.NOT.GotIt) THEN
-           Tlimit = -10.0_dp
-           CALL INFO('EffectiveViscosity','Limit Temperature not found. Setting to -10', Level=5)
-        END IF
-        A1 = GetConstReal(Material, 'Rate Factor 1', GotIt)
-        IF (.NOT.GotIt) THEN
-           A1 = 3.985d-13
-           CALL INFO('EffectiveViscosity','Rate Factor 1 not found. Setting to 3.985e-13', Level=5)
-        END IF
-        A2 = GetConstReal(Material, 'Rate Factor 2', GotIt)
-        IF (.NOT.GotIt) THEN
-           A2 = 1.916d03
-           CALL INFO('EffectiveViscosity','Rate Factor 2 not found. Setting to 1.916E03', Level=5)
-        END IF
-        Q1 = GetConstReal(Material, 'Activation Energy 1', GotIt)
-        IF (.NOT.GotIt) THEN
-           Q1 = 60.0d03
-           CALL INFO('EffectiveViscosity','Activation Energy 1 not found. Setting to 60.0E03', Level=5)
-        END IF
-        Q2 = GetConstReal(Material, 'Activation Energy 2', GotIt)
-        IF (.NOT.GotIt) THEN
-           Q2 = 139.0d03
-           CALL INFO('EffectiveViscosity','Activation Energy 2 not found. Setting to 139.0d03', Level=5)
-        END IF
+           R = GetConstReal( CurrentModel % Constants,'Gas Constant',GotIt)
+           IF (.NOT.GotIt) R = 8.314_dp
+           ! lets for the time being have this hardcoded
+           Tlimit = GetConstReal(Material, 'Limit Temperature', GotIt)
+           IF (.NOT.GotIt) THEN
+              Tlimit = -10.0_dp
+              CALL INFO('EffectiveViscosity','Limit Temperature not found. Setting to -10', Level=5)
+           END IF
+           A1 = GetConstReal(Material, 'Rate Factor 1', GotIt)
+           IF (.NOT.GotIt) THEN
+              A1 = 3.985d-13
+              CALL INFO('EffectiveViscosity','Rate Factor 1 not found. Setting to 3.985e-13', Level=5)
+           END IF
+           A2 = GetConstReal(Material, 'Rate Factor 2', GotIt)
+           IF (.NOT.GotIt) THEN
+              A2 = 1.916d03
+              CALL INFO('EffectiveViscosity','Rate Factor 2 not found. Setting to 1.916E03', Level=5)
+           END IF
+           Q1 = GetConstReal(Material, 'Activation Energy 1', GotIt)
+           IF (.NOT.GotIt) THEN
+              Q1 = 60.0d03
+              CALL INFO('EffectiveViscosity','Activation Energy 1 not found. Setting to 60.0E03', Level=5)
+           END IF
+           Q2 = GetConstReal(Material, 'Activation Energy 2', GotIt)
+           IF (.NOT.GotIt) THEN
+              Q2 = 139.0d03
+              CALL INFO('EffectiveViscosity','Activation Energy 2 not found. Setting to 139.0d03', Level=5)
+           END IF
         
-        IF (Temp.LE. Tlimit) THEN
-           ArrheniusFactor = A1 * EXP( -Q1/(R * (273.15 + Temp)))
-        ELSE IF((Tlimit<Temp) .AND. (Temp .LE. 0.0_dp)) THEN
-           ArrheniusFactor = A2 * EXP( -Q2/(R * (273.15 + Temp)))
+           IF (Temp.LE. Tlimit) THEN
+              ArrheniusFactor = A1 * EXP( -Q1/(R * (273.15 + Temp)))
+           ELSE IF((Tlimit<Temp) .AND. (Temp .LE. 0.0_dp)) THEN
+              ArrheniusFactor = A2 * EXP( -Q2/(R * (273.15 + Temp)))
+           ELSE
+              ArrheniusFactor = A2 * EXP( -Q2/(R * (273.15)))
+              CALL INFO('EffectiveViscosity','Positive Temperature detected in Glen - limiting to zero!', Level = 5)
+           END IF
         ELSE
-           ArrheniusFactor = A2 * EXP( -Q2/(R * (273.15)))
-           CALL INFO('EffectiveViscosity','Positive Temperature detected in Glen - limiting to zero!', Level = 5)
+           ArrheniusFactor = GetConstReal(Material,'Arrhenius Factor', GotIt)
+           IF (.NOT.(GotIt)) THEN 
+              CALL FATAL('EffectiveViscosity','<Set Arrhenius Factor> is TRUE, but no value <Arrhenius Factor> found')
+           END IF
         END IF
 
         NodalEhF(1:n) =  ListGetReal( Material, 'Glen Enhancement Factor', n, Element % NodeIndexes, GotIt )
