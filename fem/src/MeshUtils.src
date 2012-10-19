@@ -2508,6 +2508,14 @@ END SUBROUTINE GetMaxDefs
 
 
 !------------------------------------------------------------------------------
+!> Create node distribution for a unit segment x \in [0,1] with n elements 
+!> i.e. n+1 nodes. There are different options for the type of distribution.
+!> 1) Even distribution 
+!> 2) Geometric distribution
+!> 3) Arbitrary distribution determined by a functional dependence
+!> Note that the 3rd algorithm involves iterative solution of the nodal
+!> positions and is therefore not bullet-proof.
+!------------------------------------------------------------------------------
   SUBROUTINE UnitSegmentDivision( w, n )
     REAL(KIND=dp), ALLOCATABLE :: w(:)
     INTEGER :: n
@@ -2527,14 +2535,14 @@ END SUBROUTINE GetMaxDefs
     IF( GotRatio ) THEN
       CALL Info('UnitSegmentDivision','Creating geometric division',Level=5)
 
-      h1 = (1-q**(1.0_dp/(n+1)))/(1-q)
+      h1 = (1-q**(1.0_dp/n))/(1-q)
       w(0) = 0.0_dp
       hn = h1;
-      DO i=1,n
+      DO i=1,n-1
         w(i) = w(i-1) + hn;
-        hn = hn * ( q**(1.0_dp/(n+1)) )
+        hn = hn * ( q**(1.0_dp/n) )
       END DO
-      w(n+1) = 1.0_dp
+      w(n) = 1.0_dp
 
 
     ! Generic division given by a function
@@ -2544,11 +2552,11 @@ END SUBROUTINE GetMaxDefs
       CALL Info('UnitSegmentDivision','Creating functional division',Level=5)
 
       ! Initial guess is an even distribtion
-      DO i=0,n+1     
-        w(i) = i/(n+1._dp)
+      DO i=0,n     
+        w(i) = i/(1._dp * n)
       END DO
 
-      ALLOCATE( wold(0:n+1),h(1:n+1))
+      ALLOCATE( wold(0:n),h(1:n))
       wold = w
 
       ! paramaters that determine the accuracy of the iteration
@@ -2566,10 +2574,13 @@ END SUBROUTINE GetMaxDefs
         ! and get the mesh parameter for that element from
         ! external function.
         !---------------------------------------------------
-        DO i=1,n+1
+        DO i=1,n
           xn = (w(i)+w(i-1))/2.0_dp
           minhn = MIN( minhn, w(i)-w(i-1) )
           h(i) = ListGetFun( CurrentModel % Simulation,'Extruded Mesh Density', xn )
+          IF( h(i) < EPSILON( h(i) ) ) THEN
+            CALL Fatal('UnitSegmentDivision','Given value for h(i) was negative!')
+          END IF
         END DO
 
         ! Utilize symmetric Gauss-Seidel to compute the new positions, w(i).
@@ -2577,10 +2588,10 @@ END SUBROUTINE GetMaxDefs
         ! Note that something more clever could be applied here. 
         ! This was just a first implementation...
         !-------------------------------------------------------------
-        DO i=1,n
+        DO i=1,n-1
           w(i) = (w(i-1)*h(i+1)+w(i+1)*h(i))/(h(i)+h(i+1))
         END DO
-        DO i=n,1,-1
+        DO i=n-1,1,-1
           w(i) = (w(i-1)*h(i+1)+w(i+1)*h(i))/(h(i)+h(i+1))
         END DO
         
@@ -2598,15 +2609,18 @@ END SUBROUTINE GetMaxDefs
       IF( iter > maxiter ) THEN
         CALL Warn('UnitSegmentDivision','No convergence obtained for the unit mesh division!')
       END IF
+
+    ! Uniform division 
+    !--------------------------------------------------------------
     ELSE
       CALL Info('UnitSegmentDivision','Creating linear division',Level=5)
-      DO i=0,n+1     
-        w(i) = i/(n+1._dp)
+      DO i=0,n     
+        w(i) = i/(1._dp * n)
       END DO
     END IF
 
     CALL Info('UnitSegmentDivision','Mesh division ready',Level=9)
-    DO i=0,n+1
+    DO i=0,n
       WRITE( Message, '(A,I0,A,ES12.4)') 'w(',i,') : ',w(i)
       CALL Info('UnitSegmentDivision', Message, Level=9 )
     END DO
@@ -2617,6 +2631,12 @@ END SUBROUTINE GetMaxDefs
 
 
 
+!------------------------------------------------------------------------------
+!> Given a 2D mesh extrude it to be 3D. The 3rd coordinate will always
+!> be at the interval [0,1]. Therefore the adaptation for different shapes
+!> must be done with StructuredMeshMapper, or some similar utility. 
+!> The top and bottom surface will be assigned Boundary Condition tags
+!> with indexes one larger than the maximum used on by the 2D mesh. 
 !------------------------------------------------------------------------------
   FUNCTION MeshExtrude(Mesh_in, in_levels) RESULT(Mesh_out)
 !------------------------------------------------------------------------------
@@ -2665,7 +2685,7 @@ END SUBROUTINE GetMaxDefs
     ! Create the division for the 1D unit mesh
     !--------------------------------------------
     ALLOCATE( Wtable( 0: in_levels + 1 ) )
-    CALL UnitSegmentDivision( Wtable, in_levels ) 
+    CALL UnitSegmentDivision( Wtable, in_levels + 1 ) 
 
 
     cnt=0
@@ -2777,23 +2797,14 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
       END DO
     END DO
-
     
-    j = ListGetInteger( CurrentModel % Simulation,'First Extuded BC',Found )
-    IF( Found ) THEN
-      IF( j <= max_bid ) THEN
-        CALL Warn('MeshExtrude','Given > First Extruded BC < should be larger than previous max!')
-      END IF
-      max_bid = j - 1
-    END IF
     WRITE( Message,'(A,I0)') 'First Extruded BC set to: ',max_bid+1
     CALL Info('ExtrudeMesh',Message,Level=8)
 
-
     IF(isParallel) THEN
       j=max_bid
-     CALL MPI_ALLREDUCE(j,max_bid,1, &
-           MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+      CALL MPI_ALLREDUCE(j,max_bid,1, &
+          MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
     END IF
 
     ! Add bottom boundary:
@@ -2857,6 +2868,10 @@ END SUBROUTINE GetMaxDefs
 
 
 
+!------------------------------------------------------------------------------
+!> Writes the mesh to disk. Note that this does not include the information
+!> of shared nodes needed in parallel computation. This may be used for 
+!> debugging purposes and for adaptive solution, for example. 
 !------------------------------------------------------------------------------
   SUBROUTINE WriteMeshToDisk( NewMesh, Path )
 !------------------------------------------------------------------------------
@@ -4073,8 +4088,7 @@ END SUBROUTINE FindNeighbourNodes
 !> Split a mesh equally to smaller pieces by performing a uniform split.
 !> Also known as mesh multiplication. A 2D element splits into 4 elements of
 !> same form, and 3D element into 8 elements. 
-!> Currently works only
-!>   for linear elements.
+!> Currently works only for linear elements.
 !------------------------------------------------------------------------------
   FUNCTION SplitMeshEqual( Mesh,h ) RESULT( NewMesh )
 !------------------------------------------------------------------------------
@@ -6234,7 +6248,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-!>     Convert tetrahedral element to Ainsworth & Coyle type tetrahedron.
+!>  Convert tetrahedral element to Ainsworth & Coyle type tetrahedron.
 !------------------------------------------------------------------------------
   SUBROUTINE ConvertToACTetra( Tetra )
 !------------------------------------------------------------------------------
