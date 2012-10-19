@@ -34,7 +34,7 @@ Body 1
 End
 
 Equation 1
-  Active Solvers(2) = 1 2
+  Active Solvers(3) = 1 2 3
 End
 
 Solver 1
@@ -58,7 +58,8 @@ $ nopart = 100
   Particle Accurate Always = Logical True
 
   Particle To Field = Logical True
-  Particle To Field Mode = String "kinetic energy"
+!  Particle To Field Mode = String "kinetic energy"
+  Field 1 = String "kinetic energy"
 
 ! do not cumulate the particles
   Particle To Field Reset = Logical True
@@ -70,12 +71,11 @@ End
 
 Solver 2
 !  Exec Solver = never
-
   Equation = String "FitData"
   Procedure = File "DataToFieldSolver" "DataToFieldSolver"
   Variable = Fitted Field
 
-  Data Field Name = String "Particle Trace"
+  Data Field Name = String "Particle Kinetic Energy"
   Weight Field Name = String "Particle Weight"
   Normalize Data by Weight = Logical True
    
@@ -95,7 +95,7 @@ End
 
 
 Solver 3
-  Exec Solver = never
+!  Exec Solver = never
   Equation = String "ResultOutput"
   Procedure = File "ResultOutputSolve" "ResultOutputSolver"
   Output File Name = String "fields" 
