@@ -478,8 +478,9 @@ END SUBROUTINE GetMaxDefs
     DGIndex = 0
     NeedEdges = .FALSE.
 
-    DO i=1,Mesh % NumberOfBulkElements+1
+   DO i=1,Mesh % NumberOfBulkElements+1
        ! Clear indofs
+
       inDOFs = 0
       CALL eio_get_mesh_element_conns( ElementTags(i),partn,body, &
                   TYPE, inDOFs, nodes, eio_info )
@@ -502,6 +503,7 @@ END SUBROUTINE GetMaxDefs
       Element % TYPE => GetElementType( TYPE )
 
       IF ( ASSOCIATED(Element % TYPE) ) THEN
+
         n = Element % TYPE % NumberOfNodes
         CALL AllocateVector( Element % NodeIndexes, n )
         DO j=1,n
@@ -520,9 +522,15 @@ END SUBROUTINE GetMaxDefs
         END DO
 
         id = Element % BodyId
+        
+        IF( id > SIZE( Model % Bodies ) ) THEN
+          CALL Fatal('LoadMesh','Body id larger than the number of of bodies in sif file!')
+        END IF
+
         Vlist => Model % Bodies(id) % Values
         j = ListGetInteger(Vlist,'Equation',gotIt)
         IF( gotIt ) THEN
+
           Vlist => Model % Equations(j) % Values
           ElementDef0=ListGetString(Vlist,'Element',Found )
           DO j=1,Model % NumberOfSolvers
