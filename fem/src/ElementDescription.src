@@ -5143,8 +5143,18 @@ END FUNCTION PointFaceDistance
 
       END SELECT
 
-      ! If the iteration does not proceed try with some relaxation
       IF( i > 10 ) THEN
+        ! If the same values is suggested over and over again, then exit
+        ! This may be a sign that the node is off-plane and cannot be 
+        ! described within the element.
+        IF( SUM( ABS( delta - prevdelta ) ) < acc ) EXIT
+
+        ! Use sloppier criteria when iteration still unsuccesfull
+        IF( i > 20 ) THEN
+          IF( SUM( ABS( delta - prevdelta ) ) < SQRT( acc ) ) EXIT         
+        END IF
+
+        ! If the iteration does not proceed try with some relaxation
         delta = 0.5_dp * delta 
       END IF
 
@@ -5152,12 +5162,6 @@ END FUNCTION PointFaceDistance
       v = v - delta(2)
       w = w - delta(3)
 
-      ! If the same values is suggested over and over again, then exit
-      ! This may be a sign that the node is off-plane and cannot be 
-      ! described within the element.
-      IF( SUM( ABS( delta - prevdelta ) ) < TINY( err ) ) THEN
-        EXIT
-      END IF
 
 !------------------------------------------------------------------------------
     END DO
@@ -5165,19 +5169,19 @@ END FUNCTION PointFaceDistance
 
     IF ( .NOT. Converged ) THEN        
       IF( err > SQRT( acc ) ) THEN
-        IF( i > MaxIter ) THEN
+        IF( i > MaxIter ) THEN	
           CALL Warn( 'GlobalToLocal', 'did not converge.')
-          PRINT *,'rst',r,s,t,EPSILON(1.0_dp) 
-          PRINT *,'err',i,err,acc,SQRT(acc)
-          PRINT *,'delta',delta
-          PRINT *,'prevdelta',prevdelta
-          PRINT *,'dim',Element % TYPE % DIMENSION,'delta',delta,'uvw',u,v,w
+          PRINT *,'rst',i,r,s,t
+          PRINT *,'err',err,acc,SQRT(acc)
+          PRINT *,'delta',delta,prevdelta
+          PRINT *,'uvw',u,v,w
+          PRINT *,'code',Element % Type % ElementCode
           PRINT *,'x:',x,ElementNodes % x
           PRINT *,'y:',y,ElementNodes % y
           PRINT *,'z:',z,ElementNodes % z
         ELSE
 !          CALL Warn( 'GlobalToLocal', 'Node may be out of element')
-!          PRINT *,'rst',r,s,t,EPSILON(1.0_dp)           
+!          PRINT *,'rst',i,r,s,t,acc
         END IF
       END IF
     END IF
