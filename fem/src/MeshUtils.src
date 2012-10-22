@@ -2650,7 +2650,7 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n
+    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n,nbody
     TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
     LOGICAL :: isParallel, Found
@@ -2746,34 +2746,29 @@ END SUBROUTINE GetMaxDefs
         cnt=cnt+1
 
         Mesh_out % Elements(cnt) = Mesh_in % Elements(j)
-        SELECT CASE(Mesh_in % Elements(j) % Type % ElementCode/100)
-        CASE(3)
-          l_n=6
-          ind(1) = Mesh_in % Elements(j) % NodeIndexes(1)+i*n
-          ind(2) = Mesh_in % Elements(j) % NodeIndexes(2)+i*n
-          ind(3) = Mesh_in % Elements(j) % NodeIndexes(3)+i*n
-          ind(4) = Mesh_in % Elements(j) % NodeIndexes(1)+(i+1)*n
-          ind(5) = Mesh_in % Elements(j) % NodeIndexes(2)+(i+1)*n
-          ind(6) = Mesh_in % Elements(j) % NodeIndexes(3)+(i+1)*n
-          Mesh_out % Elements(cnt) % TYPE => GetElementType(706)
-          Mesh_out % MaxElementNodes=MAX(Mesh_out % MaxElementNodes,6)
-        CASE(4)
-          l_n=8
-          ind(1) = Mesh_in % Elements(j) % NodeIndexes(1)+i*n
-          ind(2) = Mesh_in % Elements(j) % NodeIndexes(2)+i*n
-          ind(3) = Mesh_in % Elements(j) % NodeIndexes(3)+i*n
-          ind(4) = Mesh_in % Elements(j) % NodeIndexes(4)+i*n
-          ind(5) = Mesh_in % Elements(j) % NodeIndexes(1)+(i+1)*n
-          ind(6) = Mesh_in % Elements(j) % NodeIndexes(2)+(i+1)*n
-          ind(7) = Mesh_in % Elements(j) % NodeIndexes(3)+(i+1)*n
-          ind(8) = Mesh_in % Elements(j) % NodeIndexes(4)+(i+1)*n
-          Mesh_out % Elements(cnt) % TYPE => GetElementType(808)
-          Mesh_out % MaxElementNodes=MAX(Mesh_out % MaxElementNodes,8)
-        END SELECT
+
+        l_n=0
+        DO k=1,Mesh_in % Elements(j) % Type % NumberOfNodes
+          l_n=l_n+1
+          ind(l_n) = Mesh_in % Elements(j) % NodeIndexes(k)+i*n
+        END DO
+        DO k=1,Mesh_in % Elements(j) % Type % NumberOfNodes
+          l_n=l_n+1
+          ind(l_n) = Mesh_in % Elements(j) % NodeIndexes(k)+(i+1)*n
+        END DO
         Mesh_out % Elements(cnt) % NDOFs = l_n
+        Mesh_out % MaxElementNodes=MAX(Mesh_out % MaxElementNodes,l_n)
+
+        SELECT CASE(l_n)
+        CASE(6)
+          Mesh_out % Elements(cnt) % Type => GetElementType(706)
+        CASE(8)
+          Mesh_out % Elements(cnt) % Type => GetElementType(808)
+        END SELECT
+
+        Mesh_out % Elements(cnt) % ElementIndex = cnt
         ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n)) 
         Mesh_out % Elements(cnt) % NodeIndexes = ind(1:l_n)
-        Mesh_out % Elements(cnt) % ElementIndex = cnt
       END DO
     END DO
     Mesh_out % NumberOfBulkElements=cnt
@@ -2831,6 +2826,11 @@ END SUBROUTINE GetMaxDefs
     WRITE( Message,'(A,I0)') 'First Extruded BC set to: ',max_bid+1
     CALL Info('ExtrudeMesh',Message,Level=8)
 
+    nbody=0
+    DO i=1,Mesh_in % NumberOfBulkElements
+      nbody = MAX(nbody,Mesh_in % Elements(i) % Bodyid)
+    END DO
+
     ! Add bottom boundary:
     ! --------------------
     DO i=1,Mesh_in % NumberOfBulkElements
@@ -2846,7 +2846,8 @@ END SUBROUTINE GetMaxDefs
            Mesh_out % Elements(i)
       Mesh_out % Elements(cnt) % BoundaryInfo % Right => NULL()
 
-      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid+1
+      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid + &
+           Mesh_out % Elements(cnt) % BodyId
 
       ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n))
       Mesh_out % Elements(cnt) % NodeIndexes = &
@@ -2871,7 +2872,8 @@ END SUBROUTINE GetMaxDefs
            Mesh_out % Elements(in_levels*Mesh_in % NumberOfBulkElements+i)
       Mesh_out % Elements(cnt) % BoundaryInfo % Right => NULL()
 
-      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid+2
+      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid + &
+           Mesh_out % Elements(cnt) % BodyId + nbody
 
       ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n))
       Mesh_out % Elements(cnt) % NodeIndexes = &
