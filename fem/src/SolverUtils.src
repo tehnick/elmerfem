@@ -506,7 +506,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: Element
      REAL(KIND=dp), ALLOCATABLE :: Passive(:)
-     INTEGER :: body_id, bf_id, nlen, NbrNodes
+     INTEGER :: body_id, bf_id, nlen, NbrNodes,PassNodes, LimitNodes
      LOGICAL :: Found
      CHARACTER(LEN=MAX_NAME_LEN) :: PassName
 
@@ -541,9 +541,31 @@ CONTAINS
          ALLOCATE( Passive(NbrNodes) )
        END IF
        Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
-           PassName, NbrNodes, Element % NodeIndexes, Found )
-       IF ( Found ) THEN
-         IF (COUNT(Passive(1:NbrNodes)>0)>COUNT(Passive(1:NbrNodes)<0))  IsPassive = .TRUE.
+           PassName, NbrNodes, Element % NodeIndexes )
+       PassNodes = COUNT(Passive(1:NbrNodes)>0)
+
+       ! Go through the extremum cases first, and if the element is not either fully 
+       ! active or passive, then check for some possible given criteria for determining 
+       ! the element active / passive. 
+       !------------------------------------------------------------------------------
+       IF( PassNodes == 0 ) THEN
+         CONTINUE
+       ELSE IF( PassNodes == NbrNodes ) THEN
+         IsPassive = .TRUE.
+       ELSE
+         LimitNodes = ListGetInteger( CurrentModel % BodyForces(bf_id) % Values, &
+             'Passive Element Min Nodes',Found )
+         IF( Found ) THEN
+           IsPassive = ( PassNodes >= LimitNodes )
+         ELSE
+           LimitNodes = ListGetInteger( CurrentModel % BodyForces(bf_id) % Values, &
+               'Active Element Min Nodes',Found )
+           IF( Found ) THEN
+             IsPassive = ( PassNodes > NbrNodes - LimitNodes )
+           ELSE
+             IsPassive = ( 2*PassNodes > NbrNodes )
+           END IF
+         END IF
        END IF
      END IF
    
