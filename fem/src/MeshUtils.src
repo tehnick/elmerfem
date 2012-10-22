@@ -2650,7 +2650,7 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid
+    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n
     TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
     LOGICAL :: isParallel, Found
@@ -2735,29 +2735,45 @@ END SUBROUTINE GetMaxDefs
 
     ! Generate volume bulk elements:
     ! ------------------------------
+
+    Mesh_out % MaxElementNodes=0
+
     cnt=0
     n=Mesh_in % NumberOfNodes
     DO i=0,in_levels
       DO j=1,Mesh_in % NumberOfBulkElements
-        ind(1) = Mesh_in % Elements(j) % NodeIndexes(1)+i*n
-        ind(2) = Mesh_in % Elements(j) % NodeIndexes(2)+i*n
-        ind(3) = Mesh_in % Elements(j) % NodeIndexes(3)+i*n
-        ind(4) = Mesh_in % Elements(j) % NodeIndexes(4)+i*n
-
-        ind(5) = Mesh_in % Elements(j) % NodeIndexes(1)+(i+1)*n
-        ind(6) = Mesh_in % Elements(j) % NodeIndexes(2)+(i+1)*n
-        ind(7) = Mesh_in % Elements(j) % NodeIndexes(3)+(i+1)*n
-        ind(8) = Mesh_in % Elements(j) % NodeIndexes(4)+(i+1)*n
 
         cnt=cnt+1
 
         Mesh_out % Elements(cnt) = Mesh_in % Elements(j)
-        Mesh_out % Elements(cnt) % NDOFs = 8
-
-        ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(8)) 
-        Mesh_out % Elements(cnt) % NodeIndexes = ind
+        SELECT CASE(Mesh_in % Elements(j) % Type % ElementCode/100)
+        CASE(3)
+          l_n=6
+          ind(1) = Mesh_in % Elements(j) % NodeIndexes(1)+i*n
+          ind(2) = Mesh_in % Elements(j) % NodeIndexes(2)+i*n
+          ind(3) = Mesh_in % Elements(j) % NodeIndexes(3)+i*n
+          ind(4) = Mesh_in % Elements(j) % NodeIndexes(1)+(i+1)*n
+          ind(5) = Mesh_in % Elements(j) % NodeIndexes(2)+(i+1)*n
+          ind(6) = Mesh_in % Elements(j) % NodeIndexes(3)+(i+1)*n
+          Mesh_out % Elements(cnt) % TYPE => GetElementType(706)
+          Mesh_out % MaxElementNodes=MAX(Mesh_out % MaxElementNodes,6)
+        CASE(4)
+          l_n=8
+          ind(1) = Mesh_in % Elements(j) % NodeIndexes(1)+i*n
+          ind(2) = Mesh_in % Elements(j) % NodeIndexes(2)+i*n
+          ind(3) = Mesh_in % Elements(j) % NodeIndexes(3)+i*n
+          ind(4) = Mesh_in % Elements(j) % NodeIndexes(4)+i*n
+          ind(5) = Mesh_in % Elements(j) % NodeIndexes(1)+(i+1)*n
+          ind(6) = Mesh_in % Elements(j) % NodeIndexes(2)+(i+1)*n
+          ind(7) = Mesh_in % Elements(j) % NodeIndexes(3)+(i+1)*n
+          ind(8) = Mesh_in % Elements(j) % NodeIndexes(4)+(i+1)*n
+          Mesh_out % Elements(cnt) % TYPE => GetElementType(808)
+          Mesh_out % MaxElementNodes=MAX(Mesh_out % MaxElementNodes,8)
+        END SELECT
+        Mesh_out % Elements(cnt) % NDOFs = l_n
+        ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n)) 
+        Mesh_out % Elements(cnt) % NodeIndexes = ind(1:l_n)
         Mesh_out % Elements(cnt) % ElementIndex = cnt
-        Mesh_out % Elements(cnt) % TYPE => GetElementType(808)
       END DO
     END DO
     Mesh_out % NumberOfBulkElements=cnt
@@ -2806,14 +2822,14 @@ END SUBROUTINE GetMaxDefs
       END DO
     END DO
     
-    WRITE( Message,'(A,I0)') 'First Extruded BC set to: ',max_bid+1
-    CALL Info('ExtrudeMesh',Message,Level=8)
-
     IF(isParallel) THEN
       j=max_bid
       CALL MPI_ALLREDUCE(j,max_bid,1, &
           MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
     END IF
+
+    WRITE( Message,'(A,I0)') 'First Extruded BC set to: ',max_bid+1
+    CALL Info('ExtrudeMesh',Message,Level=8)
 
     ! Add bottom boundary:
     ! --------------------
@@ -2821,7 +2837,9 @@ END SUBROUTINE GetMaxDefs
       cnt=cnt+1
 
       Mesh_out % Elements(cnt) = Mesh_in % Elements(i)
-      Mesh_out % Elements(cnt) % NDOFs = 4
+
+      l_n=Mesh_in % Elements(i) % Type % NumberOfNodes
+      Mesh_out % Elements(cnt) % NDOFs = l_n
 
       ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
       Mesh_out % Elements(cnt) % BoundaryInfo % Left => &
@@ -2830,12 +2848,12 @@ END SUBROUTINE GetMaxDefs
 
       Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid+1
 
-      ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4))
+      ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n))
       Mesh_out % Elements(cnt) % NodeIndexes = &
         Mesh_in % Elements(i) % NodeIndexes
-      Mesh_out % Elements(cnt) % ElementIndex = cnt + &
-             Mesh_out % NumberOfBulkElements
-      Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
+      Mesh_out % Elements(cnt) % ElementIndex = cnt
+      Mesh_out % Elements(cnt) % TYPE => &
+        Mesh_in % Elements(i) % TYPE
     END DO
 
     ! Add top boundary:
@@ -2844,7 +2862,9 @@ END SUBROUTINE GetMaxDefs
       cnt=cnt+1
 
       Mesh_out % Elements(cnt) = Mesh_in % Elements(i)
-      Mesh_out % Elements(cnt) % NDOFs = 4
+
+      l_n=Mesh_in % Elements(i) % Type % NumberOfNodes
+      Mesh_out % Elements(cnt) % NDOFs = l_n
 
       ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
       Mesh_out % Elements(cnt) % BoundaryInfo % Left => &
@@ -2853,19 +2873,18 @@ END SUBROUTINE GetMaxDefs
 
       Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid+2
 
-      ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4))
+      ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n))
       Mesh_out % Elements(cnt) % NodeIndexes = &
         Mesh_in % Elements(i) % NodeIndexes+(in_Levels+1)*n
-      Mesh_out % Elements(cnt) % ElementIndex = cnt + &
-             Mesh_out % NumberOfBulkElements
-      Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
+      Mesh_out % Elements(cnt) % ElementIndex = cnt
+      Mesh_out % Elements(cnt) % TYPE => &
+        Mesh_in % Elements(i) % TYPE
     END DO
 
     Mesh_out % NumberOfBoundaryElements=cnt-Mesh_out % NumberOfBulkElements
 
     Mesh_out % Name=Mesh_in % Name
-    Mesh_out % MaxElementDOFs  = 8
-    Mesh_out % MaxElementNodes = 8
+    Mesh_out % MaxElementDOFs  = Mesh_out % MaxElementNodes
     Mesh_out % MeshDim = 3
     CurrentModel % DIMENSION = 3
 !   CALL WriteMeshToDisk( Mesh_out, 'test')
