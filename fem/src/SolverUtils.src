@@ -4994,7 +4994,7 @@ END FUNCTION SearchNodeL
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis,&
-               BackRotation, ApplyRowEquilibration, Parallel
+               BackRotation, ApplyRowEquilibration, ApplyLimiter, Parallel
     INTEGER :: n,i,j,k,l,ii,m,DOF,istat,this
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
@@ -5069,7 +5069,10 @@ END FUNCTION SearchNodeL
     HarmonicAnalysis = Solver % NOFEigenValues>0 .AND. &
         ListGetLogical( Params, 'Harmonic Analysis',GotIt )
 
-    IF ( .NOT. HarmonicAnalysis .AND. .NOT. EigenAnalysis ) THEN
+    ApplyLimiter = ListGetLogical( Params,'Apply Limiter',GotIt ) 
+
+
+    IF ( .NOT. ( HarmonicAnalysis .OR. EigenAnalysis .OR. ApplyLimiter ) ) THEN
       bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
       IF ( bnorm <= TINY( bnorm) ) THEN
         CALL Info('SolveSystem','Solution trivially zero!')
@@ -5112,6 +5115,20 @@ END FUNCTION SearchNodeL
       RETURN
     END IF
 
+
+
+! If whether b=0 since then equation Ax=b has only the trivial solution, x=0. 
+! In case of a limiter one still may need to check the limiter for contact.
+!-----------------------------------------------------------------------------
+    bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+    IF ( bnorm <= TINY( bnorm) ) THEN
+      CALL Info('SolveSystem','Solution trivially zero!')
+      x = 0.0d0
+      IF( ApplyLimiter ) THEN
+        CALL DetermineSoftLimiter( Solver ) 	 
+      END IF
+      RETURN
+    END IF
 
 ! 
 !   Convert rhs & initial value to the scaled system:
@@ -5286,7 +5303,7 @@ END FUNCTION SearchNodeL
  ! in the next round. Within apply a hard limiter after the set is
  ! determined.
  !---------------------------------------------------------------------
-   IF( ListGetLogical( Params,'Apply Limiter',GotIt) ) THEN
+   IF( ApplyLimiter ) THEN
      CALL DetermineSoftLimiter( Solver ) 	
    END IF
 
