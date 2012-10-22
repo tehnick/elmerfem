@@ -2650,7 +2650,7 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n,nbody
+    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n,max_body
     TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
     LOGICAL :: isParallel, Found
@@ -2826,10 +2826,15 @@ END SUBROUTINE GetMaxDefs
     WRITE( Message,'(A,I0)') 'First Extruded BC set to: ',max_bid+1
     CALL Info('ExtrudeMesh',Message,Level=8)
 
-    nbody=0
+    max_body=0
     DO i=1,Mesh_in % NumberOfBulkElements
-      nbody = MAX(nbody,Mesh_in % Elements(i) % Bodyid)
+      max_body = MAX(max_body,Mesh_in % Elements(i) % Bodyid)
     END DO
+    IF(isParallel) THEN
+      j=max_body
+      CALL MPI_ALLREDUCE(j,max_body,1, &
+          MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+    END IF
 
     ! Add bottom boundary:
     ! --------------------
@@ -2873,7 +2878,7 @@ END SUBROUTINE GetMaxDefs
       Mesh_out % Elements(cnt) % BoundaryInfo % Right => NULL()
 
       Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid + &
-           Mesh_out % Elements(cnt) % BodyId + nbody
+           Mesh_out % Elements(cnt) % BodyId + max_body
 
       ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n))
       Mesh_out % Elements(cnt) % NodeIndexes = &
