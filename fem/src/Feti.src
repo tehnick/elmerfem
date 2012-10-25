@@ -560,23 +560,26 @@ CONTAINS
             Vals(1:n)=GetReal(BC,Solver % Variable % Name,Found)
           END IF
 
+          FoundUpper=.FALSE.
+          FoundLower=.FALSE.
           IF(.NOT.Found) THEN
             IF (d>1) THEN
-              Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j)//' Upper Limit',FoundUpper)
+              Vals(1:n)=GetReal(BC,TRIM(ComponentName(Solver % Variable,j))//' Upper Limit',FoundUpper)
             ELSE
-              Vals(1:n)=GetReal(BC,Solver % Variable % Name//' Upper Limit',FoundUpper)
+              Vals(1:n)=GetReal(BC,TRIM(Solver % Variable % Name)//' Upper Limit',FoundUpper)
             END IF
 
             IF(.NOT.FoundUpper) THEN
               IF (d>1) THEN
-                Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j)//' Lower Limit',FoundLower)
+                Vals(1:n)=GetReal(BC,TRIM(ComponentName(Solver % Variable,j))//' Lower Limit',FoundLower)
               ELSE
-                Vals(1:n)=GetReal(BC,Solver % Variable % Name//' Lower Limit',FoundLower)
+                Vals(1:n)=GetReal(BC,TRIM(Solver % Variable % Name)//' Lower Limit',FoundLower)
               END IF
             END IF
           END IF
 
-          IF (.NOT.Found.AND..NOT.FoundUpper.AND..NOT.FoundLower) CYCLE
+          IF (.NOT.(Found.OR.FoundUpper.OR.FoundLower)) CYCLE
+
           DO k=1,n
             l = p(Element % NodeIndexes(k))
             IF (l<=0) CYCLE 
@@ -766,10 +769,13 @@ CONTAINS
       ! --------------------------
       CALL List_ToCRSMatrix(Bmat)
 
-      IF(dumptofiles) CALL SaveB(A,ninterface,lint)
 
       DEALLOCATE(gdofs,ldofs,procs)
       InitializeIf = .FALSE.
+      IF(dumptofiles) THEN
+        CALL SaveB(A,ninterface,lint)
+        RETURN
+      END IF
     END IF
 !------------------------------------------------------------------------------
 
@@ -2148,7 +2154,10 @@ END SUBROUTINE FetiProject
 #endif
     END IF
 
-    IF(dumptofiles) CALL SaveR()
+    IF(dumptofiles) THEN
+      CALL SaveR()
+      CALL ParallelFinalize(); STOP
+    END IF
 
     ! add Dirichlet BC contribution to the r.h.s., if using Total FETI:
     ! ------------------------------------------------------------------
