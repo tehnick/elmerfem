@@ -447,8 +447,8 @@ CONTAINS
        DO iter = 1,MaxIter
           ResidualNorm = GMGSweep()
 
-          WRITE(Message,'(A,I4,A,I5,A,E20.12E3,E20.12E3)') 'MG Residual at level:', &
-                 Level, ' iter:', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
+          WRITE(Message,'(A,I0,A,I0,A,2E20.12E3)') 'MG Residual at level: ', &
+                 Level, ' iter: ', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
           CALL Info( 'GMGSolve', Message, Level=5 )
 
           IF( Level == Solver % MultiGridTotal ) THEN
@@ -1125,8 +1125,8 @@ CONTAINS
        DO iter = 1,MaxIter
           ResidualNorm = PMGSweep()
 
-          WRITE(Message,'(A,I4,A,I5,A,E20.12E3,E20.12E3)') 'MG Residual at level:', &
-                 Level, ' iter:', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
+          WRITE(Message,'(A,I0,A,I0,A,2E20.12E3)') 'MG Residual at level: ', &
+                 Level, ' iter: ', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
           CALL Info( 'PMGSolve', Message, Level=5 )
 
           IF( Level == Solver % MultiGridTotal ) THEN
@@ -1669,8 +1669,8 @@ CONTAINS
     DO iter = 1,MaxIter
       ResidualNorm = AMGSweep() / RHSNorm
     
-      WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
-          Level, ' iter:', iter,' is:', ResidualNorm
+      WRITE(Message,'(A,I0,A,I0,A,E20.12E3)') 'MG Residual at level: ', &
+          Level, ' iter: ', iter,' is:', ResidualNorm
       CALL Info( 'AMGSolve', Message, Level=5 )
       
       IF ( ResidualNorm < Tolerance ) EXIT
@@ -4988,10 +4988,8 @@ CONTAINS
     
 !------------------------------------------------------------------------------
 
-    IF(.FALSE.) THEN 
-      WRITE(Message,'(A,I2)') 'Starting level ',Level
-      CALL Info('CMGSolve',Message)
-    END IF
+    WRITE(Message,'(A,I2)') 'Starting level ',Level
+    CALL Info('CMGSolve',Message,Level=10)
 
     IF( ParEnv % PEs > 1 ) THEN
       CALL Fatal('CMGSolve','This agglomeration multigrid is not parallel')
@@ -5038,8 +5036,11 @@ CONTAINS
     IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
+
       NewLinearSystem = .FALSE.
       IF(Level == 1 .AND. PRESENT(NewSystem)) NewSystem = .FALSE.
+
+      CALL ListSetNamespace('mglowest:')
 
       LowestSolver = ListGetString(Params,'MG Lowest Linear Solver',Found)
 
@@ -5050,6 +5051,8 @@ CONTAINS
         IF ( LIter ) LowestSolver='iterative'
       END IF
       
+      CALL Info('CMGSolve','Solving for the lowest level: '//TRIM(LowestSolver),Level=8)
+       
       SELECT CASE( LowestSolver )
         
       CASE('iterative')
@@ -5093,6 +5096,10 @@ CONTAINS
       END IF
 
       DEALLOCATE( Residual ) 
+
+      CALL ListSetNamespace('')
+      CALL Info('CMGSolve','Lowest level solved',Level=9)
+
       RETURN
 
     END IF
@@ -5260,8 +5267,8 @@ CONTAINS
     DO iter = 1,MaxIter
       ResidualNorm = CMGSweep()
       
-      WRITE(Message,'(A,I4,A,I5,A,E20.12E3,E20.12E3)') 'MG Residual at level:', &
-          Level, ' iter:', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
+      WRITE(Message,'(A,I0,A,I0,A,2E20.12E3)') 'MG Residual at level: ', &
+          Level, ' iter: ', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
       CALL Info( 'CMGSolve', Message, Level=5 )
 
       IF( Level == Solver % MultiGridTotal ) THEN
@@ -5295,6 +5302,9 @@ CONTAINS
       IF(CoarseSave) CALL SaveClusters()
     END IF
 
+    WRITE(Message,'(A,I2)') 'Finishing level ',Level
+    CALL Info('CMGSolve',Message,Level=10)
+
     RETURN
 !------------------------------------------------------------------------------
 
@@ -5327,8 +5337,9 @@ CONTAINS
       END IF
       
       PSolver => Solver
+      CALL Info('CMGSweep','Calling presmoother',Level=9)
       RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, ForceVector, &
-          Residual, Level, DOFs, PreSmooth = .TRUE.)
+          Residual, Level, DOFs, PreSmooth = .TRUE., CF = CF)
       
 !------------------------------------------------------------------------------
 !
@@ -5377,8 +5388,9 @@ CONTAINS
 !      Post smoothing:
 !      ---------------
 
+      CALL Info('CMGSweep','Calling postmoother',Level=9)
       RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, ForceVector, &
-          Residual, Level, DOFs )
+          Residual, Level, DOFs, CF = CF )
 !------------------------------------------------------------------------------
     END FUNCTION CMGSweep
 !------------------------------------------------------------------------------

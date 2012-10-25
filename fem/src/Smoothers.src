@@ -124,11 +124,15 @@ CONTAINS
         END IF
       END IF
 
-      
+      Rounds = 0
       IF(Lowest) THEN
         Rounds = ListGetInteger( Solver % Values,'MG Lowest Smoothing Iterations',Found)
       END IF
-      IF(Pre .OR. (Lowest .AND. .NOT. Found)) THEN
+      PRINT *,'Lowest',Lowest,Found,Rounds
+
+      IF( Rounds > 0 ) THEN
+        CONTINUE
+      ELSE IF( Pre ) THEN
         Iters => ListGetIntegerArray( Solver % Values,'MG Pre Smoothing Iterations',Found)
         IF(Found) THEN
           Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
@@ -143,6 +147,13 @@ CONTAINS
           Rounds = 1
         END IF
       END IF
+      
+      IF( IterMethod == 'direct' .OR. IterMethod == 'psgs' ) THEN
+        IF( .NOT. PRESENT( CF ) ) THEN
+          CALL Fatal('MGSmooth','Smoother requires CF clustering info: '//TRIM(IterMethod))
+        END IF
+      END IF
+
 
       RNorm = MGnorm( n, Mr ) 
       IF ( Rounds <= 0 ) RETURN
@@ -163,6 +174,8 @@ CONTAINS
           Omega = 1.0d0
         END IF
       END IF
+
+      CALL Info('MGSmooth','Applying smoother: '//TRIM(IterMethod), Level=10 )
 
       SELECT CASE( IterMethod )
       CASE( 'jacobi' ) 
@@ -198,6 +211,9 @@ CONTAINS
       CASE( 'psgs' )                                     
         CALL PostSGS( n, A, M, Mx, Mb, Mr, CF, Rounds)
 
+      CASE( 'direct' )                                     
+        CALL DirectSmoother( n, A, M, Mx, Mb, Mr, CF, Rounds)
+
       CASE( 'cg' )
         CALL CG( n, A, M, Mx, Mb, Mr, Rounds )
 
@@ -205,6 +221,7 @@ CONTAINS
         CALL CCG( n, A, M, Mx, Mb, Mr, Rounds )
        
       CASE( 'bicgstab' )
+PRINT *,'rounds 1',rounds
        CALL BiCG( n, A, M, Mx, Mb, Mr, Rounds )
 
       CASE( 'uzawa' )                                   
@@ -217,7 +234,7 @@ CONTAINS
         CALL TestGS( n, A, M, Mx, Mb, Mr, Rounds )
 
       CASE DEFAULT
-        CALL Warn('MGSmooth','Unknown smoother, using Jacobi')
+        CALL Warn('MGSmooth','Unknown smoother - '//TRIM(IterMethod)//' using Jacobi')
         CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
       END SELECT
 
@@ -816,6 +833,106 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> For some cases a smoother that only works with the local strong connections
+!> might be ideal. Given the clustering "f" just picks the entries i and j 
+!> such that f(i)=f(j) and use the reduced matrix in a direct solver to smooth
+!> the system. Note that the method guarantees that the linear system actually
+!> consists of a number of local problems that are fairly small in size. 
+!------------------------------------------------------------------------------
+      SUBROUTINE DirectSmoother( n, A, M, x, b, r, f, Rounds )
+!------------------------------------------------------------------------------
+        USE DirectSolve
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        INTEGER, POINTER :: f(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
+        INTEGER :: i,j,k,kb,n
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:),ColsB(:),RowsB(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:),ValuesB(:)
+        TYPE(Matrix_t), POINTER :: Acluster => NULL()
+        
+        SAVE :: Acluster
+
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+
+PRINT *,'CF range:',MINVAL(f),MAXVAL(f),SIZE(f)
+        
+        ! First time, compute the size of the reduced matrix
+        !---------------------------------------------------
+        IF(.NOT. ASSOCIATED( Acluster ) ) THEN
+          ALLOCATE( Acluster ) 
+          ALLOCATE( Acluster % Rows(n+1) )
+          Acluster % NumberOfRows = n
+          Acluster % Rows = 0
+          RowsB => Acluster % Rows
+
+          kb = 1
+          RowsB(kb) = 1
+          DO i=1,n
+            DO k=Rows(i),Rows(i+1)-1
+              j = Cols(k)
+              IF( f(i) == f(j) ) THEN
+                kb = kb + 1
+              END IF
+            END DO
+            RowsB(i+1) = kb
+          END DO
+          
+          ALLOCATE( Acluster % Cols(kb-1), Acluster % Values(kb-1) )
+          Acluster % Cols = 0
+          Acluster % Values = 0.0_dp
+        END IF
+
+
+        ! Note: this assumes that the matrix is the same!!
+        ! Make better if you start using it more
+        !--------------------------------------------------
+        ValuesB => Acluster % Values
+        RowsB => Acluster % Rows
+        ColsB => Acluster % Cols
+
+
+        ! Now pick up the values for the reduced matrix.
+        ! Initialization of ColsB could actually be done 
+        ! as a preprocessing step...
+        !--------------------------------------------------
+        kb = 1
+        DO i=1,n
+          DO k=Rows(i),Rows(i+1)-1
+            j = Cols(k)
+            IF( f(i) == f(j) ) THEN
+              ValuesB(kb) = Values(k)
+              ColsB(kb) = j
+              kb = kb + 1
+            END IF
+          END DO
+        END DO
+
+        CALL Info('DirectSmoother','Reduced vs. original direct system')
+        PRINT *,'Fraction in size:',1.0_dp*SIZE(ValuesB)/SIZE(Values)      
+        PRINT *,'Fraction in values:',SUM(ABS(ValuesB))/SUM(ABS(Values))
+        
+        CALL MGmv( A, x, r )
+        r(1:n) = b(1:n) - r(1:n)
+        PRINT *,'Norm1:',SUM(r**2)
+
+        CALL DirectSolver( Acluster, x, r, Solver )
+
+        ! x(1:n) = x(1:n) / M % Values(M % Diag(1:n))
+
+      END SUBROUTINE DirectSmoother
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+!> Conjugate gradient as a smoother. 
+!------------------------------------------------------------------------------
       SUBROUTINE CG( n, A, M, x, b, r, Rounds )
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A,M
@@ -851,6 +968,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Complex valued conjugate gradient as a smoother.
 !------------------------------------------------------------------------------
       SUBROUTINE CCG( n, A, M, rx, rb, rr, Rounds )
 !------------------------------------------------------------------------------
@@ -902,6 +1021,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Uzawa algorithm as a smoother.
 !------------------------------------------------------------------------------
       SUBROUTINE Uzawa( n, A, M, x, b, r, Rounds )
 !------------------------------------------------------------------------------
@@ -1142,6 +1263,9 @@ END DO
         INTEGER :: i,n
         REAL(KIND=dp) :: alpha,beta,omega,rho,oldrho
 !------------------------------------------------------------------------------
+
+        PRINT *,'BiCG smoother',Rounds
+
         IF ( Rounds <= 0 ) RETURN
 
         CALL MGmv( A, x, r )

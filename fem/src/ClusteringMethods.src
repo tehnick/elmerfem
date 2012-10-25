@@ -89,6 +89,8 @@ CONTAINS
       Mesh => Solver % Mesh 
       MaskPerm => Solver % Variable % Perm
       IF( Amat % NumberOfRows /= Components * Mesh % NumberOfNodes ) THEN
+        PRINT *,'sizes:',Amat % NumberOfRows, Components, Mesh % NumberOfNodes
+
         CALL Fatal('ChoosClusterNodes','Mismatch in dimensions, extruded clustering works only for two levels!')
       END IF
       CALL ClusterExtrudedMesh()
@@ -166,6 +168,12 @@ CONTAINS
 
   CONTAINS
 
+
+    !-------------------------------------------------------------------------------
+    !> This subroutine sets nodes that are now owned by the partition to be passive
+    !> before making the clustering. The idea is to communicate the clustering on 
+    !> parallel level based on the ownership.
+    !-------------------------------------------------------------------------------
     SUBROUTINE SetParallelPassive()
       INTEGER :: i,j
 
@@ -184,7 +192,10 @@ CONTAINS
 
 
 
-    ! Sets a marker for passive dofs everywhere else than at the top layer.
+    !-------------------------------------------------------------------------------
+    !> Sets a marker for passive dofs everywhere else than at the top layer.
+    !> This is intended for the hybrid method where a cluster is first made on
+    !> a level and this is then inherited on the extruded levels. 
     !------------------------------------------------------------------------
     SUBROUTINE PassiveExtrudedMesh()
 
@@ -221,7 +232,10 @@ CONTAINS
     END SUBROUTINE PassiveExtrudedMesh
 
 
-
+    !-------------------------------------------------------------------------------
+    !> First detects an extruded structure using mesh information, and 
+    !> then clusters the nodes along the extruded directions only.
+    !-------------------------------------------------------------------------------
     SUBROUTINE ClusterExtrudedMesh( CFLayer )
 
       INTEGER, POINTER, OPTIONAL :: CFLayer(:)
@@ -240,12 +254,12 @@ CONTAINS
       CF = 0
 
       ClusterSize = ListGetInteger(Solver % Values,'MG Cluster Size',GotIt)
-
+      
       ! Find the extruded structure 
       CALL DetectExtrudedStructure( Mesh, PSolver, ExtVar, &
           TopNodePointer = TopPointer, DownNodePointer = DownPointer, &
           NumberOfLayers = NoLayers )
-      
+  
       ! Numbering of the top layer clusters
       IF( PRESENT( CFLayer ) ) THEN
         NoClusters = MAXVAL( CFLayer ) 
@@ -253,7 +267,6 @@ CONTAINS
       ELSE
         NoClusters = 0
         DO i=1,nsize
-          IF( TopPointer(i) == 0 ) CYCLE
           IF( TopPointer(i) == i ) THEN
             NoClusters = NoClusters + 1
             CF( MaskPerm(i) ) = NoClusters
@@ -272,7 +285,7 @@ CONTAINS
 
           ! inherit the first cluster from the top layer
           cluster = CF( MaskPerm(ind) )
-          DO j = 2,NoLayers
+          DO j = 1,NoLayers
             ind = DownPointer(ind)
 
             ! when cluster size is full start a new cluster layer with offset of NoClusters
