@@ -510,11 +510,11 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Solver_t), POINTER :: Solver
     INTEGER :: i,j,k,l,n,d,Active
-    INTEGER, ALLOCATABLE :: Perm(:)
+    INTEGER, ALLOCATABLE :: Perm(:), InEqualityFlag(:)
     INTEGER, POINTER  :: p(:)
-    LOGICAL :: Found
+    LOGICAL :: Found,FoundUpper,FoundLower
     LOGICAL, ALLOCATABLE :: Done(:)
-    REAL(KIND=dp) :: val
+    REAL(KIND=dp) :: val,scale
     REAL(KIND=dp), ALLOCATABLE :: Vals(:)
     TYPE(ValueList_t), POINTER :: BC
     TYPE(Element_t), POINTER :: Element
@@ -523,9 +523,10 @@ CONTAINS
 
     n = A % NumberOfRows
 
-    ALLOCATE(Perm(n),B % RHS(n))
+    ALLOCATE(Perm(n),InEqualityFlag(n), B % RHS(n))
     B % RHS=0._dp
     Perm(1:nLC) = B % Perm
+    InEqualityFlag(1:nLC) = 0
 
     IF (FetiAsPrec) THEN
       DO i=1,n
@@ -558,7 +559,24 @@ CONTAINS
           ELSE
             Vals(1:n)=GetReal(BC,Solver % Variable % Name,Found)
           END IF
-          IF (.NOT.Found) CYCLE
+
+          IF(.NOT.Found) THEN
+            IF (d>1) THEN
+              Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j)//' Upper Limit',FoundUpper)
+            ELSE
+              Vals(1:n)=GetReal(BC,Solver % Variable % Name//' Upper Limit',FoundUpper)
+            END IF
+
+            IF(.NOT.FoundUpper) THEN
+              IF (d>1) THEN
+                Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j)//' Lower Limit',FoundLower)
+              ELSE
+                Vals(1:n)=GetReal(BC,Solver % Variable % Name//' Lower Limit',FoundLower)
+              END IF
+            END IF
+          END IF
+
+          IF (.NOT.Found.AND..NOT.FoundUpper.AND..NOT.FoundLower) CYCLE
           DO k=1,n
             l = p(Element % NodeIndexes(k))
             IF (l<=0) CYCLE 
@@ -573,13 +591,19 @@ CONTAINS
             ! compatibility conditions...:
             ! --------------------------------------------------------
             Perm(nLC)=-l
+            IF(FoundUpper.OR.FoundLower) InEqualityFlag(nLC)=1
+            scale=1._dp
+            IF(FoundLower) THEN
+              scale = -1._dp
+              Vals(k)=-Vals(k)
+            END IF
 
             IF (ASSOCIATED(A % DiagScaling)) THEN
               B % RHS(nLC) = Vals(k)/A % DiagScaling(l)
-              CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
+              CALL SetMatrixElement(B, nLC, ParEnv % myPE, scale)
             ELSE
               B % RHS(nLC) = Vals(k)
-              CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
+              CALL SetMatrixElement(B, nLC, ParEnv % myPE, scale)
             END IF
           END DO
         END DO
@@ -587,8 +611,9 @@ CONTAINS
     END IF
 
     DEALLOCATE(B % Perm)
-    ALLOCATE(B % Perm(nLC))
+    ALLOCATE(B % Perm(nLC), B % InvPerm(nLC))
     B % Perm = Perm(1:nLC)
+    B % InvPerm = InEqualityFlag(1:nLC)
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiAddDtoB
 !------------------------------------------------------------------------------
@@ -1796,12 +1821,16 @@ END SUBROUTINE FetiProject
     nb => A % ParallelInfo % NeighbourList
 
     OPEN(4,FILE='b'//I2S(Parenv % MyPE))
+    OPEN(5,FILE='brhs'//I2S(Parenv % MyPE))
 
     me = ParEnv % MyPE
 
     WRITE(4,'(a)') '% domain: '//trim(i2s(me))//' nnz: '// &
          trim(i2s(bMat % Rows(Bmat % NumberOfRows+1)-1)) // &
                ' nrows: ' // trim(i2s(Bmat % NumberOfRows))
+
+    WRITE(5,'(a)') '% domain: '//trim(i2s(ParEnv % MyPE))//' nrows:'// &
+               trim(i2s(Bmat % NumberOfRows))
 
     ALLOCATE(snd(0:Parenv%PEs-1),asize(0:Parenv%PEs-1),bsize(0:parenv%pes-1))
 
@@ -1871,6 +1900,8 @@ END SUBROUTINE FetiProject
         m = -l      ! ...for a Dirichlet DOF
       END IF
 
+      WRITE(5,*) bbeg+i,Bmat% InvPerm(i), Bmat % RHS(i)
+
       DO j=Bmat % Rows(i),Bmat % Rows(i+1)-1
         proc=Bmat % Cols(j)
         IF(proc==me) THEN
@@ -1885,7 +1916,8 @@ END SUBROUTINE FetiProject
       end do
      END DO
 
-     CLOSE(2)
+     CLOSE(4)
+     CLOSE(5)
 !------------------------------------------------------------------------------
   END SUBROUTINE SaveB
 !------------------------------------------------------------------------------

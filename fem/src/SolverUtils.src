@@ -4994,7 +4994,8 @@ END FUNCTION SearchNodeL
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis,&
-               BackRotation, ApplyRowEquilibration, ApplyLimiter, Parallel
+               BackRotation, ApplyRowEquilibration, ApplyLimiter, Parallel, &
+                SkipZeroRhs
     INTEGER :: n,i,j,k,l,ii,m,DOF,istat,this
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
@@ -5070,9 +5071,9 @@ END FUNCTION SearchNodeL
         ListGetLogical( Params, 'Harmonic Analysis',GotIt )
 
     ApplyLimiter = ListGetLogical( Params,'Apply Limiter',GotIt ) 
+    SkipZeroRhs = ListGetLogical( Params,'Skip Zero Rhs Test',GotIt ) 
 
-
-    IF ( .NOT. ( HarmonicAnalysis .OR. EigenAnalysis .OR. ApplyLimiter ) ) THEN
+    IF ( .NOT. ( HarmonicAnalysis .OR. EigenAnalysis .OR. ApplyLimiter .OR. SkipZeroRhs ) ) THEN
       bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
       IF ( bnorm <= TINY( bnorm) ) THEN
         CALL Info('SolveSystem','Solution trivially zero!')
@@ -5140,7 +5141,7 @@ END FUNCTION SearchNodeL
         Parallel = ParEnv % PEs > 1
         CALL RowEquilibration(A, b, Parallel)
       ELSE
-        CALL ScaleLinearSystem(Solver, A, b, x )
+        CALL ScaleLinearSystem(Solver, A, b, x, RhsScaling=bnorm/=0._dp )
       END IF
     END IF
 
