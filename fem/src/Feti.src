@@ -1919,8 +1919,8 @@ END SUBROUTINE FetiProject
           IF(k>cnt(proc)) stop 'aah'
           WRITE(4,*) bbeg+i,ibuf(k,proc)+sum(asize(0:proc-1)),Bmat % values(j)
         END IF
-      end do
-     END DO
+      END DO
+    END DO
 
      CLOSE(4)
      CLOSE(5)
@@ -2039,7 +2039,10 @@ END SUBROUTINE FetiProject
     ! CALL ParallelInitSolve(A,x,y,rtmp)
  
     dumptofiles = GetLogical( Params, 'Feti dump system', Found)
-    IF(dumptofiles) CALL SaveKandF(A)
+    IF(dumptofiles) THEN
+      CALL Info( 'Feti:', 'Dumping Feti Description to files')
+      CALL SaveKandF(A)
+    END IF
 
     IF(Refactorize) THEN
       InitializeLC = .TRUE.;  InitializeIf = .TRUE.
@@ -2156,6 +2159,7 @@ END SUBROUTINE FetiProject
 
     IF(dumptofiles) THEN
       CALL SaveR()
+      CALL Info( 'Feti:', 'File dumping completed, exiting.')
       CALL ParallelFinalize(); STOP
     END IF
 
