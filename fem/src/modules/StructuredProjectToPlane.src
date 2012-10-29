@@ -47,6 +47,7 @@
 SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
   USE CoordinateSystems
+  USE MeshUtils
   USE DefUtils
 
   IMPLICIT NONE
@@ -104,7 +105,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     ! Choose active direction coordinate and set corresponding unit vector
     !---------------------------------------------------------------------
     PSolver => Solver
-    CALL DetectExtrudedStructure( Mesh, PSolver, Var, &
+    CALL DetectExtrudedStructure( Mesh, PSolver, ExtVar = Var, &
         TopNodePointer = TopPointer, BotNodePointer = BotPointer, &
         UpNodePointer = UpPointer, DownNodePointer = DownPointer )
     MaskExist = ASSOCIATED( Var % Perm ) 

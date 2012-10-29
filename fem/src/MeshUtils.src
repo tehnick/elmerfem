@@ -6970,15 +6970,16 @@ CONTAINS
 !-----------------------------------------------------------------------------
   SUBROUTINE DetectExtrudedStructure( Mesh, Solver, ExtVar, &
       TopNodePointer, BotNodePointer, UpNodePointer, DownNodePointer, &
-      NumberOfLayers )
+      NumberOfLayers, NodeLayer )
     
     USE CoordinateSystems
+    IMPLICIT NONE
 
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(Solver_t), POINTER :: Solver
-    TYPE(Variable_t), POINTER :: ExtVar
+    TYPE(Variable_t), POINTER, OPTIONAL :: ExtVar
     INTEGER, POINTER, OPTIONAL :: TopNodePointer(:), BotNodePointer(:), &
-        UpNodePointer(:), DownNodePointer(:)
+        UpNodePointer(:), DownNodePointer(:), NodeLayer(:)
     INTEGER, OPTIONAL :: NumberOfLayers
 !-----------------------------------------------------------------------------
     REAL(KIND=dp) :: Direction(3)
@@ -6991,19 +6992,19 @@ CONTAINS
 	UpHit, DownHit
     INTEGER, POINTER :: NodeIndexes(:), MaskPerm(:)
     LOGICAL :: MaskExists, UpActive, DownActive, GotIt, Found, DoCoordTransform
+    LOGICAL, POINTER :: TopFlag(:), BotFlag(:)
     REAL(KIND=dp) :: at0, at1, Length, UnitVector(3), Vector(3), Vector2(3), &
 	             ElemVector(3), DotPro, Eps, CPUTime
     REAL(KIND=dp), POINTER :: Values(:)
-    INTEGER, POINTER :: TopPointer(:), BotPointer(:), UpPointer(:), DownPointer(:)
+    INTEGER, POINTER :: TopPointer(:), BotPointer(:), UpPointer(:), DownPointer(:),Layer(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CoordTransform
 
    
-    CALL Info('DetectExtrudedStructure','Determining extruded structure')
+    CALL Info('DetectExtrudedStructure','Determining extruded structure',Level=6)
     at0 = CPUTime()
 
     DIM = Mesh % MeshDim
     Params => Solver % Values
-
 
     ActiveDirection = ListGetInteger(Params,'Active Coordinate')
     IF( ActiveDirection < 1 .OR. ActiveDirection > 3 ) THEN
@@ -7017,7 +7018,7 @@ CONTAINS
         UnitVector = -1.0_dp * UnitVector
 
     WRITE(Message,'(A,3F8.3)') 'Unit vector of direction:',UnitVector
-    CALL Info('DetectExtrudedStructure',Message)
+    CALL Info('DetectExtrudedStructure',Message,Level=8)
 
     ! Set the dot product tolerance
     !-----------------------------------------------------------------
@@ -7037,7 +7038,7 @@ CONTAINS
     IF( MaskExists ) THEN
       nsize = MAXVAL( MaskPerm ) 
       WRITE(Message,'(A,I8)') 'Applying mask of size:',nsize
-      CALL Info('DetectExtrudedStructure',Message)
+      CALL Info('DetectExtrudedStructure',Message,Level=8)
     ELSE
       nsize = Mesh % NumberOfNodes
     END IF 
@@ -7074,14 +7075,21 @@ CONTAINS
         Values(j) = Vector( ActiveDirection )
       END DO
     END IF
-    ExtVar => Var
+    IF( PRESENT( ExtVar ) ) ExtVar => Var
 
     ! Check which direction is active
     !---------------------------------------------------------------------
-    UpActive = PRESENT( UpNodePointer) .OR. PRESENT ( TopNodePointer )
-    DownActive = PRESENT( DownNodePointer) .OR. PRESENT ( BotNodePointer )
+    UpActive = PRESENT( UpNodePointer) .OR. PRESENT ( TopNodePointer ) 
+    DownActive = PRESENT( DownNodePointer) .OR. PRESENT ( BotNodePointer ) 
+
+    IF( PRESENT( NumberOfLayers) .OR. PRESENT( NodeLayer ) ) THEN
+      UpActive = .TRUE.
+      DownActive = .TRUE.
+    END IF
+
     IF(.NOT. (UpActive .OR. DownActive ) ) THEN
       CALL Warn('DetectExtrudedStructure','Either up or down direction should be active')
+      RETURN
     END IF
 
     ! Allocate pointers to top and bottom, and temporary pointers up and down
@@ -7102,7 +7110,7 @@ CONTAINS
     END IF
 
 
-    CALL Info('DetectExtrudedStructure','determine up and down pointers')
+    CALL Info('DetectExtrudedStructure','determine up and down pointers',Level=9)
 
     ! Determine the up and down pointers using dot product as criterion
     !-----------------------------------------------------------------
@@ -7166,8 +7174,7 @@ CONTAINS
     
     ! Pointer to top and bottom are found recursively using up and down
     !------------------------------------------------------------------
-    CALL Info('DetectExtrudedStructure','determine top and bottom pointers')
-
+    CALL Info('DetectExtrudedStructure','determine top and bottom pointers',Level=9)
 
     DO Rounds = 1, nsize
       DownHit = 0
@@ -7193,13 +7200,84 @@ CONTAINS
       END DO
       IF( UpHit == 0 .AND. DownHit == 0 ) EXIT
     END DO
-    PRINT *,'Extruded Structure Layers:',Rounds-1	
+
+    ! Compute the number of layers. The Rounds above may in some cases 
+    ! be too small. Here just one layer is used to determine the number
+    ! of layers to save some time.
+    !------------------------------------------------------------------
     IF( PRESENT( NumberOfLayers ) ) THEN
-      NumberOfLayers = Rounds - 1
+      CALL Info('DetectExtrudedStructure','compute the number of layers',Level=9)    
+      DO i=1,nsize
+        IF( MaskExists ) THEN
+          IF( MaskPerm(i) == 0 ) CYCLE
+        END IF
+        EXIT
+      END DO
+
+      j = BotPointer(i)
+
+      NumberOfLayers = 0
+      DO WHILE(.TRUE.)
+        k = UpPointer(j)
+        IF( k == j ) THEN
+          EXIT
+        ELSE
+          NumberOfLayers = NumberOfLayers + 1
+          j = k
+        END IF
+      END DO      
+
+      IF( NumberOfLayers < Rounds-1 ) THEN
+        CALL Warn('DetectExtrudedStructure','There seems to be varying number of layers?')
+        PRINT *,'NumberOfLayers:',NumberOfLayers,Rounds-1
+        NumberOfLayers = Rounds-1
+      END IF
+      WRITE(Message,'(A,I0)') 'Extruded structure layers: ',NumberOfLayers
+      CALL Info('DetectExtrudedStructure',Message)
     END IF
+
+    
+    ! Create layer index if requested
+    !------------------------------------------------------------------
+    IF( PRESENT( NodeLayer ) ) THEN
+      CALL Info('DetectExtrudedStructure','creating layer index',Level=9)        
+
+      IF( PRESENT( NodeLayer ) ) THEN
+        NULLIFY(Layer)
+        ALLOCATE( Layer(nsize) )
+        Layer = 1
+        IF( MaskExists ) THEN
+          WHERE( MaskPerm == 0 ) Layer = 0
+        END IF
+      END IF
+      
+      DO i=1,nsize
+        IF( MaskExists ) THEN
+          IF( MaskPerm(i) == 0 ) CYCLE
+        END IF
+        Rounds = 1
+        j = BotPointer(i)
+        Layer(j) = Rounds
+        DO WHILE(.TRUE.)
+          k = UpPointer(j)
+          IF( k == j ) EXIT
+
+          Rounds = Rounds + 1
+          j = k
+          Layer(j) = Rounds
+        END DO
+      END DO
+      
+      NodeLayer => Layer
+      WRITE(Message,'(A,I0,A,I0,A)') 'Layer range: [',MINVAL(Layer),',',MAXVAL(Layer),']'
+      CALL Info('DetectExtrudedStructure',Message)
+      NULLIFY(Layer)
+    END IF
+  
 
     ! Count the number of top and bottom nodes, for information only
     !---------------------------------------------------------------
+    CALL Info('DetectExtrudedStructure','counting top and bottom bodes',Level=9)        
     IF( UpActive ) THEN
       TopNodes = 0
       DO i=1,nsize
@@ -7214,8 +7292,10 @@ CONTAINS
       END DO
     END IF
 
+
     ! Return the requested pointer structures, otherwise deallocate
     !---------------------------------------------------------------
+    CALL Info('DetectExtrudedStructure','Setting pointer structures',Level=9)        
     IF( UpActive ) THEN
       IF( PRESENT( TopNodePointer ) ) THEN
         TopNodePointer => TopPointer 
