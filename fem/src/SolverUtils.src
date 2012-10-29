@@ -5122,7 +5122,7 @@ END FUNCTION SearchNodeL
 ! In case of a limiter one still may need to check the limiter for contact.
 !-----------------------------------------------------------------------------
     bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
-    IF ( bnorm <= TINY( bnorm) ) THEN
+    IF ( bnorm <= TINY( bnorm) .AND..NOT.SkipZeroRhs) THEN
       CALL Info('SolveSystem','Solution trivially zero!')
       x = 0.0d0
       IF( ApplyLimiter ) THEN
