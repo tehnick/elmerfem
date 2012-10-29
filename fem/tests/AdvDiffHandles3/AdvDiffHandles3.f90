@@ -137,7 +137,7 @@ CONTAINS
     FORCE = 0._dp
     LOAD = 0._dp
 
-    Velo=0._dp
+    Velo=0._dp; Velo_atip=0._dp
     CALL GetScalarLocalSolution(Velo(1,:),'Velocity 1')
     CALL GetScalarLocalSolution(Velo(2,:),'Velocity 2')
     CALL GetScalarLocalSolution(Velo(3,:),'Velocity 3')
