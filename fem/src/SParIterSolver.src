@@ -531,10 +531,7 @@ real(kind=dp) :: realtime,st
      NbsOldCols(:) = NbsIfMCols(:)
   END DO
 
-  IF ( SplittedMatrix % InsideMatrix % NumberOfRows /= 0 ) THEN
-     SplittedMatrix % InsideMatrix % Rows( InsideMRows ) = InsideMCols
-  END IF
-
+  SplittedMatrix % InsideMatrix % Rows( InsideMRows ) = InsideMCols
   DO j = 1, ParEnv % PEs
      IF ( OwnIfMatrix(j) % NumberOfRows /= 0 ) &
           OwnIfMatrix(j) % Rows(OwnIfMRows(j)) = OwnIfMCols(j)
@@ -1895,16 +1892,18 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
  !
  !----------------------------------------------------------------------
 
- IF (SplittedMatrix % InsideMatrix % Diag(1)==0) THEN
-   DO i = 1, SplittedMatrix % InsideMatrix % NumberOfRows
-     DO j = SplittedMatrix % InsideMatrix % Rows(i), &
-          SplittedMatrix % InsideMatrix % Rows(i+1) - 1
-        IF ( SplittedMatrix % InsideMatrix % Cols(j) == i ) THEN
-           SplittedMatrix % InsideMatrix % Diag(i) = j
-           EXIT
-        END IF
+ IF (SplittedMatrix % InsideMatrix % NumberOFRows>0) THEN
+   IF (SplittedMatrix % InsideMatrix % Diag(1)==0) THEN
+     DO i = 1, SplittedMatrix % InsideMatrix % NumberOfRows
+       DO j = SplittedMatrix % InsideMatrix % Rows(i), &
+            SplittedMatrix % InsideMatrix % Rows(i+1) - 1
+          IF ( SplittedMatrix % InsideMatrix % Cols(j) == i ) THEN
+             SplittedMatrix % InsideMatrix % Diag(i) = j
+             EXIT
+          END IF
+        END DO
       END DO
-    END DO
+    END IF
   END IF
 
   DO i = 1, SplittedMatrix % InsideMatrix % NumberOfRows
