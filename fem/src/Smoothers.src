@@ -858,7 +858,7 @@ CONTAINS
         REAL(KIND=dp), POINTER CONTIG :: Values(:),ValuesB(:)
         TYPE(Matrix_t), POINTER :: Acluster => NULL()
         INTEGER, POINTER :: NodeLayer(:)
-        INTEGER :: NoLayers,jc,kc,layer0,dlayer,klayer(-8:8),iter,NoBlocks,&
+        INTEGER :: NoLayers,jc,kc,layer0,dlayer,klayer(-20:20),iter,NoBlocks,&
             ii,jj,mi,mj
 
 
@@ -963,6 +963,7 @@ CONTAINS
         !--------------------------------------------------
         ValuesB = 0.0_dp
         kb = 1        
+        klayer = 0
 
         DO i=1,n
           IF( NoBlocks > 1 ) THEN
@@ -973,7 +974,6 @@ CONTAINS
             ii = i
             layer0 = NodeLayer(ii)
           END IF
-          klayer = 0
                     
           ! First find the dlayer->klayer mapping for the cluster
           !------------------------------------------------------
@@ -993,8 +993,8 @@ CONTAINS
               ELSE
                 dlayer = NodeLayer(j) - layer0
               END IF
-              IF( ABS( dlayer ) > 8 ) THEN
-	        print *,'dlayer',dlayer
+              IF( ABS( dlayer ) > 20 ) THEN
+	        PRINT *,'dlayer',dlayer
                 CALL Fatal('Direct1dSmoother','Offset in indeces too big!')
               END IF
               klayer( dlayer ) = kb
@@ -1016,8 +1016,8 @@ CONTAINS
               dlayer = NodeLayer(j) - layer0
             END IF
 
-            IF( ABS( dlayer ) > 8 ) THEN
-	      print *,'dlayer:',dlayer
+            IF( ABS( dlayer ) > 20 ) THEN
+	      PRINT *,'dlayer:',dlayer
               CALL Fatal('Direct1dSmoother','Offset in indeces too big2!')
             END IF
             kc = klayer( dlayer )
@@ -1038,6 +1038,7 @@ CONTAINS
           ! vertical lines. The objective is that if x is solution of Ax=b then it will
           ! not be modified by this smoother. 
           !----------------------------------------------------------------------------
+          klayer = 0
           DO i=1,n
 
             IF( NoBlocks > 1 ) THEN
@@ -1048,7 +1049,6 @@ CONTAINS
               ii = i
               layer0 = NodeLayer(i)
             END IF
-            klayer = 0
 
             ! Get the numbers pointing to different layers [-1,0,1]
             DO k=Rows(i),Rows(i+1)-1
