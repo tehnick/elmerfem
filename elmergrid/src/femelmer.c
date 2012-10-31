@@ -375,8 +375,8 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
 static int FindParentSide(struct FemType *data,struct BoundaryType *bound,
 			  int sideelem,int sideelemtype,int *sideind)
 {
-  int i,j,k,sideelemtype2,elemind,parent,normal;
-  int elemsides,side,sidenodes,nohits,hit,noparent, bulknodes;
+  int i,j,k,sideelemtype2,elemind,parent,normal,elemtype;
+  int elemsides,side,sidenodes,sidenodes2,nohits,hit,noparent, bulknodes;
   int sideind2[MAXNODESD1];
 
   hit = FALSE;
@@ -390,10 +390,12 @@ static int FindParentSide(struct FemType *data,struct BoundaryType *bound,
       elemind = bound->parent2[sideelem];
 
     if(elemind > 0) {
-      elemsides = data->elementtypes[elemind] / 100;
-      bulknodes = data->elementtypes[elemind] % 100;
+      elemtype = data->elementtypes[elemind];
+      elemsides = elemtype / 100;
+      bulknodes = elemtype % 100;
 
       if(elemsides == 8) elemsides = 6;
+      else if(elemsides == 7) elemsides = 5;
       else if(elemsides == 6) elemsides = 5;
       else if(elemsides == 5) elemsides = 4;
       
@@ -462,19 +464,26 @@ static int FindParentSide(struct FemType *data,struct BoundaryType *bound,
 
   skip:  
     if(!hit) {
+      if(!elemind) {
+	printf("elemind is zero\n");
+	return(1);
+      }
+
       printf("FindParentSide: unsuccesfull (elemtype=%d elemsides=%d parent=%d)\n",
 		    sideelemtype,elemsides,parent);
+      
+      printf("bulknodes = %d\n",bulknodes);
 
       printf("parents = %d %d\n",bound->parent[sideelem],bound->parent2[sideelem]);
 
       printf("sideind =");
       for(i=0;i<sideelemtype%100;i++)
-      printf(" %d ",sideind[i]);
+	printf(" %d ",sideind[i]);
       printf("\n");
 
-      printf("elemind =");
-      for(i=0;i<elemsides;i++)
-      printf(" %d ",data->topology[elemind][i]);
+      printf("elemind = %d %d\n",elemtype,elemind);
+      for(i=0;i<elemtype/100;i++)
+	printf(" %d ",data->topology[elemind][i]);
       printf("\n");      
     }
 

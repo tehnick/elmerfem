@@ -347,7 +347,7 @@ void GetElementSide(int element,int side,int normal,
 
     break;
 
-  case 706: /* Linear prism or vedge element */
+  case 706: /* Linear wedge element */
     if(side < 3) {
       *sideelemtype = 404;
       ind[0] = elemind[side];
@@ -381,6 +381,45 @@ void GetElementSide(int element,int side,int normal,
     }
     break;
 
+  case 715: /* Quadratic wedge element */
+    if(side < 3) {
+      *sideelemtype = 408;
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%3];
+      ind[2] = elemind[(side+1)%3+3];
+      ind[3] = elemind[side+3];  
+      ind[4] = elemind[6+side];
+      ind[5] = elemind[9+(side+1)%3];
+      ind[6] = elemind[12+side];
+      ind[7] = elemind[9+side];      
+    }
+    else if (side < 5) {
+      *sideelemtype = 306;          
+      for(i=0;i<3;i++) {
+	ind[i] = elemind[3*(side-3)+i];
+	ind[i+3] = elemind[6*(side-3)+6+i];
+      }      
+    }
+    else if(side < 14) {
+      *sideelemtype = 202;
+      if(side < 8) {
+	ind[0] = elemind[side-5];
+	ind[1] = elemind[(side-4)%3];
+      }
+      if(side < 11) {
+	ind[0] = elemind[3+side-8];
+	ind[1] = elemind[3+(side-7)%3];
+      }
+      else {
+	ind[0] = elemind[side-11];
+	ind[1] = elemind[3+side-11];	
+      }
+    }
+    else if (side < 20) {
+      *sideelemtype = 101;
+      ind[0] = elemind[side-14];      
+    }
+    break;
 
   case 605: /* Linear pyramid */
     if(side < 4) {
