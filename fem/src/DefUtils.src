@@ -4468,11 +4468,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE GalerkinProjector(Model,Mesh,A,B)
+   SUBROUTINE GalerkinProjector(Model,Mesh,A,B,NumericEps)
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: Projector,A,B
      TYPE(Mesh_t) :: Mesh
      TYPE(Model_t) :: Model
+     REAL(KIND=dp), OPTIONAL :: NumericEps
 !------------------------------------------------------------------------------
      INTEGER, ALLOCATABLE :: CPerm(:)
      INTEGER:: i,j,k,n,t,ll
@@ -4595,7 +4596,7 @@ CONTAINS
       IF (el%BoundaryInfo%Constraint/=id) CYCLE
 
       CALL GetElementNodes(Nodes,El)
-      IF(PointInElement(el,nodes,glob,loc)) THEN
+      IF(PointInElement(el,nodes,glob,loc,NumericEps=NumericEps)) THEN
         oelement=>el
         EXIT
       END IF
