@@ -2652,7 +2652,7 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n,max_body
+    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n,max_body,bcid
     TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
     LOGICAL :: isParallel, Found
@@ -2853,8 +2853,13 @@ END SUBROUTINE GetMaxDefs
            Mesh_out % Elements(i)
       Mesh_out % Elements(cnt) % BoundaryInfo % Right => NULL()
 
-      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid + &
-           Mesh_out % Elements(cnt) % BodyId
+      bcid = max_bid + Mesh_out % Elements(cnt) % BodyId
+      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = bcid
+
+      IF( bcid<=CurrentModel % NumberOfBCs) THEN
+        j=ListGetInteger(CurrentModel % BCs(bcid) % Values,'Body Id',Found)
+        IF(Found) Mesh_out % Elements(cnt) % BodyId=j
+      END IF
 
       ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n))
       Mesh_out % Elements(cnt) % NodeIndexes = &
@@ -2879,8 +2884,13 @@ END SUBROUTINE GetMaxDefs
            Mesh_out % Elements(in_levels*Mesh_in % NumberOfBulkElements+i)
       Mesh_out % Elements(cnt) % BoundaryInfo % Right => NULL()
 
-      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = max_bid + &
-           Mesh_out % Elements(cnt) % BodyId + max_body
+      bcid = max_bid + Mesh_out % Elements(cnt) % BodyId + max_body
+      Mesh_out % Elements(cnt) % BoundaryInfo % Constraint = bcid
+
+      IF( bcid<=CurrentModel % NumberOfBCs) THEN
+        j=ListGetInteger(CurrentModel % BCs(bcid) % Values,'Body Id',Found)
+        IF(Found) Mesh_out % Elements(cnt) % BodyId=j
+      END IF
 
       ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n))
       Mesh_out % Elements(cnt) % NodeIndexes = &
