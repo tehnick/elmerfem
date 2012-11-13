@@ -8,7 +8,6 @@ COMMON_SRCS =  \
 	common.h \
 	femdef.h \
 	femelmer.h \
-	femfact.h \
 	femfilein.h \
 	femfileout.h \
 	feminfo.h \
@@ -20,7 +19,6 @@ COMMON_SRCS =  \
 	nrutil.h \
 	common.c \
 	femelmer.c \
-	femfact.c \
 	femfilein.c \
 	femfileout.c \
 	feminfo.c \
