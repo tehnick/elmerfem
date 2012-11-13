@@ -62,7 +62,6 @@
 #include "femelmer.h"
 #include "femfilein.h"
 #include "femfileout.h"
-#include "femfact.h"
 
 
 static void Instructions()
@@ -89,7 +88,6 @@ static void Instructions()
   printf("6)  .fil      : Abaqus output format\n");
   printf("7)  .FDNEUT   : Gambit (Fidap) neutral file\n");
   printf("8)  .unv      : Universal mesh file format\n");
-  if(0) printf("8)  .d        : Easymesh input format\n");
   printf("9)  .mphtxt   : Comsol Multiphysics mesh format\n");
   printf("10) .dat      : Fieldview format\n");
   printf("11) .node,.ele: Triangle 2D mesh format\n");
@@ -98,8 +96,9 @@ static void Instructions()
   printf("14) .msh      : Gmsh mesh format\n");
   printf("15) .ep.i     : Partitioned ElmerPost format\n");
 #if 0
-  printf("16) .unv      : Universal mesh file format\n");
+  printf("16)  .d       : Easymesh input format\n");
   printf("17) .msh      : Nastran format\n");
+  printf("18) .msh      : CGsim format\n");
   printf("19) .geo      : Geo format\n");
 #endif 
 
@@ -180,9 +179,6 @@ static void Instructions()
   printf("-parthypre           : number the nodes continuously partitionwise\n");
 
   if(0) printf("-names               : conserve name information where applicable\n");
-#if 0
-  printf("-map str             : file with mapping info for mesh-to-mesh interpolation\n");
-#endif
 }
 
 
@@ -348,29 +344,17 @@ int main(int argc, char *argv[])
     nomeshes++;
     break;
 
-#if 0
-  case 8: 
-    InitializeKnots(&(data[nofile]));
-    if( Easymesh(argc,argv,&data[nofile].noknots,
-		 &data[nofile].noelements,&sides)) 
-      Goodbye();	
-    
-    data[nofile].dim = 2;
-    data[nofile].coordsystem = COORD_CART2;
-    data[nofile].maxnodes = 3;
-    
-    AllocateKnots(&(data[nofile]));
+  case 8:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
     for(i=0;i<MAXBOUNDARIES;i++) {
       boundaries[nofile][i].created = FALSE; 
       boundaries[nofile][i].nosides = 0;
     }
-    if(EasymeshCopy(&(data[nofile]),boundaries[nofile]))
-      Goodbye();    
+    if (LoadUniversalMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
+      Goodbye();
     nomeshes++;
     break;
-#endif
 
  case 9:
     boundaries[nofile] = (struct BoundaryType*)
@@ -463,18 +447,29 @@ int main(int argc, char *argv[])
     Goodbye();
     break;
 
-  case 8:
-  case 16:
+#if 0
+  case 16: 
+    InitializeKnots(&(data[nofile]));
+    if( Easymesh(argc,argv,&data[nofile].noknots,
+		 &data[nofile].noelements,&sides)) 
+      Goodbye();	
+    
+    data[nofile].dim = 2;
+    data[nofile].coordsystem = COORD_CART2;
+    data[nofile].maxnodes = 3;
+    
+    AllocateKnots(&(data[nofile]));
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
     for(i=0;i<MAXBOUNDARIES;i++) {
       boundaries[nofile][i].created = FALSE; 
       boundaries[nofile][i].nosides = 0;
     }
-    if (LoadUniversalMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
-      Goodbye();
+    if(EasymeshCopy(&(data[nofile]),boundaries[nofile]))
+      Goodbye();    
     nomeshes++;
     break;
+#endif
 
   case 17:
     boundaries[nofile] = (struct BoundaryType*)
@@ -487,7 +482,6 @@ int main(int argc, char *argv[])
       Goodbye();
     nomeshes++;
     break;
-
 
   case 18:
     boundaries[nofile] = (struct BoundaryType*)
@@ -502,9 +496,7 @@ int main(int argc, char *argv[])
     nomeshes++;
     break;
 
-
   case 19:
-
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
     for(i=0;i<MAXBOUNDARIES;i++) {
@@ -1008,54 +1000,6 @@ int main(int argc, char *argv[])
     }
     break;
     
-  case 102:
-    for(k=0;k<nogrids;k++) {   
-      for(i=0;i<grids[k].noboundaries;i++)
-	if(boundaries[k][i].created == TRUE) {
-	  sprintf(prefix,"%s%d",eg.filesout[k],i+1);
-	  boundaries[k][i].vf = Rmatrix(1,boundaries[k][i].nosides,
-					1,boundaries[k][i].nosides);
-	  boundaries[k][i].vfcreated = TRUE;
-	  SideAreas(&data[k],&boundaries[k][i]);
-	  ViewFactors(&data[k],&boundaries[k][i],TRUE);      
-	  SaveViewFactors(&data[k],&boundaries[k][i],prefix,info);
-	}
-    }
-    break;
-
-  case 103:
-    if(nogrids <= 1) printf("No mapping possible for %d grid.\n",nogrids);
-    for(k=0;k<nogrids-1;k++) {
-      sprintf(prefix,"%s%dto%d",eg.filesout[0],k+1,k+2);
-      SaveGridToGridMapping(cell[k],&(grids[k]),cell[k+1],&(grids[k+1]),prefix);
-      sprintf(prefix,"%s%dto%d",eg.filesout[0],k+2,k+1);
-      SaveGridToGridMapping(cell[k+1],&(grids[k+1]),cell[k],&(grids[k]),prefix);
-    }
-    break;
-
-  case 104:
-    if(LoadSolutionElmer(&(data[1]),FALSE,eg.filesin[1],info)) {
-      printf("The reading of the input file %s was not succesfull\n",eg.filesin[1]);
-      Goodbye();
-    }
-    ElmerToElmerMap(&(data[0]),&(data[1]),TRUE);
-    sprintf(prefix,"%s%s%s",eg.filesin[1],"_",eg.filesin[0]);
-    SaveSolutionElmer(&(data[1]),boundaries[0],0,prefix,eg.decimals,TRUE);
-    break;
-
-  case 105:
-    if(LoadSolutionElmer(&(data[1]),FALSE,eg.filesout[1],info)) {
-      printf("The reading of the input file %s was not succesfull\n",eg.filesout[1]);
-      Goodbye();
-    }
-    if(ElmerToElmerMapQuick(&(data[0]),&(data[1]),eg.mapfile,info))
-      Goodbye();
-    sprintf(prefix,"%s%s%s",eg.filesin[1],"_",eg.filesin[0]);
-    SaveSolutionElmer(&(data[1]),boundaries[0],0,prefix,eg.decimals,TRUE);
-    break;
-
-
-
   default:
     Instructions();
     break;

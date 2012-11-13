@@ -17,9 +17,6 @@ int SaveSizeInfo(struct FemType *data,struct BoundaryType *bound,
 		 char *prefix,int info);
 int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
 			 char *prefix,int decimals, int info);
-int ElmerToElmerMapQuick(struct FemType *data1,struct FemType *data2,
-			 char *mapfile,int info);
-int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info);
 int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 			    int partorder, Real corder[],int info);
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],

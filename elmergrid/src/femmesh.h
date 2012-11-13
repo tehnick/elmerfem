@@ -5,7 +5,6 @@
    individual knots or elements. */
 
 void InitGrid(struct GridType *grid);
-void GridToGrid(struct GridType *grid1,struct GridType *grid2,int info);
 void ExampleGrid1D(struct GridType **grids,int *nogrids,int info);
 void ExampleGrid2D(struct GridType **grids,int *nogrids,int info);
 void ExampleGrid3D(struct GridType **grids,int *nogrids,int info);

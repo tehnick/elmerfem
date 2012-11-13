@@ -335,7 +335,6 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
   /* Default names of output file are derived from input file name */
   strcpy(eg->filesin[0],argv[3]);
   strcpy(eg->filesout[0],eg->filesin[0]);
-  strcpy(eg->mapfile,eg->filesin[0]);
   strcpy(eg->infofile,eg->filesin[0]);
 
 
@@ -822,16 +821,6 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 
     /* The following keywords are not actively used */
 
-    if(strcmp(argv[arg],"-map") ==0) {
-      if(arg+1 >= argc) {
-	printf("Give the name of the mapping file\n");
-	return(23);
-      }
-      else {
-	strcpy(eg->mapfile,argv[arg+1]);
-	printf("Mapping file is %s\n",eg->mapfile);
-      }
-    }
     if(strcmp(argv[arg],"-bcoffset") == 0) {
       eg->bcoffset = atoi(argv[arg+1]);
     }
@@ -867,13 +856,6 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       badpoint=FALSE;
       ptr2 = strrchr(eg->filesout[0], '/');
       if(ptr2 && ptr2 > ptr1) badpoint = TRUE;
-      if(!badpoint) *ptr1 = '\0';
-    }
-    ptr1 = strrchr(eg->mapfile, '.');
-    if (ptr1) {
-      badpoint=FALSE;
-      ptr2 = strrchr(eg->mapfile, '/');
-      if(ptr2 && ptr2 > ptr1) badpoint = TRUE;      
       if(!badpoint) *ptr1 = '\0';
     }
   }
@@ -1611,161 +1593,6 @@ int SaveSubcellForm(struct FemType *data,struct CellType *cell,
 
   return(0);
 }
-
-
-
-int SaveViewFactors(struct FemType *data,struct BoundaryType *bound,
-		    char *prefix,int info)
-/* This function saves the view factors and side information
-   to an external file.
-   */
-{
-  int i,j,ind[MAXNODESD1],sidelemtype;
-  FILE *out;
-  char filename[MAXFILESIZE];
-
-  if(!bound->created) {
-    printf("SaveViewFactors: boundary not created.\n");
-    return(1);
-  }
-  if(bound->nosides == 0) {
-    printf("SaveViewFactors: no sides on boundary.\n");
-    return(2);
-  }
-  if(!bound->vfcreated) {
-    printf("SaveViewFactors: view factors not created.\n");
-    return(3);
-  }
-
-  AddExtension(prefix,filename,"vf");
-  out = fopen(filename,"w");
-
-  fprintf(out,"%d\n",bound->nosides);
-  for(i=1; i <= bound->nosides; i++) { 
-    GetElementSide(bound->parent[i],bound->side[i],bound->normal[i],
-		   data,ind,&sidelemtype);
-    fprintf(out,"%-14.6le %-14.6le %-14.6le %-14.6le %-8d %-8d\n",
-	    data->x[ind[0]],data->x[ind[1]],
-	    data->y[ind[0]],data->y[ind[1]],
-	    ind[0],ind[1]);
-  }
-  for(j=1; j <= bound->nosides; j++) { 
-    for(i=1; i <= bound->nosides; i++) 
-      fprintf(out,"%-14.6le ",bound->vf[j][i]); 
-    fprintf(out,"\n");
-  }
-
-  fclose(out);
-
-  if(info) printf("View factors for %d sides were saved to file %s.\n",
-		  bound->nosides,filename);
-  return(0);
-}
-
-
-
-int LoadViewFactors(struct FemType *data,struct BoundaryType *bound,
-		    char *prefix,int info)
-/* This function loads the view factors 
-   from an external file.
-   */
-#define MAXERROR 1.0e-3
-{
-  int i,j,sides,i1,i2,ind[MAXNODESD1],sidelemtype;
-  FILE *in;
-  char filename[MAXFILESIZE];
-  char line[MAXLINESIZE];
-  Real x0,x1,y0,y1;
-
-  if(!bound->created  ||  bound->nosides == 0) {
-    printf("You tried to load nonexisting view factors.\n");
-    return(1);
-  }
-
-  AddExtension(prefix,filename,"vf");
-
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("The opening of the file '%s' wasn't succesfull!\n",filename);
-    return(2);
-  }
-
-  Getline(line,in); 
-  sscanf(line,"%d",&sides);
-  if(sides != bound->nosides) {
-    printf("Number of sides differs, %d vs. %d\n",sides,bound->nosides);
-    fclose(in);
-    return(3);
-  }
-
-  for(i=1; i <= bound->nosides; i++) { 
-    Getline(line,in); 
-    sscanf(line,"%le%le%le%le%d%d",&x0,&x1,&y0,&y1,&i1,&i2);
-
-    GetElementSide(bound->parent[i],bound->side[i],bound->normal[i],data,ind,&sidelemtype);
-
-    if(fabs(x0 - data->x[ind[0]])>MAXERROR || fabs(x1 - data->x[ind[1]])>MAXERROR) {
-      printf("Mismatch in x-direction of side %d of %d.\n",i,bound->nosides);
-      fclose(in);
-      return(4);
-    }
-    if(fabs(y0 - data->y[ind[0]])>MAXERROR || fabs(y1-data->y[ind[1]])>MAXERROR) {
-      printf("Mismatch in y-direction of side %d of %d.\n",i,bound->nosides);
-      fclose(in);
-      return(5);
-    }
-  }
-  for(j=1; j <= bound->nosides; j++)  
-    for(i=1; i <= bound->nosides; i++) 
-      fscanf(in,"%le",&bound->vf[j][i]);
-
-  fclose(in);
-
-  if(info) printf("View factors for %d sides were loaded from file %s.\n",
-		  bound->nosides,filename);
-  return(0);
-}
-
-
-
-int SaveClosureFactors(struct BoundaryType *bound,char *prefix,int info)
-/* Save the factors that couple the knots inside a closure 
-   together. 
-   */
-{
-  int sides;
-  char file1[MAXFILESIZE],file2[MAXFILESIZE],file3[MAXFILESIZE];
-
-  if(!bound->created) {
-    printf("SaveClosureFactors: boundary not created.\n");
-    return(1);
-  }
-  if(!bound->vfcreated  &&  !bound->gfcreated) {
-    printf("SaveClosureFactors: no closure factors created.\n");
-    return(2);
-  }
-
-  sides = bound->nosides;
-  if(sides == 0) return(0);
-
-  AddExtension(prefix,file1,"avf");
-  AddExtension(prefix,file2,"vf");
-  AddExtension(prefix,file3,"gvf");
-
-  SaveRealVector(bound->areas,1,sides,file1);
-  if(info) printf("The side areas were saved to file %s.\n",file1);
-
-  if(bound->vfcreated) {
-    SaveRealMatrix(bound->vf,1,sides,1,sides,file2);
-    if(info) printf("The view factors were saved to file %s.\n",file2);
-  }
-  if(bound->gfcreated) {
-    SaveRealMatrix(bound->gf,1,sides,1,sides,file3);
-    if(info) printf("The Gebhart factors were saved to file %s.\n",file3);
-  }
-  return(0);
-}
-
-
 
 
 
@@ -2952,138 +2779,6 @@ end:
   fclose(in);
   return(error);
 }
-
-
-
-int SaveGridToGridMapping(struct CellType *cell1, struct GridType *grid1, 
-			  struct CellType *cell2, struct GridType *grid2,
-			  char *prefix)
-/* Creates a mapping between two grids with a similar geometry, 
-   but different number of elements. Note that even if the the mapping is 
-   possible even from 8- and 9-node elements only the four corner elements
-   are used for the mapping. 
-   */
-{
-  int xcell,ycell,i,i1,j1,i2,j2,no1,no2,hit;
-  int ind1[MAXNODESD2],ind2[MAXNODESD2],nonodes1,nonodes2;
-  int **mapi;
-  Real **mapw;
-  Real epsilon = 1.0e-20;
-  Real coord1[DIM*MAXNODESD2],coord2[DIM*MAXNODESD2],x2,y2,rx,ry;
-  char filename[MAXFILESIZE];
-  FILE *out;
-
-  nonodes1 = grid1->nonodes;
-  nonodes2 = grid2->nonodes;
-
-  if((nonodes1!=4  &&  nonodes1!=8 && nonodes1!=9) ||
-     (nonodes2!=4  &&  nonodes2!=8 && nonodes2!=9)) {
-    printf("SaveGridToGridMapping: not defined for all element types.\n");
-    return(1);
-  }
-
-  AddExtension(prefix,filename,"map");
-  out = fopen(filename,"w");
-
-  mapi = Imatrix(0,3,1,grid2->noknots);
-  mapw = Rmatrix(0,3,1,grid2->noknots);
-
-  for(i=0;i<3;i++)
-    for(i2=1;i2<=grid2->noknots;i2++) {
-      mapi[i][i2] = 0;
-      mapw[i][i2] = 0.0;
-    }
-
-  for(xcell=1;xcell<=MAXCELLS;xcell++)
-    for(ycell=1;ycell<=MAXCELLS;ycell++) 
-
-      /* Go through cells that are common to both grids. */
-      if( (no1 = grid1->numbered[ycell][xcell]) && 
-	  (no2= grid2->numbered[ycell][xcell]) ) {
-
-	j1 = 1;
-	i1 = 1;
-
-        for(j2=1; j2 <= cell2[no2].yelem; j2++) 
-          for(i2=1; i2 <= cell2[no2].xelem; i2++) {
-	    GetElementCoordinates(&(cell2)[no2],i2,j2,coord2,ind2);
-
-	    for(i=0;i<nonodes2;i++) {
-
-	      if(mapi[0][ind2[i]] != 0) continue;
-
-	      x2 = coord2[i];
-	      y2 = coord2[i+nonodes2];
-
-	      do {
-		hit = TRUE;
-		GetElementCoordinates(&(cell1)[no1],i1,j1,coord1,ind1);
-		if(coord1[TOPRIGHT+nonodes1]+epsilon < y2 && j1< cell1[no1].yelem) {
-		  j1++;
-		  hit = FALSE;
-		}
-		else if(coord1[BOTRIGHT+nonodes1]-epsilon > y2 && j1>1) {
-		  j1--;
-		  hit = FALSE;
-		}
-		if(coord1[TOPRIGHT]+epsilon < x2 && i1< cell1[no1].xelem) {
-		  i1++;
-		  hit = FALSE;
-		}
-		else if(coord1[TOPLEFT]-epsilon > x2 && i1>1) {
-		  i1--;
-		  hit = FALSE;
-		}
-
-
-	      } while(hit == FALSE);
-      
-	      rx = (coord1[BOTRIGHT]-x2) 
-		/ (coord1[BOTRIGHT]-coord1[BOTLEFT]);
-	      ry = (coord1[TOPLEFT+nonodes1]-y2) 
-		/ (coord1[TOPLEFT+nonodes1]-coord1[BOTLEFT+nonodes1]);
-
-	      rx = MIN(rx,1.0);
-	      rx = MAX(rx,0.0);
-	      ry = MIN(ry,1.0);
-	      ry = MAX(ry,0.0);
-
-	      mapi[0][ind2[i]] = ind1[0];
-	      mapi[1][ind2[i]] = ind1[1];
-	      mapi[2][ind2[i]] = ind1[2];
-	      mapi[3][ind2[i]] = ind1[3];
-
-	      mapw[0][ind2[i]] = rx*ry;
-	      mapw[1][ind2[i]] = (1.-rx)*ry;
-	      mapw[2][ind2[i]] = (1.-rx)*(1.-ry);
-	      mapw[3][ind2[i]] = rx*(1.-ry);
-	    }
-	  }
-      }
-  
-  for(i2=1;i2<=grid2->noknots;i2++) {
-    fprintf(out,"%-8d ",i2);
-    for(i=0;i<4;i++) {
-      fprintf(out,"%-5d ",mapi[i][i2]);
-      fprintf(out,"%-10.5le ",mapw[i][i2]);
-    }
-    fprintf(out,"\n");
-  }
-
-  fclose(out);
-
-  free_Imatrix(mapi,0,3,1,grid2->noknots);
-  free_Rmatrix(mapw,0,3,1,grid2->noknots);
-
-  printf("Saved mapping for %d knots to %d knots to %s.\n",
-	 grid1->noknots,grid2->noknots,filename);
-	 
-#if DEBUG
-  printf("The data was copied from a grid to another.\n");
-#endif
-  return(0);
-}
-
 
 
 int ShowCorners(struct FemType *data,int variable,Real offset)
