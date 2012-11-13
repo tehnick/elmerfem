@@ -844,7 +844,7 @@ void InitializeKnots(struct FemType *data)
   data->periodicexist = FALSE;
   data->connectexist = FALSE;
 
-  data->dualexists = FALSE;
+  data->nodalexists = FALSE;
   data->invtopoexists = FALSE;
   data->partitiontableexists = FALSE;
 
@@ -5053,11 +5053,11 @@ int IncreaseElementOrder(struct FemType *data,int info)
   
   if(info) printf("Trying to increase the element order of current elements\n");
 
-  CreateDualGraph(data,FALSE,info);
+  CreateNodalGraph(data,FALSE,info);
 
   noknots = data->noknots;
   noelements = data->noelements;
-  maxcon = data->dualmaxconnections;
+  maxcon = data->nodalmaxconnections;
 
   newnodetable = Imatrix(0,maxcon-1,1,noknots);
   for(i=1;i<=noknots;i++) 
@@ -5067,7 +5067,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
   newknots = 0;
   for(i=1;i<=noknots;i++) {
     for(j=0;j<maxcon;j++) {
-      con = data->dualgraph[j][i];
+      con = data->nodalgraph[j][i];
       if(con > i) {
 	newknots++;
 	newnodetable[j][i] = noknots + newknots;
@@ -5089,7 +5089,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
   }
   for(i=1;i<=noknots;i++) {
     for(j=0;j<maxcon;j++) {
-      con = data->dualgraph[j][i];
+      con = data->nodalgraph[j][i];
       ind = newnodetable[j][i];
       if(con && ind) {
 	newx[ind] = 0.5*(data->x[i] + data->x[con]);
@@ -5147,7 +5147,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
 	ind2 = inds[1];
       }
       for(j=0;j<maxcon;j++) {
-	con = data->dualgraph[j][ind];
+	con = data->nodalgraph[j][ind];
 
 	if(con == ind2) {
 	  node = newnodetable[j][ind];
@@ -5160,7 +5160,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
     data->elementtypes[element] = elemtype;
   }
 
-  DestroyDualGraph(data,info);
+  DestroyNodalGraph(data,info);
 
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
@@ -9213,15 +9213,15 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
 
 
 
-int CreateDualGraph(struct FemType *data,int full,int info)
+int CreateNodalGraph(struct FemType *data,int full,int info)
 {
   int i,j,k,l,m,totcon,noelements, noknots,elemtype,nonodes,hit,ind,ind2;
   int maxcon,percon,edge;
 
-  printf("Creating a dual graph of the finite element mesh\n");  
+  printf("Creating a nodal graph of the finite element mesh\n");  
 
-  if(data->dualexists) {
-    printf("The dual graph already exists! You shoule remove the old graph!\n");
+  if(data->nodalexists) {
+    printf("The nodal graph already exists! You shoule remove the old graph!\n");
   }
 
   maxcon = 0;
@@ -9243,33 +9243,33 @@ int CreateDualGraph(struct FemType *data,int full,int info)
 
 	hit = FALSE;
 	for(l=0;l<maxcon;l++) { 
-	  if(data->dualgraph[l][ind] == ind2) hit = TRUE;
-	  if(data->dualgraph[l][ind] == 0) break;
+	  if(data->nodalgraph[l][ind] == ind2) hit = TRUE;
+	  if(data->nodalgraph[l][ind] == 0) break;
 	}
 	if(!hit) {
 	  if(l >= maxcon) {
-	    data->dualgraph[maxcon] = Ivector(1,noknots);
+	    data->nodalgraph[maxcon] = Ivector(1,noknots);
 	    for(m=1;m<=noknots;m++)
-	      data->dualgraph[maxcon][m] = 0;
+	      data->nodalgraph[maxcon][m] = 0;
 	    maxcon++;
 	  }
-	  data->dualgraph[l][ind] = ind2;
+	  data->nodalgraph[l][ind] = ind2;
 	  totcon++;
 	}
 
 	/* Make also so symmetric connection */
 	for(l=0;l<maxcon;l++) { 
-	  if(data->dualgraph[l][ind2] == ind) hit = TRUE;
-	  if(data->dualgraph[l][ind2] == 0) break;
+	  if(data->nodalgraph[l][ind2] == ind) hit = TRUE;
+	  if(data->nodalgraph[l][ind2] == 0) break;
 	}
 	if(!hit) {
 	  if(l >= maxcon) {
-	    data->dualgraph[maxcon] = Ivector(1,noknots);
+	    data->nodalgraph[maxcon] = Ivector(1,noknots);
 	    for(m=1;m<=noknots;m++)
-	      data->dualgraph[maxcon][m] = 0;
+	      data->nodalgraph[maxcon][m] = 0;
 	    maxcon++;
 	  }
-	  data->dualgraph[l][ind2] = ind;
+	  data->nodalgraph[l][ind2] = ind;
 	  totcon++;
 	}
       }
@@ -9285,17 +9285,17 @@ int CreateDualGraph(struct FemType *data,int full,int info)
 	  
 	  hit = FALSE;
 	  for(l=0;l<maxcon;l++) { 
-	    if(data->dualgraph[l][ind] == ind2) hit = TRUE;
-	    if(data->dualgraph[l][ind] == 0) break;
+	    if(data->nodalgraph[l][ind] == ind2) hit = TRUE;
+	    if(data->nodalgraph[l][ind] == 0) break;
 	  }
 	  if(!hit) {
 	    if(l >= maxcon) {
-	      data->dualgraph[maxcon] = Ivector(1,noknots);
+	      data->nodalgraph[maxcon] = Ivector(1,noknots);
 	      for(m=1;m<=noknots;m++)
-		data->dualgraph[maxcon][m] = 0;
+		data->nodalgraph[maxcon][m] = 0;
 	      maxcon++;
 	    }
-	    data->dualgraph[l][ind] = ind2;
+	    data->nodalgraph[l][ind] = ind2;
 	    totcon++;
 	  }
 	}
@@ -9311,53 +9311,53 @@ int CreateDualGraph(struct FemType *data,int full,int info)
 
       hit = FALSE;
       for(l=0;l<maxcon;l++) { 
-	if(data->dualgraph[l][ind] == ind2) hit = TRUE;
-	if(data->dualgraph[l][ind] == 0) break;
+	if(data->nodalgraph[l][ind] == ind2) hit = TRUE;
+	if(data->nodalgraph[l][ind] == 0) break;
       }
       if(!hit) {
 	if(l >= maxcon) {
-	  data->dualgraph[maxcon] = Ivector(1,noknots);
+	  data->nodalgraph[maxcon] = Ivector(1,noknots);
 	  for(m=1;m<=noknots;m++)
-	    data->dualgraph[maxcon][m] = 0;
+	    data->nodalgraph[maxcon][m] = 0;
 	  maxcon++;
 	}
-	data->dualgraph[l][ind] = ind2;
+	data->nodalgraph[l][ind] = ind2;
 	totcon++;
 	percon++;
       }
     }
   }
 
-  data->dualmaxconnections = maxcon;
-  data->dualexists = TRUE;
+  data->nodalmaxconnections = maxcon;
+  data->nodalexists = TRUE;
   
-  if(info) printf("There are at maximum %d connections in dual graph.\n",maxcon);
-  if(info) printf("There are at all in all %d connections in dual graph.\n",totcon);
-  if(info && percon) printf("There are %d periodic connections in dual graph.\n",percon);
+  if(info) printf("There are at maximum %d connections in nodal graph.\n",maxcon);
+  if(info) printf("There are at all in all %d connections in nodal graph.\n",totcon);
+  if(info && percon) printf("There are %d periodic connections in nodal graph.\n",percon);
 
   return(0);
 }
 
 
-int DestroyDualGraph(struct FemType *data,int info)
+int DestroyNodalGraph(struct FemType *data,int info)
 {
   int i,maxcon, noknots;
   
-  if(!data->dualexists) {
-    printf("You tried to destroy a non-existing dual graph\n");
+  if(!data->nodalexists) {
+    printf("You tried to destroy a non-existing nodal graph\n");
     return(1);
   }
 
-  maxcon = data->dualmaxconnections;
+  maxcon = data->nodalmaxconnections;
   noknots = data->noknots;
 
   for(i=0;i<maxcon;i++)    
-    free_Ivector(data->dualgraph[i],1,noknots);
+    free_Ivector(data->nodalgraph[i],1,noknots);
 
-  data->dualmaxconnections = 0;
-  data->dualexists = FALSE; 
+  data->nodalmaxconnections = 0;
+  data->nodalexists = FALSE; 
 
-  if(info) printf("The dual graph was destroyed\n");
+  if(info) printf("The nodal graph was destroyed\n");
   return(0);
 }
 

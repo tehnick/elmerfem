@@ -2452,16 +2452,16 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
   if(info) printf("Making a Metis partitioning for %d nodes in %d-dimensions.\n",
 		  data->noknots,data->dim);
 
-  CreateDualGraph(data,TRUE,info);
+  CreateNodalGraph(data,TRUE,info);
 
   noknots = data->noknots;
   noelements = data->noelements;
-  maxcon = data->dualmaxconnections;
+  maxcon = data->nodalmaxconnections;
 
   totcon = 0;
   for(i=1;i<=noknots;i++) {
     for(j=0;j<maxcon;j++) {
-      con = data->dualgraph[j][i];
+      con = data->nodalgraph[j][i];
       if(con) totcon++;
     }
   }
@@ -2477,7 +2477,7 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=noknots;i++) {
     xadj[i-1] = totcon;
     for(j=0;j<maxcon;j++) {
-      con = data->dualgraph[j][i];
+      con = data->nodalgraph[j][i];
       if(con) {
 	adjncy[totcon] = con-1;
 	totcon++;
@@ -2653,7 +2653,7 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
 
   free_Ivector(npart,0,noknots-1);
 
-  if(info) printf("Successfully made a Metis partition using the dual graph.\n");
+  if(info) printf("Successfully made a Metis partition using the nodal graph.\n");
 
   return(0);
 }
@@ -4363,13 +4363,13 @@ int ReorderElementsMetis(struct FemType *data,int info)
   if(info) printf("Indexwidth of the original node order is %d.\n",i);
 
 
-  CreateDualGraph(data,TRUE,info);
-  maxcon = data->dualmaxconnections;
+  CreateNodalGraph(data,TRUE,info);
+  maxcon = data->nodalmaxconnections;
 
   totcon = 0;
   for(i=1;i<=noknots;i++) {
     for(j=0;j<maxcon;j++) {
-      con = data->dualgraph[j][i];
+      con = data->nodalgraph[j][i];
       if(con) totcon++;
     }
   }
@@ -4384,7 +4384,7 @@ int ReorderElementsMetis(struct FemType *data,int info)
   for(i=1;i<=noknots;i++) {
     xadj[i-1] = totcon;
     for(j=0;j<maxcon;j++) {
-      con = data->dualgraph[j][i];
+      con = data->nodalgraph[j][i];
       if(con) {
 	adjncy[totcon] = con-1;
 	totcon++;
