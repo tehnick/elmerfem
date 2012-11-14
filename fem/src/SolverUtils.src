@@ -2470,7 +2470,7 @@ CONTAINS
 
     TYPE(Element_t), POINTER :: Element
     INTEGER, ALLOCATABLE :: Indexes(:)
-    INTEGER, POINTER :: NodeIndexes(:)
+    INTEGER, POINTER :: NodeIndexes(:), Neigh(:)
     INTEGER :: BC,i,j,k,l,n,t,k1,k2
     LOGICAL :: GotIt
     REAL(KIND=dp), POINTER :: WorkA(:,:,:) => NULL()
@@ -2633,8 +2633,16 @@ CONTAINS
             ! distance to nearest node is computed accurately. 
             DO j=1,NoNodes
               GlobalMinDist = ParallelReduction( MinDist(j), 1 )
-              IF( ABS( GlobalMinDist - MinDist(j) ) > TINY(Dist) ) THEN
-                IndNodes(j) = 0
+              IF(ABS(GlobalMinDist - MinDist(j) )>TINY(Dist)) IndNodes(j) = 0
+
+              ! In parallel apply load only on the owner partition:
+              ! ---------------------------------------------------
+              IF(ParEnv % PEs>1) THEN
+                neigh=>Model % Mesh % ParallelInfo % NeighbourList(IndNodes(j)) % Neighbours
+                DO i=1,SIZE(neigh) 
+                  IF(ParEnv % Active(neigh(i))) EXIT
+                END DO
+                IF(neigh(i)/=ParEnv % MyPE) IndNodes(j) = 0
               END IF
             END DO
 
