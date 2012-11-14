@@ -2589,14 +2589,15 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     DO BC=1,Model % NumberOfBCs
-      IF( .NOT. ListCheckPresent( Model % BCs(BC) % Values,LoadName )) CYCLE
-      NodesFound = ListCheckPresent( Model % BCs(BC) % Values,'Target Nodes')
+      ValueList => Model % BCs(BC) % Values
+      IF( .NOT. ListCheckPresent( ValueList,LoadName )) CYCLE
+      NodesFound = ListCheckPresent(ValueList,'Target Nodes')
       
       ! At the first calling the list of coorinates is transformed to list of nodes. 
       IF(.NOT. NodesFound) THEN
-        CoordNodes => ListGetConstRealArray(Model % BCs(BC) % Values, 'Target Coordinates',GotIt)
+        CoordNodes => ListGetConstRealArray(ValueList, 'Target Coordinates',GotIt)
         IF(GotIt) THEN
-          Eps = ListGetConstReal( Model % BCs(BC) % Values, 'Target Coordinates Eps', Gotit )
+          Eps = ListGetConstReal( ValueList, 'Target Coordinates Eps', Gotit )
           IF ( .NOT. GotIt ) THEN
             Eps = HUGE(Eps)
           ELSE
@@ -2647,15 +2648,15 @@ CONTAINS
             
             ! In the first time add the found nodes to the list structure
             IF ( NOFNodesFound > 0 ) THEN
-              CALL ListAddIntegerArray( ValueList,'Target Nodes', &
+              CALL ListAddIntegerArray( Model % BCs(BC) % Values,'Target Nodes', &
                   NOFNodesFound, IndNodes) 
               NodesFound = .TRUE.            
             ELSE
               ! If no nodes found, add still an empty list and make sure the 
               ! zero is not treated later on. Otherwise this search would be 
               ! retreated each time. 
-              CALL ListAddIntegerArray( ValueList,'Target Nodes', &
-                  1, IndNodes) 
+              CALL ListAddIntegerArray( Model % BCs(BC) % Values,'Target Nodes', &
+                  0, IndNodes) 
             END IF
 
             ! Finally deallocate the temporal vectors
@@ -2724,6 +2725,8 @@ CONTAINS
      SUBROUTINE SetPointLoads(n)
        INTEGER :: n
        REAL(KIND=dp) :: Work(n)
+
+       IF(n<=0) RETURN
        
        IF ( DOF > 0 ) THEN
          Work(1:n) = ListGetReal( ValueList, LoadName, n, NodeIndexes, gotIt )
