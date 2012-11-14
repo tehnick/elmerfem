@@ -2639,10 +2639,7 @@ CONTAINS
               ! ---------------------------------------------------
               IF(ParEnv % PEs>1) THEN
                 neigh=>Model % Mesh % ParallelInfo % NeighbourList(IndNodes(j)) % Neighbours
-                DO i=1,SIZE(neigh) 
-                  IF(ParEnv % Active(neigh(i))) EXIT
-                END DO
-                IF(neigh(i)/=ParEnv % MyPE) IndNodes(j) = 0
+                IF(neigh(1)/=ParEnv % MyPE) IndNodes(j) = 0
               END IF
             END DO
 
