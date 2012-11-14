@@ -2480,9 +2480,9 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: LoadName
 
     INTEGER, POINTER :: IndNodes(:)
-    INTEGER :: NoNodes,NoDims,bf_id,nlen
-    REAL(KIND=dp), POINTER :: CoordNodes(:,:), DiagScaling(:)
-    REAL(KIND=dp) :: MinDist,Dist
+    INTEGER :: NoNodes,NoDims,bf_id,nlen,NOFNodesFound
+    REAL(KIND=dp), POINTER :: CoordNodes(:,:), DiagScaling(:),MinDist(:)
+    REAL(KIND=dp) :: GlobalMinDist,Dist,Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActivePartAll(:), DoneLoad(:)
     LOGICAL :: NodesFound
     TYPE(ValueList_t), POINTER :: ValueList
@@ -2596,32 +2596,70 @@ CONTAINS
       IF(.NOT. NodesFound) THEN
         CoordNodes => ListGetConstRealArray(Model % BCs(BC) % Values, 'Target Coordinates',GotIt)
         IF(GotIt) THEN
+          Eps = ListGetConstReal( ValueList, 'Target Coordinates Eps', Gotit )
+          IF ( .NOT. GotIt ) THEN
+            Eps = HUGE(Eps)
+          ELSE
+            ! We are looking at square of distance
+            Eps = Eps**2
+          END IF
+
           NoNodes = SIZE(CoordNodes,1)
           NoDims = SIZE(CoordNodes,2)
           
           IF(NoNodes > 0) THEN               
-            ALLOCATE( IndNodes(NoNodes) )
+            ALLOCATE( IndNodes(NoNodes), MinDist(NoNodes) )
+            IndNodes = -1
+            MinDist = HUGE( Dist )
             DO j=1,NoNodes
-              MinDist = HUGE(Dist)
-              
               DO i=1,Model % NumberOfNodes
                 IF( Perm(i) == 0) CYCLE
                 
-                Dist = (Model % Mesh % Nodes % x(i) - CoordNodes(j,1))**2
-                IF(NoDims >= 2) Dist = Dist + (Model % Mesh % Nodes % y(i) - CoordNodes(j,2))**2 
+                Dist = (Model % Mesh % Nodes % x(i) - CoordNodes(j,1))**2 
+                IF(NoDims >= 2) Dist = Dist + (Model % Mesh % Nodes % y(i) - CoordNodes(j,2))**2
                 IF(NoDims == 3) Dist = Dist + (Model % Mesh % Nodes % z(i) - CoordNodes(j,3))**2
-
-                IF(Dist < MinDist) THEN
-                  MinDist = Dist
+                Dist = SQRT(Dist)
+                
+                IF(Dist < MinDist(j) .AND. Dist <= Eps ) THEN
+                  MinDist(j) = Dist
                   IndNodes(j) = i
                 END IF
               END DO
             END DO
+
+            ! In parallel case eliminate all except the nearest node. 
+            ! This relies on the fact that for each node partition the 
+            ! distance to nearest node is computed accurately. 
+            DO j=1,NoNodes
+              GlobalMinDist = ParallelReduction( MinDist(j), 1 )
+              IF( ABS( GlobalMinDist - MinDist(j) ) > TINY(Dist) ) THEN
+                IndNodes(j) = 0
+              END IF
+            END DO
+
+            NOFNodesFound = 0
+            DO j=1,NoNodes
+               IF ( IndNodes(j)>0 ) THEN
+                 NOFNodesFound = NOFNodesFound+1
+                 IndNodes(NOFNodesFound) = IndNodes(j)
+               END IF
+            END DO
             
             ! In the first time add the found nodes to the list structure
-            CALL ListAddIntegerArray( Model % BCs(BC) % Values,'Target Nodes',NoNodes, IndNodes) 
-            DEALLOCATE(IndNodes)
-            NodesFound = .TRUE.               
+            IF ( NOFNodesFound > 0 ) THEN
+              CALL ListAddIntegerArray( ValueList,'Target Nodes', &
+                  NOFNodesFound, IndNodes) 
+              NodesFound = .TRUE.            
+            ELSE
+              ! If no nodes found, add still an empty list and make sure the 
+              ! zero is not treated later on. Otherwise this search would be 
+              ! retreated each time. 
+              CALL ListAddIntegerArray( ValueList,'Target Nodes', &
+                  1, IndNodes) 
+            END IF
+
+            ! Finally deallocate the temporal vectors
+            DEALLOCATE( IndNodes, MinDist ) 
           END IF
         END IF
       END IF
