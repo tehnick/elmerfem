@@ -2633,13 +2633,16 @@ CONTAINS
             ! distance to nearest node is computed accurately. 
             DO j=1,NoNodes
               GlobalMinDist = ParallelReduction( MinDist(j), 1 )
-              IF(ABS(GlobalMinDist - MinDist(j) )>TINY(Dist)) IndNodes(j) = 0
-
-              ! In parallel apply load only on the owner partition:
-              ! ---------------------------------------------------
-              IF(ParEnv % PEs>1) THEN
+              IF(ABS(GlobalMinDist - MinDist(j) )>TINY(Dist)) THEN
+                IndNodes(j) = 0
+              ELSE IF(ParEnv % PEs>1) THEN
+                ! In parallel apply load only on the owner partition:
+                ! ---------------------------------------------------
                 neigh=>Model % Mesh % ParallelInfo % NeighbourList(IndNodes(j)) % Neighbours
-                IF(neigh(1)/=ParEnv % MyPE) IndNodes(j) = 0
+                DO i=1,SIZE(Neigh)
+                  IF(ParEnv % Active(neigh(i))) EXIT
+                END DO
+                IF(neigh(i)/=ParEnv % MyPE) IndNodes(j) = 0
               END IF
             END DO
 
