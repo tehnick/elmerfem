@@ -22,9 +22,11 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info);
 #if PARTMETIS
-int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info);
-int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
-			struct ElmergridType *eg,int partitions,int metisopt,int info);
+int PartitionMetisMesh(struct FemType *data,struct ElmergridType *eg,
+		       int partitions,int dual,int info);
+int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
+			struct ElmergridType *eg,int partitions,int metisopt,
+			int dual,int info);
 int ReorderElementsMetis(struct FemType *data,int info);
 #endif
 int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,

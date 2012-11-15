@@ -173,7 +173,9 @@ struct FemType {
     *nodalgraph[MAXCONNECTIONS],  
     nodalmaxconnections,
     nodalexists,
-
+    *dualgraph[MAXCONNECTIONS],  
+    dualmaxconnections,
+    dualexists,
     *partitiontable[MAXCONNECTIONS],  
     maxpartitiontable,
     partitiontableexists, 
@@ -352,6 +354,7 @@ struct ElmergridType {
     partitionindirect, /* should one create indirect connections between nodes */
     partbw, /* minimize bandwidth for partitions */
     parthypre, /* renumber for hypre */
+    partdual, 
     nofilesin,
     saveinterval[3],
     elementsredone,

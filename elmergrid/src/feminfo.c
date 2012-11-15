@@ -265,6 +265,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->partorder = FALSE;
   eg->findsides = FALSE;
   eg->parthypre = FALSE;
+  eg->partdual = FALSE;
   eg->partbw = FALSE;
   eg->saveboundaries = TRUE;
   eg->timeron = FALSE;
@@ -636,6 +637,10 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-parthypre") == 0) {
       eg->parthypre = TRUE;
       printf("Numbering of partitions will be made continous.\n");
+    }
+    if(strcmp(argv[arg],"-partdual") == 0) {
+      eg->partdual = TRUE;
+      printf("Using dual (elemental) graph in partitioning.\n");
     }
 
 

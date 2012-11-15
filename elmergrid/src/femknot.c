@@ -9221,7 +9221,9 @@ int CreateNodalGraph(struct FemType *data,int full,int info)
   printf("Creating a nodal graph of the finite element mesh\n");  
 
   if(data->nodalexists) {
-    printf("The nodal graph already exists! You shoule remove the old graph!\n");
+    printf("The nodal graph already exists!\n");
+    smallerror("Nodal graph not done");
+    return(1);
   }
 
   maxcon = 0;
@@ -9233,6 +9235,7 @@ int CreateNodalGraph(struct FemType *data,int full,int info)
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
 
+    /* This sets only the connections resulting from element edges */
     if(!full) {
       int inds[2];
       for(edge=0;;edge++) {
@@ -9275,6 +9278,7 @@ int CreateNodalGraph(struct FemType *data,int full,int info)
       }
     }
 
+    /* This sets all elemental connections */
     else {
       nonodes = data->elementtypes[i] % 100;
       for(j=0;j<nonodes;j++) {
@@ -9304,6 +9308,7 @@ int CreateNodalGraph(struct FemType *data,int full,int info)
 
   }
 
+  /* This adds the periodic connections */
   if( data->periodicexist ) {
     for(ind=1;ind<=noknots;ind++) {
       ind2 = data->periodic[ind];      
@@ -9373,6 +9378,7 @@ int CreateInverseTopology(struct FemType *data,int info)
   if(data->invtopoexists) {
     printf("The inverse topology already exists!\n");
     smallerror("The inverse topology not done");
+    return(1);
   }
 
   maxcon = 0;
@@ -9396,6 +9402,7 @@ int CreateInverseTopology(struct FemType *data,int info)
       if(l > maxcon) {
 	maxcon++;
 	data->invtopo[maxcon] = Ivector(1,noknots);
+	if(0) printf("allocating invtopo %d %d\n",maxcon,noknots);
 	for(m=1;m<=noknots;m++)
 	  data->invtopo[maxcon][m] = 0;
       }
@@ -9417,6 +9424,101 @@ int CreateInverseTopology(struct FemType *data,int info)
   return(0);
 }
 
+
+
+int DestroyInverseTopology(struct FemType *data,int info)
+{
+  int i,maxcon,noknots;
+  
+  if(!data->invtopoexists) {
+    printf("You tried to destroy a non-existing inverse topology\n");
+    return(1);
+  }
+
+  maxcon = data->maxinvtopo;
+  noknots = data->noknots;
+
+  for(i=1;i<=maxcon;i++)    
+    free_Ivector(data->invtopo[i],1,noknots);
+
+  data->maxinvtopo = 0;
+  data->invtopoexists = FALSE; 
+
+  if(info) printf("The nodal inverse topology was destroyed\n");
+  return(0);
+}
+
+
+
+int CreateDualGraph(struct FemType *data,int info)
+{
+  int totcon,noelements,noknots,elemtype,nonodes,i,j,k,l,i2,m,ind,hit;
+  int dualmaxcon,invmaxcon,showgraph;
+
+  printf("Creating a dual graph of the finite element mesh\n");  
+
+  if(data->dualexists) {
+    printf("The dual graph already exists!\n");
+    smallerror("Dual graph not done");
+    return(1);
+  }
+
+  CreateInverseTopology(data,info);
+
+  dualmaxcon = 0;
+  totcon = 0;
+
+  noelements = data->noelements;
+  noknots = data->noknots;
+  invmaxcon = data->maxinvtopo;
+
+  showgraph = FALSE;
+  if(showgraph) printf("elemental graph ij pairs\n");
+
+  for(i=1;i<=noelements;i++) {
+    if(showgraph) printf("%d :: ",i);
+
+    elemtype = data->elementtypes[i];    
+    nonodes = data->elementtypes[i] % 100;
+
+    for(j=0;j<nonodes;j++) {
+      ind = data->topology[i][j];
+
+      for(k=1;k<=invmaxcon;k++) {
+	i2 = data->invtopo[k][ind];
+
+	if( i2 == 0 ) break;
+	if( i2 == i ) continue;
+	
+	hit = FALSE;
+	for(l=0;l<dualmaxcon;l++) { 
+	  if(data->dualgraph[l][i] == i2) hit = TRUE;
+	  if(data->dualgraph[l][i] == 0) break;
+	}
+	if(!hit) {
+	  if(l >= dualmaxcon) {
+	    data->dualgraph[dualmaxcon] = Ivector(1,noelements);
+	    for(m=1;m<=noelements;m++)
+	      data->dualgraph[dualmaxcon][m] = 0;
+	    dualmaxcon++;
+	  }
+	  if(showgraph) printf("%d ",i2);
+	  data->dualgraph[l][i] = i2;
+	  totcon++;
+	}
+      }
+    }
+    if(showgraph) printf("\n");
+  }
+
+  data->dualmaxconnections = dualmaxcon;
+  data->dualexists = TRUE;
+  
+  if(info) printf("There are at maximum %d connections in dual graph.\n",dualmaxcon);
+  if(info) printf("There are at all in all %d connections in dual graph.\n",totcon);
+  
+  DestroyInverseTopology(data,info);
+}
 
 
 int MeshTypeStatistics(struct FemType *data,int info)
