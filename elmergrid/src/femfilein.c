@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <limits.h>
 /*#include <strings.h>*/
 /*#include <unistd.h>*/
 
@@ -3875,6 +3876,8 @@ omstart:
 }
 
 
+/* Mapping between the element type of Universal file format and 
+   ElmerSolver element type. */
 static int UnvToElmerType(int unvtype)
 {
   int elmertype;
@@ -3968,6 +3971,9 @@ static int UnvToElmerType(int unvtype)
 }
 
 
+/* The Universal format supports something as "degenerated" elements. 
+   This means that the same node is given multiple times in the element
+   topology */
 static int UnvRedundantIndexes(int nonodes,int *ind)
 {
   int i,j,redundant;
@@ -3989,6 +3995,8 @@ static int UnvRedundantIndexes(int nonodes,int *ind)
 }
 
 
+/* Mapping between the elemental node order of Universal file format to 
+   Elmer file format. */
 static void UnvToElmerIndx(int elemtype,int *topology)
 {
   int i=0,nodes=0,oldtopology[MAXNODESD2];
@@ -4034,13 +4042,16 @@ static void UnvToElmerIndx(int elemtype,int *topology)
 
 int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,
 		      char *prefix,int info)
-     /* Load the grid in universal file format */
+/* Load the grid in universal file format. This format includes thousands of possible 
+   fields and hence the parser can never be exhaustive. Just the mostly common used
+   fields in FE community are treated. */
 {
   int noknots,totknots,noelements,elemcode,maxnodes;
   int allocated,maxknot,dim,ind,lines;
   int reordernodes,reorderelements,nogroups,maxnodeind,maxelem,elid,unvtype,elmertype;
   int nonodes,group,grouptype,mode,nopoints,nodeind,matind,physind,colorind;
-  int debug,mingroup,maxgroup,nogroup,noentities,dummy;
+  int minelemtype,maxelemtype,physoffset;
+  int debug,mingroup,maxgroup,minphys,maxphys,nogroup,noentities,dummy;
   int *u2eind,*u2eelem;
   int *elementtypes;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
@@ -4076,8 +4087,11 @@ int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,
   maxnodeind = 0;
   maxnodes = 0;
   maxelem = 0;
-
-
+  mingroup = INT_MAX;
+  maxgroup = 0;
+  minphys = INT_MAX;
+  maxphys = 0;
+    
 omstart:
 
   if(info) {
@@ -4117,7 +4131,7 @@ omstart:
 
     /* node definition */
     if( mode == 2411 || mode == 781 ) {
-      if(debug) printf("Reading nodes in mode %d\n",mode);
+      if(allocated && info) printf("Reading node coordinates\n");
       for(;;) {
 	GetrowDouble(line,in);
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -4150,11 +4164,17 @@ omstart:
     }
 
     if( mode == 2412 ) {
-      if(debug) printf("Reading elements from field %d\n",mode);
+      minelemtype = INT_MAX;
+      maxelemtype = 0;
+
+      if(allocated && info) printf("Reading element topologies\n");
       for(;;) {
 	Getrow(line,in,FALSE);
-	if( !strncmp(line,"    -1",6)) goto nextline;
-	
+	if( !strncmp(line,"    -1",6)) {
+	  if(info && !allocated) printf("Element type range in mesh [%d,%d]\n",minelemtype,maxelemtype);
+	  goto nextline;
+	}	
+
 	noelements += 1;
 	cp = line;
 	elid = next_int(&cp);
@@ -4163,8 +4183,14 @@ omstart:
 	matind = next_int(&cp);
 	colorind = next_int(&cp);
 	nonodes = next_int(&cp);
-	
+
+	if(allocated ) {
+	  if(0) printf("elem = %d %d %d %d\n",noelements,unvtype,physind,matind);
+	}	
+
 	if (!allocated) {
+	  minphys = MIN( minphys, physind );
+	  maxphys = MAX( maxphys, physind );	 
 	  maxnodes = MAX(maxnodes, nonodes);
 	  if(elid != noelements) reorderelements = TRUE;
 	  maxelem = MAX(maxelem, elid);
@@ -4202,7 +4228,6 @@ omstart:
 	    nonodes = elmertype % 100;
 	  }
 	  
-	 	  
 	  data->elementtypes[noelements] = elmertype;
 	  for(i=0;i<nonodes;i++) {
 	    if( lines > 0 && i >= 8 ) {
@@ -4219,9 +4244,11 @@ omstart:
 	  UnvToElmerIndx(elmertype,data->topology[noelements]);	  
 
 	  /* should this be physical property or material property? */
-	  data->material[noelements] = physind;
+	  data->material[noelements] = physind + physoffset;
 	}
 	else {
+	  minelemtype = MIN( minelemtype, elmertype );
+	  maxelemtype = MAX( maxelemtype, elmertype );
 	  for(i=1;i<=lines;i++) 
 	    Getrow(line,in,FALSE);	  
 	}
@@ -4231,8 +4258,10 @@ omstart:
 
     if( mode == 780 ) {
       int physind2,matind2;
+      maxelemtype = 0;
+      minelemtype = 1000;
 
-      if(debug) printf("Reading elements from field %d\n",mode);
+      if(allocated && info) printf("Reading element groups in mode %d\n",mode);
       for(;;) {
 	Getrow(line,in,FALSE);
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -4253,6 +4282,8 @@ omstart:
 	  maxnodes = MAX(maxnodes, nonodes);
 	  if(elid != noelements) reorderelements = TRUE;
 	  maxelem = MAX(maxelem, elid);
+	  minphys = MIN( minphys, physind );
+	  maxphys = MAX( maxphys, physind );
 	}
 	
 	if(unvtype == 11 || unvtype == 21) Getrow(line,in,FALSE);
@@ -4262,6 +4293,8 @@ omstart:
 	  if(reorderelements) u2eelem[elid] = noelements;
 
 	  elmertype = UnvToElmerType(unvtype); 
+	  maxelemtype = MAX( maxelemtype, elmertype );
+	  minelemtype = MIN( minelemtype, elmertype );
 
 	  if(debug && !elementtypes[elmertype]) {
 	    elementtypes[elmertype] = TRUE;
@@ -4282,13 +4315,13 @@ omstart:
 	  UnvToElmerIndx(elmertype,data->topology[noelements]);	  
 
 	  /* should this be physical property or material property? */
-	  data->material[noelements] = physind;
+	  data->material[noelements] = physind + physoffset;
 	}
-      }    
+      }
     }  
 
     if( mode == 2467 || mode == 2435) {
-      if(debug) printf("Reading groups in mode %d\n",mode);
+      if(allocated && info) printf("Reading element groups in mode %d\n",mode);
       
       for(;;) {
 	Getrow(line,in,FALSE);
@@ -4296,9 +4329,16 @@ omstart:
 	
 	cp = line;
 	nogroup = next_int(&cp);
+	maxelemtype = 0;
+	minelemtype = 1000;
 	for(i=1;i<=6;i++)
 	  dummy = next_int(&cp);
 	noentities = next_int(&cp);
+
+	if(!allocated) {
+	  mingroup = MIN( mingroup, nogroup );
+	  maxgroup = MAX( maxgroup, nogroup );
+	}
 
 	Getrow(line,in,FALSE);	
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -4310,12 +4350,12 @@ omstart:
 	k = 0;
 	if(allocated) {
 	  sscanf(line,"%s",entityname);
-	  strcpy(data->bodyname[group],entityname);
+	  strcpy(data->bodyname[nogroup],entityname);
 	  data->bodynamesexist = TRUE;
 	  data->boundarynamesexist = TRUE;
 
-	  if(info) printf("Reading group %d with %d entities: %s\n",
-			  nogroup,noentities,entityname);
+	  if(info) printf("Reading %d:th group with index %d with %d entities: %s\n",
+			  group,nogroup,noentities,entityname);
 	}
 	if(noentities == 0) Getrow(line,in,FALSE);
 
@@ -4334,26 +4374,33 @@ omstart:
 	  if(ind == 0) continue;
 
 	  if( grouptype == 8 ) {
+
 	    if(allocated) {
 	      if(reorderelements) ind = u2eelem[ind];
 	      elemcode = data->elementtypes[ind];
-	      data->material[ind] = group;
+	      maxelemtype = MAX( maxelemtype, elemcode );
+	      minelemtype = MIN( minelemtype, elemcode );
+	      data->material[ind] = nogroup;
 	    }
 	  }
 	  else if(grouptype == 7) {
 	    nopoints += 1;
 	    if(allocated) {
 	      elemcode = 101;
-	      data->material[noelements+nopoints] = group;
-	      data->elementtypes[noelements+nopoints] = elemcode;
+	      data->material[noelements+nopoints] = nogroup;
+	      maxelemtype = MAX( maxelemtype, elemcode );
+	      minelemtype = MIN( minelemtype, elemcode );
+	      data->elementtypes[noelements+nopoints] = elemcode;	      
 	      data->topology[noelements+nopoints][0] = ind;
 	    }
 	  }
 	  else {
+	    printf("unknown group type %d\n",grouptype);
 	  }
 	}
-	if(k && allocated && info)
-	  printf("Found new group %d with elements %d: %s\n",group,elemcode,entityname);
+	if(allocated && info) {
+	  printf("Element type range in group is [%d %d]\n",minelemtype,maxelemtype);
+	}
 
       }
     }
@@ -4363,7 +4410,7 @@ omstart:
 end:
 
   exit;
-  if(info) printf("Done reading\n");
+  if(0) printf("Done reading mesh\n");
 
 
   if(!allocated) {
@@ -4380,7 +4427,7 @@ end:
     }
 
     if(noknots == 0 || noelements == 0 || maxnodes == 0) {
-      printf("Invalid mesh consits of %d knots and %d %d-node elements.\n",
+      printf("Invalid mesh consists of %d nodes and %d %d-node elements.\n",
 	     noknots,noelements,maxnodes);     
       fclose(in);
       return(2);
@@ -4394,17 +4441,54 @@ end:
     data->dim = dim;
     
     if(info) {
-      printf("Allocating for %d knots and %d %d-node elements in %d dims.\n",
+      printf("Allocating mesh with %d nodes and %d %d-node elements in %d dims.\n",
 	     noknots,noelements,maxnodes,dim);
     }  
     AllocateKnots(data);
     allocated = TRUE;
 
+    /* Set an offset for physical indexes so that the defined groups and 
+       existing physical indexes won't mix confusingly */
+    if( maxphys >= mingroup && minphys <= maxgroup ) {
+      physoffset = maxgroup - minphys + 1;
+    }
+    else {
+      physoffset = 0;
+    }
+
+    if(info) {
+      printf("Physical index interval is [%d,%d]\n",minphys,maxphys);
+      printf("Group index interval is [%d,%d]\n",mingroup,maxgroup);
+      if(physoffset) printf("Using offset %d for physical indexes\n",physoffset);
+    }
+
+
     goto omstart;    
   }
   fclose(in);
 
+  /* If the physical index may be zero, then we have a risk that there is 
+     an unset material index. Elmer does not like material indexes of zeros. 
+     This could be made prettier as now the almost same thing is done twice. */
+  if( minphys + physoffset == 0 ) {
+    mingroup = INT_MAX;
+    maxgroup = 0;
+    for(i=1;i<=data->noelements;i++) {
+      mingroup = MIN( mingroup, data->material[i] );
+      maxgroup = MAX( maxgroup, data->material[i] );
+    }
+    if( mingroup == 0 ) {
+      if(info) {
+	if(!maxgroup) printf("No material groups were successfully applied\n");
+	printf("Unset elements were given material index %d\n",maxgroup+1);    
+      }
+      for(i=1;i<=data->noelements;i++) 
+	if(data->material[i] == 0) data->material[i] = maxgroup + 1;
+    }
+  }    
 
+  /* Elmer likes that node indexes are given so that no integers are missed.
+     If this is not the case we need to do renumbering of nodes. */
   if(reordernodes) {
     for(j=1;j<=noelements;j++)
       for(i=0;i<data->elementtypes[j]%100;i++)
@@ -4415,22 +4499,8 @@ end:
     free_Ivector(u2eelem,1,maxelem);
   }
 
-
-  mingroup = maxgroup = data->material[1];
-  for(i=1;i<=data->noelements;i++) {
-    mingroup = MIN( mingroup, data->material[i]);
-    maxgroup = MAX( maxgroup, data->material[i]);
-  }
-  if(info) printf("The group interval is [%d,%d]\n",mingroup,maxgroup);
-  if(mingroup == 0) {   
-    if(info) {
-      if(!maxgroup) printf("No material groups were successfully applied\n");
-      printf("Unset elements were given material index %d\n",maxgroup+1);    
-    }
-    for(i=1;i<=data->noelements;i++) 
-      if(data->material[i] == 0) data->material[i] = maxgroup + 1;
-  }
-    
+  /* Until this far all elements have been listed as bulk elements. 
+     Now separate the lower dimensional elements to be boundary elements. */
   ElementsToBoundaryConditions(data,bound,TRUE,info);
  
   if(info) printf("The Universal mesh was loaded from file %s.\n\n",filename);

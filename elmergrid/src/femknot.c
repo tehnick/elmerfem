@@ -6938,7 +6938,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   int notfound,*notfounds;
 
 
-  if(info) printf("Making elements to boundary conditions\n");
+  if(info) printf("Moving bulk elements to boundary elements\n");
 
   for(j=0;j < MAXBOUNDARIES;j++) 
     bound[j].created = FALSE;
@@ -7000,11 +7000,12 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
   j = 1;
   maxpossible = possible[1];
-  for(i=1;i<=noknots;i++)
+  for(i=1;i<=noknots;i++) {
     if(maxpossible < possible[i]) {
       maxpossible = possible[i]; 
       j = i;
     }  
+  }
   if(info) printf("Node %d belongs to maximum of %d elements\n",j,maxpossible);
 
   /* Make a table showing to which elements a node belongs to 
@@ -7233,7 +7234,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   free_Imatrix(invtopo,1,noknots,1,maxpossible);
   if(notfound) free_Ivector(notfounds,1,noelements);
 
-  if(info) printf("All done\n");
+  if(0) printf("All done\n");
 
   return;
 }
