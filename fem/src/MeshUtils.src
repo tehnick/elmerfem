@@ -2428,14 +2428,6 @@ END SUBROUTINE GetMaxDefs
   FUNCTION PeriodicProjector( Model, Mesh, This, Trgt, cdim, &
       Galerkin ) RESULT(Projector)
 !------------------------------------------------------------------------------   
-!    INTERFACE 
-!      SUBROUTINE RotationalInterfaceMeshes(BMesh1, BMesh2, BParams, DoubleNode )
-!        TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
-!        TYPE(Valuelist_t), POINTER :: BParams
-!        INTEGER, ALLOCATABLE :: DoubleNode(:)
-!      END SUBROUTINE RotationalInterfaceMeshes
-!    END INTERFACE    
-!------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     INTEGER :: This, Trgt
     INTEGER, OPTIONAL :: cdim
@@ -2459,18 +2451,18 @@ END SUBROUTINE GetMaxDefs
     NULLIFY( Projector )
     IF ( This <= 0 .OR. Trgt <= 0 ) RETURN    
 
-    ! Check whether to use rotational projector or not
+    ! Check whether to use (anti)rotational projector.
+    ! We don't really know on which side the projector was called so 
+    ! let's check both sides.
     !--------------------------------------------------------------------------
     Rotational = ListGetLogical( Model % BCs(This) % Values,&
         'Rotational Projector',GotIt )
     IF(.NOT. GotIt ) Rotational = ListGetLogical( Model % BCs(Trgt) % Values,&
           'Rotational Projector',GotIt )
-    IF( Rotational ) THEN
-      AntiRotational = ListGetLogical( Model % BCs(This) % Values,&
-          'Anti Rotational Projector',GotIt )
-      IF(.NOT. GotIt ) AntiRotational = ListGetLogical( Model % BCs(Trgt) % Values,&
+    AntiRotational = ListGetLogical( Model % BCs(This) % Values,&
+        'Anti Rotational Projector',GotIt )
+    IF(.NOT. GotIt ) AntiRotational = ListGetLogical( Model % BCs(Trgt) % Values,&
           'Anti Rotational Projector',GotIt )      
-    END IF
 
     ! Whether to choose nodal or Galerkin projector is determined by an optional
     ! flag. The default is the nodal projector.
@@ -2480,7 +2472,6 @@ END SUBROUTINE GetMaxDefs
     ELSE
       IntGalerkin = .FALSE.
     END IF
-
 
     ! Create temporal mesh structures that are utilized when making the 
     ! projector between "This" and "Trgt" boundary.
@@ -2504,7 +2495,7 @@ END SUBROUTINE GetMaxDefs
     ! Otherwise make the two meshes to coinside using rotation, translation &
     ! scaling. 
     !---------------------------------------------------------------------------------
-    IF( Rotational ) THEN
+    IF( Rotational .OR. AntiRotational ) THEN
       ALLOCATE( DoubleNode( BMesh2 % NumberOfNodes ) ) 
       IF( AntiRotational ) THEN
         ALLOCATE( MirrorNode( BMesh2 % NumberOfNodes ) ) 
@@ -2532,7 +2523,7 @@ END SUBROUTINE GetMaxDefs
 
     ! Remove the reference to ghost nodes.
     !----------------------------------------------------------------------
-    IF( Rotational ) THEN
+    IF( Rotational . OR. AntiRotational ) THEN
       DEALLOCATE( DoubleNode )
       IF( AntiRotational ) DEALLOCATE( MirrorNode ) 
     END IF
