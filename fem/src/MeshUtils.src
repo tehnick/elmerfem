@@ -1879,6 +1879,7 @@ END SUBROUTINE GetMaxDefs
     !-----------------------------------------------------------------------------
     CALL EliminateRedundantColumns( Cols, DoublePerm )
 
+    NoGaussPoints=0
     DO i=1, BMesh1 % NumberOfBulkElements
       Element => BMesh1 % Elements(i)
       n = Element % TYPE % NumberOfNodes        
@@ -1902,12 +1903,12 @@ END SUBROUTINE GetMaxDefs
         DO p=1,n
           val = detJ * IntegStuff % s(j) * Basis(p)
           DO q=1,n
-            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(l), InvPerm1(NodeIndexes(l)), &
+            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(p), InvPerm1(NodeIndexes(p)), &
                 Basis(q) * val ) 
           END DO
 
           DO q = Rows(NoGaussPoints), Rows(NoGaussPoints+1)-1
-            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(l), InvPerm2(Cols(q)), &
+            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(p), InvPerm2(Cols(q)), &
                 -Values(q) * val ) 
           END DO
         END DO
@@ -2198,6 +2199,7 @@ END SUBROUTINE GetMaxDefs
     err2 = ABS( F2max - F1max ) / dFii1
     IF( err1 < eps_rad .AND. err2 < eps_rad ) THEN
       CALL Info('RotationalInterfaceMeshes','The angle interval already ok, nothing further to do')
+      DoublePerm = 0
       RETURN
     END IF
 
@@ -2350,6 +2352,7 @@ END SUBROUTINE GetMaxDefs
         END DO
       END IF
     END DO
+    BMesh2 % NumberOfNodes = SIZE(BMesh2 % Nodes % x)
     BMesh2 % NumberOfBulkElements = NElems + DoubleElems
 
     IF(.FALSE.) THEN
