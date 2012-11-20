@@ -188,8 +188,10 @@ struct FemType {
     timesteps,     /* number of timesteps */
     periodicexist, /* does the periodic vector exist? */
     *periodic,     /* peridic ordering vector, if needed */
-    connectexist,  /* does the connection vector exist? */
-    *connect,      /* connections between nodes, if needed */
+    nodeconnectexist,  /* does the node connection vector exist? */
+    *nodeconnect,      /* connections between nodes, if needed */
+    elemconnectexist,  /* does the element connection vector exist? */
+    *elemconnect,      /* connections between elements, if needed */
     partitionexist,/* does the partitioning exist? */
     nopartitions,  /* number of partitions */
     *elempart,     /* which partition owns the element */

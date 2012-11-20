@@ -160,7 +160,7 @@ static void Instructions()
   printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
   printf("-nosave              : disable saving part alltogether\n");
   printf("-timer               : show timer information\n");
-  printf("-infofile            : file for saving the timer and size information\n");
+  printf("-infofile str        : file for saving the timer and size information\n");
 
   printf("\nThe following keywords are related only to the parallel Elmer computations.\n");
   printf("-partition int[4]    : the mesh will be partitioned in main directions\n");
@@ -581,7 +581,7 @@ int main(int argc, char *argv[])
   /* Make a connected boundary (specific to Elmer format) needed in linear constraints */
   for(k=0;k<nomeshes;k++) 
     for(i=1;i<=eg.connect;i++) 
-      SetConnectedBoundary(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);
+      SetConnectedNodes(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);
   
 
   /* Divide quadrilateral meshes into triangular meshes */

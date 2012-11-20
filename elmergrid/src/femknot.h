@@ -41,8 +41,8 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
 			     int boundtype,int endnodes,int info);
 int SetDiscontinuousPoints(struct FemType *data,struct PointType *point,
 			   int material);
-int SetConnectedBoundary(struct FemType *data,struct BoundaryType *bound,
-			 int bctype,int connecttype,int info);
+int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
+		      int bctype,int connecttype,int info);
 int FindCorners(struct GridType *grid,struct CellType *cell,
 		struct FemType *data,int info);
 
@@ -104,7 +104,7 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
 int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
 int CreateNodalGraph(struct FemType *data,int full,int info);
 int DestroyNodalGraph(struct FemType *data,int info);
-int CreateDualGraph(struct FemType *data,int info);
+int CreateDualGraph(struct FemType *data,int unconnected,int info);
 int DestroyDualGraph(struct FemType *data,int info);
 int CreateInverseTopology(struct FemType *data,int info);
 int DestroyInverseTopology(struct FemType *data,int info);

@@ -842,7 +842,8 @@ void InitializeKnots(struct FemType *data)
   data->nopartitions = 1;
   data->partitionexist = FALSE;
   data->periodicexist = FALSE;
-  data->connectexist = FALSE;
+  data->nodeconnectexist = FALSE;
+  data->elemconnectexist = FALSE;
 
   data->nodalexists = FALSE;
   data->invtopoexists = FALSE;
@@ -2428,7 +2429,7 @@ int FindPeriodicBoundary(struct FemType *data,struct BoundaryType *bound,
 
 
 
-int SetConnectedBoundary(struct FemType *data,struct BoundaryType *bound,
+int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
 			 int bctype,int connecttype,int info)
 /* Create connected boundary conditions for a given bctype */
 {
@@ -2443,11 +2444,11 @@ int SetConnectedBoundary(struct FemType *data,struct BoundaryType *bound,
     for(i=1;i<=bound[bc].nosides;i++) {
       if(bound[bc].types[i] != bctype) continue;
  
-      if(!data->connectexist) {
-	data->connect = Ivector(1,data->noknots);
+      if(!data->nodeconnectexist) {
+	data->nodeconnect = Ivector(1,data->noknots);
 	for(k=1;k<=data->noknots;k++)
-	  data->connect[k] = 0;
-	data->connectexist = TRUE;
+	  data->nodeconnect[k] = 0;
+	data->nodeconnectexist = TRUE;
       }
        
       GetElementSide(bound[bc].parent[i],bound[bc].side[i],bound[bc].normal[i],
@@ -2456,13 +2457,59 @@ int SetConnectedBoundary(struct FemType *data,struct BoundaryType *bound,
       
       for(j=0;j<sidenodes;j++) {
 	k = sideind[j];
-	data->connect[k] = connecttype;
+	data->nodeconnect[k] = connecttype;
       }
     }
   }
 
   return(0);
 }
+
+
+static int SetConnectedElements(struct FemType *data,int *nodeconnect,int info)
+/* Create connected boundary conditions for a given bctype */
+{
+  int i,j,k,l,nonodes,hit,nohits;
+
+  if(!data->elemconnectexist) {
+    data->elemconnect = Ivector(1,data->noelements);
+    for(k=1;k<=data->noelements;k++)
+      data->elemconnect[k] = 0;
+    data->elemconnectexist = TRUE;
+  }
+
+  nohits = 0;
+  for(i=1;i<=data->noelements;i++) {
+    nonodes = data->elementtypes[i] % 100;
+    hit = FALSE;
+    for(j=0;j<nonodes;j++) {
+      k = data->topology[i][j];
+      if( data->nodeconnect[k] ) {
+	hit = TRUE;
+	data->elemconnect[i] = nodeconnect[k];
+	break;
+      }
+    }
+    if(hit) nohits++;
+  }
+  if(info) printf("Number of connected elements is %d\n",nohits);
+
+  /* For time being set actually the inverse i.e. number the unconnected nodes */
+  j = 0;
+  for(i=1;i<=data->noelements;i++) {
+    if( data->elemconnect[i] ) {
+      data->elemconnect[i] = 0;
+    }
+    else {
+      j++;
+      data->elemconnect[i] = j;
+    }
+  }
+  data->elemconnectexist = j;
+    
+  return(0);
+}
+
 
 
 
@@ -5983,6 +6030,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     layers = 1;
   else 
     layers = 2;
+
   data->noknots = noknots = dataxy->noknots*(layers*grid->totzelems+1);
   data->noelements = dataxy->noelements * grid->totzelems;
   data->coordsystem = dataxy->coordsystem;
@@ -5992,7 +6040,8 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   data->minsize = dataxy->minsize;
   data->partitionexist = FALSE;
   data->periodicexist = FALSE;
-  data->connectexist = FALSE;
+  data->nodeconnectexist = FALSE;
+  data->elemconnectexist = FALSE;
 
   maxsidetype = 0;
 
@@ -9451,10 +9500,11 @@ int DestroyInverseTopology(struct FemType *data,int info)
 
 
 
-int CreateDualGraph(struct FemType *data,int info)
+int CreateDualGraph(struct FemType *data,int unconnected,int info)
 {
-  int totcon,noelements,noknots,elemtype,nonodes,i,j,k,l,i2,m,ind,hit;
-  int dualmaxcon,invmaxcon,showgraph;
+  int totcon,noelements,noknots,elemtype,nonodes,i,j,k,l,i2,m,ind,hit,ci,ci2;
+  int dualmaxcon,invmaxcon,showgraph,freeelements;
+  int *elemconnect;
 
   printf("Creating a dual graph of the finite element mesh\n");  
 
@@ -9472,6 +9522,22 @@ int CreateDualGraph(struct FemType *data,int info)
   noelements = data->noelements;
   noknots = data->noknots;
   invmaxcon = data->maxinvtopo;
+  
+  /* If a dual graph only for the unconnected nodes is requested do that */
+  freeelements = noelements;
+  if( unconnected ) {
+    if( data->nodeconnectexist ) {
+      SetConnectedElements(data,data->nodeconnect,info);
+    }
+    if( data->elemconnectexist ) {
+      elemconnect = data->elemconnect;
+      freeelements = data->elemconnectexist;
+    }
+    else {
+      unconnected = FALSE;
+    }
+  }
+
 
   showgraph = FALSE;
   if(showgraph) printf("elemental graph ij pairs\n");
@@ -9490,21 +9556,31 @@ int CreateDualGraph(struct FemType *data,int info)
 
 	if( i2 == 0 ) break;
 	if( i2 == i ) continue;
+
+	if( unconnected ) {
+	  ci = elemconnect[i];
+	  ci2 = elemconnect[i2];
+	  if( !ci || !ci2 ) continue;
+	}
+	else {
+	  ci = i;
+	  ci2 = i2;
+	}
 	
 	hit = FALSE;
 	for(l=0;l<dualmaxcon;l++) { 
-	  if(data->dualgraph[l][i] == i2) hit = TRUE;
-	  if(data->dualgraph[l][i] == 0) break;
+	  if(data->dualgraph[l][ci] == ci2) hit = TRUE;
+	  if(data->dualgraph[l][ci] == 0) break;
 	}
 	if(!hit) {
 	  if(l >= dualmaxcon) {
-	    data->dualgraph[dualmaxcon] = Ivector(1,noelements);
-	    for(m=1;m<=noelements;m++)
+	    data->dualgraph[dualmaxcon] = Ivector(1,freeelements);
+	    for(m=1;m<=freeelements;m++)
 	      data->dualgraph[dualmaxcon][m] = 0;
 	    dualmaxcon++;
 	  }
-	  if(showgraph) printf("%d ",i2);
-	  data->dualgraph[l][i] = i2;
+	  if(showgraph) printf("%d ",ci2);
+	  data->dualgraph[l][ci] = ci2;	    
 	  totcon++;
 	}
       }

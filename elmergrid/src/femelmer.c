@@ -906,12 +906,14 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
     return(2);
   }
 
+  
   connodes = 0;
-  if(data->connectexist) {
+  /* if(data->nodeconnectexist) {
     for(i=1;i<=data->noknots;i++) 
-      connodes = MAX( connodes, data->connect[i]);
+      connodes = MAX( connodes, data->nodeconnect[i]);
     if(info) printf("Creating %d new nodes for connectivity conditions\n",connodes);
-  }
+    } 
+  */
   
   if(data->dim == 1) {
     sprintf(outstyle,"%%d %%d %%.%dlg 0.0 0.0\n",decimals);
@@ -1000,7 +1002,7 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
   }
 
 
-  /* Save additional connection arising from discontinuous boundaries */
+  /* Save additional nodeconnection arising from discontinuous boundaries */
   if(0) for(j=0;j < MAXBOUNDARIES;j++) {
      
     if(bound[j].created == FALSE) continue;
@@ -1035,9 +1037,9 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
   }
   
 
-  if(data->connectexist) {
+  if(0 && data->nodeconnectexist) {
     int *connect,newsides,newline,count;
-    connect = data->connect;
+    connect = data->nodeconnect;
     
     for(k=1;;k++) {
       newsides = 0;
@@ -1186,7 +1188,7 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     return(1);
   }
 
-  if(data->connectexist) smallerror("Connectivity data is not saved in the FEM/BEM version");
+  if(data->nodeconnectexist) smallerror("Connectivity data is not saved in the FEM/BEM version");
   if(data->nopartitions > 1) smallerror("Partitioning data is not saved in the FEM/BEM version");
 
   noelements = data->noelements;
@@ -2466,19 +2468,23 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
   noknots = data->noknots;
   noelements = data->noelements;
 
-  if(data->periodicexist || eg->connect) {
-    if( dual ) {
-      printf("Dual graph not implemented for periodic or constrained system!\n");
-      printf("Using nodal graph for partitioning\n");
-      dual = FALSE;
-    }
+  if(data->periodicexist && dual ) {
+    printf("Dual graph not implemented for periodic system!\n");
+    printf("Enforcing nodal graph for partitioning\n");
+    dual = FALSE;
   }
 
-
+  nparts = partitions;
   if( dual ) {
-    CreateDualGraph(data,info);
+    CreateDualGraph(data,TRUE,info);
     maxcon = data->dualmaxconnections;
-    nn = noelements;
+    if( data->elemconnectexist ) {
+      nn = data->elemconnectexist;
+      nparts -= 1;
+    }
+    else {
+      nn = noelements;
+    }
   }
   else {
     CreateNodalGraph(data,TRUE,info);
@@ -2527,7 +2533,6 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
 
 
   numflag = 0;
-  nparts = partitions;
   npart = Ivector(0,nn-1);
   wgtflag = 0;
   options[0] = 0;
@@ -2535,74 +2540,76 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
   options[2] = 1;
   options[3] = 3;
   options[4] = 0;
-
+  
   vwgt = NULL;
   adjwgt = NULL;
 
-  /* Create weights if needed */
-  if(data->periodicexist || eg->connect) {
-    if(info) printf("Creating weight for %d connections.\n",totcon);
-    wgtflag = 1;
-    adjwgt = Ivector(0,totcon-1);
-    for(i=0;i<totcon;i++)
-      adjwgt[i] = 1;
-
-    if(metisopt != 3) {
-      printf("For weighted partitioning Metis subroutine METIS_PartGraphKway is enforced\n");
-      metisopt = 3;
-    }
-  }
-
-  /* Make the periodic connections stronger */
-  if(data->periodicexist) {
-    if(info) printf("Setting periodic connections to dominate %d\n",totcon);
-    for(i=0;i<noknots;i++) {
-      j = data->periodic[i+1]-1;
-      if(j == i) continue;
-      for(k=xadj[i];k<xadj[i+1];k++) 
-	if(adjncy[k] == j) adjwgt[k] = maxcon;
-    }
-  }
-  
-  /* Make the contraint connections stronger */
-  if(eg->connect) {
-    int maxweight;
-    int con,bc,bctype,sideelemtype,sidenodes;
-    int j2,ind,ind2;
-    int sideind[MAXNODESD1];
-
-    maxweight = noknots+noelements;
-    printf("Adding weight of %d for constrained nodes\n",maxweight);
-
-    for(con=1;con<=eg->connect;con++) {
-      bctype = eg->connectbounds[con-1];
-
-      for(bc=0;bc<MAXBOUNDARIES;bc++) {    
-	if(bound[bc].created == FALSE) continue;
-	if(bound[bc].nosides == 0) continue;
-	
-	for(i=1;i<=bound[bc].nosides;i++) {
-	  if(bound[bc].types[i] != bctype) continue;
-	  
-	  GetElementSide(bound[bc].parent[i],bound[bc].side[i],bound[bc].normal[i],
-			 data,sideind,&sideelemtype);
-	  sidenodes = sideelemtype%100;
+  if( !dual ) {
+    /* Create weights if needed */
+    if(data->periodicexist || eg->connect) {
+      if(info) printf("Creating weight for %d connections.\n",totcon);
+      wgtflag = 1;
+      adjwgt = Ivector(0,totcon-1);
+      for(i=0;i<totcon;i++)
+	adjwgt[i] = 1;
       
-	  for(j=0;j<sidenodes;j++) {
-	    for(j2=0;j2<sidenodes;j2++) {
-	      if(j==j2) continue;
-
-	      ind = sideind[j]-1;
-	      ind2 = sideind[j2]-1;
-
-	      for(k=xadj[ind];k<xadj[ind+1];k++) 
-		if(adjncy[k] == ind2) adjwgt[k] = maxweight;
+      if(metisopt != 3) {
+	printf("For weighted partitioning Metis subroutine METIS_PartGraphKway is enforced\n");
+	metisopt = 3;
+      }
+    }
+    
+    /* Make the periodic connections stronger */
+    if(data->periodicexist) {
+      if(info) printf("Setting periodic connections to dominate %d\n",totcon);
+      for(i=0;i<noknots;i++) {
+	j = data->periodic[i+1]-1;
+	if(j == i) continue;
+	for(k=xadj[i];k<xadj[i+1];k++) 
+	  if(adjncy[k] == j) adjwgt[k] = maxcon;
+      }
+    }
+    
+    /* Make the contraint connections stronger */
+    if(eg->connect) {
+      int maxweight;
+      int con,bc,bctype,sideelemtype,sidenodes;
+      int j2,ind,ind2;
+      int sideind[MAXNODESD1];
+      
+      maxweight = noknots+noelements;
+      printf("Adding weight of %d for constrained nodes\n",maxweight);
+      
+      for(con=1;con<=eg->connect;con++) {
+	bctype = eg->connectbounds[con-1];
+	
+	for(bc=0;bc<MAXBOUNDARIES;bc++) {    
+	  if(bound[bc].created == FALSE) continue;
+	  if(bound[bc].nosides == 0) continue;
+	  
+	  for(i=1;i<=bound[bc].nosides;i++) {
+	    if(bound[bc].types[i] != bctype) continue;
+	    
+	    GetElementSide(bound[bc].parent[i],bound[bc].side[i],bound[bc].normal[i],
+			   data,sideind,&sideelemtype);
+	    sidenodes = sideelemtype%100;
+	    
+	    for(j=0;j<sidenodes;j++) {
+	      for(j2=0;j2<sidenodes;j2++) {
+		if(j==j2) continue;
+		
+		ind = sideind[j]-1;
+		ind2 = sideind[j2]-1;
+		
+		for(k=xadj[ind];k<xadj[ind+1];k++) 
+		  if(adjncy[k] == ind2) adjwgt[k] = maxweight;
+	      }
 	    }
 	  }
 	}
       }
     }
-  }
+  }    
 
 
   if(metisopt == 2) {
@@ -2640,8 +2647,21 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
   /* Set the partition given by Metis for each node. */
   if( dual ) {
     printf("dual\n");
-    for(i=1;i<=nn;i++) 
-      data->elempart[i] = npart[i-1]+1;
+    if( data->elemconnectexist ) {
+      for(i=1;i<=noelements;i++) {
+	j = data->elemconnect[i];
+	if(!j) {
+	  data->elempart[i] = nparts+1;
+	}
+	else {
+	  data->elempart[i] = npart[j-1]+1;  
+	}
+      }
+    }
+    else {
+      for(i=1;i<=nn;i++) 
+	data->elempart[i] = npart[i-1]+1;
+    }
     PartitionNodesByElements(data,info);
     printf("done\n");
   }
@@ -2653,7 +2673,7 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
 
 
   /* Finally check that the constraint is really honored */
-  if(eg->connect) {
+  if(!dual && eg->connect) {
     int con,bc,bctype,sideelemtype,sidenodes,par;
     int ind,sideind[MAXNODESD1];
     int *sidehits,sidepartitions;
@@ -2773,7 +2793,7 @@ static void CheckPartitioning(struct FemType *data,int info)
 
   if(info) {
     printf("Information on partition bandwidth\n");
-    if(partitions <= 4) {
+    if(partitions <= 10) {
       printf("Distribution of elements, nodes and shared nodes\n");
       printf("     %-10s %-10s %-10s %-10s\n","partition","elements","nodes","shared");
       for(i=1;i<=partitions;i++)

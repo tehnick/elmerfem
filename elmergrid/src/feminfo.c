@@ -702,8 +702,10 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
  	return(10);
       }
       else {
-	eg->connectbounds[eg->connect] = atoi(argv[arg+1]);
-	eg->connect++;
+	for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) { 
+	  eg->connectbounds[eg->connect] = atoi(argv[i]);
+	  eg->connect++;
+	}
       }
     } 
  
