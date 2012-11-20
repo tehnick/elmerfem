@@ -1740,45 +1740,70 @@ END SUBROUTINE GetMaxDefs
 
 
 !------------------------------------------------------------------------------
-!> Eliminate redundant columns pointed by the DoublePerm vector.
+!> Eliminate redundant columns pointed by the DoubleNode vector.
 !> The columns refer to the ghost nodes that were created to allow periodicity
 !> of the mortar piece.
 !------------------------------------------------------------------------------
-  SUBROUTINE EliminateRedundantColumns( Cols, DoublePerm )
+  SUBROUTINE EliminateRedundantColumns( Cols, Values, DoubleNode, MirrorNode )
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: Cols(:)            !< Columns of the sparse matrix
-    INTEGER, ALLOCATABLE :: DoublePerm(:)  !< Indexes of the additional columns         
+    REAL(KIND=dp), POINTER :: Values(:)          !< Values of the sparse matrix
+    INTEGER, ALLOCATABLE :: DoubleNode(:)  !< Indexes of the additional columns         
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)  !< Indexes of the mirror nodes
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,n,DoubleNodes
+    INTEGER :: i,j,k,n,DoubleNodes
     INTEGER, ALLOCATABLE :: InvPerm(:)
+    INTEGER :: MirrorCount
 !------------------------------------------------------------------------------
 
-     IF( .NOT. ALLOCATED( DoublePerm ) ) THEN
-       ! This is too conservative 
-       ! CALL Warn('EliminateRedundantColumns','DoublePerm not allocated, returning')
+     IF( .NOT. ALLOCATED( DoubleNode ) ) THEN
        RETURN
      END IF
      
-     IF( MAXVAL( DoublePerm ) == 0 ) THEN
-       CALL Warn('EliminateRedundantColumns','DoublePerm all zero, returning')
+     IF( MAXVAL( DoubleNode ) == 0 ) THEN
+       CALL Warn('EliminateRedundantColumns','DoubleNode all zero, returning')
        RETURN
      END IF
           
-     DoubleNodes = COUNT( DoublePerm > 0 )      
+     DoubleNodes = COUNT( DoubleNode > 0 )      
      ALLOCATE( InvPerm( DoubleNodes ) )
-     n = SIZE( DoublePerm )     
+     n = SIZE( DoubleNode )     
 
      ! Create the inverse structure for the redundant columns
      DO i=1,n
-       j = DoublePerm(i)
+       j = DoubleNode(i)
        IF( j > 0 ) InvPerm( j - n ) = i
      END DO
      
      ! Now switch the ghost entries to the primary entry
-     DO i=1,SIZE( Cols ) 
-       j = Cols(i)
-       IF( j > n ) Cols(i) = InvPerm( j - n ) 
-     END DO
+     IF( ALLOCATED( MirrorNode ) ) THEN
+       i = COUNT( MirrorNode ) 
+       j = COUNT( .NOT. MirrorNode( InvPerm(1:DoubleNodes)))
+       PRINT *,'Total nodes:',n,DoubleNodes,n+DoubleNodes
+       PRINT *,'Mirror nodes:',i,j,i+j
+       
+       DO i=1,SIZE( Cols ) 
+         j = Cols(i)
+         IF( j > n ) THEN
+           k = InvPerm( j - n ) 
+           Cols(i) = k
+           ! The double nodes are always in different phase than their 
+           ! counterpart. Hence the node is mirror node if the counterpart is not.
+           IF( .NOT. MirrorNode( k ) ) THEN
+             Values(i) = -Values(i)
+           END IF
+         ELSE
+           IF( MirrorNode( j ) ) THEN
+             Values(i) = -Values(i)
+           END IF
+         END IF
+       END DO
+     ELSE
+       DO i=1,SIZE( Cols ) 
+         j = Cols(i)
+         IF( j > n ) Cols(i) = InvPerm( j - n ) 
+       END DO
+     END IF
 
 !------------------------------------------------------------------------------
    END SUBROUTINE EliminateRedundantColumns
@@ -1792,14 +1817,15 @@ END SUBROUTINE GetMaxDefs
   !> coordinates.   
   !---------------------------------------------------------------------------
    FUNCTION WeightedProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, &
-       UseQuadrantTree, DoublePerm ) &
+       UseQuadrantTree, DoubleNode, MirrorNode ) &
       RESULT ( Projector )
   !---------------------------------------------------------------------------
     USE Lists
 
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
-    INTEGER, ALLOCATABLE :: DoublePerm(:)
+    INTEGER, ALLOCATABLE :: DoubleNode(:)
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)
     LOGICAL :: UseQuadrantTree
     TYPE(Matrix_t), POINTER :: Projector
     !--------------------------------------------------------------------------
@@ -1877,7 +1903,7 @@ END SUBROUTINE GetMaxDefs
     ! One needs to eliminate the references to ghost nodes before actually forming 
     ! the Galerkin projector.
     !-----------------------------------------------------------------------------
-    CALL EliminateRedundantColumns( Cols, DoublePerm )
+    CALL EliminateRedundantColumns( Cols, Values, DoubleNode, MirrorNode )
 
     NoGaussPoints=0
     DO i=1, BMesh1 % NumberOfBulkElements
@@ -1936,7 +1962,7 @@ END SUBROUTINE GetMaxDefs
   !> coordinates.   
   !---------------------------------------------------------------------------
    FUNCTION NodalProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, &
-       UseQuadrantTree, DoublePerm ) &
+       UseQuadrantTree, DoubleNode, MirrorNode ) &
       RESULT ( Projector )
   !---------------------------------------------------------------------------
     ! USE SolverUtils
@@ -1944,7 +1970,8 @@ END SUBROUTINE GetMaxDefs
 
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
-    INTEGER, ALLOCATABLE :: DoublePerm(:)
+    INTEGER, ALLOCATABLE :: DoubleNode(:)
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)
     LOGICAL :: UseQuadrantTree
     TYPE(Matrix_t), POINTER :: Projector
     !--------------------------------------------------------------------------
@@ -1964,7 +1991,7 @@ END SUBROUTINE GetMaxDefs
     ! One needs to eliminate the references to ghost nodes before actually forming 
     ! the projector.
     !-----------------------------------------------------------------------------
-    CALL EliminateRedundantColumns( Cols, DoublePerm )
+    CALL EliminateRedundantColumns( Cols, Values, DoubleNode, MirrorNode )
 
     ! Now return from the indexes of the interface mesh system to the 
     ! original mesh system.
@@ -1991,11 +2018,13 @@ END SUBROUTINE GetMaxDefs
   !> that the target mesh is mannipulated so that it include the angle interval
   !> of the master nodes. 
   !---------------------------------------------------------------------------
-  SUBROUTINE RotationalInterfaceMeshes(BMesh1, BMesh2, DoublePerm, BParams )
+  SUBROUTINE RotationalInterfaceMeshes(BMesh1, BMesh2, BParams, DoubleNode, &
+      MirrorNode )
   !---------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
-    INTEGER :: DoublePerm(:)
     TYPE(Valuelist_t), POINTER :: BParams
+    INTEGER, ALLOCATABLE :: DoubleNode(:)
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)
     !--------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: PMesh
     TYPE(Element_t), POINTER :: Element, TmpElements(:)
@@ -2199,7 +2228,7 @@ END SUBROUTINE GetMaxDefs
     err2 = ABS( F2max - F1max ) / dFii1
     IF( err1 < eps_rad .AND. err2 < eps_rad ) THEN
       CALL Info('RotationalInterfaceMeshes','The angle interval already ok, nothing further to do')
-      DoublePerm = 0
+      DoubleNode = 0
       RETURN
     END IF
 
@@ -2215,7 +2244,7 @@ END SUBROUTINE GetMaxDefs
 
     ALLOCATE( KeepNode( Nnodes), MoveNode( Nnodes) )
     ALLOCATE( KeepElem( NElems ), MoveElem( NElems) )
-    DoublePerm = 0
+    DoubleNode = 0
     KeepNode = .FALSE.
     MoveNode = .FALSE.
     KeepElem = .FALSE.
@@ -2263,7 +2292,7 @@ END SUBROUTINE GetMaxDefs
     WRITE( Message,'(A,I0)') 'Number Of double nodes:',DoubleNodes
     CALL Info('RotationalInterfaceMeshes',Message,Level=8)
     
-    IF( DoubleElems == 0 ) THEN
+    IF( DoubleElems == 0  ) THEN
       CALL Warn('RotationalInterfaceMesh','No additional elements needed, exiting...')
       RETURN
     END IF
@@ -2298,6 +2327,14 @@ END SUBROUTINE GetMaxDefs
     DEALLOCATE( BMesh2 % Nodes % z )
     BMesh2 % Nodes % z => TmpCoord
 
+    IF( ALLOCATED( MirrorNode ) ) THEN
+      IF( MODULO( Nfii, 2) == 0 ) THEN
+        MirrorNode = .FALSE.
+      ELSE
+        MirrorNode = .TRUE.
+      END IF
+    END IF
+
     
     j = 0
     DO i=1,Nnodes
@@ -2306,9 +2343,13 @@ END SUBROUTINE GetMaxDefs
         BMesh2 % Nodes % x(Nnodes+j) = BMesh2 % Nodes % x(i) - dFii1 
         BMesh2 % Nodes % y(Nnodes+j) = BMesh2 % Nodes % y(i)
         BMesh2 % Nodes % z(Nnodes+j) = BMesh2 % Nodes % z(i)          
-        DoublePerm(i) = j + Nnodes
+        DoubleNode(i) = j + Nnodes
+        ! This node will always be mirror node anti periodic        
       ELSE IF( MoveNode(i) ) THEN
         BMesh2 % Nodes % x(i) = BMesh2 % Nodes % x(i) - dFii1           
+        IF( ALLOCATED( MirrorNode ) ) THEN
+          MirrorNode(i) = .NOT. MirrorNode(i)
+        END IF
       ELSE IF( KeepNode(i) ) THEN
         CONTINUE
       ELSE
@@ -2325,17 +2366,17 @@ END SUBROUTINE GetMaxDefs
 
       IF( KeepElem(i) .AND. MoveElem(i) ) THEN
         ! PRINT *,'adding element',i
-        DoubleElems = DoubleElems + 1
-        
+        DoubleElems = DoubleElems + 1        
         ind = BMesh2 % NumberOfBulkElements + DoubleElems
+       
         BMesh2 % Elements(ind) = Element
         CALL AllocateVector(BMesh2 % Elements(ind) % NodeIndexes,MaxElemNodes )
         DO j=1,n
           k = NodeIndexes(j)
-          IF( DoublePerm(k) > 0 ) THEN
-            BMesh2 % Elements(ind) % NodeIndexes(j) = DoublePerm(k)
+          IF( DoubleNode(k) > 0 ) THEN
+            BMesh2 % Elements(ind) % NodeIndexes(j) = DoubleNode(k)
           ELSE
-            PRINT *,'i',i,NodeIndexes(1:n),DoublePerm(NodeIndexes(1:n))
+            PRINT *,'i',i,NodeIndexes(1:n),DoubleNode(NodeIndexes(1:n))
             PRINT *,'KeepNode:',KeepNode(NodeIndexes(1:n))
             PRINT *,'MoveNodes:',MoveNode(NodeIndexes(1:n))
             CALL Fatal('RotationalInterfaceMeshes','For this element there should be moving nodes!')
@@ -2346,8 +2387,8 @@ END SUBROUTINE GetMaxDefs
       ELSE IF( MoveElem(i) ) THEN
         DO j=1,n
           k = Element % NodeIndexes(j)
-          IF( DoublePerm(k) > 0 ) THEN
-            BMesh2 % Elements(i) % NodeIndexes(j) = DoublePerm(k)
+          IF( DoubleNode(k) > 0 ) THEN
+            BMesh2 % Elements(i) % NodeIndexes(j) = DoubleNode(k)
           END IF
         END DO
       END IF
@@ -2386,6 +2427,14 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
   FUNCTION PeriodicProjector( Model, Mesh, This, Trgt, cdim, &
       Galerkin ) RESULT(Projector)
+!------------------------------------------------------------------------------   
+!    INTERFACE 
+!      SUBROUTINE RotationalInterfaceMeshes(BMesh1, BMesh2, BParams, DoubleNode )
+!        TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+!        TYPE(Valuelist_t), POINTER :: BParams
+!        INTEGER, ALLOCATABLE :: DoubleNode(:)
+!      END SUBROUTINE RotationalInterfaceMeshes
+!    END INTERFACE    
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     INTEGER :: This, Trgt
@@ -2395,9 +2444,11 @@ END SUBROUTINE GetMaxDefs
     LOGICAL, OPTIONAL :: Galerkin
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,n,dim
-    LOGICAL :: GotIt, UseQuadrantTree, Rotational, Success, IntGalerkin
+    LOGICAL :: GotIt, UseQuadrantTree, Rotational, Success, IntGalerkin, &
+        AntiRotational
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
-    INTEGER, ALLOCATABLE :: DoublePerm(:)
+    INTEGER, ALLOCATABLE :: DoubleNode(:)
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
     TYPE(Nodes_t), POINTER :: MeshNodes, GaussNodes
     REAL(KIND=dp) :: rowsum
@@ -2414,6 +2465,12 @@ END SUBROUTINE GetMaxDefs
         'Rotational Projector',GotIt )
     IF(.NOT. GotIt ) Rotational = ListGetLogical( Model % BCs(Trgt) % Values,&
           'Rotational Projector',GotIt )
+    IF( Rotational ) THEN
+      AntiRotational = ListGetLogical( Model % BCs(This) % Values,&
+          'Anti Rotational Projector',GotIt )
+      IF(.NOT. GotIt ) AntiRotational = ListGetLogical( Model % BCs(Trgt) % Values,&
+          'Anti Rotational Projector',GotIt )      
+    END IF
 
     ! Whether to choose nodal or Galerkin projector is determined by an optional
     ! flag. The default is the nodal projector.
@@ -2448,8 +2505,12 @@ END SUBROUTINE GetMaxDefs
     ! scaling. 
     !---------------------------------------------------------------------------------
     IF( Rotational ) THEN
-      ALLOCATE( DoublePerm( BMesh2 % NumberOfNodes ) ) 
-      CALL RotationalInterfaceMeshes( BMesh1, BMesh2, DoublePerm, Model % BCs(This) % Values )
+      ALLOCATE( DoubleNode( BMesh2 % NumberOfNodes ) ) 
+      IF( AntiRotational ) THEN
+        ALLOCATE( MirrorNode( BMesh2 % NumberOfNodes ) ) 
+      END IF
+      CALL RotationalInterfaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values, &
+          DoubleNode, MirrorNode )
     ELSE
       CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
     END IF
@@ -2463,16 +2524,17 @@ END SUBROUTINE GetMaxDefs
 
     IF( IntGalerkin ) THEN
       Projector => WeightedProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-          UseQuadrantTree, DoublePerm )
+          UseQuadrantTree, DoubleNode, MirrorNode )
     ELSE
       Projector => NodalProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-          UseQuadrantTree, DoublePerm )    
+          UseQuadrantTree, DoubleNode, MirrorNode )    
     END IF
 
     ! Remove the reference to ghost nodes.
     !----------------------------------------------------------------------
     IF( Rotational ) THEN
-      DEALLOCATE( DoublePerm )
+      DEALLOCATE( DoubleNode )
+      IF( AntiRotational ) DEALLOCATE( MirrorNode ) 
     END IF
    
     ! Deallocate mesh structures:
