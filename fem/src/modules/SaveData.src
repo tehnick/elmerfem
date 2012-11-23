@@ -1269,9 +1269,6 @@ CONTAINS
   END SUBROUTINE AddToSaveList
 
 
-  
-
-
 
   FUNCTION VectorStatistics(Var,OperName) RESULT (operx)
 
@@ -1298,6 +1295,11 @@ CONTAINS
 
     DO i=1,Nonodes
       j = i
+
+      IF( ParEnv % PEs > 1 ) THEN
+        IF( Mesh % ParallelInfo % NeighbourList(j) % Neighbours(1) /= ParEnv % MyPE ) CYCLE
+      END IF
+      
       IF(ASSOCIATED(Var % Perm)) j = Var % Perm(i)
       IF(j > 0) THEN
         IF(NoDofs <= 1) THEN
@@ -1406,6 +1408,11 @@ CONTAINS
 
     DO i=1,Nonodes
       j = i
+
+      IF( ParEnv % PEs > 1 ) THEN
+        IF( Mesh % ParallelInfo % NeighbourList(j) % Neighbours(1) /= ParEnv % MyPE ) CYCLE
+      END IF
+
       IF(ASSOCIATED(Var % Perm)) j = Var % Perm(i)
       IF(j > 0) THEN
         IF(NoDofs <= 1) THEN
@@ -2103,6 +2110,11 @@ CONTAINS
         
         DO i=1,n
           j = NodeIndexes(i)
+
+          IF( ParEnv % PEs > 1 ) THEN
+            IF( Mesh % ParallelInfo % NeighbourList(j) % Neighbours(1) /= ParEnv % MyPE ) CYCLE
+          END IF
+
           IF( Permutated ) j = Var % Perm(j)
           
           IF( j == 0) CYCLE            
