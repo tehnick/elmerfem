@@ -585,6 +585,11 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
           DEALLOCATE( FieldPerm )
           CALL Fatal('GridDataReader','No active nodes for mask: '//TRIM(MaskName))
         END IF
+
+        WRITE (Message, '(A,I0,A,I0)') 'The mask > '//TRIM(MaskName)//' < resulted to '&
+            ,MaskNodes,' nodes out of ',Mesh % NumberOfNodes
+        CALL Info('GridDataReader',Message,Level=6)
+  
         CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,TargetName,1,Perm=FieldPerm) 
         FieldVar => VariableGet( Mesh % Variables,TargetName )              
         NULLIFY(FieldPerm)
