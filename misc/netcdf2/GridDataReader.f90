@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************
 !
-!******************************************************************************
+! ******************************************************************************
 ! *
 ! *  Authors: Peter Råback, Vili Forsell, Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
@@ -363,8 +363,8 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
   
   INTEGER :: DimSize(3),i 
   INTEGER :: TimeSize, IntTimeIndex,tnmax, NoVar
-  INTEGER :: status, time_begin,time_end,NoHits,NoMisses
-  CHARACTER (len = MAX_NAME_LEN) :: str, VarName, TargetName, &
+  INTEGER :: status, time_begin,time_end,NoHits,NoMisses,MaskNodes
+  CHARACTER (len = MAX_NAME_LEN) :: str, VarName, TargetName, MaskName, &
       CoordSystem, TimeInterpolationMethod
   REAL(KIND=dp) :: Coeff, InterpMultiplier, InterpBias, TimeIndex, acc
   LOGICAL :: Found, IsTime, DoCoordinateTransformation, DoCoordMapping, &
@@ -574,8 +574,24 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
     IF( .NOT. Found ) TargetName = VarName
     FieldVar => VariableGet( Mesh % Variables,TargetName )
     IF( .NOT. ASSOCIATED( FieldVar ) ) THEN
-      CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,TargetName,1) 
-      FieldVar => VariableGet( Mesh % Variables,TargetName )      
+      WRITE( str,'(A,I0)') 'Mask Name ',NoVar
+      MaskName = GetString( Params,str, Found )
+      IF( Found ) THEN
+        NULLIFY(FieldPerm)
+        ALLOCATE( FieldPerm( Mesh % NumberOfNodes ) )
+        CALL MakePermUsingMask( Model, Solver, Mesh, MaskName,.FALSE.,FieldPerm,&
+            MaskNodes,RequireLogical=.TRUE.)
+        IF( MaskNodes == 0 ) THEN
+          DEALLOCATE( FieldPerm )
+          CALL Fatal('GridDataReader','No active nodes for mask: '//TRIM(MaskName))
+        END IF
+        CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,TargetName,1,Perm=FieldPerm) 
+        FieldVar => VariableGet( Mesh % Variables,TargetName )              
+        NULLIFY(FieldPerm)
+      ELSE
+        CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,TargetName,1) 
+        FieldVar => VariableGet( Mesh % Variables,TargetName )      
+      END IF
     END IF
     Field => FieldVar % Values
     FieldPerm => FieldVar % Perm
