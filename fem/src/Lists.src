@@ -3939,9 +3939,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
       ct = CPUTime() - ct0
       rt = RealTime() - rt0 
       
-      WRITE(Message,'(a,f9.3,f9.3,a)') 'Execution time (CPU,REAL) for '&
-          //TRIM(TimerName)//': ',ct,rt,' (s)'
-      CALL Info('CheckTimer',Message,Level=Level)          
+      WRITE(Message,'(a,2f9.3,a)') 'Elapsed time (CPU,REAL): ',ct,rt,' (s)'
+      CALL Info(TRIM(TimerName),Message,Level=Level)          
 
       IF( TimerResults ) THEN
         CALL ListAddConstReal(CurrentModel % Simulation,&
