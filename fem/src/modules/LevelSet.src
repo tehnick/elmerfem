@@ -514,7 +514,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetDistance( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-     Use DefUtils
+     USE DefUtils
      USE SolverUtils
      USE MaterialModels
      USE Integration
@@ -1160,7 +1160,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetIntegrate( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-     Use DefUtils
+     USE DefUtils
      USE SolverUtils
      USE MaterialModels
      USE Integration
@@ -1582,7 +1582,8 @@ CONTAINS
           
            IF ( ANY( CurvPerm(NodeIndexes) <= 0 ) ) CYCLE         
 
-           IF ( Element % TYPE % ElementCode == 101 ) CYCLE
+           ! Check that the dimension of element is suitable for fluxes
+           IF( .NOT. PossibleFluxElement(Element) ) CYCLE
            
            IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
                'Levelset Curvature BC',gotIt) ) CYCLE

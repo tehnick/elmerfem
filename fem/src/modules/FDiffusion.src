@@ -109,7 +109,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   IF ( .NOT.ASSOCIATED( Solver % Matrix ) ) RETURN
 
-  Solver % Matrix % Complex = .TRUE.
+  Solver % Matrix % COMPLEX = .TRUE.
 
   SomeQuantity     => Solver % Variable % Values
   SomeQuantityPerm => Solver % Variable % Perm
@@ -236,7 +236,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
         Model % CurrentElement => CurrentElement
 
-        n = CurrentElement % Type % NumberOfNodes
+        n = CurrentElement % TYPE % NumberOfNodes
         NodeIndexes => CurrentElement % NodeIndexes
 
         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
@@ -324,14 +324,14 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !       The element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip em at this stage.
 !------------------------------------------------------------------------------
-        IF ( CurrentElement % Type % ElementCode == 101 ) CYCLE
+        IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
 
 !------------------------------------------------------------------------------
         DO i=1,Model % NumberOfBCs
            IF ( CurrentElement % BoundaryInfo % Constraint == &
                 Model % BCs(i) % Tag ) THEN
 !------------------------------------------------------------------------------
-              n = CurrentElement % Type % NumberOfNodes
+              n = CurrentElement % TYPE % NumberOfNodes
               NodeIndexes => CurrentElement % NodeIndexes
 
               IF ( ANY( SomeQuantityPerm(NodeIndexes) == 0 ) ) CYCLE
@@ -460,7 +460,7 @@ CONTAINS
 !   Numerical integration
 !------------------------------------------------------------------------------
     IF ( Bubbles ) THEN
-       IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
+       IntegStuff = GaussPoints( Element, Element % TYPE % GaussPoints2 )
        NBasis = 2*n
     ELSE
        NBasis = n

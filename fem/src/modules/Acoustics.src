@@ -35,36 +35,18 @@
 ! *
 ! ****************************************************************************/
 
+!-----------------------------------------------------------------------------
+!>  Solve the time-harmonic, generalized NS-equations assuming ideal gas law.
 !------------------------------------------------------------------------------
 SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the time-harmonic, generalized NS-equations!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
-
   IMPLICIT NONE
   !------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+  TYPE(Solver_t) :: Solver          !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model            !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt               !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation    !< Steady state or transient simulation
   !------------------------------------------------------------------------------
   ! Local variables related to the block preconditioning...
   !------------------------------------------------------------------------------
@@ -248,16 +230,16 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
   ELSE
 
      DDPreconditioning = ListGetLogical( Model % Simulation, 'DD Preconditioning', GotIt )
-     if (DDPreconditioning) then
+     IF (DDPreconditioning) THEN
         HSol => VariableGet( Model % Variables, 'Pres') 
         IF( ASSOCIATED(HSol) ) THEN 
            H => HSol % Values
            HPerm => HSol % Perm
-        else
+        ELSE
            CALL Fatal('AcousticsSolver', 'Helmholtz solution Pres is not available')
-        end IF
+        END IF
 
-     else
+     ELSE
         !------------------------------------------------------------------------------
         ! Get (Elmer) Helmholtz solution for acoustic interface boundary conditions...
         !------------------------------------------------------------------------------
@@ -505,9 +487,10 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
       CurrentElement => Solver % Mesh % Elements(t)
       Model % CurrentElement => CurrentElement
       !------------------------------------------------------------------------------
-      ! Skip point elements (element type 101) 
+      ! Check that the dimension of element is suitable for BCs
       !------------------------------------------------------------------------------
-      IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
+      IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
+
       n = CurrentElement % TYPE % NumberOfNodes
       NodeIndexes => CurrentElement % NodeIndexes
       IF (ANY(FlowPerm(NodeIndexes(1:n)) == 0)) CYCLE
@@ -816,10 +799,10 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
 
     IF ( .NOT. ActiveBoundaryElement(CurrentElement, CurrentModel % Solver) ) CYCLE    
     !------------------------------------------------------------------------------
-    ! Skip point elements (element type 101) 
+    ! Check that the dimension of element is suitable for BCs
     !------------------------------------------------------------------------------
-    IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-    IF ( (dim > 2) .AND. CurrentElement % TYPE % ElementCode == 202 ) CYCLE    
+    IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
+
     !------------------------------------------------------------------------------
     ! Extract the parent element to find its material parameters... 
     !----------------------------------------------------------------------------- 
@@ -1114,11 +1097,12 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
     CurrentElement => Solver % Mesh % Elements(t)
     Model % CurrentElement => CurrentElement
     IF ( .NOT. ActiveBoundaryElement(CurrentElement, CurrentModel% Solver) ) CYCLE    
+
     !------------------------------------------------------------------------------
-    ! Skip point elements (element type 101) 
+    ! Check that the dimension of element is suitable for BCs
     !------------------------------------------------------------------------------
-    IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-    IF ( (dim > 2) .AND. CurrentElement % TYPE % ElementCode == 202 ) CYCLE     
+    IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
+
     !------------------------------------------------------------------------------
     ! Extract the parent element to find its material parameters... 
     !----------------------------------------------------------------------------- 
@@ -1313,11 +1297,12 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
        CurrentElement => Solver % Mesh % Elements(t)
        Model % CurrentElement => CurrentElement
        IF ( .NOT. ActiveBoundaryElement(CurrentElement, CurrentModel% Solver) ) CYCLE    
+
        !------------------------------------------------------------------------------
-       ! Skip point elements (element type 101) 
+       ! Check that the dimension of element is suitable for BCs
        !------------------------------------------------------------------------------
-       IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-       IF ( (dim > 2) .AND. CurrentElement % TYPE % ElementCode == 202 ) CYCLE     
+       IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
+
        !------------------------------------------------------------------------------
        ! Extract the parent element to find its material parameters... 
        !----------------------------------------------------------------------------- 
@@ -1586,9 +1571,10 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
       CurrentElement => Solver % Mesh % Elements(t)
       Model % CurrentElement => CurrentElement
       !------------------------------------------------------------------------------
-      ! Skip point elements (element type 101) 
+      ! Check that the dimension of element is suitable for BCs
       !------------------------------------------------------------------------------
-      IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
+      IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
+
       n = CurrentElement % TYPE % NumberOfNodes
       NodeIndexes => CurrentElement % NodeIndexes
       
@@ -1703,11 +1689,12 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
     Model % CurrentElement => CurrentElement
 
     IF ( .NOT. ActiveBoundaryElement(CurrentElement, CurrentModel % Solver) ) CYCLE    
+
     !------------------------------------------------------------------------------
-    ! Skip point elements (element type 101) 
+    ! Check that the dimension of element is suitable for BCs
     !------------------------------------------------------------------------------
-    IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-    IF ( (dim > 2) .AND. CurrentElement % TYPE % ElementCode == 202 ) CYCLE    
+    IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
+
     !------------------------------------------------------------------------------
     ! Extract the parent element to find its material parameters... 
     !----------------------------------------------------------------------------- 
@@ -5406,13 +5393,13 @@ CONTAINS
 
        ELSE
 
-          if ( nb > 0) then
+          IF ( nb > 0) THEN
              stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
                   Basis, dBasisdx )
-          else
+          ELSE
              stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
                   Basis, dBasisdx, ddBasisddx, .FALSE., Bubbles )
-          end if
+          END IF
 
        ENDIF
 

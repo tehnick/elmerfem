@@ -333,7 +333,9 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
         n  = GetElementNOFNodes()
         nd = GetElementNOFDOFs()
-        IF ( GetElementFamily() == 1 ) CYCLE
+
+        ! Check that the dimension of element is suitable for fluxes
+        IF( .NOT. PossibleFluxElement(Element) ) CYCLE
 
         BC => GetBC()
         IF ( ASSOCIATED( BC ) ) THEN

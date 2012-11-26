@@ -150,7 +150,7 @@
          CALL Fatal( 'KESolver', 'Memory allocation error.' )
        END IF
 
-       nullify(SecInv)
+       NULLIFY(SecInv)
        AllocationsDone = .TRUE.
      END IF
 
@@ -349,6 +349,9 @@
       DO t = 1, Solver % Mesh % NumberOfBoundaryElements
         Element => GetBoundaryElement(t)
         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+
+        ! Check that the dimension of element is suitable for fluxes
+        IF( .NOT. PossibleFluxElement(Element) ) CYCLE
 !------------------------------------------------------------------------------
         n = GetElementNOFNodes()
         NodeIndexes => Element % NodeIndexes
@@ -586,7 +589,7 @@ CONTAINS
 !    Integration stuff
 !------------------------------------------------------------------------------
      IF ( Bubbles ) THEN
-        IntegStuff = GaussPoints( element, element % Type % GaussPoints2 )
+        IntegStuff = GaussPoints( element, element % TYPE % GaussPoints2 )
      ELSE
         IntegStuff = GaussPoints( element )
      END IF
@@ -732,7 +735,7 @@ CONTAINS
           END DO
 
           IF ( ABS(err) > 1.0d-8 ) THEN
-             print*,'huh: ', alpha
+             PRINT*,'huh: ', alpha
              alpha = 1.3929d0
           END IF
        END IF

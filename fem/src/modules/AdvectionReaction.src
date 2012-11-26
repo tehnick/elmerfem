@@ -280,7 +280,11 @@
         DO t=1,Mesh % NumberOfBoundaryElements
            Element => GetBoundaryElement(t)
            IF( .NOT. ActiveBoundaryElement() )  CYCLE
-           IF( GetElementFamily(Element) < DIM ) CYCLE 
+
+           !------------------------------------------------------------------------------
+           ! Check that the dimension of element is suitable for BCs
+           !------------------------------------------------------------------------------
+           IF( .NOT. PossibleFluxElement(Element) ) CYCLE
 
            ParentElement => Element % BoundaryInfo % Left
            IF ( .NOT. ASSOCIATED( ParentElement ) ) &
@@ -393,7 +397,7 @@
        n1 = Mesh % NumberOfNodes
        ALLOCATE( Ref(n1) )
        Ref = 0
-       Var % Type = Variable_on_nodes
+       Var % TYPE = Variable_on_nodes
 
        IF ( ASSOCIATED( Var % Perm, Solver % Variable % Perm ) ) THEN
          ALLOCATE( Var % Perm(SIZE(Solver % Variable % Perm))  )
@@ -506,9 +510,9 @@
       DO i = 1,nFace
         DO j = 1,nParent
           IF ( Face % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
-            ParentU(i) = Parent % Type % NodeU(j)
-            ParentV(i) = Parent % Type % NodeV(j)
-            ParentW(i) = Parent % Type % NodeW(j)
+            ParentU(i) = Parent % TYPE % NodeU(j)
+            ParentV(i) = Parent % TYPE % NodeV(j)
+            ParentW(i) = Parent % TYPE % NodeW(j)
             EXIT
           END IF
         END DO

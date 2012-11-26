@@ -579,7 +579,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
      NodeIndexes => CurrentElement % NodeIndexes
 
 !------------------------------------------------------------------------------
-!         Memorize the min and max potential as given by Dirichtlet BCs
+! Memorize the min and max potential as given by Dirichtlet BCs
+! These are not needed here so for lower dimensional elements we may 
+! cycle thereafter. 
 !------------------------------------------------------------------------------          
 											 
      Load(1:n) = ListGetReal( BC, &
@@ -588,6 +590,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        MinPotential = MIN(MinPotential, MINVAL(Load(1:n)))
        MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
      END IF
+
+     IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
      
      ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
      ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)

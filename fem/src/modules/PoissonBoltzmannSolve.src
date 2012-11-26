@@ -369,7 +369,8 @@
 !       the element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip em.
 !------------------------------------------------------------------------------
-         IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
+         IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
+
 !------------------------------------------------------------------------------
          DO i=1,Model % NumberOfBCs
            IF ( CurrentElement % BoundaryInfo % Constraint == &

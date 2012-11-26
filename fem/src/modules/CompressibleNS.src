@@ -37,38 +37,22 @@
 ! *
 ! *****************************************************************************/
 
-
-SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: CompressibleNS
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
+!> A monolithic compressible Navier-Stokes solver. The equation includes
+!> velocity components, pressure and temperature. Ideal gas law is assumed. 
+!------------------------------------------------------------------------------
+SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
   USE DefUtils
   USE SolverUtils
   USE ElementUtils
 
   IMPLICIT NONE
   !------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+  TYPE(Solver_t) :: Solver          !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model            !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt               !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation    !< Steady state or transient simulation
   !------------------------------------------------------------------------------
   ! Local variables
   !------------------------------------------------------------------------------
@@ -100,8 +84,8 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
   INTEGER, ALLOCATABLE :: TractionBCIndeces(:)
 
 
-  logical :: NewTimeStep, OutflowBC, PicardIteration, FirstSolve
-  integer :: CurrentDoneTime = 0, NonlinearIter, iter, CoordSys
+  LOGICAL :: NewTimeStep, OutflowBC, PicardIteration, FirstSolve
+  INTEGER :: CurrentDoneTime = 0, NonlinearIter, iter, CoordSys
   REAL(KIND=dp) :: NonlinearTol
 
   INTEGER, ALLOCATABLE :: Indexes(:)
@@ -113,11 +97,11 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
        MMatrix, HMatrix, MLocal, HLocal, Pressure, Norm
   !------------------------------------------------------------------------------
 
-  if ( CurrentDoneTime == 0 ) then
-     FirstSolve = .true.
-  else 
-     FirstSolve = .false.
-  end if
+  IF ( CurrentDoneTime == 0 ) THEN
+     FirstSolve = .TRUE.
+  ELSE 
+     FirstSolve = .FALSE.
+  END IF
 
   NewTimeStep = .FALSE.
   IF (CurrentDoneTime /= Solver % DoneTime) THEN
@@ -131,20 +115,20 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
   ! Check whether convection stabilization is used...
   !ExplicitStabilization = ListGetLogical( Solver % Values, 'Stabilize', GotIt )
   !IF (.NOT. GotIt) ExplicitStabilization = .false.
-  ExplicitStabilization = .false.
+  ExplicitStabilization = .FALSE.
   NonlinearIterationMethod = ListGetString(Solver % Values, 'Nonlinear Iteration Method', GotIt)
   IF ( .NOT. GotIt )  NonlinearIterationMethod = 'picard'
-  if ( NonlinearIterationMethod /= 'picard') then
-     PicardIteration = .false.
-  else
-     PicardIteration = .true.     
-  end if
+  IF ( NonlinearIterationMethod /= 'picard') THEN
+     PicardIteration = .FALSE.
+  ELSE
+     PicardIteration = .TRUE.     
+  END IF
 
   !--------------------------------------------------------------------------
   ! Check whether the block preconditioning is to be used.
   !---------------------------------------------------------------------------
   BlockPreconditioning = ListGetLogical( Solver % Values, 'Block Preconditioning', GotIt )
-  BlockPreconditioning = .false.
+  BlockPreconditioning = .FALSE.
 
   !----------------------------------------------------------------------------
   !Allocate some permanent storage, this is done first time only:
@@ -220,7 +204,7 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
         kcoeff = ListGetConstReal( Material, 'Heat Conductivity')
         gamma = ListGetConstReal( Material, 'Specific Heat Ratio')
         bulkvisc = ListGetConstReal( Material, 'Bulk Viscosity', Found)
-        if (.not. Found) bulkvisc = 0.0d0
+        IF (.NOT. Found) bulkvisc = 0.0d0
         lambda = bulkvisc - 2.0d0/3.0d0 * mu(1)
         T0 = ListGetConstReal( Material, 'Equilibrium Temperature')
         rho0 = ListGetConstReal( Material, 'Equilibrium Density')          
@@ -228,14 +212,14 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
         !---------------------------------------------------------------------
         ! Get previous elementwise velocity, temperature and density iterates:
         !---------------------------------------------------------------------
-        if (FirstSolve .and. iter == 1) then
+        IF (FirstSolve .AND. iter == 1) THEN
            Temperature(1:nd) = 0.0d0
            rho(1:nd) = 0.0d0
            DO i=1,dim
               Velocity(i,1:nd) = 0.0d0
-           end DO
-        else
-           IF ( NewTimeStep .and. iter==1 ) THEN
+           END DO
+        ELSE
+           IF ( NewTimeStep .AND. iter==1 ) THEN
               !print *, 'Using previous velo'
               DO i=1,dim
                  Velocity(i,1:nd) = Solver % Variable % PrevValues( &
@@ -248,7 +232,7 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
               rho(1:nd) = Solver % Variable % PrevValues( &
                    Solver % Variable % DOFs*(Solver % Variable % &
                    Perm(Indexes(1:nd))-1)+dim+2,1)
-           else
+           ELSE
               !print *, 'Using current velo'
               DO i=1,dim
                  Velocity(i,1:nd) = Solver % Variable % Values( &
@@ -261,8 +245,8 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
               rho(1:nd) = Solver % Variable % Values( &
                    Solver % Variable % DOFs*(Solver % Variable % &
                    Perm(Indexes(1:nd))-1)+dim+2)
-           end IF
-        end if
+           END IF
+        END IF
 
         !------------------------------------------------------
         ! Get element local matrix and rhs vector:
@@ -314,7 +298,7 @@ SUBROUTINE CompressibleNS( Model,Solver,dt,TransientSimulation )
 
      IF ( RELC < NonLinearTol .AND. Iter < NonlinearIter ) EXIT
 
-  end DO
+  END DO
 
   
 CONTAINS
@@ -331,7 +315,7 @@ CONTAINS
          gamma, cv, k, la, T0, rho0
     INTEGER :: dim, n, nd
     TYPE(Element_t), POINTER :: Element
-    logical :: Stabilization, PicardIteration
+    LOGICAL :: Stabilization, PicardIteration
     !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3), &
          DetJ,LoadAtIP(dim+2),Velo(dim), Grad(dim,dim), AK, w3
@@ -346,8 +330,8 @@ CONTAINS
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
     !------------------------------------------------------------------------------
-    PicardIteration = .true.
-    Stabilization = .false.
+    PicardIteration = .TRUE.
+    Stabilization = .FALSE.
  
     CALL GetElementNodes( Nodes )
     STIFF = 0.0d0
@@ -375,18 +359,18 @@ CONTAINS
             IP % W(t),  detJ, Basis, dBasisdx )
 
        s = IP % s(t) * detJ
-       if (CoordSys == AxisSymmetric) then
+       IF (CoordSys == AxisSymmetric) THEN
           rpos = SUM( Basis(1:n) * Nodes % x(1:n) )
           s = s * rpos
-       end if
+       END IF
 
        !AK = AK + s
 
        Velo = MATMUL( NodalVelo(1:dim,1:nd), Basis(1:nd) )
-       GradV1(1) = sum( NodalVelo(1,1:nd) * dBasisdx(1:nd,1) )
-       GradV1(2) = sum( NodalVelo(1,1:nd) * dBasisdx(1:nd,2) )
-       GradV2(1) = sum( NodalVelo(2,1:nd) * dBasisdx(1:nd,1) )
-       GradV2(2) = sum( NodalVelo(2,1:nd) * dBasisdx(1:nd,2) )
+       GradV1(1) = SUM( NodalVelo(1,1:nd) * dBasisdx(1:nd,1) )
+       GradV1(2) = SUM( NodalVelo(1,1:nd) * dBasisdx(1:nd,2) )
+       GradV2(1) = SUM( NodalVelo(2,1:nd) * dBasisdx(1:nd,1) )
+       GradV2(2) = SUM( NodalVelo(2,1:nd) * dBasisdx(1:nd,2) )
         
        !w3 = SUM( NodalVelo(2,1:nd) * dBasisdx(1:nd,1) ) - &
        !     SUM( NodalVelo(1,1:nd) * dBasisdx(1:nd,2) )     
@@ -415,11 +399,11 @@ CONTAINS
              M => Mass(i:i+dim+1,j:j+dim+1)
              DO i=1,dim
 
-                if ( (CoordSys == AxisSymmetric) .and. i==1 ) then
+                IF ( (CoordSys == AxisSymmetric) .AND. i==1 ) THEN
                    TestTerm = dBasisdx(p,i) + Basis(p)/rpos
-                else
+                ELSE
                    TestTerm = dBasisdx(p,i)
-                end if
+                END IF
 
                 DO j = 1,dim
                    A(i,i) = A(i,i) + s * mu * dBasisdx(q,j) * dBasisdx(p,j)
@@ -427,62 +411,62 @@ CONTAINS
                    ! A(i,j) = A(i,j) + s * la * dBasisdx(q,j) * dBasisdx(p,i)
                    A(i,j) = A(i,j) + s * la * dBasisdx(q,j) * TestTerm
 
-                   if ( (CoordSys == AxisSymmetric) .and. j==1 ) then
+                   IF ( (CoordSys == AxisSymmetric) .AND. j==1 ) THEN
                       A(i,j) = A(i,j) + s * la * 1/rpos * Basis(q) * TestTerm
-                   end if
+                   END IF
 
                 END DO
                 
-                if ( (CoordSys == AxisSymmetric) .and. i==1 ) then
+                IF ( (CoordSys == AxisSymmetric) .AND. i==1 ) THEN
                    A(i,i) = A(i,i) + s * 2.0d0 * mu * 1/rpos**2 * Basis(q) * Basis(p)
-                end if
+                END IF
                    
 
                 M(i,i) = M(i,i) + s * rho * Basis(p) * Basis(q)
                 
                 ! Temperature and density bubbles are handled elsewhere... 
-                if (q <= n) then
+                IF (q <= n) THEN
                    ! Testing w.r.t. all velocity test functions and omitting temperature/density bubbles...
                    A(i,dim+1) = A(i,dim+1) - s * R * rho * Basis(q) * dBasisdx(p,i)
                    A(i,dim+2) = A(i,dim+2) - s * R * PrevT * Basis(q) * dBasisdx(p,i)
 
-                   if ( (CoordSys == AxisSymmetric) .and. i==1 ) then
+                   IF ( (CoordSys == AxisSymmetric) .AND. i==1 ) THEN
                       A(i,dim+1) = A(i,dim+1) - s * R * rho * Basis(q) * Basis(p)/rpos
                       A(i,dim+2) = A(i,dim+2) - s * R * PrevT * Basis(q) * Basis(p)/rpos
-                   end if
+                   END IF
 
-                end if
-                if (p <= n) then
+                END IF
+                IF (p <= n) THEN
                    ! Testing w.r.t  standard temperature/density test functions...
                    A(dim+1,i) = A(dim+1,i) + s * R * rho * dBasisdx(q,i) * Basis(p)
                    A(dim+2,i) = A(dim+2,i) + s * rho * dBasisdx(q,i) * Basis(p)
 
-                   if ( (CoordSys == AxisSymmetric) .and. i==1 ) then
+                   IF ( (CoordSys == AxisSymmetric) .AND. i==1 ) THEN
                       A(dim+1,i) = A(dim+1,i) + s * R * rho * Basis(q)/rpos * Basis(p)
                       A(dim+2,i) = A(dim+2,i) + s * rho * Basis(q)/rpos * Basis(p)
-                   end if
+                   END IF
 
-                end if
+                END IF
              END DO
 
              M(dim+1,dim+1) = M(dim+1,dim+1) + s * rho * cv / PrevT * Basis(p) * Basis(q)  
              M(dim+2,dim+2) = M(dim+2,dim+2) + s * Basis(p) * Basis(q) 
 
-             A(dim+1,dim+1) = A(dim+1,dim+1) + s * k / PrevT * sum( dBasisdx(p,1:dim) * dBasisdx(q,1:dim) )
+             A(dim+1,dim+1) = A(dim+1,dim+1) + s * k / PrevT * SUM( dBasisdx(p,1:dim) * dBasisdx(q,1:dim) )
              A(dim+1,dim+1) = A(dim+1,dim+1) + s * rho * cv / PrevT * &
                   ( Velo(1) * dBasisdx(q,1) + Velo(2) * dBasisdx(q,2) ) * Basis(p)
              A(dim+2,dim+2) = A(dim+2,dim+2) + s * ( Velo(1) * dBasisdx(q,1) + Velo(2) * dBasisdx(q,2) ) * &
                   Basis(p)
 
-             if (dim==3) then
+             IF (dim==3) THEN
                 A(dim+1,dim+1) = A(dim+1,dim+1) + s * rho * cv / PrevT * &
                       Velo(3) * dBasisdx(q,3) * Basis(p)
                 A(dim+2,dim+2) = A(dim+2,dim+2) + s * Velo(3) * dBasisdx(q,3) * &
                   Basis(p)                
-             end if
+             END IF
 
  
-             if (.false.) then
+             IF (.FALSE.) THEN
 !             IF ( PicardIteration ) THEN 
                 Stiff( (dim+2)*(p-1)+1, (dim+2)*(q-1)+1 ) = Stiff( (dim+2)*(p-1)+1, (dim+2)*(q-1)+1 ) + &
                      rho * s * Velo(2) * dBasisdx(q,2) * Basis(p) 
@@ -493,7 +477,7 @@ CONTAINS
                      rho * s * Velo(1) * dBasisdx(q,2) * Basis(p) 
                 Stiff( (dim+2)*(p-1)+2, (dim+2)*(q-1)+2 ) = Stiff( (dim+2)*(p-1)+2, (dim+2)*(q-1)+2 ) + &
                      rho * s * Velo(1) * dBasisdx(q,1) * Basis(p)
-             else
+             ELSE
                 Stiff( (dim+2)*(p-1)+1, (dim+2)*(q-1)+1 ) = Stiff( (dim+2)*(p-1)+1, (dim+2)*(q-1)+1 ) + &
                      rho * s * Velo(2) * dBasisdx(q,2) * Basis(p) 
                 Stiff( (dim+2)*(p-1)+1, (dim+2)*(q-1)+1 ) = Stiff( (dim+2)*(p-1)+1, (dim+2)*(q-1)+1 ) + &
@@ -560,10 +544,10 @@ CONTAINS
       STIFF(i-1,:) = 0.0d0
       STIFF(:,i-1) = 0.0d0
 
-      if ( .not. Stabilization) then
+      IF ( .NOT. Stabilization) THEN
          STIFF(i,i) = 1.0d0
          STIFF(i-1,i-1) = 1.0d0
-      end if
+      END IF
     END DO
 
 
