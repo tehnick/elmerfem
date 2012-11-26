@@ -1086,7 +1086,10 @@ CONTAINS
      DO t = 1, Mesh % NumberOfBoundaryElements
 
        Element => GetBoundaryElement(t)
-       IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
+       IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+       
+       IF( .NOT. PossibleFluxElement(Element) ) CYCLE
+
        n = GetElementNOFNodes()
        ntot = GetElementNOFDOFs()
 
@@ -1266,7 +1269,10 @@ CONTAINS
 
     DO t = 1, Mesh % NumberOfBoundaryElements
        Element => GetBoundaryElement(t)
-       IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
+       IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+       
+       IF( .NOT. PossibleFluxElement(Element) ) CYCLE
+
        n = GetElementNOFNodes()
        BC => GetBC()
        
@@ -1711,7 +1717,7 @@ CONTAINS
               END DO
             END DO
       
-            sdim=3; if(dim==2.AND..NOT.PlaneStress) sdim=2
+            sdim=3; IF(dim==2.AND..NOT.PlaneStress) sdim=2
 
             !Use lapack function to do solve eigenvalues
             CALL DSYEV( 'N', 'U', sdim, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
@@ -1789,7 +1795,10 @@ CONTAINS
 
        DO t=1,Mesh % NumberOfBoundaryElements
          Element => GetBoundaryElement(t)
-         IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
+         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+
+         IF( .NOT. PossibleFluxElement(Element) ) CYCLE
+
          BC => GetBC()
          IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
 !------------------------------------------------------------------------------
@@ -2049,7 +2058,9 @@ CONTAINS
        
        DO t = 1, Mesh % NumberOfBoundaryElements
          Element => GetBoundaryElement(t)
-         IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
+         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+
+         IF( .NOT. PossibleFluxElement(Element) ) CYCLE
          
          BC => GetBC()
          IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
@@ -2086,7 +2097,9 @@ CONTAINS
      ELSE
        DO t = 1, Mesh % NumberOfBoundaryElements
          Element => GetBoundaryElement(t)
-         IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
+         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+
+         IF( .NOT. PossibleFluxElement(Element) ) CYCLE
          
          BC => GetBC()
          IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
