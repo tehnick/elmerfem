@@ -82,7 +82,7 @@ VARIABLE *mtr_jacob(a) VARIABLE *a;
   d  = (double *)ALLOCMEM(n * sizeof(double));
   ev = var_temp_new(TYPE_DOUBLE, 1, n);
 
-  jacobi(MATR(a), b, MATR(x), MATR(ev), d, n, rtol);
+  matc_jacobi(MATR(a), b, MATR(x), MATR(ev), d, n, rtol);
   FREEMEM((char *)d);
 
   return ev;
@@ -113,7 +113,7 @@ VARIABLE *mtr_jacob(a) VARIABLE *a;
 
 *************************************************************************/
 
-int jacobi(a,b,x,eigv,d,n,rtol)
+int matc_jacobi(a,b,x,eigv,d,n,rtol)
   double a[],b[],x[],eigv[],d[],rtol;
   int n;
 {
