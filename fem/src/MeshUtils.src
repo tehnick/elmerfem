@@ -2753,22 +2753,23 @@ END SUBROUTINE GetMaxDefs
     ALLOCATE( Wtable( 0: in_levels + 1 ) )
     CALL UnitSegmentDivision( Wtable, in_levels + 1 ) 
 
+    z_bot = ListGetConstReal( CurrentModel % Simulation,'Extruded Min Coordinate',Found )
+    IF(.NOT. Found) z_bot = 0.0_dp
+
+    z_top = ListGetConstReal( CurrentModel % Simulation,'Extruded Max Coordinate',Found )
+    IF(.NOT. Found) z_top = 1.0_dp
 
     cnt=0
     DO i=0,in_levels+1
 
-      
-!      w = i/(in_levels+1._dp)
       w = Wtable( i ) 
 
       DO j=1,Mesh_in % NumberOfNodes
         x_bot = Mesh_in % Nodes % x(j)
         y_bot = Mesh_in % Nodes % y(j)
-        z_bot = 0._dp
 
         x_top = Mesh_in % Nodes % x(j)
         y_top = Mesh_in % Nodes % y(j)
-        z_top = 1._dp
 
         cnt=cnt+1
         Mesh_out % Nodes % x(cnt) = w*x_top + (1-w)*x_bot
