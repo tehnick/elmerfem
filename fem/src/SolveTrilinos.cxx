@@ -18,6 +18,10 @@ see elmerfem/fem/examples/trilinos for an example.
 
 #include "../config.h"
 
+#ifdef HAVE_MPI
+#include <mpi.h>
+#endif
+
 #ifdef HAVE_TRILINOS
 
 #ifdef CHECK_ZERO
@@ -48,6 +52,16 @@ if (ierr) {std::cout<<"Trilinos Error "<<ierr<<" returned from call "<<#funcall<
 #define PRINTLEVEL 0
 
 #define OUT(s) if (am_printer) std::cout << s << std::endl;
+
+#ifdef HAVE_MPI
+#define HAD_MPI
+#undef HAVE_MPI
+#endif
+
+#ifdef HAVE_HYPRE
+#define HAD_HYPRE
+#undef HAVE_HYPRE
+#endif
 
 #include "Epetra_SerialComm.h"
 #include "Epetra_MpiComm.h"
@@ -80,9 +94,13 @@ if (ierr) {std::cout<<"Trilinos Error "<<ierr<<" returned from call "<<#funcall<
 #include "EpetraExt_BlockMapOut.h"
 //#endif
 
-#ifdef HAVE_MPI
-#include <mpi.h>
+#ifdef HAD_MPI
+#define HAVE_MPI
 #endif
+#ifdef HAD_HYPRE
+#define HAVE_HYPRE
+#endif
+
 
 typedef double ST;
 typedef Teuchos::ScalarTraits<ST> SCT;
