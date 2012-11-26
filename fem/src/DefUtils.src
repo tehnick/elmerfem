@@ -1037,8 +1037,13 @@ CONTAINS
      END IF
 
      family = GetElementFamily( Element )
+     
+     ! This is not a generic rule but happens to be true for all combinations
+     ! 3D: families 3 and 4
+     ! 2D: family 2
+     ! 1D: family 1
+     possible = ( MeshDim <= family )
 
-     possible = ( family > 1 .OR. MeshDim == 1 )
    END FUNCTION PossibleFluxElement
 
 
@@ -4485,8 +4490,8 @@ CONTAINS
      ALLOCATE(Cperm(Mesh % NumberOfNodes));cperm=0
      ll=0
 
-     A => Null()
-     B => Null()
+     A => NULL()
+     B => NULL()
 
      DO t=1,GetNOFBoundaryElements()
        Element=>GetBoundaryElement(t)
@@ -4500,8 +4505,8 @@ CONTAINS
        IF(.NOT.ASSOCIATED(A)) THEN
          A=>AllocateMatrix()
          B=>AllocateMatrix()
-         A % Format = MATRIX_LIST
-         B % Format = MATRIX_LIST
+         A % FORMAT = MATRIX_LIST
+         B % FORMAT = MATRIX_LIST
        END IF
 
        DO i=1,n
@@ -4583,14 +4588,14 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE FindElement(glob,loc,oelement)
 !------------------------------------------------------------------------------
-    real(kind=dp)::glob(:),loc(:)
-    integer ::id,i
-    type(nodes_t),save::nodes
-    type(element_t),pointer::oelement,el
+    REAL(kind=dp)::glob(:),loc(:)
+    INTEGER ::id,i
+    TYPE(nodes_t),SAVE::nodes
+    TYPE(element_t),POINTER::oelement,el
 !------------------------------------------------------------------------------
 
     id=GetInteger(GetBC(),'Mortar BC')
-    oelement=>Null()
+    oelement=>NULL()
     DO i=1,GetNOFBoundaryElements()
       el=>Mesh % Elements( Mesh % NumberOfBulkElements+i)
       IF (el%BoundaryInfo%Constraint/=id) CYCLE
