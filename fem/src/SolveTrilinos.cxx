@@ -18,11 +18,12 @@ see elmerfem/fem/examples/trilinos for an example.
 
 #include "../config.h"
 
+
+#ifdef HAVE_TRILINOS
+
 #ifdef HAVE_MPI
 #include <mpi.h>
 #endif
-
-#ifdef HAVE_TRILINOS
 
 #ifdef CHECK_ZERO
 #undef CHECK_ZERO
