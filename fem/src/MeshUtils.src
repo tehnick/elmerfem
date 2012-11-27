@@ -1805,6 +1805,7 @@ END SUBROUTINE GetMaxDefs
        END DO
      END IF
 
+
 !------------------------------------------------------------------------------
    END SUBROUTINE EliminateRedundantColumns
 !------------------------------------------------------------------------------
@@ -1852,6 +1853,7 @@ END SUBROUTINE GetMaxDefs
       IntegStuff = GaussPoints( Element )      
       NoGaussPoints = NoGaussPoints + IntegStuff % n
     END DO
+
     
     WRITE( Message,'(A,I0,A,I0)') 'Number of nodes and gauss points:'&
         ,NoNodes,' and ',NoGaussPoints
@@ -1929,19 +1931,20 @@ END SUBROUTINE GetMaxDefs
         DO p=1,n
           val = detJ * IntegStuff % s(j) * Basis(p)
           DO q=1,n
-            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(p), InvPerm1(NodeIndexes(p)), &
-                Basis(q) * val ) 
+            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(p), &
+                InvPerm1(NodeIndexes(q)), Basis(q) * val ) 
           END DO
 
           DO q = Rows(NoGaussPoints), Rows(NoGaussPoints+1)-1
-            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(p), InvPerm2(Cols(q)), &
-                -Values(q) * val ) 
+            CALL List_AddToMatrixElement(Projector % ListMatrix, &
+                NodeIndexes(p), InvPerm2(Cols(q)), -Values(q) * val ) 
           END DO
         END DO
       END DO
     END DO
 
     CALL List_ToCRSMatrix( Projector )
+
     BMesh1 % Nodes => RealNodes
     BMesh1 % NumberOfNodes = NoNodes
 
