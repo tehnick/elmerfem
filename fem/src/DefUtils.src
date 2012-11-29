@@ -1367,9 +1367,27 @@ CONTAINS
      END IF
   END SUBROUTINE GetElementNodes
 
+
+!> Get element body id
+!------------------------------------------------------------------------------
+  FUNCTION GetBody( Element ) RESULT(body_id)
+!------------------------------------------------------------------------------
+   INTEGER::Body_id
+   TYPE(Element_t), OPTIONAL :: Element
+!------------------------------------------------------------------------------
+   TYPE(Element_t), POINTER :: el
+!------------------------------------------------------------------------------
+   el => GetCurrentElement(Element)
+   body_id= el % BodyId
+!------------------------------------------------------------------------------
+  END FUNCTION GetBody
+!------------------------------------------------------------------------------
+
   
 !> Get the body force index of the active element
+!------------------------------------------------------------------------------
   FUNCTION GetBodyForceId(  Element, Found ) RESULT(bf_id)
+!------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
      TYPE(Element_t), POINTER :: CurrElement
@@ -1377,9 +1395,9 @@ CONTAINS
      INTEGER :: bf_id, body_id
 
      CurrElement => GetCurrentElement(Element)
-	body_id = CurrElement % BodyId 
+     body_id = CurrElement % BodyId 
 
-	IF ( PRESENT( Found ) ) THEN
+     IF ( PRESENT( Found ) ) THEN
 	bf_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
            'Body Force', Found, minv=1,maxv=CurrentModel % NumberOfBodyForces )
      ELSE
