@@ -2295,17 +2295,17 @@ CONTAINS
                 m = NDOFs*(m-1) + DOF
                 DO nn=A % Rows(k),A % Rows(k+1)-1
                    CALL AddToMatrixElement( A, m, A % Cols(nn), &
-                          Projector % Values(l) * A % Values(nn) / &
+                          -scale*Projector % Values(l) * A % Values(nn) / &
                           DiagScaling(k) * DiagScaling(m))
                    IF (ASSOCIATED(F % Values)) THEN
                      CALL AddToMatrixElement( F, m, F % Cols(nn), &
-                          Projector % Values(l) * F % Values(nn) )
+                          -scale*Projector % Values(l) * F % Values(nn) )
                    END IF
                 END DO
-                b(m)=b(m)+Projector % Values(l)*b(k)*&
-                   DiagScaling(m) / DiagScaling(k)
+                b(m)=b(m) - scale*Projector % Values(l)*b(k)*&
+                        DiagScaling(m) / DiagScaling(k)
                 IF (ASSOCIATED(F % RHS)) THEN
-                  F % RHS(m) = F % RHS(m) + Projector % Values(l)*F % RHS(k)
+                  F % RHS(m) = F % RHS(m) - scale*Projector % Values(l)*F % RHS(k)
                 END IF
               END IF
             END DO
