@@ -88,12 +88,17 @@ Body 9
   Body Force = 4
 End
 
+
+! L‰hde, k‰‰mi A + lasketaan j‰nnite
 Body Force 1
   Current Density = 3e6
   Calculate Potential=Logical True
 End
 
+! K‰‰mi B, lasketaan j‰nnite
 Body Force 2:: Calculate Potential=Logical True
+
+! K‰‰mi C, lasketaan j‰nnite
 Body Force 3:: Calculate Potential=Logical True
 
 
@@ -114,9 +119,7 @@ Body Force 5
 End
 
 ! Ilma
-Material 1
-  Relative Permeability = 1
-End
+Material 1:: Relative Permeability = 1
 
 ! Levysyd‰n/akseliter‰s
 Material 2
@@ -125,14 +128,14 @@ Material 2
 !    Include HB
 !   End
 
-  Electric Conductivity = 0
+! Electric Conductivity = 0
   Relative Permeability = 1000
 End
 
 ! Kupari
 Material 3
-  Relative Permeability = 1
 ! Electric Conductivity = 60e6
+  Relative Permeability = 1
 End
 
 ! Radiaalisen magnetointivektorin koordinaattisuuntainen komponentti
@@ -182,8 +185,8 @@ Solver 2
   Linear System ILUT Tolerance=1e-8
   Linear System Iterative Method = BicgstabL
 
-  Linear System Solver = "Direct"
-  Linear System Direct Method = UMFPack
+! Linear System Solver = "Direct"
+! Linear System Direct Method = UMFPack
   Steady State Convergence Tolerance = 1e-06
 End
 
