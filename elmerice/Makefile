@@ -11,6 +11,7 @@ INSTALLED := $(ELMERICE_HOME)/lib/ElmerIceSolvers.so \
  $(ELMERICE_HOME)/lib/ElmerIceUSF.so \
  $(ELMERICE_HOME)/include/defgrid.mod
 MODULES := defgrid.mod
+MKDIR_P := mkdir -p
 SOLVERSOURCE := \
 Solvers/AIFlowSolve_nlD2.f90 \
 Solvers/AIFlowSolve_nlS2.f90 \
@@ -48,9 +49,17 @@ all: clean compile
 
 compile:  $(EXECUTABLES)
 
-install: $(EXECUTABLES)
+install: $(EXECUTABLES) directories
 	cp $(EXECUTABLES) $(ELMERICE_HOME)/lib
 	cp $(MODULES) $(ELMERICE_HOME)/include
+
+directories: $(ELMERICE_HOME)/lib $(ELMERICE_HOME)/include
+
+$(ELMERICE_HOME)/lib:
+	$(MKDIR_P) $(ELMERICE_HOME)/lib
+$(ELMERICE_HOME)/include:
+	$(MKDIR_P) $(ELMERICE_HOME)/include
+
 
 ElmerIceSolvers.so: $(solverobjects)
 	mv *.o Solvers
