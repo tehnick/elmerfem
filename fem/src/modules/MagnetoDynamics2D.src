@@ -1,33 +1,58 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Module for solving magnetic vector potential in cartesian 2D case.
+! *
+! *  Authors: Juha Ruokolainen, Antero Arkkio
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 30.11.2012
+! *
+! *****************************************************************************/
+
+!> \ingroup Solvers
+!> \{
+
+!------------------------------------------------------------------------------
+!> Solver the magnetic vector potential in cartesian 2D case.
+!> The solver may take into account rotating boundary conditions.
+!> Also optionally compute moments and inertia. 
+!------------------------------------------------------------------------------
 SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve 2d vector potential!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+  TYPE(Solver_t) :: Solver       !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model         !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt            !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation !< Steady state or transient simulation
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
@@ -37,7 +62,7 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Norm,  Energy
   INTEGER :: i,j,k,n, nb, nd, t, istat, Active
 
-  TYPE(ValueList_t), POINTER :: BodyForce,BC=>Null()
+  TYPE(ValueList_t), POINTER :: BodyForce,BC=>NULL()
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
                NEWX(:), NEWY(:), POT(:)
 
@@ -107,8 +132,8 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
    ! ----------------------------------------------
    IF(ASSOCAITED(A).AND.ASSOCIATED(B)) THEN
      CM => AllocateMatrix()
-     CM % ConstraintMatrix => Null()
-     CM % Format = MATRIX_LIST
+     CM % ConstraintMatrix => NULL()
+     CM % FORMAT = MATRIX_LIST
 
      DO i=1,A % NumberOfRows
        DO j=A % Rows(i),A % Rows(i+1)-1
@@ -150,7 +175,7 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
    Norm = DefaultSolve()
 
    CALL FreeMatrix(CM)
-   S % ConstraintMatrix => Null()
+   S % ConstraintMatrix => NULL()
 
    CALL CalculateLumped(Model % NumberOfBodyForces)
 
@@ -551,10 +576,13 @@ CONTAINS
   END SUBROUTINE GetReluctivity
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
 END SUBROUTINE MagnetoDynamics2D
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Given the vector potential computes its gradient i.e. the magnetic
+!> field intensity.  
+!------------------------------------------------------------------------------
 SUBROUTINE Bsolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
@@ -585,9 +613,9 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   
   SAVE Visited
 
-  CALL Info( 'FluxSolver', '-------------------------------------',Level=4 )
-  CALL Info( 'FluxSolver', 'Computing the flux and/or gradient',Level=4 )
-  CALL Info( 'FluxSolver', '-------------------------------------',Level=4 )
+  CALL Info( 'BSolver', '-------------------------------------',Level=4 )
+  CALL Info( 'BSolver', 'Computing the flux and/or gradient',Level=4 )
+  CALL Info( 'BSolver', '-------------------------------------',Level=4 )
 
   dim = CoordinateSystemDimension()
 !------------------------------------------------------------------------------
@@ -621,7 +649,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   CALL DefaultFinishAssembly()
   at1 = RealTime()
   WRITE(Message,* ) 'Assembly Time: ',at1-at0
-  CALL Info( 'FluxSolver', Message, Level=5 )
+  CALL Info( 'BSolver', Message, Level=5 )
 !        
 !------------------------------------------------------------------------------     
 
@@ -639,8 +667,8 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
      ! as linear equation dofs:
      ! ----------------------------------------------
      CM=>AllocateMatrix()
-     CM % ConstraintMatrix => Null()
-     CM % Format = MATRIX_LIST
+     CM % ConstraintMatrix => NULL()
+     CM % FORMAT = MATRIX_LIST
      S % ConstraintMatrix => CM
 
      DO i=1,A % NumberOfRows
@@ -691,16 +719,16 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
    Solver % Variable % Norm = Totnorm
 
    CALL FreeMatrix(CM)
-   S % ConstraintMatrix=>Null()
+   S % ConstraintMatrix=>NULL()
 
 !------------------------------------------------------------------------------     
 
   at2 = RealTime()
   WRITE(Message,* ) 'Solution Time: ',at2-at1
-  CALL Info( 'FluxSolver', Message, Level=5 )
+  CALL Info( 'BSolver', Message, Level=5 )
   
   WRITE( Message, * ) 'Result Norm: ',TotNorm
-  CALL Info( 'FluxSolver', Message, Level=4 )
+  CALL Info( 'BSolver', Message, Level=4 )
   
 CONTAINS
 
@@ -903,3 +931,5 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE BSolver
 !------------------------------------------------------------------------------
+
+!> \}
