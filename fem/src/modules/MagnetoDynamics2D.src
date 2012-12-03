@@ -43,8 +43,8 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 
   TYPE(Mesh_t),   POINTER :: Mesh
 
+  LOGICAL :: NewtonRaphson = .FALSE.
   INTEGER :: CoupledIter
-  LOGICAL :: NewtonRaphson
   TYPE(Variable_t), POINTER :: IterV, CoordVar
 
   TYPE(Matrix_t),POINTER::A,B,CM,S
@@ -65,6 +65,8 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
      END IF
      AllocationsDone = .TRUE.
   END IF
+
+  IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
 
    ! System assembly:
    ! ----------------
@@ -174,7 +176,7 @@ CONTAINS
    TYPE(ValueList_t),POINTER::BF
 !------------------------------------------------------------------------------
 
-   U=0; a=0; torq=0
+   U=0._dp; a=0._dp; torq=0._dp
    DO i=1,GetNOFActive()
      Element => GetActiveElement(i)
      nd = GetElementNOFDOFs()
@@ -185,9 +187,8 @@ CONTAINS
      BF=>GetBodyForce()
      IF(ASSOCIATED(BF)) THEN
        bfid=GetBodyForceId()
-       IF(GetLogical(BF,'Calculate Potential',Found)) THEN
+       IF(GetLogical(BF,'Calculate Potential',Found)) &
          CALL Potential(u(bfid),a(bfid),Element,n,nd)
-       END IF
      END IF
    END DO
 
