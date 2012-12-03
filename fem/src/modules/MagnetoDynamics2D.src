@@ -171,12 +171,12 @@ CONTAINS
 !------------------------------------------------------------------------------
    INTEGER::nbf
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: torq,a(nbf),u(nbf)
+   REAL(KIND=dp) :: torq,a(nbf),u(nbf),IMoment,IA
    INTEGER :: i,bfid,n,nd
-   TYPE(ValueList_t),POINTER::BF
+   TYPE(ValueList_t),POINTER::Params
 !------------------------------------------------------------------------------
 
-   U=0._dp; a=0._dp; torq=0._dp
+   U=0._dp; a=0._dp; torq=0._dp; IMoment=0._dp;IA=0
    DO i=1,GetNOFActive()
      Element => GetActiveElement(i)
      nd = GetElementNOFDOFs()
@@ -184,25 +184,70 @@ CONTAINS
 
      CALL Torque(Torq,Element,n,nd)
 
-     BF=>GetBodyForce()
-     IF(ASSOCIATED(BF)) THEN
+     Params=>GetBodyForce()
+     IF(ASSOCIATED(Params)) THEN
        bfid=GetBodyForceId()
-       IF(GetLogical(BF,'Calculate Potential',Found)) &
+       IF(GetLogical(Params,'Calculate Potential',Found)) &
          CALL Potential(u(bfid),a(bfid),Element,n,nd)
+     END IF
+
+     Params=>GetBodyParams()
+     IF(ASSOCIATED(Params)) THEN
+       IF(GetLogical(Params,'Calculate Inertial Moment',Found)) &
+         CALL InertialMoment(IMoment,IA,Element,n,nd)
      END IF
    END DO
 
-   DO i=1,n
+   DO i=1,nbf
      IF(a(i)>0) THEN
        CALL ListAddConstReal(Model % Simulation,'res: Potential / bodyforce ' &
                      //TRIM(i2s(i)),u(i)/a(i))
      END IF
    END DO
    CALL ListAddConstReal(Model % Simulation,'res: Air Gap Torque', Torq)
+   CALL ListAddConstReal(Model % Simulation,'res: Inertial Volume', IA)
+   CALL ListAddConstReal(Model % Simulation,'res: Inertial Moment', IMoment)
 !------------------------------------------------------------------------------
  END SUBROUTINE CalculateLumped
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+  SUBROUTINE InertialMoment(U,A,Element,n,nd)
+!------------------------------------------------------------------------------
+    INTEGER :: n,nd
+    REAL(KIND=dp)::U,a
+    TYPE(Element_t)::Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(nd), DetJ,x,y,r,Density(n)
+    INTEGER :: t
+    LOGICAL :: stat,Found
+    TYPE(Nodes_t), SAVE :: Nodes
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    Density(1:n) = GetReal(GetMaterial(),'Density',Found)
+    IF(.NOT.Found) RETURN
+
+    CALL GetElementNodes( Nodes )
+  
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints(Element)
+    DO t=1,IP % n
+      ! Basis function values & derivatives at the integration point:
+      !--------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                IP % W(t), detJ, Basis )
+
+      x = SUM(Nodes % x(1:nd)*Basis(1:nd))
+      y = SUM(Nodes % y(1:nd)*Basis(1:nd))
+      r = SQRT(x**2+y**2)
+      A = A + IP % s(t)*detJ
+      U = U + IP % s(t)*detJ*R*SUM(Density(1:n)*Basis(1:n))
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE InertialMoment
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   SUBROUTINE Torque(U,Element,n,nd)
