@@ -44,16 +44,16 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
 
   TYPE(Model_t) :: Model
   TYPE(Solver_t) :: Solver
-  TYPE(variable_t), POINTER :: TimeVar, NormalVar, VarSurfResidual, GroundedMaskVar, HydroVar, FlowVariable
+  TYPE(variable_t), POINTER :: TimeVar, NormalVar, VarSurfResidual, GroundedMaskVar, HydroVar, FlowVariable, DistanceVar
   TYPE(ValueList_t), POINTER :: BC
   TYPE(Element_t), POINTER :: Element, CurElement, BoundaryElement
   TYPE(Nodes_t), SAVE :: Nodes
 
-  REAL(KIND=dp), POINTER :: NormalValues(:), ResidValues(:), GroundedMask(:), Hydro(:), FlowValues(:)
-  REAL(KIND=dp) :: Bdrag, t, told, test(3)
+  REAL(KIND=dp), POINTER :: NormalValues(:), ResidValues(:), GroundedMask(:), Hydro(:), FlowValues(:), Distance(:)
+  REAL(KIND=dp) :: Bdrag, t, told, test(3), thresh
   REAL(KIND=dp), ALLOCATABLE :: Normal(:), Fwater(:), Fbase(:), NormalTest(:)
 
-  INTEGER, POINTER :: NormalPerm(:), ResidPerm(:), GroundedMaskPerm(:), HydroPerm(:), FlowPerm(:)
+  INTEGER, POINTER :: NormalPerm(:), ResidPerm(:), GroundedMaskPerm(:), HydroPerm(:), FlowPerm(:), DistancePerm(:)
   INTEGER :: nodenumber, ii, DIM, GL_retreat, n, tt, Nn, jj, nnn, MSum, ZSum
 
   LOGICAL :: FirstTime = .TRUE., FirstTimeTime = .TRUE., GotIt, Yeschange, GLmoves
@@ -78,9 +78,9 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
     GroundedMask => GroundedMaskVar % Values
     GroundedMaskPerm => GroundedMaskVar % Perm
   ELSE
-    CALL Info('USF Contact', 'need to get GroundedMask', Level=4)
+    CALL Info( USF_Name, 'need to get GroundedMask', Level=4)
   END IF
- 
+
   relchange = Model % Solver % Variable % NonLinChange
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -108,16 +108,31 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
       CALL FATAL(USF_Name,'No "Sliding law" Name given')
     END IF
 
+    ! Possiblity to fix the grounding line, default is a moving Grounding Line
     GLmoves = GetLogical( BC, 'Grounding line moves', GotIt )
     IF (.NOT.GotIt) THEN
       GLmoves = .TRUE.
     END IF
     IF (GLmoves) THEN
-      CALL Info(USF_name,'GL may move', Level=3)
+      CALL Info(USF_Name, 'GL may move by default', Level=3)
+      CALL Info(USF_Name, 'If you want to fix the Grounding Line, put the keyword "Grounding line moves" to False', Level=3)
     ELSE
-      CALL Info(USF_name,'GL will be fixed', Level=3)
+      CALL Info(USF_Name, 'GL will be fixed', Level=3)
     END IF
-    CALL Info(USF_name,'Use keyword "Grounding line moves" to modify it', Level=3)
+
+    ! Possibility to avoid detachement from nodes that are too far inland from the Grounding line
+    ! Uses the DistanceSolver
+    ! Default is non possible detachment
+    thresh = GetConstReal( BC, 'non detachment inland distance', GotIt )
+    IF (.NOT.GotIt) THEN
+      thresh = -10000.0_dp
+      CALL INFO( USF_Name, 'far inland nodes have the possibility to detach by default', Level=3)
+      CALL INFO( USF_Name, 'to avoid detachment (when bedrock is well below sea level), use the keyword "non detachment inland distance" to the distance you wish', Level=3)
+      CALL INFO( USF_Name, 'This works with the DistanceSolver', Level=3)
+    ELSE
+      CALL INFO( USF_Name, 'far inland nodes will not detach', level=3)
+    END IF
+
 
   ENDIF
 
@@ -131,6 +146,18 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
     relChangeOld = relChange
   END IF
 
+  ! to use the non detachment possibility when a grounded node is too far from the grounding line
+  ! and positioned on a well below sea level bedrock
+  IF (thresh.GT.0) THEN
+    DistanceVar => VariableGet( Model % Mesh % Variables, 'Distance')
+    IF ( ASSOCIATED( DistanceVar ) ) THEN
+      Distance => DistanceVar % Values
+      DistancePerm => DistanceVar % Perm
+    ELSE
+      CALL FATAL( USF_Name, 'need to get DistanceSolver for the use of "non detachment inland distance"' )
+    END IF
+  END IF
+
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Look at the convergence of the FlowSolver.
   ! If relative change < 1.e-3, test if traction occurs. To apply one time
@@ -142,12 +169,11 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
   Fwater = 0.0_dp
   Fbase = 0.0_dp
 
-  IF ( (relChange.NE.relChangeOld) .AND. (relchange.GT.0.0_dp) .AND. (relchange.LT.1.0e-3_dp) .AND. (yesChange) ) THEN
+  IF ( (relChange.NE.relChangeOld) .AND. (relchange.GT.0.0_dp) .AND. (relchange.LT.1.0e-3_dp) .AND. (yesChange) .AND. GLmoves ) THEN
     ! Change the basal condition just once per timestep
     yesChange = .FALSE.
 
     CALL Info(USF_name,'FLOW SOLVER HAS SLIGHTLY CONVERGED: look for new basal conditions', Level=3)
-    CALL Info(USF_name,'Nothing written means no retreat of the Grounding line', Level=3)
 
     VarSurfResidual => VariableGet( Model % Mesh % Variables, 'Flow Solution Loads' )
     IF ( ASSOCIATED( VarSurfResidual ) ) THEN
@@ -193,28 +219,38 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
 
       DO ii = 1,n
 
-	Nn = GroundedMaskPerm(Element % NodeIndexes(ii))
-	! the grounded mask is not defined here
-	IF (Nn==0) CYCLE
-	IF (GroundedMask(Nn) < -0.5_dp) CYCLE
+        Nn = GroundedMaskPerm(Element % NodeIndexes(ii))
+        ! the grounded mask is not defined here
+        IF (Nn==0) CYCLE
+        IF (GroundedMask(Nn) < -0.5_dp) CYCLE
 
-	jj = Element % NodeIndexes(ii)
+        jj = Element % NodeIndexes(ii)
 
-	! comparison between water load and reaction
+        ! comparison between water load and reaction
 
-	Normal = NormalValues(DIM*(NormalPerm(jj)-1)+1 : DIM*NormalPerm(jj))
-	Fwater = Hydro(DIM*(HydroPerm(jj)-1)+1 : DIM*HydroPerm(jj))
-	Fbase = ResidValues((DIM+1)*(ResidPerm(jj)-1)+1 : (DIM+1)*ResidPerm(jj)-1)
+        Normal = NormalValues(DIM*(NormalPerm(jj)-1)+1 : DIM*NormalPerm(jj))
+        Fwater = Hydro(DIM*(HydroPerm(jj)-1)+1 : DIM*HydroPerm(jj))
+        Fbase = ResidValues((DIM+1)*(ResidPerm(jj)-1)+1 : (DIM+1)*ResidPerm(jj)-1)
 
-	! comparison between water pressure and bed action
-	comp = ABS( SUM( Fwater * Normal ) ) - ABS( SUM( Fbase * Normal ) )
+        ! comparison between water pressure and bed action
+        comp = ABS( SUM( Fwater * Normal ) ) - ABS( SUM( Fbase * Normal ) )
 
-	IF (comp >= 0.0_dp) THEN
-	  GroundedMask(Nn) = -1.0_dp
-	  GL_retreat = GL_retreat + 1
-	  PRINT *, 'Retreat of the Grounding Line : '
-	  PRINT *, Nodes % x(ii), Nodes % y(ii), Nodes % z(ii)
-	END IF
+
+        IF (comp .GE. 0.0_dp) THEN
+          IF (thresh.LE.0.0_dp) THEN
+            GroundedMask(Nn) = -1.0_dp
+            GL_retreat = GL_retreat + 1
+            PRINT *, 'Retreat of the Grounding Line : '
+            PRINT *, Nodes % x(ii), Nodes % y(ii), Nodes % z(ii)
+          ELSE
+            IF ( Distance(DistancePerm(Element % NodeIndexes(ii))).LE.thresh ) THEN
+              GroundedMask(Nn) = -1.0_dp
+              GL_retreat = GL_retreat + 1
+              PRINT *, 'Retreat of the Grounding Line : '
+              PRINT *, Nodes % x(ii), Nodes % y(ii), Nodes % z(ii)
+            END IF
+          END IF
+        END IF
       END DO
 
     END DO
@@ -228,34 +264,34 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
       CurElement => Model % CurrentElement
       DO tt = 1, Model % NumberOfBoundaryElements
 
-	Element => GetBoundaryElement(tt)
-	n = GetElementNOFNodes(Element)
+        Element => GetBoundaryElement(tt)
+        n = GetElementNOFNodes(Element)
 
-	CALL GetElementNodes(Nodes, Element)
-	MSum = 0
-	ZSum = 0
+        CALL GetElementNodes(Nodes, Element)
+        MSum = 0
+        ZSum = 0
 
-	DO ii = 1,n
+        DO ii = 1,n
 
-	  Nn = GroundedMaskPerm(Element % NodeIndexes(ii))
-	  ! the grounded mask is not defined here
-	  IF (Nn==0) CYCLE
-	  MSum = MSum + GroundedMask(Nn)
-	  IF (GroundedMask(Nn)==0.0_dp) ZSum = ZSum + 1
+          Nn = GroundedMaskPerm(Element % NodeIndexes(ii))
+          ! the grounded mask is not defined here
+          IF (Nn==0) CYCLE
+          MSum = MSum + GroundedMask(Nn)
+          IF (GroundedMask(Nn)==0.0_dp) ZSum = ZSum + 1
 
-	END DO
+        END DO
 
-	IF (MSum+ZSum .LT. n) THEN
-	  DO ii=1,n
-	    Nn = GroundedMaskPerm(Element % NodeIndexes(ii))
-	    IF (Nn==0) CYCLE
+        IF (MSum+ZSum .LT. n) THEN
+          DO ii=1,n
+            Nn = GroundedMaskPerm(Element % NodeIndexes(ii))
+            IF (Nn==0) CYCLE
 
-	    IF (GroundedMask(Nn)==1.0_dp) THEN
-	      GroundedMask(Nn)=0.0_dp
-	    END IF
+            IF (GroundedMask(Nn)==1.0_dp) THEN
+              GroundedMask(Nn)=0.0_dp
+            END IF
 
-	  END DO
-	END IF
+          END DO
+        END IF
 
       END DO
       Model % CurrentElement => CurElement
