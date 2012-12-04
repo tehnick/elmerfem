@@ -22,7 +22,7 @@
 ! *****************************************************************************/
 ! ******************************************************************************
 ! *
-! *  Authors: Thomas Zwinger
+! *  Authors: Thomas Zwinger, Martina Schäfer
 ! *  Email:   Thomas.Zwinger@csc.fi
 ! *  Web:      http://elmerice.elmerfem.org
 ! *  Address: CSC - Scientific Computing Ltd.
@@ -72,7 +72,7 @@ SUBROUTINE FlowdepthSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: PointerToVariable, Grad1Sol, Grad2Sol, SurfSol
   TYPE(Solver_t), POINTER :: PointerToSolver
 
-  LOGICAL :: AllocationsDone = .FALSE., Found, CalcFree = .FALSE., SkipBoundary
+  LOGICAL :: AllocationsDone = .FALSE., Found, CalcFree = .FALSE., GotIt, SkipBoundary
 
   INTEGER :: i, n, m, t, istat, DIM
   INTEGER, POINTER :: Permutation(:), NumberOfVisits(:),&
@@ -82,7 +82,7 @@ SUBROUTINE FlowdepthSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Norm, Gradient,GradSurface(3)
 
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, FreeSurfName, FreeSurfGradName
        
 
   SAVE STIFF, LOAD, FORCE, AllocationsDone, DIM, SolverName, NumberOfVisits
@@ -135,27 +135,53 @@ SUBROUTINE FlowdepthSolver( Model,Solver,dt,TransientSimulation )
      CalcFree = .FALSE.
   ELSE
      IF (CalcFree) THEN
-        CALL INFO(SolverName, 'Free surface variable will be calculated', Level=1)
-        SurfSol => VariableGet( Solver % Mesh % Variables, 'FreeSurf')
+               CALL INFO(SolverName, 'Free surface variable will be calculated', Level=1)
+        FreeSurfname = GetString( Solver % Values,'Freesurf Name',GotIt)
+        IF (.NOT.GotIt) THEN
+           CALL FATAL(SolverName,'Keyaword >Calc Free Surface< set to true, but keyword >Freesurf Name< not found.')
+        END IF
+
+        SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(FreeSurfname))
         IF (ASSOCIATED(SurfSol)) THEN
            Surface => SurfSol % Values
            SurfacePerm => SurfSol % Perm
         ELSE
-           CALL FATAL(SolverName,'Could not find variable >FreeSurf<')
+           ALLOCATE(Surface(M), STAT=istat )
+           SurfacePerm => Permutation
+           IF ( istat /= 0 ) THEN
+              CALL Fatal( SolverName, 'Memory allocation error.' )
+           END IF
+           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
+                TRIM(FreeSurfname), 1, Surface, SurfacePerm)
         END IF
-        Grad1Sol => VariableGet( Solver % Mesh % Variables, 'FreeSurfGrad1')
+
+        FreeSurfGradName = TRIM(FreeSurfname) // 'Grad1'
+        Grad1Sol => VariableGet( Solver % Mesh % Variables, FreeSurfGradName)
         IF (ASSOCIATED(Grad1Sol)) THEN
            GradSurface1 => Grad1Sol % Values
            GradSurface1Perm => Grad1Sol % Perm
         ELSE
-           CALL FATAL(SolverName,'Could not find variable >FreeSurf<')
+           ALLOCATE(GradSurface1(M), STAT=istat )
+           GradSurface1Perm => Permutation
+           IF ( istat /= 0 ) THEN
+              CALL Fatal( SolverName, 'Memory allocation error.' )
+           END IF
+           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
+                TRIM(FreeSurfGradName), 1, GradSurface1, GradSurface1Perm)
         END IF
-        Grad2Sol => VariableGet( Solver % Mesh % Variables, 'FreeSurfGrad2')
+        FreeSurfGradName = TRIM(FreeSurfname) // 'Grad2'
+        Grad2Sol => VariableGet( Solver % Mesh % Variables, FreeSurfGradName)
         IF (ASSOCIATED(Grad2Sol)) THEN
            GradSurface2 => Grad2Sol % Values
            GradSurface2Perm => Grad2Sol % Perm
         ELSE
-           CALL FATAL(SolverName,'Could not find variable >FreeSurf<')
+           ALLOCATE(GradSurface2(M), STAT=istat )
+           GradSurface2Perm => Permutation
+           IF ( istat /= 0 ) THEN
+              CALL Fatal( SolverName, 'Memory allocation error.' )
+           END IF
+           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
+                TRIM(FreeSurfGradName), 1, GradSurface2, GradSurface2Perm)
         END IF
         !---------------
         ! initialization
@@ -219,7 +245,7 @@ SUBROUTINE FlowdepthSolver( Model,Solver,dt,TransientSimulation )
         CALL GetSurfaceValue(Model, Surface, GradSurface1, GradSurface2,&
              VariableValues, Permutation, &
              SurfacePerm, GradSurface1Perm, GradSurface2Perm, &
-             NumberOfVisits, Element, n, Gradient)
+             NumberOfVisits, Element, n)
      END DO
      DO i=1,Model % Mesh % NumberOfNodes
         GradSurface1(GradSurface1Perm(i)) = GradSurface1(GradSurface1Perm(i))/NumberOfVisits(i)
@@ -232,10 +258,10 @@ CONTAINS
   SUBROUTINE GetSurfaceValue(Model, Surface, GradSurface1, GradSurface2, &
        VariableValues, Permutation, &
        SurfacePerm, GradSurface1Perm, GradSurface2Perm, &
-       NumberOfVisits, Element, n, Gradient)
+       NumberOfVisits, Element, n)
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
-    REAL(KIND=dp) :: LocalSurf, GradSurface(3), Depth, Gradient
+    REAL(KIND=dp) :: LocalSurf, GradSurface(3), Depth
     INTEGER :: n
     INTEGER, POINTER :: Permutation(:), NumberOfVisits(:), &
          SurfacePerm(:), GradSurface1Perm(:), GradSurface2Perm(:)
@@ -276,12 +302,14 @@ CONTAINS
        END IF
 
        IF (NumberOfVisits(j) == 1) &
-            Surface(SurfacePerm(j)) = z - VariableValues(Permutation(j))/Gradient  
+!!!! change Martina + -> -Gradient: now FreeSurf=Surf everywhere, and FreeBed=Bed everywhere
+            Surface(SurfacePerm(j)) = z -Gradient* VariableValues(Permutation(j))  
        GradSurface1(GradSurface1Perm(j)) = GradSurface1(GradSurface1Perm(j)) +&
-            SUM(dBasisdx(1:N,1)*VariableValues(Permutation(Element % NodeIndexes(1:N))))/abs(Gradient)
+!looks like Depth/Thick gradient, but is for some reason Bed and Surf gradient
+            SUM(dBasisdx(1:N,1)*VariableValues(Permutation(Element % NodeIndexes(1:N))))
        IF (DIM > 2) &
             GradSurface2(GradSurface1Perm(j)) = GradSurface2(GradSurface1Perm(j)) +&
-            SUM(dBasisdx(1:N,2)*VariableValues(Permutation(Element % NodeIndexes(1:N))))/abs(Gradient)
+            SUM(dBasisdx(1:N,2)*VariableValues(Permutation(Element % NodeIndexes(1:N))))
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE GetSurfaceValue
