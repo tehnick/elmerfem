@@ -174,8 +174,10 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
    CALL DefaultDirichletBCs()
    Norm = DefaultSolve()
 
-   CALL FreeMatrix(CM)
-   S % ConstraintMatrix => NULL()
+   IF(FoundMortar) THEN
+     CALL FreeMatrix(CM)
+     S % ConstraintMatrix => NULL()
+   END IF
 
    CALL CalculateLumped(Model % NumberOfBodyForces)
 
@@ -718,8 +720,10 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
    TotNorm = SQRT(TotNorm)
    Solver % Variable % Norm = Totnorm
 
-   CALL FreeMatrix(CM)
-   S % ConstraintMatrix=>NULL()
+   IF(FoundMortar) THEN
+     CALL FreeMatrix(CM)
+     S % ConstraintMatrix=>NULL()
+   END IF
 
 !------------------------------------------------------------------------------     
 
