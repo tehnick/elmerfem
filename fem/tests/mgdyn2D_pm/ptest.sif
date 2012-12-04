@@ -1,8 +1,6 @@
 Check Keywords "Warn"
 
-Header
-  Mesh DB "." "square"
-End
+Header:: Mesh DB "." "square"
 
 Simulation
   Max Output Level = 3
@@ -51,8 +49,6 @@ Solver 1
   Procedure = "MeshSolve" "MeshSolver"
   Variable = Mesh Update[Mesh Update:2]
 
-! Element = "p:2"
-
   Linear System Solver = "Direct"
   Linear System Direct Method = UMFPack
 End
@@ -64,10 +60,6 @@ Solver 2
   Variable = "A"
   Variable DOFs = 1
   Procedure = "MagnetoDynamics2D" "MagnetoDynamics2D"
-
-! Element = "p:2"
-
-  NonLinear System Relaxation Factor=1
 
   Linear System Solver = "Direct"
   Linear System Direct Method = UMFPack
@@ -82,8 +74,6 @@ Solver 3
   Variable = -nooutput temp
   Target Variable="A"
   Exported Variable 1 = B[B:2]
-
-! Element = "p:2"
 
   Linear System Solver = "Direct"
   Linear System Direct Method = UMFPack
