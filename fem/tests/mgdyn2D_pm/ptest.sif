@@ -6,38 +6,29 @@ End
 
 Simulation
   Max Output Level = 3
+
   Coordinate System = Cartesian
   Simulation Type = Steady
-  Timestep intervals = 10
-  Timestep sizes=0.001
-  Output Intervals(1) = 1
   Steady State Max Iterations = 1
-! Post File   = "ptest.ep"
-  Output Intervals=10
 
-  Mesh Levels=1
-! Output File = "ptest.dat"
+! Post File   = "ptest.ep"
 End
 
 Body 1
   Equation = 1
   Material = 1
-  Body Force = 1
 End
 
 Body 2
-target bodies(7)=2 3 4 5 6 7 8
   Equation = 1
   Material = 2
 End
 
 Material 1
   Relative Permeability = 1.05
-  Electric Conductivity = 0
 
 $ mag = 1006582
-$ ang = 90.0*pi/180.0
-
+$ ang = pi/2
   Magnetization 1 = Real $ mag*cos(ang)
   Magnetization 2 = Real $ mag*sin(ang)
 
@@ -53,7 +44,7 @@ End
 
 Equation 1 :: Active Solvers(3) = 1 2 3
 
-! square -> circle
+! deform square -> circle
 Solver 1
   Exec Solver = Before Simulation
   Equation = MeshDeform
@@ -64,7 +55,6 @@ Solver 1
 
   Linear System Solver = "Direct"
   Linear System Direct Method = UMFPack
-  Steady State Convergence Tolerance = 1e-09
 End
 
 ! vector potential
@@ -81,7 +71,6 @@ Solver 2
 
   Linear System Solver = "Direct"
   Linear System Direct Method = UMFPack
-  Steady State Convergence Tolerance = 1e-09
 End
 
 
@@ -94,10 +83,13 @@ Solver 3
   Target Variable="A"
   Exported Variable 1 = B[B:2]
 
+! Element = "p:2"
+
   Linear System Solver = "Direct"
   Linear System Direct Method = UMFPack
 End
 
+! make outer boundary  circular + asymptotic bc
 Boundary Condition 1
   Target Boundaries(1) = 1
   Infinity BC = Logical True
@@ -108,6 +100,7 @@ Boundary Condition 1
     Real MATC "x=tx(0); y=tx(1); r=sqrt(x^2+y^2); y/r-y"
 End
 
+! don't move magnet boundaries when deforming mesh
 Boundary Condition 2
   Target Boundaries(1) = 2
   Mesh Update 1 = 0
