@@ -489,7 +489,9 @@ CONTAINS
 
      Acoef(1:n) = GetReal( BC, 'Magnetic Transfer Coefficient', Found ) !???
 
-     Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
+     Load(4,1:n) = GetReal( BC, 'Electric Current Density', Found )
+     IF (.NOT. Found) &
+          Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )       
      Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
 
      CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
@@ -1030,16 +1032,16 @@ CONTAINS
          END DO
        ELSE
          !
-         ! There is free slot here for a scalar equation, so just setup an
-         ! auxliary laplace solver here, and add its gradient to first eq.,
-         ! "Electric Conductivity" may be used to scale the gradient:
+         ! Adding the scalar pontential solver as done in the following
+         ! is reasonable only in the case where
+         ! the electrical conductivity is nonzero.
          ! ------------------------------------------------------------------
          IF (FixJ) THEN
            DO i=1,np
              p = i
              DO j=1,np
                q = j
-               STIFF(p,q) = STIFF(p,q) + &
+               STIFF(p,q) = STIFF(p,q) + C * &
                    SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
              END DO
              DO j=1,nd-np
@@ -2015,9 +2017,13 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
      Load(3,1:n) = CMPLX( REAL(Load(3,1:n)), &
         GetReal(BC, 'Magnetic Field Strength im 3', Found), KIND=dp)
 
-     Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
+     Load(4,1:n) = GetReal( BC, 'Electric Current Density', Found )
+     IF (.NOT. Found) Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
+
      Load(4,1:n) = CMPLX( REAL(LOAD(4,1:n)), &
-           GetReal( BC, 'Electric Flux im', Found), KIND=dp)
+          GetReal( BC, 'Electric Current Density im', Found), KIND=dp)
+     IF (.NOT. Found) Load(4,1:n) = CMPLX( REAL(LOAD(4,1:n)), &
+          GetReal( BC, 'Electric Flux im', Found), KIND=dp)
 
      Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
      Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
