@@ -127,7 +127,8 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
     IF (.NOT.GotIt) THEN
       thresh = -10000.0_dp
       CALL INFO( USF_Name, 'far inland nodes have the possibility to detach by default', Level=3)
-      CALL INFO( USF_Name, 'to avoid detachment (when bedrock is well below sea level), use the keyword "non detachment inland distance" to the distance you wish', Level=3)
+      CALL INFO( USF_Name, 'to avoid detachment (when bedrock is well below sea level),', Level=3)
+      CALL INFO( USF_Name, 'use the keyword "non detachment inland distance" to the distance you wish', Level=3)
       CALL INFO( USF_Name, 'This works with the DistanceSolver', Level=3)
     ELSE
       CALL INFO( USF_Name, 'far inland nodes will not detach', level=3)
