@@ -897,6 +897,7 @@ CONTAINS
   END SUBROUTINE Potential
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrix(  Element, n, nd)
 !------------------------------------------------------------------------------
@@ -908,9 +909,9 @@ CONTAINS
     INTEGER :: i,p,q,t,siz
     TYPE(GaussIntegrationPoints_t) :: IP
     COMPLEX(KIND=dp) :: MASS(nd,nd), STIFF(nd,nd), FORCE(nd), &
-      JAC(nd,nd),Agrad(3),Load(n),M(2,n),M_ip(2),POTC(nd)
+      JAC(nd,nd),Agrad(3),Load(n),M(2,n),M_ip(2),POTC(nd), C(n), C_ip
 
-    REAL(KIND=dp) :: POT(2,nd),R(n),Babs,mu,muder,C(n),C_ip,Omega
+    REAL(KIND=dp) :: POT(2,nd),R(n),Babs,mu,muder,Omega
 
     LOGICAL :: Cubic, HBcurve
 
@@ -942,6 +943,7 @@ CONTAINS
     END IF
 
     C = GetReal( Material, 'Electric Conductivity', Found)
+    C = C + im * GetReal( Material, 'Electric Conductivity im', Found)
 
     M(1,:) = GetReal( Material, 'Magnetization 1', Found)
     M(1,:) = M(1,:) + im*GetReal( Material, 'Magnetization 1 im', Found)
@@ -995,7 +997,7 @@ CONTAINS
         DO p=1,nd
           DO q=1,nd
             JAC(p,q) = JAC(p,q) + IP % s(t) * DetJ * &
-              muder/babs*SUM(CONJG(Agrad)*dBasisdx(q,:))*SUM(Agrad*dBasisdx(p,:))
+              muder/babs*SUM(Agrad*dBasisdx(q,:))*SUM(CONJG(Agrad)*dBasisdx(p,:))
           END DO
         END DO
       END IF
