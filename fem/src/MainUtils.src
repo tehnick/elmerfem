@@ -3398,10 +3398,12 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(Model_t)  :: Model
      TYPE(Solver_t),POINTER :: Solver
-     LOGICAL :: TransientSimulation, UpdateExported
-     REAL(KIND=dp) :: dt, OrigDT, DTScal
+     LOGICAL :: TransientSimulation
+     REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, TimeDerivativeActive, Timing, IsPassiveBC
+     REAL(KIND=dp) :: OrigDT, DTScal
+     LOGICAL :: stat, Found, TimeDerivativeActive, Timing, IsPassiveBC, &
+         UpdateExported, CoordTransform
      INTEGER :: i, j, n, BDOFs, timestep, timei, PassiveBcId
      INTEGER, POINTER :: ExecIntervals(:)
      REAL(KIND=dp) :: tcond, t0, rt0, st, rst, ct, CPUTime,RealTime
@@ -3413,6 +3415,12 @@ CONTAINS
 !------------------------------------------------------------------------------
      CALL SetCurrentMesh( Model, Solver % Mesh )
      Model % Solver => Solver
+
+     CoordTransform = ListCheckPresent( Solver % Values,'Coordinate Transformation')
+     IF( CoordTransform ) THEN
+       CALL CoordinateTransformation( Solver % Mesh, .FALSE. )
+     END IF
+
      Params => Solver % Values
 
 !------------------------------------------------------------------------------
@@ -3520,6 +3528,10 @@ CONTAINS
    
      CALL ListSetNamespace('')
      Solver % dt = dt
+
+     IF( CoordTransform ) THEN
+       CALL BackCoordinateTransformation( Solver % Mesh )
+     END IF
 
 !------------------------------------------------------------------------------
 ! After solution register the timing, if requested

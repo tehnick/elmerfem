@@ -237,6 +237,8 @@ END INTERFACE
          OPEN( Unit=InFileUnit, Action='Read',File=ModelName,Status='OLD',ERR=20 )
          CurrentModel => LoadModel( ModelName,.FALSE.,ParEnv % PEs,ParEnv % MyPE )
 
+         ! Optionally perform simple extrusion to increase the dimension of the mesh
+         !----------------------------------------------------------------------------------
          ExtrudeLevels=GetInteger(CurrentModel % Simulation,'Extruded Mesh Levels',Found)
          IF(ExtrudeLevels>1) THEN
            ExtrudedMesh => MeshExtrude(CurrentModel % Meshes, ExtrudeLevels-2)
@@ -248,6 +250,13 @@ END INTERFACE
            CurrentModel % Meshes => ExtrudedMesh
          END IF
          
+         ! If requested perform coordinate transformation directly after is has been obtained.
+         ! Don't maintain the original mesh. 
+         !----------------------------------------------------------------------------------
+         IF( ListCheckPresent(CurrentModel % Simulation,'Coordinate Transformation') ) THEN
+           CALL CoordinateTransformation( CurrentModel % Meshes, .TRUE. )
+         END IF
+
          IF(.NOT. Silent ) THEN
             CALL Info( 'MAIN', '-------------------------------------')
           END IF 
