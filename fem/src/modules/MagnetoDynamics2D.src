@@ -59,8 +59,8 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Found,FoundMortar
   TYPE(Element_t),POINTER :: Element
 
-  REAL(KIND=dp) :: Norm,  Energy
-  INTEGER :: i,j,k,n, nb, nd, t, istat, Active
+  REAL(KIND=dp) :: NonlinTol, Norm, PrevNorm, RelC
+  INTEGER :: i,j,k,n, nb, nd, t, istat, Active, NonlinIter, iter
 
   TYPE(ValueList_t), POINTER :: BodyForce,BC=>NULL()
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
@@ -94,103 +94,86 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
 
-   ! System assembly:
-   ! ----------------
-   Active = GetNOFActive()
-   CALL DefaultInitialize()
-   DO t=1,active
-      Element => GetActiveElement(t)
-      n  = GetElementNOFNodes()
-      nd = GetElementNOFDOFs()
-      CALL LocalMatrix(Element, n, nd)
-   END DO
+  S=>Solver % Matrix
+  DO i=1,Model % NumberOFBCs
+    j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
+    IF(FoundMortar) THEN
+      CM => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
+      EXIT
+    END IF
+  END DO
+
+  IF(FoundMortar) THEN
+    ALLOCATE(CM % RHS(CM % NumberOfRows))
+    CM % RHS = 0._dp
+    S % ConstraintMatrix => CM
+    CM % Cols = Solver % Variable % Perm(CM % Cols)
+    CM % Ordered = .FALSE.
+    CALL CRS_SortMatrix(CM,.TRUE.)
+  END IF
+
+  NonlinIter = GetInteger(GetSolverParams(), &
+           'Nonlinear System Max Iterations',Found)
+  IF(.NOT.Found) NonlinIter=1
+
+  NonlinTol = GetCReal(GetSolverParams(), &
+           'Nonlinear System Convergence Tolerance',Found)
+
+  PrevNorm=SQRT(SUM(Solver % Variable % Values**2))
+  DO iter=1,NonlinIter
+    IF(Iter>1) NewtonRaphson=.TRUE.
+    ! System assembly:
+    ! ----------------
+    Active = GetNOFActive()
+    CALL DefaultInitialize()
+    DO t=1,active
+       Element => GetActiveElement(t)
+       n  = GetElementNOFNodes()
+       nd = GetElementNOFDOFs()
+       CALL LocalMatrix(Element, n, nd)
+    END DO
 
 
-   Active = GetNOFBoundaryElements()
-   DO t=1,active
-     Element => GetBoundaryElement(t)
-     BC=>GetBC()
-     IF(.NOT.ASSOCIATED(BC)) CYCLE
+    Active = GetNOFBoundaryElements()
+    DO t=1,active
+      Element => GetBoundaryElement(t)
+      BC=>GetBC()
+      IF(.NOT.ASSOCIATED(BC)) CYCLE
 
-     IF(GetLogical(BC,'Infinity BC',Found)) THEN
-        n  = GetElementNOFNodes()
-        nd = GetElementNOFDOFs()
-        CALL LocalMatrixBC(  Element, n, nd )
-     END IF
-   END DO
+      IF(GetLogical(BC,'Infinity BC',Found)) THEN
+         n  = GetElementNOFNodes()
+         nd = GetElementNOFDOFs()
+         CALL LocalMatrixBC(  Element, n, nd )
+      END IF
+    END DO
 
+    CALL DefaultFinishAssembly()
 
-   S=>Solver % Matrix
+    CALL DefaultDirichletBCs()
+    Norm = DefaultSolve()
+ 
+    Norm=SQRT(SUM(Solver % Variable % Values**2))
+    Relc = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)
+    IF(relc<NonlinTOL) EXIT
+    PrevNorm=Norm
+  END DO
 
-#if 0
-   ! Get matrices A & B such that Au_1=Bu_2
-   ! on interface of domains 1 & 2
-   ! ---------------------------------------
-   CALL GalerkinProjector(Model,Mesh,A,B,1.d-5)
+  IF(FoundMortar) THEN
+    CALL FreeMatrix(CM)
+    S % ConstraintMatrix => NULL()
+  END IF
 
-   ! Solve the constraint using Lagrange multpilers
-   ! as linear equation dofs:
-   ! ----------------------------------------------
-   IF(ASSOCAITED(A).AND.ASSOCIATED(B)) THEN
-     CM => AllocateMatrix()
-     CM % ConstraintMatrix => NULL()
-     CM % FORMAT = MATRIX_LIST
+  CALL CalculateLumped(Model % NumberOfBodyForces)
 
-     DO i=1,A % NumberOfRows
-       DO j=A % Rows(i),A % Rows(i+1)-1
-         CALL AddToMatrixElement(CM,i,A % Cols(j),A % Values(j)) 
-       END DO
-       DO j=B % Rows(i),B % Rows(i+1)-1
-         CALL AddToMatrixElement(CM,i,B % Cols(j),-B % Values(j)) 
-       END DO
-     END DO
-     CALL FreeMatrix(A)
-     CALL FreeMatrix(B)
-
-     CALL List_toCRSMatrix(CM)
-     FoundMortar=.TRUE.
-   ELSE 
-     FoundMortar=.FALSE.
-   END IF
-#else
-   DO i=1,Model % NumberOFBCs
-     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
-     IF(FoundMortar) THEN
-       CM => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
-       EXIT
-     END IF
-   END DO
-#endif
-   IF(FoundMortar) THEN
-     ALLOCATE(CM % RHS(CM % NumberOfRows))
-     CM % RHS = 0._dp
-     S % ConstraintMatrix => CM
-     CM % Cols = Solver % Variable % Perm(CM % Cols)
-     CM % Ordered = .FALSE.
-     CALL CRS_SortMatrix(CM,.TRUE.)
-   END IF
-
-   CALL DefaultFinishAssembly()
-
-   CALL DefaultDirichletBCs()
-   Norm = DefaultSolve()
-
-   IF(FoundMortar) THEN
-     CALL FreeMatrix(CM)
-     S % ConstraintMatrix => NULL()
-   END IF
-
-   CALL CalculateLumped(Model % NumberOfBodyForces)
-
-   CoordVar => VariableGet(Mesh % Variables,'Coordinates')
-   IF(ASSOCIATED(CoordVar)) THEN
-     DO i=1,Mesh % NumberOfNodes
-       j = 3*(CoordVar % Perm(i)-1)
-       CoordVar % Values(j+1) = Mesh % Nodes % x(i)
-       CoordVar % Values(j+2) = Mesh % Nodes % y(i)
-       CoordVar % Values(j+3) = Mesh % Nodes % z(i)
-     END DO
-   END IF
+  CoordVar => VariableGet(Mesh % Variables,'Coordinates')
+  IF(ASSOCIATED(CoordVar)) THEN
+    DO i=1,Mesh % NumberOfNodes
+      j = 3*(CoordVar % Perm(i)-1)
+      CoordVar % Values(j+1) = Mesh % Nodes % x(i)
+      CoordVar % Values(j+2) = Mesh % Nodes % y(i)
+      CoordVar % Values(j+3) = Mesh % Nodes % z(i)
+    END DO
+  END IF
 
 CONTAINS
 
@@ -606,8 +589,8 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Found,FoundMortar
   TYPE(Element_t),POINTER :: Element
 
-  REAL(KIND=dp) :: Norm,  Energy
-  INTEGER :: i,j,k,ip,jp,n, nb, nd, t, istat, Active
+  REAL(KIND=dp) :: Norm,  PrevNorm, NonlinTOL, RelC
+  INTEGER :: i,j,k,ip,jp,n, nb, nd, t, istat, Active, iter, NonlinIter
 
   TYPE(ValueList_t), POINTER :: BodyForce,BC=>NULL()
   COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:)
@@ -640,68 +623,84 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
      AllocationsDone = .TRUE.
   END IF
 
+
+  S=>Solver % Matrix
+  S % Complex = .TRUE.
+
+  DO i=1,Model % NumberOFBCs
+    j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
+    IF(FoundMortar) THEN
+      A => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
+      EXIT
+    END IF
+  END DO
+
+  IF(FoundMortar) THEN
+    CM => AllocateMatrix()
+    CM % Format = MATRIX_LIST
+    DO i=1,A % NumberOfRows
+      ip = Solver % Variable % Perm(i)
+      DO j=A % Rows(i),A % Rows(i+1)-1
+        jp = Solver % Variable % Perm(A % Cols(j))
+        CALL AddToMatrixElement(CM,2*(ip-1)+1,2*(jp-1)+1,A % Values(j))
+        CALL AddToMatrixElement(CM,2*(ip-1)+2,2*(jp-1)+2,A % Values(j))
+      END DO
+    END DO
+    CALL FreeMatrix(A)
+
+    CALL List_toCRSMatrix(CM)
+    ALLOCATE(CM % RHS(CM % NumberOfRows))
+    CM % RHS = 0._dp
+    S % ConstraintMatrix => CM
+  END IF
+
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
 
-   ! System assembly:
-   ! ----------------
-   Active = GetNOFActive()
-   CALL DefaultInitialize()
-   DO t=1,active
-      Element => GetActiveElement(t)
-      n  = GetElementNOFNodes()
-      nd = GetElementNOFDOFs()
-      CALL LocalMatrix(Element, n, nd)
+  NonlinIter = GetInteger(GetSolverParams(), &
+           'Nonlinear system max iterations',Found)
+  IF(.NOT.Found) NonlinIter=1
+
+  NonlinTol = GetCReal(GetSolverParams(), &
+           'Nonlinear system Convergence Tolerance',Found)
+
+  PrevNorm=SQRT(SUM(Solver % Variable % Values**2))
+  DO iter=1,NonlinIter
+    IF(Iter>1) NewtonRaphson=.TRUE.
+    ! System assembly:
+    ! ----------------
+    Active = GetNOFActive()
+    CALL DefaultInitialize()
+    DO t=1,active
+       Element => GetActiveElement(t)
+       n  = GetElementNOFNodes()
+       nd = GetElementNOFDOFs()
+       CALL LocalMatrix(Element, n, nd)
+    END DO
+
+    Active = GetNOFBoundaryElements()
+    DO t=1,active
+      Element => GetBoundaryElement(t)
+      BC=>GetBC()
+      IF(.NOT.ASSOCIATED(BC)) CYCLE
+ 
+      IF(GetLogical(BC,'Infinity BC',Found)) THEN
+         n  = GetElementNOFNodes()
+         nd = GetElementNOFDOFs()
+         CALL LocalMatrixBC(  Element, n, nd )
+      END IF
+    END DO
+
+
+    CALL DefaultFinishAssembly()
+
+    CALL DefaultDirichletBCs()
+    Norm = DefaultSolve()
+ 
+     Norm=SQRT(SUM(Solver % Variable % Values**2))
+     Relc = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)
+     IF(RelC<NonlinTOL) EXIT
+     PrevNorm=Norm
    END DO
-
-
-   Active = GetNOFBoundaryElements()
-   DO t=1,active
-     Element => GetBoundaryElement(t)
-     BC=>GetBC()
-     IF(.NOT.ASSOCIATED(BC)) CYCLE
-
-     IF(GetLogical(BC,'Infinity BC',Found)) THEN
-        n  = GetElementNOFNodes()
-        nd = GetElementNOFDOFs()
-        CALL LocalMatrixBC(  Element, n, nd )
-     END IF
-   END DO
-
-
-   S=>Solver % Matrix
-   S % Complex = .TRUE.
-
-   DO i=1,Model % NumberOFBCs
-     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
-     IF(FoundMortar) THEN
-       A => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
-       EXIT
-     END IF
-   END DO
-
-   IF(FoundMortar) THEN
-     CM => AllocateMatrix()
-     CM % Format = MATRIX_LIST
-     DO i=1,A % NumberOfRows
-       ip = Solver % Variable % Perm(i)
-       DO j=A % Rows(i),A % Rows(i+1)-1
-         jp = Solver % Variable % Perm(A % Cols(j))
-         CALL AddToMatrixElement(CM,2*(ip-1)+1,2*(jp-1)+1,A % Values(j))
-         CALL AddToMatrixElement(CM,2*(ip-1)+2,2*(jp-1)+2,A % Values(j))
-       END DO
-     END DO
-     CALL FreeMatrix(A)
-
-     CALL List_toCRSMatrix(CM)
-     ALLOCATE(CM % RHS(CM % NumberOfRows))
-     CM % RHS = 0._dp
-     S % ConstraintMatrix => CM
-   END IF
-
-   CALL DefaultFinishAssembly()
-
-   CALL DefaultDirichletBCs()
-   Norm = DefaultSolve()
 
    IF(FoundMortar) THEN
      CALL FreeMatrix(CM)
@@ -1028,8 +1027,11 @@ CONTAINS
     LOGICAL :: Stat
     INTEGER :: i,p,q,t
     TYPE(GaussIntegrationPoints_t) :: IP
-    REAL(KIND=dp) :: STIFF(nd,nd), FORCE(nd), R(n), R_ip, &
+
+    REAL(KIND=dp) :: R(n), R_ip, &
             Inf_ip,Coord(3),Normal(3),mu,u,v
+
+    COMPLEX(KIND=dp) :: STIFF(nd,nd), FORCE(nd)
 
     TYPE(ValueList_t), POINTER :: Material
 
