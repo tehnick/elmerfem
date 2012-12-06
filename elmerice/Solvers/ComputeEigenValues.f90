@@ -1,36 +1,36 @@
-!/*****************************************************************************/
+! *****************************************************************************/
 ! *
-! *  Elmer/Ice, a glaciological add-on to Elmer
-! *  http://elmerice.elmerfem.org
+! *       ELMER, A Computational Fluid Dynamics Program.
 ! *
-! * 
-! *  This program is free software; you can redistribute it and/or
-! *  modify it under the terms of the GNU General Public License
-! *  as published by the Free Software Foundation; either version 2
-! *  of the License, or (at your option) any later version.
-! * 
-! *  This program is distributed in the hope that it will be useful,
-! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! *  GNU General Public License for more details.
+! *       Copyright 1st April 1995 - , Center for Scientific Computing,
+! *                                    Finland.
 ! *
-! *  You should have received a copy of the GNU General Public License
-! *  along with this program (in file fem/GPL-2); if not, write to the 
-! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
-! *  Boston, MA 02110-1301, USA.
+! *       All rights reserved. No part of this program may be used,
+! *       reproduced or transmitted in any form or by any means
+! *       without the written permission of CSC.
 ! *
 ! *****************************************************************************/
+!
+!/******************************************************************************
+! *
 ! ******************************************************************************
 ! *
-! *  Authors: Juha Ruokolainen, Fabien Gillet-Chaulet, Olivier Gagliardini
-! *  Email:   Juha.Ruokolainen@csc.fi
-! *  Web:     http://elmerice.elmerfem.org
+! *                     Author:       Juha Ruokolainen
 ! *
-! *  Original Date: 08 Jun 1997
-! *  Date of modification: 13/10/05 from version 1.5
-! * 
-! *****************************************************************************
-!> DOXYGEN INFO TO BE ADDED
+! *                    Address: Center for Scientific Computing
+! *                            Tietotie 6, P.O. Box 405
+! *                              02101 Espoo, Finland
+! *                              Tel. +358 0 457 2723
+! *                            Telefax: +358 0 457 2302
+! *                          EMail: Juha.Ruokolainen@csc.fi
+! *
+! *                       Date: 08 Jun 1997
+! *
+! *                Modified by:  Fabien / OG 
+! *
+! *       Date of modification: 13/10/05 from version 1.5
+! *
+! *****************************************************************************/
 !------------------------------------------------------------------------------
    RECURSIVE SUBROUTINE ComputeEigenValues( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -72,10 +72,11 @@
      REAL(KIND=dp), POINTER ::  Stress(:),Eigen(:)
      INTEGER, POINTER :: StressPerm(:),EigenPerm(:)
 
-     REAL(KIND=dp),dimension(3,3) :: localM,EigVector
-     REAL(KIND=dp),dimension(3) :: EigValues, ki
+     REAL(KIND=dp),dimension(3,3) :: localM,EigenVec
+     REAL(KIND=dp),dimension(3) :: EigValues, EI, ki
+     REAL(KIND=dp) :: WORK(24),Dumy(1)
      Real(KIND=dp) :: a 
-     INTEGER :: i, j, t, ordre(3)
+     INTEGER :: i, j, t, ordre(3),infor
      LOGICAL :: GotIt
      CHARACTER(LEN=MAX_NAME_LEN) :: TensorVarName, EigenVarName
 
@@ -123,8 +124,11 @@
                   localM(3,1)=localM(1,3)
            end if
 
-           call R2Ro(localM,EigValues)
-
+! Compute EigenValues using lapack DGEEV subroutine
+           CALL DGEEV('N','V',3,localM,3,EigValues,EI,Dumy,1,EigenVec,3,Work,24,infor )
+           IF (infor.ne.0) &
+               CALL FATAL('Compute EigenValues', 'Failed to compute EigenValues')
+           localM(1:3,1:3)=EigenVec(1:3,1:3)
 ! Ordered value Ev1 < Ev2 < Ev3
          
            Do i=1,3
