@@ -1807,9 +1807,104 @@ END SUBROUTINE GetMaxDefs
        END DO
      END IF
 
-
 !------------------------------------------------------------------------------
    END SUBROUTINE EliminateRedundantColumns
+!------------------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------------
+  !> Given two interface meshes for nonconforming rotating boundaries make 
+  !> a coordinate transformation to each node of the slave boundary (BMesh1) so that 
+  !> they hit the master boundary (BMesh2). In case of anti-periodic projector 
+  !> mark the nodes that need an odd number of periods.
+  !---------------------------------------------------------------------------
+  SUBROUTINE PreRotationalProjector(BMesh1, BMesh2, MirrorNode )
+  !---------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)
+    !--------------------------------------------------------------------------
+    LOGICAL :: AntiPeriodic
+    REAL(KIND=dp) :: F2min,F2max,dFii2,Fii
+    INTEGER :: i, Nfii, SectorMax
+    INTEGER, ALLOCATABLE :: SectorCount(:)
+
+    AntiPeriodic = ALLOCATED( MirrorNode )
+    IF( AntiPeriodic ) MirrorNode = .FALSE.
+
+    F2Min =  MINVAL( BMesh2 % Nodes % x )
+    F2Max =  MAXVAL( BMesh2 % Nodes % x )
+    dFii2 = F2Max - F2Min
+    SectorMax = CEILING( 360.0 / dFii2 ) 
+
+    WRITE( Message,'(A,I0)') 'Maximum number of sectors: ',SectorMax
+    CALL Info('PreRotationalProjector',Message,Level=8)
+
+    ALLOCATE( SectorCount(-SectorMax:SectorMax))
+    SectorCount = 0
+
+    DO i = 1, BMesh1 % NumberOfNodes
+      Fii = BMesh1 % Nodes % x(i)      
+      Nfii = FLOOR( (Fii-F2min) / dFii2 )
+      BMesh1 % Nodes % x(i) = BMesh1 % Nodes % x(i) - Nfii * dFii2
+      SectorCount(Nfii) = SectorCount(Nfii) + 1     
+      IF( AntiPeriodic ) THEN
+        IF( MODULO(Nfii,2) /= 0 ) THEN
+          MirrorNode(i) = .TRUE.
+        END IF
+      END IF
+    END DO
+
+    IF( SectorCount(0) < BMesh1 % NumberOfNodes ) THEN
+      CALL Info('PreRotationalProjector','Number of nodes by sectors',Level=8)
+      DO i=-SectorMax,SectorMax
+        IF( SectorCount(i) > 0 ) THEN
+          WRITE( Message,'(A,I0,A,I0)') 'Sector:',i,'   Nodes:',SectorCount(i)
+          CALL Info('MatchInterfaceNodes',Message,Level=8)
+        END IF
+      END DO
+      IF( AntiPeriodic ) THEN
+        WRITE( Message,'(A,I0)') 'Number of mirror nodes:',COUNT(MirrorNode)
+        CALL Info('PreRotationalProjector',Message,Level=8)
+      END IF
+    ELSE
+      CALL Info('PreRotationalProjector','No nodes needed mapping')
+    END IF
+
+  END SUBROUTINE PreRotationalProjector
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Postprocess projector so that it changes the sign of the anti-periodic
+!> entries as assignes by the MirrorNode flag.
+!------------------------------------------------------------------------------
+  SUBROUTINE PostRotationalProjector( Proj, MirrorNode )
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: Proj                 !< Projection matrix
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)  !< Is the node a mirror node or not
+!--------------------------------------------------------------------------
+    INTEGER, POINTER :: Cols(:),Rows(:)            
+    REAL(KIND=dp), POINTER :: Values(:)    
+    INTEGER :: i,j,n
+!------------------------------------------------------------------------------
+
+    IF( .NOT. ALLOCATED( MirrorNode ) ) RETURN
+    IF( COUNT( MirrorNode ) == 0 ) RETURN
+
+    n = Proj % NumberOfRows
+    Rows => Proj % Rows
+    Cols => Proj % Cols
+    Values => Proj % Values
+
+    DO i=1,n
+      IF( MirrorNode(i) ) THEN
+        DO j = Rows(i),Rows(i+1)-1
+          Values(j) = -Values(j)
+        END DO
+      END IF
+    END DO
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE PostRotationalProjector
 !------------------------------------------------------------------------------
 
 
@@ -1966,11 +2061,169 @@ END SUBROUTINE GetMaxDefs
   !> created. The this projector matrix is transferred to a projector on the nodal
   !> coordinates.   
   !---------------------------------------------------------------------------
+   FUNCTION WeightedProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
+       UseQuadrantTree, Rotational, AntiRotational ) &
+      RESULT ( Projector )
+  !---------------------------------------------------------------------------
+    USE Lists
+
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    LOGICAL :: UseQuadrantTree, Rotational, AntiRotational
+    TYPE(Matrix_t), POINTER :: Projector
+    !--------------------------------------------------------------------------
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)
+    TYPE(Matrix_t), POINTER :: GaussProjector
+    TYPE(Nodes_t), POINTER :: GaussNodes, RealNodes, ElementNodes
+    TYPE(Element_t), POINTER :: Element
+    INTEGER :: i,j,k,l,n,p,q,NoNodes, NoGaussPoints
+    INTEGER, POINTER :: NodeIndexes(:),Rows(:),Cols(:)
+    REAL(KIND=dp), POINTER :: Basis(:), Values(:)
+    REAL(KIND=dp) :: u,v,w,val,detJ
+    TYPE(GaussIntegrationPoints_t) :: IntegStuff
+    LOGICAL :: Stat
+
+    ALLOCATE( GaussNodes, ElementNodes )
+    RealNodes => Bmesh1 % Nodes
+    NoNodes = Bmesh1 % NumberOfNodes
+
+    ! Calculate the total number of Gaussian integration points
+    ! and allocate space for the node structures. 
+    !----------------------------------------------------------
+    NoGaussPoints = 0
+    DO i=1, BMesh1 % NumberOfBulkElements
+      Element => BMesh1 % Elements(i)
+      IntegStuff = GaussPoints( Element )      
+      NoGaussPoints = NoGaussPoints + IntegStuff % n
+    END DO
+    
+    WRITE( Message,'(A,I0,A,I0)') 'Number of nodes and gauss points:'&
+        ,NoNodes,' and ',NoGaussPoints
+    CALL Info('WeightedProjector',Message)
+
+    ALLOCATE( GaussNodes % x(NoGaussPoints), GaussNodes % y(NoGaussPoints), GaussNodes % z(NoGaussPoints))
+    n = BMesh1 % MaxElementNodes
+    ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), Basis(n) )
+
+    ! Create the nodal coordinates for all Gaussian integration points
+    !-----------------------------------------------------------------    
+    NoGaussPoints = 0
+    DO i=1, BMesh1 % NumberOfBulkElements
+      Element => BMesh1 % Elements(i)
+      n = Element % TYPE % NumberOfNodes        
+      NodeIndexes => Element % NodeIndexes
+      ElementNodes % x(1:n) = RealNodes % x(NodeIndexes(1:n))
+      ElementNodes % y(1:n) = RealNodes % y(NodeIndexes(1:n))
+      ElementNodes % z(1:n) = RealNodes % z(NodeIndexes(1:n))
+      
+      IntegStuff = GaussPoints( Element )      
+      DO j=1,IntegStuff % n
+        NoGaussPoints = NoGaussPoints + 1
+        u = IntegStuff % u(j)
+        v = IntegStuff % v(j)
+        w = IntegStuff % w(j)
+        Stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis )
+        GaussNodes % x(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % x(1:n) )
+        GaussNodes % y(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % y(1:n) )
+        GaussNodes % z(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % z(1:n) )
+      END DO
+    END DO
+
+    BMesh1 % Nodes => GaussNodes
+    BMesh1 % NumberOfNodes = NoGaussPoints
+
+    ! Create the mirror node flag and map the nodes of Mesh1 to be 
+    ! in the interval of Mesh2.    
+    !-----------------------------------------------------------------
+    IF( Rotational ) THEN
+      IF( AntiRotational ) THEN
+        ALLOCATE( MirrorNode( BMesh1 % NumberOfNodes ) )
+        MirrorNode = .FALSE.
+      END IF
+      CALL PreRotationalProjector(BMesh1, BMesh2, MirrorNode )
+    END IF
+
+    ! Create the projector for Gaussian integration points
+    !-----------------------------------------------------------------
+    GaussProjector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
+    Rows => GaussProjector % Rows
+    Cols => GaussProjector % Cols
+    Values => GaussProjector % Values
+
+    ! If there are mirror nodes change the sign
+    !-----------------------------------------------------------------------------
+    IF( AntiRotational ) THEN
+      CALL PostRotationalProjector( GaussProjector, MirrorNode )
+      IF( ALLOCATED( MirrorNode) ) DEALLOCATE( MirrorNode ) 
+    END IF
+
+    ! Transfer the projector on the Gaussian points to that on
+    ! nodal points utilizing the flexibility of the list matrix.
+    !-----------------------------------------------------------
+    Projector => AllocateMatrix()
+    Projector % FORMAT = MATRIX_LIST
+    NoGaussPoints=0
+
+    DO i=1, BMesh1 % NumberOfBulkElements
+      Element => BMesh1 % Elements(i)
+      n = Element % TYPE % NumberOfNodes        
+      NodeIndexes => Element % NodeIndexes
+      ElementNodes % x(1:n) = RealNodes % x(NodeIndexes(1:n))
+      ElementNodes % y(1:n) = RealNodes % y(NodeIndexes(1:n))
+      ElementNodes % z(1:n) = RealNodes % z(NodeIndexes(1:n))
+      
+      IntegStuff = GaussPoints( Element )      
+      DO j=1,IntegStuff % n
+        NoGaussPoints = NoGaussPoints + 1
+        u = IntegStuff % u(j)
+        v = IntegStuff % v(j)
+        w = IntegStuff % w(j)
+        Stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis )
+        
+        ! Below List_ commands are used instead of generic matrix commands as we know
+        ! that the matrix format is list, and otherwise there would be a cyclic dependence
+        ! between MeshUtils and SolverUtils.
+        !-----------------------------------------------------------------
+        DO p=1,n
+          val = detJ * IntegStuff % s(j) * Basis(p)
+          DO q=1,n
+            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(p), &
+                InvPerm1(NodeIndexes(q)), Basis(q) * val ) 
+          END DO
+
+          DO q = Rows(NoGaussPoints), Rows(NoGaussPoints+1)-1
+            CALL List_AddToMatrixElement(Projector % ListMatrix, &
+                NodeIndexes(p), InvPerm2(Cols(q)), -Values(q) * val ) 
+          END DO
+        END DO
+      END DO
+    END DO
+
+    CALL List_ToCRSMatrix( Projector )
+
+    BMesh1 % Nodes => RealNodes
+    BMesh1 % NumberOfNodes = NoNodes
+
+    ! Finally, deallocate permanent storage
+    !----------------------------------------------------------------
+    DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z )
+    DEALLOCATE( GaussNodes % x, GaussNodes % y, GaussNodes % z )
+    DEALLOCATE( ElementNodes, GaussNodes, Basis )
+
+  END FUNCTION WeightedProjector2
+!------------------------------------------------------------------------------
+
+
+  !---------------------------------------------------------------------------
+  !> Create a projector for mapping between interfaces using the Galerkin method
+  !> A temporal mesh structure with a node for each Gaussian integration point is 
+  !> created. The this projector matrix is transferred to a projector on the nodal
+  !> coordinates.   
+  !---------------------------------------------------------------------------
    FUNCTION NodalProjector(BMesh2, BMesh1, InvPerm2, InvPerm1, &
        UseQuadrantTree, DoubleNode, MirrorNode ) &
       RESULT ( Projector )
   !---------------------------------------------------------------------------
-    ! USE SolverUtils
     USE Lists
 
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
@@ -2015,12 +2268,76 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
 
 
+  !---------------------------------------------------------------------------
+  !> Create a projector for mapping between interfaces using the Galerkin method
+  !> A temporal mesh structure with a node for each Gaussian integration point is 
+  !> created. The this projector matrix is transferred to a projector on the nodal
+  !> coordinates.   
+  !---------------------------------------------------------------------------
+   FUNCTION NodalProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
+       UseQuadrantTree, Rotational, AntiRotational ) &
+      RESULT ( Projector )
+  !---------------------------------------------------------------------------
+    USE Lists
+
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+    LOGICAL :: UseQuadrantTree, Rotational, AntiRotational
+    TYPE(Matrix_t), POINTER :: Projector
+    !--------------------------------------------------------------------------
+    LOGICAL, ALLOCATABLE :: MirrorNode(:)
+    INTEGER :: i,j,k,n
+    INTEGER, POINTER :: Rows(:),Cols(:)
+    REAL(KIND=dp), POINTER :: Values(:)
+
+    ! Set the nodes of Mesh1 to be in the interval defined by Mesh2
+    !-----------------------------------------------------------------
+    IF( Rotational ) THEN
+      IF( AntiRotational ) THEN
+        ALLOCATE( MirrorNode( BMesh1 % NumberOfNodes ) )
+        MirrorNode = .FALSE.
+      END IF
+      CALL PreRotationalProjector(BMesh1, BMesh2, MirrorNode )
+    END IF
+
+    ! Create the projector using nodal points 
+    ! This corresponds to numerical integration of the collocation method.
+    !-----------------------------------------------------------------
+    Projector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
+
+    Values => Projector % Values
+    Cols => Projector % Cols
+    Rows => Projector % Rows
+
+    ! One needs to change the sign of the projector for the mirror nodes
+    !-----------------------------------------------------------------------------
+    IF( AntiRotational ) THEN
+      CALL PostRotationalProjector( Projector, MirrorNode )
+      DEALLOCATE( MirrorNode ) 
+    END IF
+
+    ! Now return from the indexes of the interface mesh system to the 
+    ! original mesh system.
+    !-----------------------------------------------------------------
+    n = SIZE( InvPerm1 ) 
+    Projector % InvPerm => InvPerm1
+
+    DO i=1,Projector % NumberOfRows
+       DO j = Rows(i), Rows(i+1)-1
+         k = Cols(j)    
+         IF ( k > 0 ) Cols(j) = InvPerm2(k)
+       END DO
+    END DO
+
+  END FUNCTION NodalProjector2
+!------------------------------------------------------------------------------
+
 
   !---------------------------------------------------------------------------
   !> Given two interface meshes for nonconforming rotating boundaries make 
   !> a coordinate transformation to (phi,z) level where the interpolation
   !> accuracy is not limited by the curvilinear coordinates. Also ensure
-  !> that the target mesh is mannipulated so that it include the angle interval
+  !> that the target mesh is manipulated so that it includes the angle interval
   !> of the master nodes. 
   !---------------------------------------------------------------------------
   SUBROUTINE RotationalInterfaceMeshes(BMesh1, BMesh2, BParams, DoubleNode, &
@@ -2424,6 +2741,217 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
 
 
+  !---------------------------------------------------------------------------
+  !> Given two interface meshes for nonconforming rotating boundaries make 
+  !> a coordinate transformation to (phi,z) level where the interpolation
+  !> accuracy is not limited by the curvilinear coordinates. Also ensure
+  !> that the master nodes manipulated so they for sure hit the target nodes.
+  !---------------------------------------------------------------------------
+  SUBROUTINE RotationalInterfaceMeshes2(BMesh1, BMesh2, BParams )
+  !---------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    TYPE(Valuelist_t), POINTER :: BParams
+    !--------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: PMesh
+    TYPE(Element_t), POINTER :: Element
+    REAL(KIND=dp) :: x1_min(3),x1_max(3),x2_min(3),x2_max(3),&
+        x1r_min(3),x1r_max(3),x2r_min(3),x2r_max(3)
+    REAL(KIND=dp) :: x(3), xcyl(3),rad2deg,F1min,F1max,F2min,F2max,dFii1,dFii2,eps_rad,rad,&
+        err1,err2,dF,dFMax,Fii
+    REAL(KIND=dp), POINTER :: TmpCoord(:)
+    REAL(KIND=dp),ALLOCATABLE :: Angles(:)
+    INTEGER, POINTER :: NodeIndexes(:)
+    INTEGER :: i,j,k,n,ind,Nmax,Nmin,Nfii,Nnodes,MaxElemNodes,NElems
+
+    ! We choose degrees as they are more intuitive
+    rad2deg = 180.0_dp / PI
+    MaxElemNodes = BMesh2 % MaxElementNodes 
+    ALLOCATE( Angles(MaxElemNodes) )
+    
+    Nnodes = BMesh2 % NumberOfNodes
+    NElems = BMesh2 % NumberOfBulkElements
+
+    ! Go trough master (k=1) and target mesh (k=2)
+    !--------------------------------------------
+    DO k=1,2
+     
+      IF( k == 1 ) THEN
+        PMesh => BMesh1
+      ELSE
+        PMesh => BMesh2
+      END IF
+
+      ! Check the initial bounding boxes
+      !---------------------------------------------------------------------------
+      x2_min(1) = MINVAL( PMesh % Nodes % x )
+      x2_min(2) = MINVAL( PMesh % Nodes % y )
+      x2_min(3) = MINVAL( PMesh % Nodes % z )
+      
+      x2_max(1) = MAXVAL( PMesh % Nodes % x )
+      x2_max(2) = MAXVAL( PMesh % Nodes % y )
+      x2_max(3) = MAXVAL( PMesh % Nodes % z )
+      
+      IF( k == 1 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Inital extrama for this boundary',Level=8)
+      ELSE IF( k == 2 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Initial extrama for target boundary',Level=8)
+      END IF
+      WRITE(Message,'(A,3ES12.3)') 'Minimum values:   ',x2_min
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+      WRITE(Message,'(A,3ES12.3)') 'Maximum values:   ',x2_max
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+      ! Memorize the bounding box of the master mesh
+      !--------------------------------------------------------------------------
+      IF( k == 1 ) THEN
+        x1_min = x2_min
+        x1_max = x2_max
+      END IF
+
+      ! Do the actual coordinate transformation
+      !---------------------------------------------------------------------------
+      DO i=1,PMesh % NumberOfNodes
+        x(1) = PMesh % Nodes % x(i)
+        x(2) = PMesh % Nodes % y(i)
+        
+        ! Set the angle to be the first coordinate as it may sometimes be the 
+        ! only nonzero coordinate. Z-coordinate is always unchanged. 
+        !------------------------------------------------------------------------
+        PMesh % Nodes % x(i) = rad2deg * ATAN2( x(2), x(1)  )
+        PMesh % Nodes % y(i) = SQRT( x(1)**2 + x(2)**2)
+      END DO
+
+      dFii1 = 0.0_dp
+      dFMax = 0.0_dp
+      DO i=1, PMesh % NumberOfBulkElements
+        Element => PMesh % Elements(i)
+        n = Element % TYPE % NumberOfNodes        
+        NodeIndexes => Element % NodeIndexes
+        Angles(1:n) = PMesh % Nodes % x(NodeIndexes)
+        dF = MAXVAL( Angles(1:n) ) - MINVAL( Angles(1:n) )
+        
+        IF( dF > 180.0_dp ) THEN
+          DO j=1,PMesh % NumberOfNodes
+            Fii =  PMesh % Nodes % x(j)
+            IF( Fii < 0.0_dp ) PMesh % Nodes % x(j) = Fii + 360.0_dp
+          END DO          
+          CALL Info('RotationalInterfaceMesh','Angle greater than 180 deg in one element, adding 360 degs!')
+        END IF
+      END DO
+
+
+      ! Check the transformed bounding boxes
+      !---------------------------------------------------------------------------
+      x2r_min(1) = MINVAL( PMesh % Nodes % x )
+      x2r_min(2) = MINVAL( PMesh % Nodes % y )
+      x2r_min(3) = MINVAL( PMesh % Nodes % z )
+      
+      x2r_max(1) = MAXVAL( PMesh % Nodes % x )
+      x2r_max(2) = MAXVAL( PMesh % Nodes % y )
+      x2r_max(3) = MAXVAL( PMesh % Nodes % z )
+      
+      IF( k == 1 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Transformed extrame for this boundary',Level=8)
+      ELSE IF( k == 2 ) THEN
+        CALL Info('RotationalInterfaceMeshes',&
+            'Transformed extrame for target boundary',Level=8)
+      END IF
+      WRITE(Message,'(A,3ES12.3)') 'Minimum values:   ',x2r_min
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+      WRITE(Message,'(A,3ES12.3)') 'Maximum values:   ',x2r_max
+      CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+      ! Memorize the bounding box for the 1st mesh
+      IF( k == 1 ) THEN
+        x1r_min = x2r_min
+        x1r_max = x2r_max
+      END IF
+    END DO
+
+    eps_rad = 1.0d-4 
+    rad = 0.5_dp * ( x1r_min(2) + x1r_max(2) )
+    
+    err1 = ( x1r_max(2) - x1r_min(2) ) / rad
+    err2 = ( x2r_max(2) - x2r_min(2) ) / rad
+
+    WRITE(Message,'(A,ES12.3)') 'Discrepancy from constant radius:',err1
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+    WRITE(Message,'(A,ES12.3)') 'Discrepancy from constant radius:',err2
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+    IF( err1 > eps_rad .OR. err2 > eps_rad ) THEN
+      CALL Fatal('RotationalInterfaceMeshes','Discrepancy of radius deemed too large!')
+    END IF
+
+    ! Ok, so we have concluded that the interface has constant radius
+    ! therefore the constant radius may be removed from the mesh description.
+    !---------------------------------------------------------------------------
+    Bmesh1 % Nodes % y = 0.0_dp
+    BMesh2 % Nodes % y = 0.0_dp
+
+    ! Check whether the z-coordinate is constant or not.
+    ! Constant z-coordinate implies 1D system, otherwise 2D system.
+    !---------------------------------------------------------------------------
+    err1 = ( x1r_max(3) - x1r_min(3) ) / rad
+    err2 = ( x2r_max(3) - x2r_min(3) ) / rad
+    
+    IF( err1 < eps_rad .AND. err2 < eps_rad ) THEN
+      CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 1D')
+      Bmesh1 % Nodes % z = 0.0_dp
+      Bmesh2 % Nodes % z = 0.0_dp
+    ELSE
+      CALL Info('RotationalInterfaceMeshes','The effective interface meshes are 2D')
+      TmpCoord => Bmesh1 % Nodes % Z
+      Bmesh1 % Nodes % Z => Bmesh1 % Nodes % Y
+      BMesh1 % Nodes % Y => TmpCoord
+      TmpCoord => Bmesh2 % Nodes % Z
+      Bmesh2 % Nodes % Z => Bmesh2 % Nodes % Y
+      BMesh2 % Nodes % Y => TmpCoord
+    END IF
+
+    ! Some pieces of the code cannot work with 1D meshes, this choice is ok for all steps
+    Bmesh1 % MeshDim = 2
+    Bmesh2 % MeshDim = 2      
+
+    ! Ok, the problem is now reduced to that of phi-coordinate.
+    !---------------------------------------------------------------------------
+    F1min = x1r_min(1) 
+    F1max = x1r_max(1)
+    dFii1 = F1max-F1min
+    WRITE(Message,'(A,ES12.3)') 'Minimum angle:',F1min
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Maximum angle:',F1max
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Delta angle:  ',dFii1
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+  
+    F2min = x2r_min(1) 
+    F2max = x2r_max(1)
+    dFii2 = F2max-F2min
+    WRITE(Message,'(A,ES12.3)') 'Minimum angle 2:',F2min
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Maximum angle 2:',F2max
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+    WRITE(Message,'(A,ES12.3)') 'Delta angle 2:  ',dFii2
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)    
+
+    err1 = 2 * ABS( dFii1 - dFii2 ) / ( dFii1 + dFii2 )
+    WRITE(Message,'(A,ES12.3)') 'Discrepancy in total angle:',err1
+    CALL Info('RotationalInterfaceMeshes',Message,Level=8)        
+    IF( err1 > eps_rad ) THEN
+      CALL Fatal('RotionalInterfaceMeshes','Discrepancy in total angle deemed too large')
+    END IF
+
+  END SUBROUTINE RotationalInterfaceMeshes2
+!------------------------------------------------------------------------------
+
+
+
+
 !------------------------------------------------------------------------------
 !> Create a projector between Master and Target boundaries.
 !> The projector may be a nodal projector x=Px or a weigted 
@@ -2449,6 +2977,7 @@ END SUBROUTINE GetMaxDefs
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
     TYPE(Nodes_t), POINTER :: MeshNodes, GaussNodes
     REAL(KIND=dp) :: rowsum
+    LOGICAL :: Testing
 !------------------------------------------------------------------------------
     
     DIM = CoordinateSystemDimension()
@@ -2456,10 +2985,15 @@ END SUBROUTINE GetMaxDefs
     NULLIFY( Projector )
     IF ( This <= 0 .OR. Trgt <= 0 ) RETURN    
 
+    CALL ResetTimer('PeriodicProjector')
+
     ! Check whether to use (anti)rotational projector.
     ! We don't really know on which side the projector was called so 
     ! let's check both sides.
     !--------------------------------------------------------------------------
+    Testing = ListGetLogical( Model % BCs(This) % Values,&
+        'Rotational Test',GotIt )
+
     Rotational = ListGetLogical( Model % BCs(This) % Values,&
         'Rotational Projector',GotIt )
     IF(.NOT. GotIt ) Rotational = ListGetLogical( Model % BCs(Trgt) % Values,&
@@ -2468,6 +3002,7 @@ END SUBROUTINE GetMaxDefs
         'Anti Rotational Projector',GotIt )
     IF(.NOT. GotIt ) AntiRotational = ListGetLogical( Model % BCs(Trgt) % Values,&
           'Anti Rotational Projector',GotIt )      
+    IF( AntiRotational ) Rotational = .TRUE.
 
     ! Whether to choose nodal or Galerkin projector is determined by an optional
     ! flag. The default is the nodal projector.
@@ -2488,51 +3023,67 @@ END SUBROUTINE GetMaxDefs
         InvPerm1, InvPerm2, Success ) 
     IF(.NOT. Success) RETURN
 
+    ! Create the mesh projector, and if needed, also eliminate the ghost nodes
+    ! There are two choices of projector: a nodal projector P in x=Px, and a 
+    ! Galerkin projector [Q-P] in Qx=Px. 
     ! The projector is assumed to be either a rotational projector with no translation
     ! and rotation, or then generic one with possible coordinate mapping.
     !---------------------------------------------------------------------------------
     WRITE( Message,'(A,I0,A,I0)') 'Creating projector between BCs ',This,' and ',Trgt
     CALL Info('PeriodicProjector',Message,Level=8)
 
-
+    UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
+    IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
+    
     ! If the interface is rotational move to (phi,z) plane and create ghost 
     ! elements and nodes if needed.
     ! Otherwise make the two meshes to coinside using rotation, translation &
     ! scaling. 
     !---------------------------------------------------------------------------------
-    IF( Rotational .OR. AntiRotational ) THEN
-      ALLOCATE( DoubleNode( BMesh2 % NumberOfNodes ) ) 
-      IF( AntiRotational ) THEN
-        ALLOCATE( MirrorNode( BMesh2 % NumberOfNodes ) ) 
+    IF( Testing ) THEN
+      IF( Rotational .OR. AntiRotational ) THEN
+        CALL RotationalInterfaceMeshes2( BMesh1, BMesh2, Model % BCs(This) % Values )
+      ELSE
+        CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
+      END IF      
+
+      IF( IntGalerkin ) THEN
+        Projector => WeightedProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
+            UseQuadrantTree, Rotational, AntiRotational )
+      ELSE
+        Projector => NodalProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
+            UseQuadrantTree, Rotational, AntiRotational )
       END IF
-      CALL RotationalInterfaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values, &
-          DoubleNode, MirrorNode )
-    ELSE
-      CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
-    END IF
-    
-    ! Create the mesh projector, and if needed, also eliminate the ghost nodes
-    ! There are two choices of projector: a nodal projector P in x=Px, and a 
-    ! Galerkin projector [Q-P] in Qx=Px. 
-    !------------------------------------------------------------------------
-    UseQuadrantTree = ListGetLogical(Model % Simulation,'Use Quadrant Tree',GotIt)
-    IF( .NOT. GotIt ) UseQuadrantTree = .TRUE.
 
-    IF( IntGalerkin ) THEN
-      Projector => WeightedProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-          UseQuadrantTree, DoubleNode, MirrorNode )
-    ELSE
-      Projector => NodalProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-          UseQuadrantTree, DoubleNode, MirrorNode )    
-    END IF
+    ELSE          
+      IF( Rotational ) THEN
+        ALLOCATE( DoubleNode( BMesh2 % NumberOfNodes ) ) 
+        IF( AntiRotational ) THEN
+          ALLOCATE( MirrorNode( BMesh2 % NumberOfNodes ) ) 
+        END IF
+        CALL RotationalInterfaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values, &
+            DoubleNode, MirrorNode )
+      ELSE
+        CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
+      END IF
 
-    ! Remove the reference to ghost nodes.
-    !----------------------------------------------------------------------
-    IF( Rotational .OR. AntiRotational ) THEN
-      DEALLOCATE( DoubleNode )
-      IF( AntiRotational ) DEALLOCATE( MirrorNode ) 
+      IF( IntGalerkin ) THEN
+        Projector => WeightedProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
+            UseQuadrantTree, DoubleNode, MirrorNode )
+      ELSE
+        Projector => NodalProjector( BMesh2, BMesh1, InvPerm2, InvPerm1, &
+            UseQuadrantTree, DoubleNode, MirrorNode )    
+      END IF
+      
+      ! Remove the reference to ghost nodes.
+      !----------------------------------------------------------------------
+      IF( Rotational ) THEN
+        DEALLOCATE( DoubleNode )
+        IF( AntiRotational ) DEALLOCATE( MirrorNode ) 
+      END IF
     END IF
-   
+      
+
     ! Deallocate mesh structures:
     !---------------------------------------------------------------
     DO k=1,2
@@ -2570,6 +3121,7 @@ END SUBROUTINE GetMaxDefs
       NULLIFY( InvPerm1 )
     END IF
 
+    CALL CheckTimer('PeriodicProjector',Delete=.TRUE.)
     CALL Info('PeriodicProjector','Projector created, now exiting...',Level=8)
 
 
@@ -2800,7 +3352,7 @@ END SUBROUTINE GetMaxDefs
     ! Generate volume bulk elements:
     ! ------------------------------
 
-    Mesh_out % MaxElementNodes=0
+    Mesh_out % MaxElementNodes = 0
 
     cnt=0
     n=Mesh_in % NumberOfNodes
