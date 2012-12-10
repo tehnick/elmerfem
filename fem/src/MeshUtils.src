@@ -2062,14 +2062,14 @@ END SUBROUTINE GetMaxDefs
   !> coordinates.   
   !---------------------------------------------------------------------------
    FUNCTION WeightedProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
-       UseQuadrantTree, Rotational, AntiRotational ) &
+       UseQuadrantTree, Repeating, AntiRepeating ) &
       RESULT ( Projector )
   !---------------------------------------------------------------------------
     USE Lists
 
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
-    LOGICAL :: UseQuadrantTree, Rotational, AntiRotational
+    LOGICAL :: UseQuadrantTree, Repeating, AntiRepeating
     TYPE(Matrix_t), POINTER :: Projector
     !--------------------------------------------------------------------------
     LOGICAL, ALLOCATABLE :: MirrorNode(:)
@@ -2135,8 +2135,8 @@ END SUBROUTINE GetMaxDefs
     ! Create the mirror node flag and map the nodes of Mesh1 to be 
     ! in the interval of Mesh2.    
     !-----------------------------------------------------------------
-    IF( Rotational ) THEN
-      IF( AntiRotational ) THEN
+    IF( Repeating ) THEN
+      IF( AntiRepeating ) THEN
         ALLOCATE( MirrorNode( BMesh1 % NumberOfNodes ) )
         MirrorNode = .FALSE.
       END IF
@@ -2152,7 +2152,7 @@ END SUBROUTINE GetMaxDefs
 
     ! If there are mirror nodes change the sign
     !-----------------------------------------------------------------------------
-    IF( AntiRotational ) THEN
+    IF( AntiRepeating ) THEN
       CALL PostRotationalProjector( GaussProjector, MirrorNode )
       IF( ALLOCATED( MirrorNode) ) DEALLOCATE( MirrorNode ) 
     END IF
@@ -2275,14 +2275,14 @@ END SUBROUTINE GetMaxDefs
   !> coordinates.   
   !---------------------------------------------------------------------------
    FUNCTION NodalProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
-       UseQuadrantTree, Rotational, AntiRotational ) &
+       UseQuadrantTree, Repeating, AntiRepeating ) &
       RESULT ( Projector )
   !---------------------------------------------------------------------------
     USE Lists
 
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
-    LOGICAL :: UseQuadrantTree, Rotational, AntiRotational
+    LOGICAL :: UseQuadrantTree, Repeating, AntiRepeating
     TYPE(Matrix_t), POINTER :: Projector
     !--------------------------------------------------------------------------
     LOGICAL, ALLOCATABLE :: MirrorNode(:)
@@ -2292,8 +2292,8 @@ END SUBROUTINE GetMaxDefs
 
     ! Set the nodes of Mesh1 to be in the interval defined by Mesh2
     !-----------------------------------------------------------------
-    IF( Rotational ) THEN
-      IF( AntiRotational ) THEN
+    IF( Repeating ) THEN
+      IF( AntiRepeating ) THEN
         ALLOCATE( MirrorNode( BMesh1 % NumberOfNodes ) )
         MirrorNode = .FALSE.
       END IF
@@ -2311,7 +2311,7 @@ END SUBROUTINE GetMaxDefs
 
     ! One needs to change the sign of the projector for the mirror nodes
     !-----------------------------------------------------------------------------
-    IF( AntiRotational ) THEN
+    IF( AntiRepeating ) THEN
       CALL PostRotationalProjector( Projector, MirrorNode )
       DEALLOCATE( MirrorNode ) 
     END IF
@@ -2969,8 +2969,8 @@ END SUBROUTINE GetMaxDefs
     LOGICAL, OPTIONAL :: Galerkin
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,n,dim
-    LOGICAL :: GotIt, UseQuadrantTree, Rotational, Success, IntGalerkin, &
-        AntiRotational
+    LOGICAL :: GotIt, UseQuadrantTree, Success, IntGalerkin, &
+        Rotational, AntiRotational, Sliding, AntiSliding, Repeating, AntiRepeating
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
     INTEGER, ALLOCATABLE :: DoubleNode(:)
     LOGICAL, ALLOCATABLE :: MirrorNode(:)
@@ -2993,6 +2993,7 @@ END SUBROUTINE GetMaxDefs
     !--------------------------------------------------------------------------
     Testing = ListGetLogical( Model % BCs(This) % Values,&
         'Rotational Test',GotIt )
+    IF(.NOT. GotIt) Testing = .TRUE.
 
     Rotational = ListGetLogical( Model % BCs(This) % Values,&
         'Rotational Projector',GotIt )
@@ -3003,6 +3004,12 @@ END SUBROUTINE GetMaxDefs
     IF(.NOT. GotIt ) AntiRotational = ListGetLogical( Model % BCs(Trgt) % Values,&
           'Anti Rotational Projector',GotIt )      
     IF( AntiRotational ) Rotational = .TRUE.
+
+    Sliding = ListGetLogical( Model % BCs(This) % Values,&
+        'Sliding Projector',GotIt )
+    AntiSliding = ListGetLogical( Model % BCs(This) % Values,&
+        'Anti Sliding Projector',GotIt )
+    IF( AntiSliding ) Sliding = .TRUE. 
 
     ! Whether to choose nodal or Galerkin projector is determined by an optional
     ! flag. The default is the nodal projector.
@@ -3041,18 +3048,23 @@ END SUBROUTINE GetMaxDefs
     ! scaling. 
     !---------------------------------------------------------------------------------
     IF( Testing ) THEN
-      IF( Rotational .OR. AntiRotational ) THEN
+      IF( Rotational ) THEN
         CALL RotationalInterfaceMeshes2( BMesh1, BMesh2, Model % BCs(This) % Values )
+      ELSE IF( Sliding ) THEN
+        CONTINUE
       ELSE
         CALL OverlayIntefaceMeshes( BMesh1, BMesh2, Model % BCs(This) % Values )
       END IF      
 
+      Repeating = Rotational .OR. Sliding 
+      AntiRepeating = AntiRotational .OR. AntiSliding 
+
       IF( IntGalerkin ) THEN
         Projector => WeightedProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-            UseQuadrantTree, Rotational, AntiRotational )
+            UseQuadrantTree, Repeating, AntiRepeating )
       ELSE
         Projector => NodalProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-            UseQuadrantTree, Rotational, AntiRotational )
+            UseQuadrantTree, Repeating, AntiRepeating )
       END IF
 
     ELSE          
