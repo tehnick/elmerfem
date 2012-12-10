@@ -1117,7 +1117,7 @@ CONTAINS
        INTEGER, ALLOCATABLE:: RInd(:)
        LOGICAL :: Found, EpsAbsGiven,EpsRelGiven, MaskExists, ProjectorAllocated
        INTEGER :: eps_tries, nrow
-       REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_global, eps_local, eps_basis
+       REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_global, eps_local, eps_basis,eps_numeric
        REAL(KIND=dp), POINTER :: Values(:), LocalU(:), LocalV(:), LocalW(:)
 !------------------------------------------------------------------------------
 
@@ -1185,15 +1185,19 @@ CONTAINS
        
        eps_global = ListGetConstReal( CurrentModel % Simulation,  &
            'Interpolation Global Epsilon', Stat)
-       IF(.NOT. Stat) eps_global = 2.0e-10
+       IF(.NOT. Stat) eps_global = 2.0d-10
        
        eps_local = ListGetConstReal( CurrentModel % Simulation,  &
            'Interpolation Local Epsilon', Stat )
-       IF(.NOT. Stat) eps_local = 1.0e-10
+       IF(.NOT. Stat) eps_local = 1.0d-10
 
        eps_tries = ListGetInteger( CurrentModel % Simulation,  &
            'Interpolation Max Iterations', Stat )
        IF(.NOT. Stat) eps_tries = 12
+
+       eps_numeric = ListGetConstReal( CurrentModel % Simulation, &
+           'Interpolation Numeric Epsilon', Stat)
+       IF(.NOT. Stat) eps_numeric = 1.0e-10
 
        QTreeFails = 0
        TotFails = 0
@@ -1248,7 +1252,7 @@ CONTAINS
                  ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
                  
                  Found = PointInElement( Element, ElementNodes, &
-                     Point, LocalCoordinates, Eps1, Eps2, NumericEps=1.d-12 )
+                     Point, LocalCoordinates, Eps1, Eps2, NumericEps=eps_numeric )
                  IF ( Found ) EXIT
                END DO
                IF ( Found ) EXIT  
@@ -1276,7 +1280,7 @@ CONTAINS
              ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
              
              Found =  PointInElement( Element, ElementNodes, &
-                 Point, LocalCoordinates ) 
+                 Point, LocalCoordinates  ) 
              IF( Found ) THEN
                IF( TryQTree ) QTreeFails = QtreeFails + 1
                EXIT
