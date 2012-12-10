@@ -218,6 +218,7 @@ CONTAINS
    CALL ListAddConstReal(Model % Simulation,'res: Air Gap Torque', Torq)
    CALL ListAddConstReal(Model % Simulation,'res: Inertial Volume', IA)
    CALL ListAddConstReal(Model % Simulation,'res: Inertial Moment', IMoment)
+
 !------------------------------------------------------------------------------
  END SUBROUTINE CalculateLumped
 !------------------------------------------------------------------------------
@@ -904,11 +905,11 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ,LoadAtIP
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ
     LOGICAL :: Stat
     INTEGER :: i,p,q,t,siz
     TYPE(GaussIntegrationPoints_t) :: IP
-    COMPLEX(KIND=dp) :: MASS(nd,nd), STIFF(nd,nd), FORCE(nd), &
+    COMPLEX(KIND=dp) :: MASS(nd,nd), STIFF(nd,nd), FORCE(nd), LoadAtIp,&
       JAC(nd,nd),Agrad(3),Load(n),M(2,n),M_ip(2),POTC(nd), C(n), C_ip
 
     REAL(KIND=dp) :: POT(2,nd),R(n),Babs,mu,muder,Omega
