@@ -466,10 +466,10 @@ CONTAINS
     b=>rhsvec
     nc = 0
     IF (Constrained) THEN
-      nc=CM % NumberOfRows
+      nc = CM % NumberOfRows
       ALLOCATE(x(ndim+nc),b(ndim+nc))
-      x(1:ndim)=xvec; x(ndim+1:)=0._dp
-      b(1:ndim)=rhsvec; b(ndim+1:)=CM % RHS
+      x(1:ndim) = xvec; x(ndim+1:)=0._dp
+      b(1:ndim) = rhsvec; b(ndim+1:)=CM % RHS
     END IF
 
     Rounds = HUTI_MAXIT
@@ -501,6 +501,7 @@ CONTAINS
       REAL(KIND=dp) :: u(:),v(:)
 !-----------------------------------------------------------------------------------
       REAL(KIND=dp) :: s
+logical::firsttime=.true.
 !-----------------------------------------------------------------------------------
       IF(.NOT.Constrained) RETURN
 
@@ -510,7 +511,7 @@ CONTAINS
         v(n-nc+i)=0._dp
         DO j = CM % Rows(i),CM % Rows(i+1)-1
           IF(ASSOCIATED(A % DiagScaling)) &
-            s=A % DiagScaling(CM % Cols(j))
+            s = A % RhsScaling*A % DiagScaling(CM % Cols(j))
           v(n-nc+i) = v(n-nc+i) + s*CM % Values(j)*u(CM % Cols(j))
           v(CM % Cols(j)) = v(CM % Cols(j)) + s*CM % Values(j)*u(n-nc+i)
         END DO
@@ -617,7 +618,7 @@ CONTAINS
             work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
           ENDDO
 
-          CALL pcondlsubr( t, work(1:n-nc,u+k-1), ipar )
+          CALL pcondlsubr( t, work(:,u+k-1), ipar )
           CALL matvecsubr( t, work(:,u+k),   ipar )
           IF(Constrained) THEN
              t(n-nc+1:n)=work(n-nc+1:n,u+k-1)
@@ -634,7 +635,7 @@ CONTAINS
             work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
           ENDDO
 
-          CALL pcondlsubr( t, work(1:n,r+k-1), ipar )
+          CALL pcondlsubr( t, work(:,r+k-1), ipar )
           CALL matvecsubr( t, work(:,r+k), ipar )
           IF(Constrained) THEN
             t(n-nc+1:n)=work(n-nc+1:n,r+k-1)
@@ -731,7 +732,7 @@ CONTAINS
         IF (rcmp) THEN
           ! PRINT *, 'Performing residual update...'
           CALL pcondlsubr( t, x, ipar )
-          CALL matvecsubr( t, work(1:n,r), ipar )
+          CALL matvecsubr( t, work(:,r), ipar )
           IF (Constrained) THEN
             t(n-nc+1:n)=x(n-nc+1:n)
             CALL ConstraintMV(cm,n,t,work(:,r))

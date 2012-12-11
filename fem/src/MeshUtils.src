@@ -1349,7 +1349,7 @@ END SUBROUTINE GetMaxDefs
     CALL Info('CreateInterfaceMeshes','Making a list of elements at interface',Level=9)
 
     IF ( This <= 0 .OR. Trgt <= 0 ) THEN
-      CALL Fatal('CreateInterfaceMeshes','Invalied target boundaries')
+      CALL Fatal('CreateInterfaceMeshes','Invalid target boundaries')
     END IF
 
 ! Interface meshes consist of boundary elements only    
@@ -1368,7 +1368,7 @@ END SUBROUTINE GetMaxDefs
 
     IF ( n1 <= 0 .OR. n2 <= 0 ) THEN
       ! This is too conservative in parallel
-      ! CALL Warn('CreateInterfaceMeshes','There are no active boundaries!')
+!     CALL Warn('CreateInterfaceMeshes','There are no active boundaries!')
       Success = .FALSE.
       RETURN
     END IF
@@ -2982,7 +2982,7 @@ END SUBROUTINE GetMaxDefs
     
     DIM = CoordinateSystemDimension()
     
-    NULLIFY( Projector )
+    Projector => Null()
     IF ( This <= 0 .OR. Trgt <= 0 ) RETURN    
 
     CALL ResetTimer('PeriodicProjector')
@@ -3028,7 +3028,10 @@ END SUBROUTINE GetMaxDefs
     
     CALL CreateInterfaceMeshes( Model, Mesh, This, Trgt, Bmesh1, BMesh2, &
         InvPerm1, InvPerm2, Success ) 
-    IF(.NOT. Success) RETURN
+    IF(.NOT. Success) THEN
+      CALL ReleaseMesh(BMesh1); CALL ReleaseMesh(BMesh2)
+      RETURN
+    END IF
 
     ! Create the mesh projector, and if needed, also eliminate the ghost nodes
     ! There are two choices of projector: a nodal projector P in x=Px, and a 

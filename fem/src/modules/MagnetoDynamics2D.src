@@ -99,6 +99,7 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
     IF(FoundMortar) THEN
       CM => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
+      FoundMortar = ASSOCIATED(CM)
       EXIT
     END IF
   END DO
@@ -164,6 +165,7 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
   END IF
 
   CALL CalculateLumped(Model % NumberOfBodyForces)
+print*,sqrt(sum(solver%variable%values**2))
 
   CoordVar => VariableGet(Mesh % Variables,'Coordinates')
   IF(ASSOCIATED(CoordVar)) THEN
@@ -632,6 +634,7 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
     IF(FoundMortar) THEN
       A => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
+      FoundMortar = ASSOCIATED(A)
       EXIT
     END IF
   END DO
@@ -1201,6 +1204,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
      j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
      IF(FoundMortar) THEN
        A => PeriodicProjector(Model,Solver % Mesh,i,j,dim,.TRUE.)
+       FoundMortar = ASSOCIATED(A)
        EXIT
      END IF
    END DO
