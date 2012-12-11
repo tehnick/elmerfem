@@ -165,7 +165,6 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
   END IF
 
   CALL CalculateLumped(Model % NumberOfBodyForces)
-print*,sqrt(sum(solver%variable%values**2))
 
   CoordVar => VariableGet(Mesh % Variables,'Coordinates')
   IF(ASSOCIATED(CoordVar)) THEN
@@ -210,6 +209,14 @@ CONTAINS
          CALL InertialMoment(IMoment,IA,Element,n,nd)
      END IF
    END DO
+
+   DO i=1,nbf
+     a(i) = ParallelReduction(a(i))
+     u(i) = ParallelReduction(u(i))
+   END DO
+   IMoment = ParallelReduction(IA)
+   IA = ParallelReduction(IA)
+   Torq = ParallelReduction(Torq)
 
    DO i=1,nbf
      IF(a(i)>0) THEN
