@@ -635,7 +635,6 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
 
 
   S=>Solver % Matrix
-  S % Complex = .TRUE.
 
   DO i=1,Model % NumberOFBCs
     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
@@ -649,12 +648,14 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   IF(FoundMortar) THEN
     CM => AllocateMatrix()
     CM % Format = MATRIX_LIST
+    k=0
     DO i=1,A % NumberOfRows
       ip = Solver % Variable % Perm(i)
       DO j=A % Rows(i),A % Rows(i+1)-1
         jp = Solver % Variable % Perm(A % Cols(j))
-        CALL AddToMatrixElement(CM,2*(ip-1)+1,2*(jp-1)+1,A % Values(j))
-        CALL AddToMatrixElement(CM,2*(ip-1)+2,2*(jp-1)+2,A % Values(j))
+        CALL AddToMatrixElement(CM,2*(i-1)+1,2*(jp-1)+1,A % Values(j))
+        k=k+1
+        CALL AddToMatrixElement(CM,2*(i-1)+1,2*(jp-1)+2,A % Values(j))
       END DO
     END DO
     CALL FreeMatrix(A)
@@ -663,6 +664,8 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
     ALLOCATE(CM % RHS(CM % NumberOfRows))
     CM % RHS = 0._dp
     S % ConstraintMatrix => CM
+  ELSE
+    S % Complex = .TRUE.
   END IF
 
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
