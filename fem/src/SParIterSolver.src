@@ -1849,6 +1849,9 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   INTEGER :: ILUn
   CHARACTER(LEN=MAX_NAME_LEN) :: Preconditioner
 
+  TYPE(Matrix_t), POINTER :: CM
+  INTEGER, POINTER :: SPerm(:), SCols(:)
+
   !*******************************************************************
 
   PIGpntr => GlobalData
@@ -1927,9 +1930,32 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
  !----------------------------------------------------------------------
 
   IF ( .NOT. SourceMatrix % Complex ) THEN
+    j = 0
+
+    CM => SourceMatrix % ConstraintMatrix
+    IF (ASSOCIATED(CM)) THEN
+      ALLOCATE(SPerm(SourceMatrix % NumberOfRows)); SPerm=0
+      DO i = 1, SourceMatrix % NumberOfRows
+        IF (ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE) THEN
+           j = j + 1
+           SPerm(i)=j
+        END IF
+      END DO
+      SCols => CM % Cols
+      ALLOCATE(CM % Cols(SIZE(SCols)))
+      CM % Cols = SPerm(SCols)
+      DEALLOCATE(SPerm)
+      SplittedMatrix % InsideMatrix % ConstraintMatrix => CM
+     END IF
+
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
         TmpRHSVec, Solver, DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm), &
           matVecF=AddrFunc(SParMatrixVector) )
+
+    IF (ASSOCIATED(CM)) THEN
+      DEALLOCATE(CM % Cols)
+      CM % Cols => SCols
+    END IF
   ELSE
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
        TmpRHSVec, Solver, DotF=AddrFunc(SParCDotProd), NormF=AddrFunc(SParCNorm), &

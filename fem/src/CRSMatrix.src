@@ -3008,7 +3008,6 @@ END FUNCTION CRS_RowSum
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
 !------------------------------------------------------------------------------
 
-
     Diag => A % ILUDiag
     Rows => A % ILURows
     Cols => A % ILUCols
@@ -3018,7 +3017,7 @@ END FUNCTION CRS_RowSum
 !   if no ilu provided do diagonal solve:
 !   -------------------------------------
     IF ( .NOT. ASSOCIATED( Values ) ) THEN
-       DO i=1,n
+       DO i=1,A % NumberOfRows
          b(i) = b(i) / A % Values( A % Diag(i) )
        END DO
        RETURN

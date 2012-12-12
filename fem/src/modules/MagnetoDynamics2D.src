@@ -153,7 +153,7 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
     CALL DefaultDirichletBCs()
     Norm = DefaultSolve()
  
-    Norm=SQRT(SUM(Solver % Variable % Values**2))
+    Norm=SQRT(ParallelReduction(SUM(Solver % Variable % Values**2)))
     Relc = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)
     IF(relc<NonlinTOL) EXIT
     PrevNorm=Norm
@@ -635,10 +635,13 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
 
 
   S=>Solver % Matrix
+  S % Complex = .TRUE.
 
   DO i=1,Model % NumberOFBCs
     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
     IF(FoundMortar) THEN
+      S % Complex = .FALSE.
+
       A => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
       FoundMortar = ASSOCIATED(A)
       EXIT
@@ -654,7 +657,6 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
       DO j=A % Rows(i),A % Rows(i+1)-1
         jp = Solver % Variable % Perm(A % Cols(j))
         CALL AddToMatrixElement(CM,2*(i-1)+1,2*(jp-1)+1,A % Values(j))
-        k=k+1
         CALL AddToMatrixElement(CM,2*(i-1)+1,2*(jp-1)+2,A % Values(j))
       END DO
     END DO
@@ -664,8 +666,6 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
     ALLOCATE(CM % RHS(CM % NumberOfRows))
     CM % RHS = 0._dp
     S % ConstraintMatrix => CM
-  ELSE
-    S % Complex = .TRUE.
   END IF
 
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
@@ -710,7 +710,7 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
     CALL DefaultDirichletBCs()
     Norm = DefaultSolve()
  
-     Norm=SQRT(SUM(Solver % Variable % Values**2))
+     Norm=SQRT(ParallelReduction(SUM(Solver % Variable % Values**2)))
      Relc = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)
      IF(RelC<NonlinTOL) EXIT
      PrevNorm=Norm
@@ -1235,7 +1235,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
    DO i=1,Dofs
      Solver % Matrix % RHS => ForceVector(:,i)
      UNorm = DefaultSolve()
-     TotNorm = TotNorm + Unorm ** 2
+     TotNorm = TotNorm + SUM(Solver % Variable % Values**2)
      FluxSol % Values(i::Dofs) = Solver % Variable % Values
    END DO
    DEALLOCATE( ForceVector )  

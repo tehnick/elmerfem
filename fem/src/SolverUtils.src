@@ -4668,18 +4668,21 @@ END FUNCTION SearchNodeL
 !>  Scale system Ax = b as:
 !>  (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !------------------------------------------------------------------------------
-  SUBROUTINE ScaleLinearSystem(Solver,A,b,x,DiagScaling,ApplyScaling,RhsScaling)
+  SUBROUTINE ScaleLinearSystem(Solver,A,b,x,DiagScaling, & 
+          ApplyScaling,RhsScaling,ConstraintScaling)
 
     TYPE(Solver_t) :: Solver
     TYPE(Matrix_t) :: A
     REAL(KIND=dp), OPTIONAL :: b(:),x(:)
     REAL(KIND=dp), OPTIONAL, TARGET :: DiagScaling(:)
-    LOGICAL, OPTIONAL :: ApplyScaling, RhsScaling
+    LOGICAL, OPTIONAL :: ApplyScaling, RhsScaling,ConstraintScaling
     INTEGER :: n,i,j
     REAL(KIND=dp) :: bnorm
     COMPLEX(KIND=dp) :: DiagC
-    LOGICAL :: ComplexMatrix, DoRHS
+    LOGICAL :: ComplexMatrix, DoRHS, DoCM
     REAL(KIND=dp), POINTER  :: Diag(:)
+
+    TYPE(Matrix_t), POINTER :: CM
 
     n = A % NumberOfRows
 
@@ -4767,6 +4770,7 @@ END FUNCTION SearchNodeL
 
     ! Scale r.h.s. and initial guess
     !--------------------------------
+    A % RhsScaling=1._dp
     IF( PRESENT( b ) ) THEN      
       b(1:n) = b(1:n) * Diag(1:n)
       DoRHS = .TRUE.
@@ -4785,7 +4789,22 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+    DoCM=.FALSE.
+    IF(PRESENT(ConstraintScaling)) DoCm=ConstraintScaling
+
+    IF(doCM) THEN
+      CM => A % ConstraintMatrix
+      IF (ASSOCIATED(CM)) THEN
+        DO i=1,CM % NumberOFRows
+          DO j=CM % Rows(i), CM % Rows(i+1)-1
+            CM % Values(j) = CM % Values(j) * Diag(CM % Cols(j))
+          END DO
+        END DO
+      END IF
+    END IF
+!-----------------------------------------------------------------------------
   END SUBROUTINE ScaleLinearSystem
+!-----------------------------------------------------------------------------
 
 
 !-----------------------------------------------------------------------------
@@ -4901,16 +4920,20 @@ END FUNCTION SearchNodeL
 !--------------------------------------------------------------
 !>  Scale the system back to original.
 !--------------------------------------------------------------
-  SUBROUTINE BackScaleLinearSystem(Solver,A,b,x,DiagScaling) 
+  SUBROUTINE BackScaleLinearSystem(Solver,A,b,x,DiagScaling,ConstraintScaling) 
 
     TYPE(Solver_t) :: Solver
     TYPE(Matrix_t) :: A
     REAL(KIND=dp), OPTIONAL :: b(:),x(:)
+    LOGICAL, OPTIONAL :: ConstraintScaling
     REAL(KIND=dp), OPTIONAL, TARGET :: DiagScaling(:)
 
     REAL(KIND=dp), POINTER :: Diag(:)
     REAL(KIND=dp) :: bnorm
     INTEGER :: n,i,j
+    LOGICAL :: doCM
+
+    TYPE(Matrix_t), POINTER :: CM
     
     n = A % NumberOfRows
     
@@ -4980,6 +5003,21 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+    doCM=.FALSE.
+    IF(PRESENT(ConstraintScaling)) doCM=ConstraintScaling
+    IF(doCM) THEN
+      CM => A % ConstraintMatrix
+      IF (ASSOCIATED(CM)) THEN
+        DO i=1,CM % NumberOFRows
+          DO j=CM % Rows(i), CM % Rows(i+1)-1
+            CM % Values(j) = CM % Values(j) / &
+                ( A % RhsScaling * Diag(CM % Cols(j)) )
+          END DO
+        END DO
+      END IF
+    END IF
+
+    A % RhsScaling=1._dp
     DEALLOCATE(A % DiagScaling); A % DiagScaling=>NULL()
     
   END SUBROUTINE BackScaleLinearSystem
@@ -5189,7 +5227,7 @@ END FUNCTION SearchNodeL
         Parallel = ParEnv % PEs > 1
         CALL RowEquilibration(A, b, Parallel)
       ELSE
-        CALL ScaleLinearSystem(Solver, A, b, x, RhsScaling=bnorm/=0._dp )
+        CALL ScaleLinearSystem(Solver, A, b, x, RhsScaling=bnorm/=0._dp,ConstraintScaling=.TRUE. )
       END IF
     END IF
 
@@ -5239,7 +5277,7 @@ END FUNCTION SearchNodeL
       IF ( ApplyRowEquilibration ) THEN
         CALL ReverseRowEquilibration( A, b )
       ELSE
-        CALL BackScaleLinearSystem( Solver, A, b, x )
+        CALL BackScaleLinearSystem( Solver, A, b, x, ConstraintScaling=.TRUE. )
       END IF
     END IF
 

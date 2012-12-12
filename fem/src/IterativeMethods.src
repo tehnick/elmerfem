@@ -477,7 +477,7 @@ CONTAINS
     MaxTol = HUTI_MAXTOLERANCE
     OutputInterval = HUTI_DBUGLVL 
     PolynomialDegree = HUTI_BICGSTABL_L 
- 
+
     CALL RealBiCGStabl(ndim+nc, A,x,b, Rounds, MinTol, MaxTol, &
         Converged, Diverged, OutputInterval, PolynomialDegree )
 
@@ -494,31 +494,33 @@ CONTAINS
   CONTAINS
 
 !-----------------------------------------------------------------------------------
-    SUBROUTINE ConstraintMV(CM,n,u,v)
+    SUBROUTINE ConstraintMV(CM,n,u,v,iter)
 !-----------------------------------------------------------------------------------
+      INTEGER :: n,i,j,k,l,iter
       TYPE(Matrix_t) :: CM
-      INTEGER :: n,i,j,nc
       REAL(KIND=dp) :: u(:),v(:)
 !-----------------------------------------------------------------------------------
+      LOGICAL :: Scaled
       REAL(KIND=dp) :: s
-logical::firsttime=.true.
 !-----------------------------------------------------------------------------------
       IF(.NOT.Constrained) RETURN
 
-      nc = CM % NumberOfRows
-      s = 1._dp
-      DO i=1,nc
-        v(n-nc+i)=0._dp
+!     Scaled = ASSOCIATED(A % DiagScaling)
+      DO i=1,CM % NumberOfRows
+        k = ndim+i
+        v(k)=0._dp
         DO j = CM % Rows(i),CM % Rows(i+1)-1
-          IF(ASSOCIATED(A % DiagScaling)) &
-            s = A % RhsScaling*A % DiagScaling(CM % Cols(j))
-          v(n-nc+i) = v(n-nc+i) + s*CM % Values(j)*u(CM % Cols(j))
-          v(CM % Cols(j)) = v(CM % Cols(j)) + s*CM % Values(j)*u(n-nc+i)
+          l = CM % Cols(j)
+          s = CM % Values(j)
+!         IF(Scaled) s=s*A % RhsScaling*A % DiagScaling(l)
+          v(k) = v(k) + s*u(l)
+          v(l) = v(l) + s*u(k)
         END DO
       END DO
 !-----------------------------------------------------------------------------------
     END SUBROUTINE ConstraintMV
 !-----------------------------------------------------------------------------------
+
 
 !-----------------------------------------------------------------------------------
 !>   The subroutine has been written using as a starting point the work of D.R. Fokkema 
@@ -571,7 +573,7 @@ logical::firsttime=.true.
       y = yl+1
     
       CALL matvecsubr( x, work(:,r), ipar )
-      IF(Constrained) CALL ConstraintMV(cm,n,x,work(:,r))
+      CALL ConstraintMV(cm,n,x,work(:,r),1)
 
       work(1:n,r) = b(1:n) - work(1:n,r)
       bnrm  = normfun(n, b(1:n), 1 )
@@ -618,12 +620,12 @@ logical::firsttime=.true.
             work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
           ENDDO
 
+          HUTI_NDIM=n
           CALL pcondlsubr( t, work(:,u+k-1), ipar )
+          HUTI_NDIM=ndim
+
           CALL matvecsubr( t, work(:,u+k),   ipar )
-          IF(Constrained) THEN
-             t(n-nc+1:n)=work(n-nc+1:n,u+k-1)
-             CALL ConstraintMV(cm,n,t,work(:,u+k))
-          END IF
+          CALL ConstraintMV(cm,n,t,work(:,u+k),Round)
 
           sigma = dotprodfun(n, work(1:n,rr), 1, work(1:n,u+k), 1 )
           IF (sigma == zero) THEN
@@ -635,12 +637,12 @@ logical::firsttime=.true.
             work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
           ENDDO
 
+          HUTI_NDIM=n
           CALL pcondlsubr( t, work(:,r+k-1), ipar )
+          HUTI_NDIM=ndim
+
           CALL matvecsubr( t, work(:,r+k), ipar )
-          IF(Constrained) THEN
-            t(n-nc+1:n)=work(n-nc+1:n,r+k-1)
-            CALL ConstraintMV(cm,n,t, work(:,r+k))
-          END IF
+          CALL ConstraintMV(cm,n,t, work(:,r+k),Round)
 
           rnrm = normfun(n, work(1:n,r), 1 )
           mxnrmx = MAX (mxnrmx, rnrm)
@@ -656,7 +658,6 @@ logical::firsttime=.true.
              EarlyExit = .TRUE.
              EXIT
           END IF
-
         END DO
 
         IF (EarlyExit) EXIT
@@ -731,12 +732,12 @@ logical::firsttime=.true.
         rcmp = ((rnrm < delta*mxnrmr .AND. rnrm0 < mxnrmr) .OR. xpdt)
         IF (rcmp) THEN
           ! PRINT *, 'Performing residual update...'
+          HUTI_NDIM=n
           CALL pcondlsubr( t, x, ipar )
+          HUTI_NDIM=ndim
+
           CALL matvecsubr( t, work(:,r), ipar )
-          IF (Constrained) THEN
-            t(n-nc+1:n)=x(n-nc+1:n)
-            CALL ConstraintMV(cm,n,t,work(:,r))
-          END IF
+          CALL ConstraintMV(cm,n,t,work(:,r),Round)
 
           work(1:n,r) = work(1:n,bp) - work(1:n,r)
           mxnrmr = rnrm
@@ -756,8 +757,9 @@ logical::firsttime=.true.
             t(1:n) = t(1:n) + work(1:n,xp)  
           END IF
         ELSE
+          HUTI_NDIM=n
           CALL pcondlsubr( t, x, ipar )
-          IF(Constrained) t(n-nc+1:n)=x(n-nc+1:n)
+          HUTI_NDIM=ndim
           t(1:n) = t(1:n)+work(1:n,xp)
         END IF
       
@@ -782,8 +784,9 @@ logical::firsttime=.true.
       ! solve the true unknown x
       !------------------------------------------------------------
       t(1:n) = x(1:n)
+      HUTI_NDIM=n
       CALL pcondlsubr( x, t, ipar )
-      IF(Constrained) x(n-nc+1:n)=t(n-nc+1:n)
+      HUTI_NDIM=ndim
       x(1:n) = x(1:n) + work(1:n,xp)        
 !------------------------------------------------------------------------------
     END SUBROUTINE RealBiCGStabl
