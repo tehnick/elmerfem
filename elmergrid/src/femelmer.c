@@ -2464,6 +2464,7 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
 
   if(info) printf("Making a Metis partitioning for %d nodes in %d-dimensions.\n",
 		  data->noknots,data->dim);
+  if(partitions < 2 ) bigerror("There should be at least two partitions for partitioning!");
 
   noknots = data->noknots;
   noelements = data->noelements;
@@ -2612,6 +2613,11 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
   }    
 
 
+  if( nparts == 1 ) {
+    if(info) printf("There is just one free partition, no partitioning needed.\n");      
+    for(i=0;i<nn;i++)
+      npart[i] = 0;
+  }
   if(metisopt == 2) {
     if(info) printf("Starting graph partitioning METIS_PartGraphRecursive.\n");  
     METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
@@ -2651,10 +2657,10 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
       for(i=1;i<=noelements;i++) {
 	j = data->elemconnect[i];
 	if(!j) {
-	  data->elempart[i] = nparts+1;
+	  data->elempart[i] = 1;
 	}
 	else {
-	  data->elempart[i] = npart[j-1]+1;  
+	  data->elempart[i] = npart[j-1]+2;  
 	}
       }
     }
