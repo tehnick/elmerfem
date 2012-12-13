@@ -4189,6 +4189,10 @@ SUBROUTINE SaveDependence( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: Params
   LOGICAL :: Found
 
+  IF( ParEnv % PEs > 1 ) THEN
+    IF( ParEnv % MyPE > 0 ) RETURN
+  END IF
+
   CALL Info('SaveDependence','Saving dependencies in a table')
 
   Params => Solver % Values
