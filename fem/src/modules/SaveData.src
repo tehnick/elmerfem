@@ -38,10 +38,12 @@
 ! *
 ! *****************************************************************************/
 
-!------------------------------------------------------------------------------
-!>  This subroutine saves scalar values in ascii format to an external file.
-!> This is a dynamically loaded solver with a standard interface.
 !> \ingroup Solvers
+!> \{
+
+!------------------------------------------------------------------------------
+!> This subroutine saves scalar values in ascii format to an external file.
+!> This is a dynamically loaded solver with a standard interface.
 !------------------------------------------------------------------------------
 SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -2597,7 +2599,6 @@ END SUBROUTINE SaveScalars
 !>  This subroutine saves 1D or 2D data in different formats.
 !> Data on existing boundaries and polylines defined by set of coordinates 
 !> may be saved.
-!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
@@ -3786,7 +3787,6 @@ END SUBROUTINE SaveLine
 
 !------------------------------------------------------------------------------
 !> Routine for saving material parameters as fields.
-!> \ingroup Solvers
 ! Written by Thomas Zwinger 
 !------------------------------------------------------------------------------
 SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
@@ -3982,7 +3982,6 @@ END SUBROUTINE SaveMaterials
 
 !------------------------------------------------------------------------------
 !> Routine for saving boundary values as fields.
-!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   USE DefUtils
@@ -4166,3 +4165,75 @@ END SUBROUTINE SaveBoundaryValues
 
 
 
+!------------------------------------------------------------------------------
+!> This subroutine saves 1D dependence of a given property.
+!------------------------------------------------------------------------------
+SUBROUTINE SaveDependence( Model,Solver,dt,TransientSimulation )
+  
+  USE Types
+  USE Lists
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  CHARACTER(LEN=MAX_NAME_LEN) :: FileName, ParName
+  REAL(KIND=dp) :: x1, x0, x, w, f
+  INTEGER :: i,j,n,NoPar
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Found
+
+  CALL Info('SaveDependence','Saving dependencies in a table')
+
+  Params => Solver % Values
+
+  FileName = ListGetString( Params,'Filename',Found)
+  IF(.NOT. Found ) FileName = 'dep.dat'
+
+  n = ListGetInteger( Params,'Number of points',minv=2)
+  x0 = ListGetCReal( Params,'Lower limit')
+  x1 = ListGetCReal( Params,'Upper Limit')
+
+  NoPar = 0
+  DO j=1,100
+    WRITE (ParName,'(A,I0)') 'Expression ',j
+    IF( ListCheckPresent( Params, ParName ) ) THEN
+      NoPar = j
+    ELSE
+      EXIT
+    END IF
+  END DO
+
+  IF( NoPar == 0 ) THEN
+    CALL Warn('SaveDependence','No parameter given!')
+    RETURN
+  END IF
+
+  OPEN( 10, FILE=FileName )
+
+  DO i=1,n
+    w = (1.0_dp*(i-1))/(n-1)
+    x = x0 + w*(x1-x0)
+
+    WRITE (10,'(I6,ES15.6)',ADVANCE='NO') i,x
+    
+    DO j=1,NoPar
+      WRITE (ParName,'(A,I0)') 'Expression ',j
+      f = ListGetFun( Params,ParName,x )
+      WRITE (10,'(ES15.6)',ADVANCE='NO') f     
+    END DO
+
+    WRITE (10,'(A)') ' '     
+  END DO
+  
+  CLOSE( 10 ) 
+
+END SUBROUTINE SaveDependence
+
+!> \}
