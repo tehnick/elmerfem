@@ -494,31 +494,42 @@ CONTAINS
   CONTAINS
 
 !-----------------------------------------------------------------------------------
-    SUBROUTINE ConstraintMV(CM,n,u,v,iter)
+    SUBROUTINE C_matvec(u,v,ipar)
 !-----------------------------------------------------------------------------------
-      INTEGER :: n,i,j,k,l,iter
-      TYPE(Matrix_t) :: CM
-      REAL(KIND=dp) :: u(:),v(:)
+      INTEGER :: ipar(*)
+      REAL(KIND=dp) :: u(*),v(*)
 !-----------------------------------------------------------------------------------
-      LOGICAL :: Scaled
-      REAL(KIND=dp) :: s
+      INTEGER :: i,j,k,l
 !-----------------------------------------------------------------------------------
-      IF(.NOT.Constrained) RETURN
+      CALL matvecsubr( u, v, ipar )
+      IF (Constrained) THEN
+         DO i=1,CM % NumberOfRows
+           k = ndim+i
+           v(k) = 0._dp
+           DO j = CM % Rows(i),CM % Rows(i+1)-1
+             l = CM % Cols(j)
+             v(l) = v(l) + CM % Values(j)*u(k)
+             v(k) = v(k) + CM % Values(j)*u(l)
+           END DO
+         END DO
+       END IF
+!-----------------------------------------------------------------------------------
+    END SUBROUTINE C_matvec
+!-----------------------------------------------------------------------------------
 
-!     Scaled = ASSOCIATED(A % DiagScaling)
-      DO i=1,CM % NumberOfRows
-        k = ndim+i
-        v(k)=0._dp
-        DO j = CM % Rows(i),CM % Rows(i+1)-1
-          l = CM % Cols(j)
-          s = CM % Values(j)
-!         IF(Scaled) s=s*A % RhsScaling*A % DiagScaling(l)
-          v(k) = v(k) + s*u(l)
-          v(l) = v(l) + s*u(k)
-        END DO
-      END DO
+
 !-----------------------------------------------------------------------------------
-    END SUBROUTINE ConstraintMV
+    SUBROUTINE C_lpcond(u,v,ipar)
+!-----------------------------------------------------------------------------------
+      INTEGER :: ipar(*)
+      REAL(KIND=dp) :: u(*),v(*)
+!-----------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------------
+      HUTI_NDIM = ndim+nc
+      CALL pcondlsubr( u, v, ipar )
+      HUTI_NDIM = ndim
+!-----------------------------------------------------------------------------------
+    END SUBROUTINE C_lpcond
 !-----------------------------------------------------------------------------------
 
 
@@ -572,8 +583,7 @@ CONTAINS
       yl = y0+1
       y = yl+1
     
-      CALL matvecsubr( x, work(:,r), ipar )
-      CALL ConstraintMV(cm,n,x,work(:,r),1)
+      CALL C_matvec(x,work(:,r),ipar)
 
       work(1:n,r) = b(1:n) - work(1:n,r)
       bnrm  = normfun(n, b(1:n), 1 )
@@ -620,12 +630,8 @@ CONTAINS
             work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
           ENDDO
 
-          HUTI_NDIM=n
-          CALL pcondlsubr( t, work(:,u+k-1), ipar )
-          HUTI_NDIM=ndim
-
-          CALL matvecsubr( t, work(:,u+k),   ipar )
-          CALL ConstraintMV(cm,n,t,work(:,u+k),Round)
+          CALL C_lpcond( t, work(:,u+k-1), ipar )
+          CALL C_matvec( t, work(:,u+k),   ipar )
 
           sigma = dotprodfun(n, work(1:n,rr), 1, work(1:n,u+k), 1 )
           IF (sigma == zero) THEN
@@ -637,12 +643,8 @@ CONTAINS
             work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
           ENDDO
 
-          HUTI_NDIM=n
-          CALL pcondlsubr( t, work(:,r+k-1), ipar )
-          HUTI_NDIM=ndim
-
-          CALL matvecsubr( t, work(:,r+k), ipar )
-          CALL ConstraintMV(cm,n,t, work(:,r+k),Round)
+          CALL C_lpcond( t, work(:,r+k-1), ipar )
+          CALL C_matvec( t, work(:,r+k), ipar )
 
           rnrm = normfun(n, work(1:n,r), 1 )
           mxnrmx = MAX (mxnrmx, rnrm)
@@ -732,12 +734,8 @@ CONTAINS
         rcmp = ((rnrm < delta*mxnrmr .AND. rnrm0 < mxnrmr) .OR. xpdt)
         IF (rcmp) THEN
           ! PRINT *, 'Performing residual update...'
-          HUTI_NDIM=n
-          CALL pcondlsubr( t, x, ipar )
-          HUTI_NDIM=ndim
-
-          CALL matvecsubr( t, work(:,r), ipar )
-          CALL ConstraintMV(cm,n,t,work(:,r),Round)
+          CALL C_lpcond( t, x, ipar )
+          CALL C_matvec( t, work(:,r), ipar )
 
           work(1:n,r) = work(1:n,bp) - work(1:n,r)
           mxnrmr = rnrm
@@ -757,9 +755,7 @@ CONTAINS
             t(1:n) = t(1:n) + work(1:n,xp)  
           END IF
         ELSE
-          HUTI_NDIM=n
-          CALL pcondlsubr( t, x, ipar )
-          HUTI_NDIM=ndim
+          CALL C_lpcond( t, x, ipar )
           t(1:n) = t(1:n)+work(1:n,xp)
         END IF
       
@@ -784,9 +780,7 @@ CONTAINS
       ! solve the true unknown x
       !------------------------------------------------------------
       t(1:n) = x(1:n)
-      HUTI_NDIM=n
-      CALL pcondlsubr( x, t, ipar )
-      HUTI_NDIM=ndim
+      CALL C_lpcond( x, t, ipar )
       x(1:n) = x(1:n) + work(1:n,xp)        
 !------------------------------------------------------------------------------
     END SUBROUTINE RealBiCGStabl
