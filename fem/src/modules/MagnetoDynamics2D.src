@@ -81,10 +81,6 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
 
-!$omp parallel
-   IF(.NOT.GaussPointsInitialized()) CALL GaussPointsInit
-!$omp end parallel
-
   S=>Solver % Matrix
   DO i=1,Model % NumberOFBCs
     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
@@ -544,7 +540,6 @@ CONTAINS
 !------------------------------------------------------------------------------
     REAL(KIND=dp), SAVE :: Avacuum
     LOGICAL :: Found, FirstTime = .TRUE.
-!$omp threadprivate(firsttime,avacuum)
 !------------------------------------------------------------------------------
 
     IF ( FirstTime ) THEN
@@ -614,10 +609,6 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
   Mesh => GetMesh()
-
-!$omp parallel
-   IF(.NOT.GaussPointsInitialized()) CALL GaussPointsInit
-!$omp end parallel
 
   S=>Solver % Matrix
   S % Complex = .TRUE.

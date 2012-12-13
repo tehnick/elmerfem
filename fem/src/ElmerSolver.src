@@ -1035,6 +1035,9 @@ END INTERFACE
      REAL(KIND=dp) :: RealTime, newtime, prevtime=0, maxtime, exitcond
      REAL(KIND=dp), ALLOCATABLE :: xx(:,:), xxnrm(:), yynrm(:), PrevXX(:,:,:)
 
+!$omp parallel
+!$   IF(.NOT.GaussPointsInitialized()) CALL GaussPointsInit
+!$omp end parallel
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
