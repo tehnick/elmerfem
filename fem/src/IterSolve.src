@@ -440,7 +440,7 @@ CONTAINS
                     CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
                            i + A % NumberOfRows, i + A % NumberOFrows, 0._dp)
 
-                    DO j=CM % Rows(i),CM % Rows(i+1)-1
+                    DO j=CM % Rows(i+1)-1,CM % Rows(i),-1
                       CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
                            i + A % NumberOfRows, CM % Cols(j), CM % Values(j))
 
@@ -450,7 +450,7 @@ CONTAINS
                   END DO
 
                   DO i=1,A % NumberOfRows
-                    DO j=A % Rows(i), A % Rows(i+1)-1
+                    DO j=A % Rows(i+1)-1, A % Rows(i),-1
                       CALL List_AddToMatrixElement(PrecMat % ListMatrix, &
                             i, A % Cols(j), A % Values(j))
                     END DO

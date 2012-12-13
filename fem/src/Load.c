@@ -566,6 +566,8 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
   char *ptr, c, cc[32];
   int slen = *len, i;
 
+#pragma omp critical
+{
   if ( been_here==0 ) {
      mtc_init( NULL, stdout, stderr ); 
      strcpy( cc, "format( 12,\"rowform\")" );
@@ -575,8 +577,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 
   c = cmd[slen];
   cmd[slen] = '\0';
-#pragma omp critical
-{
+
   if ( ptr = (char *)mtc_domath(cmd) ) 
   {
     strcpy( Value, (char *)ptr );
@@ -591,8 +592,8 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
     *len = 0;
     *Value = ' ';
   }
-}
   cmd[slen]=c;
+}
 }
 
 
