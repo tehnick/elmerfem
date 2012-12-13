@@ -1845,12 +1845,14 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRHSVec, r(:)
 
   INTEGER(KIND=AddrInt) :: AddrFunc
-  REAL(KIND=dp) :: ILUT_TOL, RealTime
+  REAL(KIND=dp) :: ILUT_TOL
   INTEGER :: ILUn
   CHARACTER(LEN=MAX_NAME_LEN) :: Preconditioner
 
   TYPE(Matrix_t), POINTER :: CM
   INTEGER, POINTER :: SPerm(:), SCols(:)
+
+real(kind=dp)::cputime,realtime,tt,rt
 
   !*******************************************************************
 
@@ -1930,11 +1932,10 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
  !----------------------------------------------------------------------
 
   IF ( .NOT. SourceMatrix % Complex ) THEN
-    j = 0
-
     CM => SourceMatrix % ConstraintMatrix
     IF (ASSOCIATED(CM)) THEN
       ALLOCATE(SPerm(SourceMatrix % NumberOfRows)); SPerm=0
+      j = 0
       DO i = 1, SourceMatrix % NumberOfRows
         IF (ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE) THEN
            j = j + 1
@@ -1955,6 +1956,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
     IF (ASSOCIATED(CM)) THEN
       DEALLOCATE(CM % Cols)
       CM % Cols => SCols
+      SplittedMatrix % InsideMatrix % ConstraintMatrix => Null()
     END IF
   ELSE
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &

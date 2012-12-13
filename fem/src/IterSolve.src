@@ -427,9 +427,14 @@ CONTAINS
               CASE(PRECOND_ILUn)
                 CM => A % ConstraintMatrix
                 IF(ASSOCIATED(CM)) THEN
+
+                  IF(ASSOCIATED(A % ILURows)) DEALLOCATE(A % ILURows)
+                  IF(ASSOCIATED(A % ILUCols)) DEALLOCATE(A % ILUCols)
+                  IF(ASSOCIATED(A % ILUDiag)) DEALLOCATE(A % ILUDiag)
+                  IF(ASSOCIATED(A % ILUValues)) DEALLOCATE(A % ILUValues)
+
                   PrecMat => AllocateMatrix()
                   PrecMat % Format = MATRIX_LIST
-                  PrecMat % ListMatrix => Null()
 
                   DO i=CM % NumberOfRows,1,-1
                     CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
@@ -439,28 +444,29 @@ CONTAINS
                       CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
                            i + A % NumberOfRows, CM % Cols(j), CM % Values(j))
 
-                      CALL List_AddToMatrixElement( PrecMat % ListMatrix,&
+                      CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
                            CM % Cols(j), i + A % NumberOfRows, CM % Values(j))
                     END DO
                   END DO
+
                   DO i=1,A % NumberOfRows
-                    DO j=A % Rows(i), A%Rows(i+1)-1
-                      CALL List_AddToMatrixElement(PrecMat % ListMatrix,i,A % Cols(j),A % Values(j))
+                    DO j=A % Rows(i), A % Rows(i+1)-1
+                      CALL List_AddToMatrixElement(PrecMat % ListMatrix, &
+                            i, A % Cols(j), A % Values(j))
                     END DO
                   END DO
-
                   CALL List_ToCRSMatrix(PrecMat)
                   Condition = CRS_IncompleteLU(PrecMat,ILUn)
 
-                  A % ILUDiag => PrecMat % IluDiag
                   A % ILURows => PrecMat % IluRows
-                  A % ILUcols => PrecMat % IluCols
+                  A % ILUCols => PrecMat % IluCols
+                  A % ILUDiag => PrecMat % IluDiag
                   A % ILUvalues => PrecMat % IluValues
 
-                  IF(.NOT.ASSOCIATED(A % ILUDiag,PrecMat % Diag)) DEALLOCATE(PrecMat % Diag)
+                  DEALLOCATE(PrecMat % Values)
                   IF(.NOT.ASSOCIATED(A % ILURows,PrecMat % Rows)) DEALLOCATE(PrecMat % Rows)
                   IF(.NOT.ASSOCIATED(A % ILUCols,PrecMat % Cols)) DEALLOCATE(PrecMat % Cols)
-                  DEALLOCATE(PrecMat % Values)
+                  IF(.NOT.ASSOCIATED(A % ILUDiag,PrecMat % Diag)) DEALLOCATE(PrecMat % Diag)
                   DEALLOCATE(PrecMat)
                 ELSE
                   Condition = CRS_IncompleteLU(A,ILUn)

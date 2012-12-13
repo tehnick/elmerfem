@@ -462,14 +462,17 @@ CONTAINS
     
     ndim = HUTI_NDIM
 
-    x=>xvec
-    b=>rhsvec
+    x => xvec
+    b => rhsvec
     nc = 0
     IF (Constrained) THEN
       nc = CM % NumberOfRows
-      ALLOCATE(x(ndim+nc),b(ndim+nc))
-      x(1:ndim) = xvec; x(ndim+1:)=0._dp
-      b(1:ndim) = rhsvec; b(ndim+1:)=CM % RHS
+      Constrained = nc>0
+      IF(Constrained) THEN
+        ALLOCATE(x(ndim+nc),b(ndim+nc))
+        x(1:ndim) = xvec; x(ndim+1:)=0._dp
+        b(1:ndim) = rhsvec; b(ndim+1:) = CM % RHS
+      END IF
     END IF
 
     Rounds = HUTI_MAXIT
@@ -523,7 +526,6 @@ CONTAINS
 !-----------------------------------------------------------------------------------
       INTEGER :: ipar(*)
       REAL(KIND=dp) :: u(*),v(*)
-!-----------------------------------------------------------------------------------
 !-----------------------------------------------------------------------------------
       HUTI_NDIM = ndim+nc
       CALL pcondlsubr( u, v, ipar )
