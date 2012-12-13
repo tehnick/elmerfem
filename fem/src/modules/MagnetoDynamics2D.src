@@ -57,42 +57,33 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
   LOGICAL :: AllocationsDone = .FALSE., Found,FoundMortar
-  TYPE(Element_t),POINTER :: Element
+  TYPE(Element_t), POINTER :: Element
 
   REAL(KIND=dp) :: NonlinTol, Norm, PrevNorm, RelC
   INTEGER :: i,j,k,n, nb, nd, t, istat, Active, NonlinIter, iter
 
-  TYPE(ValueList_t), POINTER :: BodyForce,BC=>NULL()
+  TYPE(ValueList_t), POINTER :: BC=>NULL()
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
                NEWX(:), NEWY(:), POT(:)
 
   TYPE(Mesh_t),   POINTER :: Mesh
-
 
   LOGICAL :: NewtonRaphson = .FALSE.
   INTEGER :: CoupledIter
   TYPE(Variable_t), POINTER :: IterV, CoordVar
 
   TYPE(Matrix_t),POINTER::A,B,CM,S
-
-  SAVE STIFF, LOAD, FORCE, AllocationsDone
-
 !------------------------------------------------------------------------------
 
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
   Mesh => GetMesh()
 
-  IF ( .NOT. AllocationsDone ) THEN
-     N = Mesh % MaxElementDOFs
-     ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N), POT(N), STAT=istat )
-     IF ( istat /= 0 ) THEN
-        CALL Fatal( 'MagnetoDynamics2D', 'Memory allocation error.' )
-     END IF
-     AllocationsDone = .TRUE.
-  END IF
-
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
+
+!$omp parallel
+   IF(.NOT.GaussPointsInitialized()) CALL GaussPointsInit
+!$omp end parallel
 
   S=>Solver % Matrix
   DO i=1,Model % NumberOFBCs
@@ -125,15 +116,17 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
     IF(Iter>1) NewtonRaphson=.TRUE.
     ! System assembly:
     ! ----------------
+
     Active = GetNOFActive()
     CALL DefaultInitialize()
+!$omp parallel do private(Element,n,nd)
     DO t=1,active
        Element => GetActiveElement(t)
-       n  = GetElementNOFNodes()
-       nd = GetElementNOFDOFs()
+       n  = GetElementNOFNodes(Element)
+       nd = GetElementNOFDOFs(Element)
        CALL LocalMatrix(Element, n, nd)
     END DO
-
+!$omp end parallel do
 
     Active = GetNOFBoundaryElements()
     DO t=1,active
@@ -185,6 +178,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: torq,a(nbf),u(nbf),IMoment,IA
    INTEGER :: i,bfid,n,nd
+   LOGICAL :: Found
    TYPE(ValueList_t),POINTER::Params
 !------------------------------------------------------------------------------
 
@@ -280,7 +274,7 @@ CONTAINS
     REAL(KIND=dp) :: dBasisdx(nd,3),Basis(nd), DetJ, &
              POT(nd),x,y,r,r0,r1,Br,Bp,Bx,By,B(3,nd)
     INTEGER :: t
-    LOGICAL :: stat
+    LOGICAL :: stat, Found
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
 
@@ -363,64 +357,65 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalMatrix(  Element, n, nd)
+  SUBROUTINE LocalMatrix(Element, n, nd)
 !------------------------------------------------------------------------------
     INTEGER :: n, nd
-    TYPE(Element_t), POINTER :: Element
+    TYPE(Element_t) :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ,LoadAtIP
-    LOGICAL :: Stat
     INTEGER :: i,p,q,t,siz
+
     TYPE(GaussIntegrationPoints_t) :: IP
+
     REAL(KIND=dp) :: MASS(nd,nd), STIFF(nd,nd), FORCE(nd), &
       LOAD(nd),R(n),C(n), mu,muder,Babs,POT(nd), &
         JAC(nd,nd),Agrad(3),C_ip,M(2,n),M_ip(2)
 
+    LOGICAL :: Cubic, HBcurve, Found, Stat
 
-    LOGICAL :: Cubic, HBcurve
-
-    TYPE(ValueList_t), POINTER :: Material, Lst
     REAL(KIND=dp), POINTER :: Bval(:), Hval(:), Cval(:)
+    TYPE(ValueList_t), POINTER :: Material, Lst, BodyForce
 
-    TYPE(Nodes_t) :: Nodes
-    SAVE Nodes
+    TYPE(Nodes_t), SAVE :: Nodes
+!$omp threadprivate(Nodes)
 !------------------------------------------------------------------------------
-    CALL GetElementNodes( Nodes )
+
+    CALL GetElementNodes( Nodes,Element )
     STIFF = 0._dp
     JAC  = 0._dp
     FORCE = 0._dp
     IF(TransientSimulation) MASS = 0._dp
 
-    Material => GetMaterial()
+    Material => GetMaterial(Element)
 
     Lst => ListFind(Material,'H-B Curve',HBcurve)
     IF(HBcurve) THEN
-      CALL GetLocalSolution(POT)
+      CALL GetLocalSolution(POT,UElement=Element)
       Cval => Lst % CubicCoeff
       Bval => Lst % TValues
       Hval => Lst % FValues(1,1,:)
     ELSE
-      CALL GetReluctivity(Material,R,n)
+      CALL GetReluctivity(Material,R,n,Element)
     END IF
 
-    C = GetReal( Material, 'Electric Conductivity', Found)
+    C = GetReal( Material, 'Electric Conductivity', Found, Element)
 
-    M(1,:) = GetReal( Material, 'Magnetization 1', Found)
-    M(2,:) = GetReal( Material, 'Magnetization 2', Found)
+    M(1,:) = GetReal( Material, 'Magnetization 1', Found, Element)
+    M(2,:) = GetReal( Material, 'Magnetization 2', Found, Element)
 
     Load = 0.0d0
-    BodyForce => GetBodyForce()
+    BodyForce => GetBodyForce(Element)
     IF ( ASSOCIATED(BodyForce) ) &
-       Load(1:n) = GetReal( BodyForce, 'Current Density', Found )
+       Load(1:n) = GetReal(BodyForce, 'Current Density', Found, Element)
 
     !Numerical integration:
     !----------------------
-    IP = GaussPoints( Element )
+    IP = GaussPoints(Element)
     DO t=1,IP % n
       ! Basis function values & derivatives at the integration point:
       !--------------------------------------------------------------
       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-       IP % W(t), detJ, Basis, dBasisdx )
+              IP % W(t), detJ, Basis, dBasisdx )
 
       ! The source term at the integration point:
       !------------------------------------------
@@ -472,12 +467,13 @@ CONTAINS
     END IF
 
     IF(TransientSimulation) THEN
-      CALL Default1stOrderTime( MASS, STIFF, FORCE )
+      CALL Default1stOrderTime( MASS, STIFF, FORCE,UElement=Element )
     END IF
-    CALL DefaultUpdateEquations( STIFF, FORCE )
+    CALL DefaultUpdateEquations( STIFF, FORCE,UElement=Element )
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrixBC(Element, n, nd )
@@ -539,16 +535,17 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE GetReluctivity(Material,Acoef,n)
+ SUBROUTINE GetReluctivity(Material,Acoef,n,Element)
 !------------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: Material
     INTEGER :: n
     REAL(KIND=dp) :: Acoef(:)
+    TYPE(Element_t), OPTIONAL :: Element
 !------------------------------------------------------------------------------
+    REAL(KIND=dp), SAVE :: Avacuum
     LOGICAL :: Found, FirstTime = .TRUE.
-    REAL(KIND=dp) :: Avacuum
-
-    SAVE Avacuum 
+!$omp threadprivate(firsttime,avacuum)
+!------------------------------------------------------------------------------
 
     IF ( FirstTime ) THEN
       Avacuum = GetConstReal( CurrentModel % Constants, &
@@ -557,16 +554,16 @@ CONTAINS
       FirstTime = .FALSE.
     END IF
 
-    Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found )
+    Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found,Element )
     IF ( Found ) THEN
       Acoef(1:n) = Avacuum * Acoef(1:n)
     ELSE
-      Acoef(1:n) = GetReal( Material, 'Permeability', Found )
+      Acoef(1:n) = GetReal( Material, 'Permeability', Found,Element )
     END IF
     IF ( Found ) THEN
       Acoef(1:n) = 1._dp / Acoef(1:n)
     ELSE
-      Acoef(1:n) = GetReal( Material, 'Reluctivity', Found )
+      Acoef(1:n) = GetReal( Material, 'Reluctivity', Found,Element )
     END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE GetReluctivity
@@ -602,11 +599,8 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Norm,  PrevNorm, NonlinTOL, RelC
   INTEGER :: i,j,k,ip,jp,n, nb, nd, t, istat, Active, iter, NonlinIter
 
-  TYPE(ValueList_t), POINTER :: BodyForce,BC=>NULL()
-  COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:)
-
+  TYPE(ValueList_t), POINTER :: BC=>NULL()
   TYPE(Mesh_t),   POINTER :: Mesh
- 
   COMPLEX(KIND=dp), PARAMETER :: im=(0._dp,1._dp)
 
 
@@ -615,24 +609,15 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: IterV, CoordVar
 
   TYPE(Matrix_t),POINTER::A,B,CM,S
-
-  SAVE STIFF, LOAD, FORCE, AllocationsDone
-
 !------------------------------------------------------------------------------
 
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
   Mesh => GetMesh()
 
-  IF ( .NOT. AllocationsDone ) THEN
-     N = Mesh % MaxElementDOFs
-     ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N), STAT=istat )
-     IF ( istat /= 0 ) THEN
-        CALL Fatal( 'MagnetoDynamics2D', 'Memory allocation error.' )
-     END IF
-     AllocationsDone = .TRUE.
-  END IF
-
+!$omp parallel
+   IF(.NOT.GaussPointsInitialized()) CALL GaussPointsInit
+!$omp end parallel
 
   S=>Solver % Matrix
   S % Complex = .TRUE.
@@ -684,12 +669,14 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
     ! ----------------
     Active = GetNOFActive()
     CALL DefaultInitialize()
+!$omp parallel do private(Element,n,nd)
     DO t=1,active
        Element => GetActiveElement(t)
-       n  = GetElementNOFNodes()
-       nd = GetElementNOFDOFs()
+       n  = GetElementNOFNodes(Element)
+       nd = GetElementNOFDOFs(Element)
        CALL LocalMatrix(Element, n, nd)
     END DO
+!$omp end parallel do
 
     Active = GetNOFBoundaryElements()
     DO t=1,active
@@ -919,7 +906,6 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ
-    LOGICAL :: Stat
     INTEGER :: i,p,q,t,siz
     TYPE(GaussIntegrationPoints_t) :: IP
     COMPLEX(KIND=dp) :: MASS(nd,nd), STIFF(nd,nd), FORCE(nd), LoadAtIp,&
@@ -927,27 +913,27 @@ CONTAINS
 
     REAL(KIND=dp) :: POT(2,nd),R(n),Babs,mu,muder,Omega
 
-    LOGICAL :: Cubic, HBcurve
+    LOGICAL :: Cubic, HBcurve, Found, Stat
 
-    TYPE(ValueList_t), POINTER :: Material, Lst
     REAL(KIND=dp), POINTER :: Bval(:), Hval(:), Cval(:)
+    TYPE(ValueList_t), POINTER :: Material, Lst, BodyForce
 
-    TYPE(Nodes_t) :: Nodes
-    SAVE Nodes
+    TYPE(Nodes_t), SAVE :: Nodes
+!$omp threadprivate(Nodes)
 !------------------------------------------------------------------------------
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes,Element )
     STIFF = 0._dp
     JAC  = 0._dp
     FORCE = 0._dp
     IF(TransientSimulation) MASS = 0._dp
 
-    Material => GetMaterial()
+    Material => GetMaterial(Element)
 
     Omega = GetAngularFrequency(Found=Found)
 
     Lst => ListFind(Material,'H-B Curve',HBcurve)
     IF(HBcurve) THEN
-      CALL GetLocalSolution(POT)
+      CALL GetLocalSolution(POT,UElement=Element)
       POTC=POT(1,:)+im*POT(2,:)
       Cval => Lst % CubicCoeff
       Bval => Lst % TValues
@@ -956,20 +942,20 @@ CONTAINS
       CALL GetReluctivity(Material,R,n)
     END IF
 
-    C = GetReal( Material, 'Electric Conductivity', Found)
-    C = C + im * GetReal( Material, 'Electric Conductivity im', Found)
+    C = GetReal( Material, 'Electric Conductivity', Found, Element)
+    C = C + im * GetReal( Material, 'Electric Conductivity im', Found, Element)
 
-    M(1,:) = GetReal( Material, 'Magnetization 1', Found)
-    M(1,:) = M(1,:) + im*GetReal( Material, 'Magnetization 1 im', Found)
+    M(1,:) = GetReal( Material, 'Magnetization 1', Found, Element)
+    M(1,:) = M(1,:) + im*GetReal( Material, 'Magnetization 1 im', Found, Element)
 
-    M(2,:) = GetReal( Material, 'Magnetization 2', Found)
-    M(2,:) = M(2,:) + im*GetReal( Material, 'Magnetization 2 im', Found)
+    M(2,:) = GetReal( Material, 'Magnetization 2', Found, Element)
+    M(2,:) = M(2,:) + im*GetReal( Material, 'Magnetization 2 im', Found, Element)
 
     Load = 0.0d0
-    BodyForce => GetBodyForce()
+    BodyForce => GetBodyForce(Element)
     IF ( ASSOCIATED(BodyForce) ) THEN
-       Load(1:n) = GetReal( BodyForce, 'Current Density', Found )
-       Load(1:n) = Load(1:n) + im*GetReal( BodyForce, 'Current Density im', Found )
+       Load(1:n) = GetReal( BodyForce, 'Current Density', Found, Element )
+       Load(1:n) = Load(1:n) + im*GetReal( BodyForce, 'Current Density im', Found, Element )
     END IF
 
     !Numerical integration:
@@ -1026,9 +1012,9 @@ CONTAINS
     END IF
 
     IF(TransientSimulation) THEN
-      CALL Default1stOrderTime( MASS, STIFF, FORCE )
+      CALL Default1stOrderTime( MASS, STIFF, FORCE, UElement=Element )
     END IF
-    CALL DefaultUpdateEquations( STIFF, FORCE )
+    CALL DefaultUpdateEquations( STIFF, FORCE, UElement=Element )
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
@@ -1096,11 +1082,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE GetReluctivity(Material,Acoef,n)
+ SUBROUTINE GetReluctivity(Material,Acoef,n,Element)
 !------------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: Material
     INTEGER :: n
     REAL(KIND=dp) :: Acoef(:)
+    TYPE(Element_t), OPTIONAL :: Element
 !------------------------------------------------------------------------------
     LOGICAL :: Found, FirstTime = .TRUE.
     REAL(KIND=dp) :: Avacuum
@@ -1114,16 +1101,16 @@ CONTAINS
       FirstTime = .FALSE.
     END IF
 
-    Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found )
+    Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found, Element )
     IF ( Found ) THEN
       Acoef(1:n) = Avacuum * Acoef(1:n)
     ELSE
-      Acoef(1:n) = GetReal( Material, 'Permeability', Found )
+      Acoef(1:n) = GetReal( Material, 'Permeability', Found, Element )
     END IF
     IF ( Found ) THEN
       Acoef(1:n) = 1._dp / Acoef(1:n)
     ELSE
-      Acoef(1:n) = GetReal( Material, 'Reluctivity', Found )
+      Acoef(1:n) = GetReal( Material, 'Reluctivity', Found, Element )
     END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE GetReluctivity

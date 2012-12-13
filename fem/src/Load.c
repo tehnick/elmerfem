@@ -575,6 +575,8 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 
   c = cmd[slen];
   cmd[slen] = '\0';
+#pragma omp critical
+{
   if ( ptr = (char *)mtc_domath(cmd) ) 
   {
     strcpy( Value, (char *)ptr );
@@ -589,6 +591,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
     *len = 0;
     *Value = ' ';
   }
+}
   cmd[slen]=c;
 }
 
