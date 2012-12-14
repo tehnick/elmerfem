@@ -212,6 +212,8 @@ CONTAINS
      IF(a(i)>0) THEN
        CALL ListAddConstReal(Model % Simulation,'res: Potential / bodyforce ' &
                      //TRIM(i2s(i)),u(i)/a(i))
+       CALL ListAddConstReal(Model % Simulation,'res: area / bodyforce ' &
+                     //TRIM(i2s(i)),a(i))
      END IF
    END DO
    CALL ListAddConstReal(Model % Simulation,'res: Air Gap Torque', Torq)
@@ -627,9 +629,7 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   IF(FoundMortar) THEN
     CM => AllocateMatrix()
     CM % Format = MATRIX_LIST
-    k=0
     DO i=1,A % NumberOfRows
-      ip = Solver % Variable % Perm(i)
       DO j=A % Rows(i),A % Rows(i+1)-1
         jp = Solver % Variable % Perm(A % Cols(j))
         CALL AddToMatrixElement(CM,2*(i-1)+1,2*(jp-1)+1,A % Values(j))
