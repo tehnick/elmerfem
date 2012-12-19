@@ -126,27 +126,27 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  PURE FUNCTION i2s(value) RESULT(string)
+  PURE FUNCTION i2s(VALUE) RESULT(string)
 !------------------------------------------------------------------------------
-    INTEGER, INTENT(in) :: value
+    INTEGER, INTENT(in) :: VALUE
     CHARACTER(LEN=12) :: string
 !------------------------------------------------------------------------------
     INTEGER :: i,j,n,m,t,v
-    CHARACTER, PARAMETER :: digits(0:9)=['0','1','2','3','4','5','6','7','8','9']
+    CHARACTER, PARAMETER :: DIGITS(0:9)=['0','1','2','3','4','5','6','7','8','9']
 !------------------------------------------------------------------------------
      string = ' '
 
-     IF ( value>=0 ) THEN
+     IF ( VALUE>=0 ) THEN
        j=0
-       v=value
+       v=VALUE
      ELSE
        string(1:1)='-'
        j=1
-       v=-value
+       v=-VALUE
      END IF
 
      IF (v<10) THEN
-       string(j+1:j+1)=digits(v)
+       string(j+1:j+1)=DIGITS(v)
      ELSE
        n=2
        m=10
@@ -157,7 +157,7 @@ CONTAINS
 
        DO i=j+1,j+n
          t = v / m
-         string(i:i) = digits(t)
+         string(i:i) = DIGITS(t)
          v = v - t*m
          m = m / 10
        END DO
@@ -183,7 +183,7 @@ CONTAINS
     LOGICAL :: L
     CHARACTER(*), INTENT(IN) :: file
 !------------------------------------------------------------------------------
-    L = Index(file,':')>0 .OR. file(1:1)=='/' .OR. file(1:1)==Backslash
+    L = INDEX(file,':')>0 .OR. file(1:1)=='/' .OR. file(1:1)==Backslash
 !------------------------------------------------------------------------------
   END FUNCTION FileNameQualified
 !------------------------------------------------------------------------------
@@ -559,20 +559,16 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  FUNCTION Search( N,Array,Value ) RESULT ( INDEX )
+!> Search an integer value in an ordered array. 
+!------------------------------------------------------------------------------
+   FUNCTION SearchI( N,Array,Val ) RESULT ( Idx )
+!------------------------------------------------------------------------------
+    INTEGER :: N,Val,Array(:)
+!------------------------------------------------------------------------------
+    INTEGER :: Lower, Upper,Lou,Idx
 !------------------------------------------------------------------------------
 
-    INTEGER :: N,Value,Array(:)
-!------------------------------------------------------------------------------
-
-    ! Local variables
-
-    INTEGER :: Lower, Upper,Lou,INDEX
-!------------------------------------------------------------------------------
-
-    !*******************************************************************
-
-    INDEX = 0 
+    Idx = 0 
     Upper = N
     Lower = 1
 
@@ -581,17 +577,17 @@ CONTAINS
     IF ( Upper == 0 ) RETURN
 
     DO WHILE( .TRUE. )
-      IF ( Array(Lower) == Value ) THEN
-         INDEX = Lower
+      IF ( Array(Lower) == Val) THEN
+         Idx = Lower
          EXIT
-      ELSE IF ( Array(Upper) == Value ) THEN
-         INDEX = Upper
+      ELSE IF ( Array(Upper) == Val ) THEN
+         Idx = Upper
          EXIT
       END IF
 
       IF ( (Upper-Lower)>1 ) THEN
         Lou = ISHFT((Upper + Lower), -1)
-        IF ( Array(Lou) < Value ) THEN
+        IF ( Array(Lou) < Val ) THEN
           Lower = Lou
         ELSE
           Upper = Lou
@@ -604,7 +600,68 @@ CONTAINS
     RETURN
 
 !------------------------------------------------------------------------------
-  END FUNCTION Search
+  END FUNCTION SearchI
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+!> Search a real value in an ordered array. 
+!> Optionally give the previous position which may help 
+!> in the search. 
+!------------------------------------------------------------------------------
+  FUNCTION SearchR( N,Array,Val,Idx0 ) RESULT ( Idx )
+!------------------------------------------------------------------------------
+
+    INTEGER :: N
+    REAL(KIND=dP) :: Val,Array(:)
+    INTEGER, OPTIONAL :: Idx0
+    INTEGER :: Idx
+!------------------------------------------------------------------------------
+    INTEGER :: Lower, Upper,Lou
+!------------------------------------------------------------------------------
+
+    IF( PRESENT( Idx0 ) ) THEN
+      IF( Idx0 > 0 .OR. Idx0 < N ) THEN 
+        IF( Array(Idx0) < Val .AND. Array(Idx0+1) > Val ) THEN
+          Idx = Idx0
+          RETURN
+        END IF
+      END IF
+    END IF
+
+    Idx = 0
+    Upper = N
+    Lower = 1
+
+    ! Handle the special case
+    IF ( Upper == 0 ) RETURN
+
+    DO WHILE( .TRUE. )
+      IF ( ABS( Array(Lower) - Val) < TINY(Val)  ) THEN
+        Idx = Lower
+        EXIT
+      ELSE IF ( ABS( Array(Upper) - Val ) < TINY(Val) ) THEN
+        Idx = Upper
+        EXIT
+      END IF
+
+      IF ( (Upper-Lower) > 1 ) THEN
+        Lou = ISHFT((Upper + Lower), -1)
+        IF ( Array(Lou) < Val ) THEN
+          Lower = Lou
+        ELSE
+          Upper = Lou
+        END IF
+      ELSE
+        EXIT
+      END IF
+    END DO
+    
+    RETURN
+
+!------------------------------------------------------------------------------
+  END FUNCTION SearchR
 !------------------------------------------------------------------------------
 
 
@@ -958,7 +1015,7 @@ CONTAINS
   FUNCTION ComponentNameVar( Var, Component ) RESULT(str)
 !------------------------------------------------------------------------------
     TYPE(Variable_t),INTENT(in) :: Var
-    INTEGER, OPTIONAL,intent(in) :: Component
+    INTEGER, OPTIONAL,INTENT(in) :: Component
 !------------------------------------------------------------------------------
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
