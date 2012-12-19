@@ -607,28 +607,16 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 !> Search a real value in an ordered array. 
-!> Optionally give the previous position which may help 
-!> in the search. 
 !------------------------------------------------------------------------------
-  FUNCTION SearchR( N,Array,Val,Idx0 ) RESULT ( Idx )
+  FUNCTION SearchR( N,Array,Val ) RESULT ( Idx )
 !------------------------------------------------------------------------------
 
     INTEGER :: N
     REAL(KIND=dP) :: Val,Array(:)
-    INTEGER, OPTIONAL :: Idx0
     INTEGER :: Idx
 !------------------------------------------------------------------------------
     INTEGER :: Lower, Upper,Lou
 !------------------------------------------------------------------------------
-
-    IF( PRESENT( Idx0 ) ) THEN
-      IF( Idx0 > 0 .OR. Idx0 < N ) THEN 
-        IF( Array(Idx0) < Val .AND. Array(Idx0+1) > Val ) THEN
-          Idx = Idx0
-          RETURN
-        END IF
-      END IF
-    END IF
 
     Idx = 0
     Upper = N
