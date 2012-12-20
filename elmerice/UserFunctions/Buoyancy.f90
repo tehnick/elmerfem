@@ -273,9 +273,9 @@ FUNCTION SeaPressure ( Model, nodenumber, y) RESULT(pw)
 ! Restricted to the surface below the shelf 
 ! The melting is not taken into account where dS/dx is infinite (calving front)
 !----------------------------------------------------------------------------
-     a_perp = 0.0_dp
      Ns = 0.0_dp
      IF (NormalFlux) THEN
+        a_perp = 0.0_dp
         ALLOCATE( Normal(3, NumberOfNodesOnBoundary))
         Normal = 0.0_dp
         CurElement => Model % CurrentElement
