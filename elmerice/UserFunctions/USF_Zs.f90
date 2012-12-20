@@ -327,6 +327,7 @@ FUNCTION DyIni ( Model, nodenumber, x) RESULT(Zs)
    SAVE Zs0 
 
    IF (FirstTime) THEN
+          FirstTime = .FALSE.
           NMAX = Model % NumberOfNodes             
           dim = CoordinateSystemDimension()
           ALLOCATE(Zs0(NMAX))
@@ -362,6 +363,7 @@ FUNCTION DyMDyIni ( Model, nodenumber, Zs) RESULT(mu)
    SAVE Zs0 
 
    IF (FirstTime) THEN
+          FirstTime = .FALSE.
           NMAX = Model % NumberOfNodes             
           dim = CoordinateSystemDimension()
           ALLOCATE(Zs0(NMAX))

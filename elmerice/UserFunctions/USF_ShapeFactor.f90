@@ -237,7 +237,7 @@ FUNCTION ShapeFactorGravity ( Model, nodenumber, x, axis ) RESULT(gi)
        
 !------------------------------------------
 ! Get ordered NodesOnSurface and NodesOnBed  
-! SortD : sort in indecrease order
+! SortD : sort in increase order
 !------------------------------------------
       ALLOCATE (ind(Ns))
       ind = (/(i,i=1,Ns)/) 
