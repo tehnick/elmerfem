@@ -136,7 +136,7 @@ SUBROUTINE FlowdepthSolver( Model,Solver,dt,TransientSimulation )
   ELSE
      IF (CalcFree) THEN
                CALL INFO(SolverName, 'Free surface variable will be calculated', Level=1)
-        FreeSurfname = GetString( Solver % Values,'Freesurf Name',GotIt)
+        FreeSurfName = GetString( Solver % Values,'Freesurf Name',GotIt)
         IF (.NOT.GotIt) THEN
            CALL FATAL(SolverName,'Keyaword >Calc Free Surface< set to true, but keyword >Freesurf Name< not found.')
         END IF
@@ -245,7 +245,7 @@ SUBROUTINE FlowdepthSolver( Model,Solver,dt,TransientSimulation )
         CALL GetSurfaceValue(Model, Surface, GradSurface1, GradSurface2,&
              VariableValues, Permutation, &
              SurfacePerm, GradSurface1Perm, GradSurface2Perm, &
-             NumberOfVisits, Element, n)
+             NumberOfVisits, Element, n, Gradient )
      END DO
      DO i=1,Model % Mesh % NumberOfNodes
         GradSurface1(GradSurface1Perm(i)) = GradSurface1(GradSurface1Perm(i))/NumberOfVisits(i)
@@ -258,10 +258,10 @@ CONTAINS
   SUBROUTINE GetSurfaceValue(Model, Surface, GradSurface1, GradSurface2, &
        VariableValues, Permutation, &
        SurfacePerm, GradSurface1Perm, GradSurface2Perm, &
-       NumberOfVisits, Element, n)
+       NumberOfVisits, Element, n, Gradient )
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
-    REAL(KIND=dp) :: LocalSurf, GradSurface(3), Depth
+    REAL(KIND=dp) :: LocalSurf, GradSurface(3), Depth, Gradient 
     INTEGER :: n
     INTEGER, POINTER :: Permutation(:), NumberOfVisits(:), &
          SurfacePerm(:), GradSurface1Perm(:), GradSurface2Perm(:)
@@ -302,14 +302,14 @@ CONTAINS
        END IF
 
        IF (NumberOfVisits(j) == 1) &
-!!!! change Martina + -> -Gradient: now FreeSurf=Surf everywhere, and FreeBed=Bed everywhere
-            Surface(SurfacePerm(j)) = z -Gradient* VariableValues(Permutation(j))  
+            Surface(SurfacePerm(j)) = z -VariableValues(Permutation(j))/Gradient  
+
        GradSurface1(GradSurface1Perm(j)) = GradSurface1(GradSurface1Perm(j)) +&
-!looks like Depth/Thick gradient, but is for some reason Bed and Surf gradient
-            SUM(dBasisdx(1:N,1)*VariableValues(Permutation(Element % NodeIndexes(1:N))))
+            SUM(dBasisdx(1:N,1)*VariableValues(Permutation(Element % NodeIndexes(1:N))))/abs(Gradient)
+
        IF (DIM > 2) &
             GradSurface2(GradSurface1Perm(j)) = GradSurface2(GradSurface1Perm(j)) +&
-            SUM(dBasisdx(1:N,2)*VariableValues(Permutation(Element % NodeIndexes(1:N))))
+            SUM(dBasisdx(1:N,2)*VariableValues(Permutation(Element % NodeIndexes(1:N))))/abs(Gradient)
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE GetSurfaceValue

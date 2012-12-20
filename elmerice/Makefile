@@ -5,11 +5,10 @@
 # Original Date: 2012-12-03
 #############################################
 
+PLATFORM := $(shell uname -s)
 ELMERICE_HOME ?= $(ELMER_HOME)/share/elmersolver
-EXECUTABLES := ElmerIceSolvers.so ElmerIceUSF.so
-INSTALLED := $(ELMERICE_HOME)/lib/ElmerIceSolvers.so \
- $(ELMERICE_HOME)/lib/ElmerIceUSF.so \
- $(ELMERICE_HOME)/include/defgrid.mod
+EXECUTABLES := ElmerIceSolvers.$(PLATFORM) ElmerIceUSF.$(PLATFORM)
+INSTALLED := $(ELMERICE_HOME)/include/defgrid.mod
 MODULES := defgrid.mod
 MKDIR_P := mkdir -p
 SOLVERSOURCE := \
@@ -49,8 +48,21 @@ all: clean compile
 
 compile:  $(EXECUTABLES)
 
-install: $(EXECUTABLES) directories
-	cp $(EXECUTABLES) $(ELMERICE_HOME)/lib
+install: directories
+	@if test '$(PLATFORM)' = 'Darwin'; then \
+           echo "cp ElmerIceSolvers.dylib $(ELMERICE_HOME)/lib"; \
+           echo "cp ElmerIceUSF.dylib $(ELMERICE_HOME)/lib"; \
+	   cp ElmerIceSolvers.dylib $(ELMERICE_HOME)/lib; \
+           cp ElmerIceUSF.dylib $(ELMERICE_HOME)/lib; \
+        else \
+           if test '$(PLATFORM)' = 'Linux'; then \
+                echo "cp ElmerIceSolvers.so $(ELMERICE_HOME)/lib"; \
+           	echo "cp ElmerIceUSF.so $(ELMERICE_HOME)/lib"; \
+	   	cp ElmerIceSolvers.so $(ELMERICE_HOME)/lib; \
+                cp ElmerIceUSF.so $(ELMERICE_HOME)/lib; \
+	   fi \
+        fi
+
 	cp $(MODULES) $(ELMERICE_HOME)/include
 
 directories: $(ELMERICE_HOME)/lib $(ELMERICE_HOME)/include
@@ -60,20 +72,55 @@ $(ELMERICE_HOME)/lib:
 $(ELMERICE_HOME)/include:
 	$(MKDIR_P) $(ELMERICE_HOME)/include
 
-
-ElmerIceSolvers.so: $(solverobjects)
+ElmerIceSolvers.$(PLATFORM): $(solverobjects)
 	mv *.o Solvers
-	elmerf90 $(solverobjects) -o ElmerIceSolvers.so
+	@if test '$(PLATFORM)' = 'Darwin'; then \
+	   echo "Dynamic linking solvers to $(PLATFORM)"; \
+           elmerf90 $(solverobjects) -o ElmerIceSolvers.dylib; \
+        else \
+           if test '$(PLATFORM)' = 'Linux'; then \
+	   	echo "Dynamic linking solvers to $(PLATFORM)"; \
+                elmerf90 $(solverobjects) -o ElmerIceSolvers.so; \
+	   fi \
+        fi
 
-ElmerIceUSF.so: $(usfobjects)
+ElmerIceUSF.$(PLATFORM): $(usfobjects)
 	mv *.o UserFunctions
-	elmerf90 $(usfobjects) -o ElmerIceUSF.so
+	@if test '$(PLATFORM)' = 'Darwin'; then \
+	   echo "Dynamic linking user functions to $(PLATFORM)"; \
+           elmerf90 $(usfobjects) -o ElmerIceUSF.dylib; \
+        else \
+           if test '$(PLATFORM)' = 'Linux'; then \
+	   	echo "Dynamic linking user functions to $(PLATFORM)"; \
+                elmerf90 $(usfobjects) -o ElmerIceUSF.so; \
+	   fi \
+	fi
 
 clean:
-	rm -rf  Solvers/*.o UserFunctions/*.o $(EXECUTABLES) $(MODULES)
+	@if test '$(PLATFORM)' = 'Darwin'; then \
+	   echo "rm -f ElmerIceSolvers.dylib ElmerIceUSF.dylib"; \
+	   rm -f ElmerIceSolvers.dylib ElmerIceUSF.dylib; \
+        else \
+           if test '$(PLATFORM)' = 'Linux'; then \
+               echo "rm -f ElmerIceSolvers.so ElmerIceUSF.so"; \
+	       rm -f ElmerIceSolvers.so ElmerIceUSF.so; \
+	   fi \
+	fi
+
+	rm -f  Solvers/*.o UserFunctions/*.o $(MODULES)
 
 purge: clean
-	rm -rf $(INSTALLED)
+	@if test '$(PLATFORM)' = 'Darwin'; then \
+           echo "rm -f  $(ELMERICE_HOME)/lib/ElmerIceSolvers.dylib $(ELMERICE_HOME)/lib/ElmerIceUSF.dylib"; \
+	   rm -f  $(ELMERICE_HOME)/lib/ElmerIceSolvers.dylib $(ELMERICE_HOME)/lib/ElmerIceUSF.dylib; \
+        else \
+           if test '$(PLATFORM)' = 'Linux'; then \
+	       echo "rm -f  $(ELMERICE_HOME)/lib/ElmerIceSolvers.so $(ELMERICE_HOME)/lib/ElmerIceUSF.so"; \
+	       rm -f  $(ELMERICE_HOME)/lib/ElmerIceSolvers.so $(ELMERICE_HOME)/lib/ElmerIceUSF.so; \
+	   fi \
+	fi
+
+	rm -f $(INSTALLED)
 
 %.o: %.f90 
 	elmerf90-nosh  $< -c

@@ -121,7 +121,7 @@ Logical :: Serial = .False.
           DO i=1,NtN
             zs = fsurf(x(i),y(i)) 
             zb = fbed(x(i),y(i))
-            IF ((zs-zb)<0.0) THEN 
+            IF ((zs-zb).LE.0.0) THEN 
                WRITE(*,*)'NEGATIVE OR NULL THICKNESS!!!'
                STOP
             END IF 
