@@ -59,9 +59,10 @@
   INTEGER :: VisitedTimes = 0
 
   TYPE(Element_t),POINTER :: Element
-  TYPE(ValueList_t),POINTER :: Material, BC
-  REAL(KIND=dp) :: RelativeChange, UNorm, maxu, TargetCoeff, val, Relax
+  TYPE(ValueList_t),POINTER :: Params, Material, BC
+  REAL(KIND=dp) :: UNorm, maxu, TargetCoeff, val, Relax
   TYPE(Variable_t), POINTER :: MeshSol, TargetSol, GradSol
+  TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp), POINTER :: MeshUpdate(:), PrevMeshUpdate(:)
   INTEGER, POINTER :: MeshPerm(:), NodeIndexes(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: TargetFieldName
@@ -103,17 +104,19 @@
   MeshPerm => MeshSol % Perm
   STDOFs =  MeshSol % DOFs
   MeshUpdate => MeshSol % Values
+  Params => Solver % Values
+  Mesh => Solver % Mesh
   
   LocalNodes = COUNT( MeshPerm > 0 )
   
   IF ( LocalNodes <= 0 ) RETURN
-  Cumulative = ListGetLogical( Solver % Values,'Cumulative Displacement',Found)
+  Cumulative = ListGetLogical( Params,'Cumulative Displacement',Found)
   
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
   IF ( .NOT. AllocationsDone  ) THEN
-    N = Solver % Mesh % MaxElementDOFs
+    N = Mesh % MaxElementDOFs
     
     IF ( AllocationsDone ) THEN
       DEALLOCATE(  ElasticModulus, PoissonRatio, &
@@ -127,11 +130,11 @@
         LOAD( 4,N ),STAT=istat )
     
     IF(.NOT. Cumulative) THEN
-      n = SIZE( Solver % Mesh % Nodes % x )
+      n = SIZE( Mesh % Nodes % x )
       ALLOCATE( OrigX(n), OrigY(n), OrigZ(n) )
-      OrigX = Solver % Mesh % Nodes % x
-      OrigY = Solver % Mesh % Nodes % y
-      OrigZ = Solver % Mesh % Nodes % z
+      OrigX = Mesh % Nodes % x
+      OrigY = Mesh % Nodes % y
+      OrigZ = Mesh % Nodes % z
     END IF
     
     IF ( istat /= 0 ) THEN
@@ -143,20 +146,23 @@
   END IF
 !------------------------------------------------------------------------------
 
-  TrueX => Solver % Mesh % Nodes % x
-  TrueY => Solver % Mesh % Nodes % y
-  TrueZ => Solver % Mesh % Nodes % z
+  TrueX => Mesh % Nodes % x
+  TrueY => Mesh % Nodes % y
+  TrueZ => Mesh % Nodes % z
   
   IF( .NOT. Cumulative ) THEN
-    Solver % Mesh % Nodes % x => OrigX
-    Solver % Mesh % Nodes % y => OrigY
-    Solver % Mesh % Nodes % z => OrigZ
+    Mesh % Nodes % x => OrigX
+    Mesh % Nodes % y => OrigY
+    Mesh % Nodes % z => OrigZ
   END IF
   
-  MovingMesh = ListGetLogical( Solver % Values,'Moving Mesh', Found ) 
+! This refers to an another mesh deformation routine moving the mesh 
+! such that these two must coexist. For generality this is set true
+! by default.
+!--------------------------------------------------------------------
+  MovingMesh = ListGetLogical( Params,'Moving Mesh', Found ) 
   IF(.NOT. Found) MovingMesh = .TRUE.
   MovingMesh = MovingMesh .AND. ( VisitedTimes > 1 )
-
 
 ! This variable is needed to enable that the mesh is changed externally independent of this solver.
 ! Then the variations of this solver must always be relative to the previous update.
@@ -170,7 +176,6 @@
     PrevMeshUpdate = MeshUpdate
   END IF
   
-
 !------------------------------------------------------------------------------
 ! Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
@@ -197,13 +202,13 @@
     IF ( .NOT. Found ) THEN
       ElasticModulus(1:n) = GetReal( Material,'Youngs Modulus', Found )
     END IF
-    IF ( .NOT. Found ) ElasticModulus(1:n) = 1.0d0
+    IF ( .NOT. Found ) ElasticModulus(1:n) = 1.0_dp
     
     PoissonRatio(1:n) = GetReal( Material,'Mesh Poisson Ratio', Found )
     IF ( .NOT. Found ) THEN
       PoissonRatio(1:n) = GetReal( Material,'Poisson Ratio', Found )
     END IF
-    IF ( .NOT. Found ) PoissonRatio(1:n) = 0.25d0
+    IF ( .NOT. Found ) PoissonRatio(1:n) = 0.25_dp
      
 !------------------------------------------------------------------------------
 !    Get element local stiffness & mass matrices
@@ -222,7 +227,7 @@
 ! for the displacements.
 !------------------------------------------------------------------------------
 
-  TargetFieldName = GetString(Solver % Values,'Target Field',GotTargetField )
+  TargetFieldName = GetString(Params,'Target Field',GotTargetField )
   IF( GotTargetField ) THEN
     TargetSol => VariableGet( Model % Variables, TargetFieldName )     
     IF( .NOT. ASSOCIATED(TargetSol)) THEN
@@ -231,7 +236,7 @@
     END IF
   END IF
   
-  TargetFieldName = GetString(Solver % Values,'Target Surface',GotTargetSurface )
+  TargetFieldName = GetString(Params,'Target Surface',GotTargetSurface )
   GotGradSol = .FALSE.
   IF( GotTargetSurface ) THEN
     IF( GotTargetField ) THEN
@@ -243,7 +248,7 @@
           'Given > Target Surface < does not exist: '//TRIM( TargetFieldName ) )
     END IF
     
-    TargetFieldName = GetString(Solver % Values,'Grad Surface',GotGradSol ) 
+    TargetFieldName = GetString(Params,'Grad Surface',GotGradSol ) 
     IF( GotGradSol ) THEN
       GradSol => VariableGet( Model % Variables, TargetFieldName )     
       IF( .NOT. ASSOCIATED(TargetSol)) THEN
@@ -251,13 +256,15 @@
             'Given > Grad Surface < does not exist: '//TRIM( TargetFieldName ) )
       END IF
     END IF
+  ELSE
+    RefSurface = 0.0_dp
   END IF
 
   
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
-  DO t = 1, Solver % Mesh % NumberOfBoundaryElements
+  DO t = 1, Mesh % NumberOfBoundaryElements
     
     Element => GetBoundaryElement(t)
     IF ( .NOT.ActiveBoundaryElement() ) CYCLE
@@ -306,7 +313,7 @@
     IF( GotTargetSurface ) THEN
       RefSurface(1:n) = GetReal( BC,'Reference Surface',Found)
     END IF
-    
+
     IF ( .NOT. GotForceBC ) CYCLE
      
     CALL MeshBoundary( STIFF,FORCE,LOAD,Alpha,Beta,Gamma,RefSurface,Element,n,nd,nb )
@@ -317,26 +324,8 @@
    END DO
 !------------------------------------------------------------------------------
 
- 
-!-----------------------------------------------------------   
-! Set the nodal coordinates by penalty
-!------------------------------------------------------------
-   IF(GotTargetField) THEN
-     TargetCoeff = GetCReal(Solver % Values,'Nodal Penalty Factor',Found)     
-     IF( ABS( TargetCoeff ) > TINY(TargetCoeff) ) THEN
-       DO i=1,Solver % Mesh % NumberOfNodes
-         j = TargetSol % Perm(i)
-         IF(j==0) CYCLE
-         DO k=1,dim
-           ind = 3 * (j-1) + k
-           Solver % Matrix % rhs(ind) = Solver % Matrix % rhs(ind) + &
-               TargetCoeff * TargetSol % Values(ind)
-           CALL CRS_AddToMatrixElement( Solver % Matrix,ind,ind,TargetCoeff )
-         END DO
-       END DO
-     END IF
-   END IF
-   
+   CALL NodalDisplacementPenalty()
+
    
    CALL DefaultFinishAssembly()
    CALL Info( 'MeshSolve', 'Assembly done', Level=4 )
@@ -353,29 +342,23 @@
 !------------------------------------------------------------------------------
 
    UNorm = DefaultSolve()
-   RelativeChange = Solver % Variable % NonlinChange
-   
-   WRITE( Message, * ) 'Result Norm   : ',UNorm
-   CALL Info( 'MeshSolve', Message, Level=4 )
-   WRITE( Message, * ) 'Relative Change : ',RelativeChange
-   CALL Info( 'MeshSolve', Message, Level=4 )
+      
    
    n = SIZE( MeshPerm )
+   Relax = ListGetConstReal( Params,'Mesh Relaxation Factor',Found)
+   IF( .NOT. Found ) Relax = 1.0_dp
    
    IF( MovingMesh ) THEN
-     Relax = ListGetConstReal( Solver % Values,'Relax')
-     MeshUpdate = Relax * MeshUpdate + (1-Relax) * PrevMeshUpdate
-     
      DO i=1,n
        j = MeshPerm(i)
        IF( j == 0 ) CYCLE
        IF( dim == 2 ) THEN
-         Truex(i) = Truex(i) + ( MeshUpdate(2*j-1) - PrevMeshUpdate(2*j-1) )
-         Truey(i) = Truey(i) + ( MeshUpdate(2*j) - PrevMeshUpdate(2*j) )
+         Truex(i) = Truex(i) + Relax * ( MeshUpdate(2*j-1) - PrevMeshUpdate(2*j-1) )
+         Truey(i) = Truey(i) + Relax * ( MeshUpdate(2*j) - PrevMeshUpdate(2*j) )
        ELSE
-         Truex(i) = Truex(i) + ( MeshUpdate(3*j-2) - PrevMeshUpdate(3*j-2) )
-         Truey(i) = Truey(i) + ( MeshUpdate(3*j-1) - PrevMeshUpdate(3*j-1) )
-         Truez(i) = Truez(i) + ( MeshUpdate(3*j) - PrevMeshUpdate(3*j) )
+         Truex(i) = Truex(i) + Relax * ( MeshUpdate(3*j-2) - PrevMeshUpdate(3*j-2) )
+         Truey(i) = Truey(i) + Relax * ( MeshUpdate(3*j-1) - PrevMeshUpdate(3*j-1) )
+         Truez(i) = Truez(i) + Relax * ( MeshUpdate(3*j) - PrevMeshUpdate(3*j) )
        END IF
      END DO
    ELSE
@@ -383,20 +366,20 @@
        j = MeshPerm(i)
        IF( j == 0 ) CYCLE
        IF( dim == 2 ) THEN
-         Truex(i) = Truex(i) + MeshUpdate(2*j-1)
-         Truey(i) = Truey(i) + MeshUpdate(2*j) 
+         Truex(i) = Truex(i) + Relax * MeshUpdate(2*j-1)
+         Truey(i) = Truey(i) + Relax * MeshUpdate(2*j) 
        ELSE
-         Truex(i) = Truex(i) + MeshUpdate(3*j-2)
-         Truey(i) = Truey(i) + MeshUpdate(3*j-1)
-         Truez(i) = Truez(i) + MeshUpdate(3*j)
+         Truex(i) = Truex(i) + Relax * MeshUpdate(3*j-2)
+         Truey(i) = Truey(i) + Relax * MeshUpdate(3*j-1)
+         Truez(i) = Truez(i) + Relax * MeshUpdate(3*j)
        END IF
      END DO
    END IF
    
    IF(.NOT. Cumulative) THEN
-     Solver % Mesh % Nodes % x => TrueX
-     Solver % Mesh % Nodes % y => TrueY
-     Solver % Mesh % Nodes % z => TrueZ
+     Mesh % Nodes % x => TrueX
+     Mesh % Nodes % y => TrueY
+     Mesh % Nodes % z => TrueZ
    END IF
    
    
@@ -435,7 +418,7 @@
      CALL GetElementNodes( Nodes )
      dim = CoordinateSystemDimension()
 
-     Coeff = ListGetConstReal( Solver % Values,'Mass Coefficient',Stat)
+     Coeff = ListGetConstReal( Params,'Mass Coefficient',Stat)
      
      IF ( PlaneStress ) THEN
         NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) / &
@@ -550,7 +533,7 @@
 
    IF( GotTargetSurface .AND. .NOT. GotGradSol ) THEN
      IF( .NOT. AllocationsDone ) THEN
-       np = Solver % Mesh % MaxElementNodes
+       np = Mesh % MaxElementNodes
        ALLOCATE( ParentBasis(np), dParentBasisdx(np,3))
        AllocationsDone = .TRUE.
      END IF
@@ -612,9 +595,13 @@
                  SUM( dParentBasisdx(1:np,i) * TargetSol % Values( Parent % NodeIndexes(1:np) ) )
            END DO
          END IF
+         ! A suggested displacement to the direction of the normal. 
+         ! The absolute gradient is used both in the normalization and 
+         ! when making the unit vector and hence the SQRT operator is not 
+         ! performed on purpose.
          AbsGradSurface2 = SUM( GradSurface(1:dim)**2) 
          DO i=1,dim
-           ExtDisp(i) = (RefSurface-Surface)*GradSurface(i) / AbsGradSurface2
+           ExtDisp(i) = (RefSurface-Surface) * GradSurface(i) / AbsGradSurface2
          END DO
        END IF
        Gamma = SUM( NodalGamma(1:n) * Basis )
@@ -658,6 +645,83 @@
 !------------------------------------------------------------------------------
  END SUBROUTINE MeshBoundary
 !------------------------------------------------------------------------------
+
+!-----------------------------------------------------------   
+! Set the nodal coordinates by penalty
+!------------------------------------------------------------
+ SUBROUTINE NodalDisplacementPenalty()
+
+   INTEGER :: i,j,k,j2
+   REAL(KIND=dp) :: ExtDisp(3),GradSurface(3),AbsGradSurface2,Surface,&
+       RefSurface,TargetCoeff
+   LOGICAL :: LocalPenalty
+   INTEGER, POINTER :: PenaltyPerm(:)
+
+   IF(.NOT. (GotTargetSurface .OR. GotTargetField) ) RETURN
+
+   TargetCoeff = GetCReal(Params,'Nodal Penalty Factor',Found)     
+   IF( ABS( TargetCoeff ) < TINY(TargetCoeff) ) RETURN
+
+
+   LocalPenalty = ListCheckPresentAnyBC( Model,'Apply Nodal Penalty') 
+   IF(.NOT. LocalPenalty ) THEN
+     LocalPenalty = ListCheckPresentAnyBodyForce( Model,'Apply Nodal Penalty')     
+   END IF
+
+   IF( LocalPenalty ) THEN
+     CALL Info('NonphysicalMeshSolve','Setting permutation for local penalties')
+     ALLOCATE( PenaltyPerm( Mesh % NumberOfNodes ) )
+     CALL MakePermUsingMask( Model, Solver, Mesh,'Apply Nodal Penalty', .FALSE., PenaltyPerm, i )
+     PRINT *,'Number of penalty nodes',i
+   END IF
+   
+   IF( .NOT. GotTargetField ) THEN
+     RefSurface = ListGetCReal( Params,'Reference Surface')
+   END IF
+
+   DO i=1,Mesh % NumberOfNodes
+         
+     j = MeshPerm(i)
+     IF(j==0) CYCLE
+     
+     j2 = TargetSol % Perm(i)
+     IF(j2==0) CYCLE
+
+     IF(LocalPenalty) THEN
+       IF( PenaltyPerm(i) == 0 ) CYCLE
+     END IF
+
+     IF( GotTargetField ) THEN
+       DO k=1,dim
+         ExtDisp(k) = TargetSol % Values( dim * (j2-1) + k )
+       END DO
+     ELSE
+       Surface = TargetSol % Values( j2 )
+       IF( GotGradSol ) THEN
+         j2 = GradSol % Perm(i)
+         DO k=1,dim
+           GradSurface(k) = GradSol % Values( dim * (j2-1) + k )  
+         END DO
+       ELSE
+         CALL Fatal('NonphysicalMeshSolve','You should provide GradSol!')
+       END IF
+       AbsGradSurface2 = SUM( GradSurface(1:dim)**2) 
+       DO k=1,dim
+         ExtDisp(k) = (RefSurface-Surface) * GradSurface(k) / AbsGradSurface2
+       END DO
+     END IF
+
+     DO k=1,dim
+       ind = 3 * (j-1) + k
+       Solver % Matrix % rhs(ind) = Solver % Matrix % rhs(ind) + TargetCoeff * ExtDisp(k)
+       CALL CRS_AddToMatrixElement( Solver % Matrix,ind,ind,TargetCoeff )
+     END DO
+   END DO
+
+   IF( LocalPenalty ) DEALLOCATE( PenaltyPerm ) 
+
+ END SUBROUTINE NodalDisplacementPenalty
+
 
 
 !------------------------------------------------------------------------------
