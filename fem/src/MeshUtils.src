@@ -2982,7 +2982,7 @@ END SUBROUTINE GetMaxDefs
     
     DIM = CoordinateSystemDimension()
     
-    Projector => Null()
+    Projector => NULL()
     IF ( This <= 0 .OR. Trgt <= 0 ) RETURN    
 
     CALL ResetTimer('PeriodicProjector')
@@ -3280,11 +3280,13 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh_in, Mesh_out
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n,max_body,bcid
+    INTEGER :: i,j,k,l,n,cnt,in_Levels,ind(8),max_bid,l_n,max_body,bcid,&
+        ExtrudedCoord
     TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
     LOGICAL :: isParallel, Found
-    REAL(KIND=dp)::x_top,y_top,z_top,x_bot,y_bot,z_bot,w
+    REAL(KIND=dp)::w,MinCoord,MaxCoord,CurrCoord
+    REAL(KIND=dp), POINTER :: ActiveCoord(:)
     REAL(KIND=dp), ALLOCATABLE :: Wtable(:)
 !------------------------------------------------------------------------------
     Mesh_out => AllocateMesh()
@@ -3325,28 +3327,41 @@ END SUBROUTINE GetMaxDefs
     ALLOCATE( Wtable( 0: in_levels + 1 ) )
     CALL UnitSegmentDivision( Wtable, in_levels + 1 ) 
 
-    z_bot = ListGetConstReal( CurrentModel % Simulation,'Extruded Min Coordinate',Found )
-    IF(.NOT. Found) z_bot = 0.0_dp
+    ExtrudedCoord = ListGetInteger( CurrentModel % Simulation,'Extruded Coordinate Index', &
+        Found, minv=1,maxv=3 )
+    IF(.NOT. Found) ExtrudedCoord = 3 
 
-    z_top = ListGetConstReal( CurrentModel % Simulation,'Extruded Max Coordinate',Found )
-    IF(.NOT. Found) z_top = 1.0_dp
+    IF( ExtrudedCoord == 1 ) THEN
+      ActiveCoord => Mesh_out % Nodes % x
+    ELSE IF( ExtrudedCoord == 2 ) THEN
+      ActiveCoord => Mesh_out % Nodes % y
+    ELSE IF( ExtrudedCoord == 3 ) THEN
+      ActiveCoord => Mesh_out % Nodes % z
+    END IF
+
+
+    MinCoord = ListGetConstReal( CurrentModel % Simulation,'Extruded Min Coordinate',Found )
+    IF(.NOT. Found) MinCoord = 0.0_dp
+
+    MaxCoord = ListGetConstReal( CurrentModel % Simulation,'Extruded Max Coordinate',Found )
+    IF(.NOT. Found) MaxCoord = 1.0_dp
 
     cnt=0
     DO i=0,in_levels+1
 
       w = Wtable( i ) 
+      CurrCoord = w * MaxCoord + (1-w) * MinCoord
 
       DO j=1,Mesh_in % NumberOfNodes
-        x_bot = Mesh_in % Nodes % x(j)
-        y_bot = Mesh_in % Nodes % y(j)
 
-        x_top = Mesh_in % Nodes % x(j)
-        y_top = Mesh_in % Nodes % y(j)
+        cnt = cnt + 1
 
-        cnt=cnt+1
-        Mesh_out % Nodes % x(cnt) = w*x_top + (1-w)*x_bot
-        Mesh_out % Nodes % y(cnt) = w*y_top + (1-w)*y_bot
-        Mesh_out % Nodes % z(cnt) = w*z_top + (1-w)*z_bot
+        Mesh_out % Nodes % x(cnt) = Mesh_in % Nodes % x(j) 
+        Mesh_out % Nodes % y(cnt) = Mesh_in % Nodes % y(j) 
+        Mesh_out % Nodes % z(cnt) = Mesh_in % Nodes % z(j) 
+
+        ! Override the coordinate in the extruded direction by the value on the layer.
+        ActiveCoord(cnt) = CurrCoord
 
         IF (isParallel) THEN
           PI_out % INTERFACE(cnt) = PI_in % INTERFACE(j)
