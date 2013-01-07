@@ -3118,6 +3118,398 @@ END IF
 !------------------------------------------------------------------------------
 
 
+!----------------------------------------------------------------------------------
+!>  Return RT basis function values and their divergence at the integration point.
+!>  The data for performing the Piola transformation is also returned.
+!>  Note that the reference element is chosen as in the p-approximation so that
+!>  the reference element faces have the same area. This choice simplifies 
+!>  the associated assembly procedure.
+!---------------------------------------------------------------------------------
+     RECURSIVE FUNCTION RTElementInfo( Element, Nodes, u, v, w, F, detF, &
+          Basis, RTBasis, DivRTBasis, BasisDegree ) RESULT(stat)
+!------------------------------------------------------------------------------
+       IMPLICIT NONE
+
+       TYPE(Element_t), TARGET :: Element     !< Element structure
+       TYPE(Nodes_t) :: Nodes                 !< Data corresponding to the classic element nodes
+       REAL(KIND=dp) :: u                     !< 1st Local coordinate at which the basis functions are evaluated
+       REAL(KIND=dp) :: v                     !< 2nd local coordinate
+       REAL(KIND=dp) :: w                     !< 3rd local coordinate
+       REAL(KIND=dp) :: F(3,3)                !< The gradient of the element map K=f(k), with k the reference element
+       REAL(KIND=dp) :: detF                  !< The determinant of the gradient matrix (or the Jacobian matrix)
+       REAL(KIND=dp) :: Basis(:)              !< Standard nodal basis functions evaluated at (u,v,w)
+       REAL(KIND=dp) :: RTBasis(:,:)          !< Basis functions for spanning RT approximation on reference element    
+       REAL(KIND=dp) :: DivRTBasis(:)         !< The divergence of RT basis functions with respect to the local coordinates
+       INTEGER, OPTIONAL :: BasisDegree(:)    !< This a dummy parameter at the moment
+       LOGICAL :: Stat                        !< Should be .FALSE. for a degenerate element but this is not yet checked
+!-----------------------------------------------------------------------------------------------------------------
+!      Local variables
+!------------------------------------------------------------------------------------------------------------
+       INTEGER :: n, dim, q, i, j, k, ni, nj, A, B, C, D
+       REAL(KIND=dp) :: dLbasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3), t1(3), t2(3), m(3), e(3)
+       INTEGER, POINTER :: EdgeMap(:,:), FaceMap(:,:), Ind(:)
+       INTEGER, TARGET :: TetraFaceMap(4,3)
+       LOGICAL :: RevertSign(4), RevertSign2(4), CheckSignReversions
+!-----------------------------------------------------------------------------------------------------
+       TetraFaceMap(1,:) = (/ 1, 2, 3 /)
+       TetraFaceMap(2,:) = (/ 1, 2, 4 /)
+       TetraFaceMap(3,:) = (/ 2, 3, 4 /) 
+       TetraFaceMap(4,:) = (/ 3, 1, 4 /)
+       !-----------------------------------------------------------------------------------------------------
+       stat = .TRUE.
+       Basis = 0.0d0
+       RTBasis = 0.0d0
+       DivRTBasis = 0.0d0
+       F = 0.0d0
+
+       dLbasisdx = 0.0d0      
+       n    = Element % TYPE % NumberOfNodes
+       dim  = Element % TYPE % DIMENSION
+
+       IF ( Element % TYPE % ElementCode == 101 ) THEN
+          detF = 1.0d0
+          Basis(1) = 1.0d0
+          RETURN
+       END IF
+
+       !-----------------------------------------------------------------------
+       ! The standard nodal basis functions on the reference element and
+       ! their derivatives with respect to the local coordinates. These define 
+       ! the mapping of the reference element to an actual element on the 
+       ! background mesh but are not the basis functions for RT approximation.
+       ! Remark: Using reference elements having the faces of the same area
+       ! simplifies the implementation of element assembly procedures.
+       !-----------------------------------------------------------------------
+       ! Check first whether the given element type is supported...
+       !------------------------------------------------------------------------
+       IF (.NOT. (Element % TYPE % ElementCode == 303 .OR.  &
+            Element % TYPE % ElementCode == 504) ) &
+            CALL Fatal( 'RTElementInfo', &
+            'RT approximation supported only for element types 303 or 504')
+       !---------------------------------------------------------------------------
+       SELECT CASE(dim)
+       CASE(2)
+          DO q=1,n
+             Basis(q) = TriangleNodalPBasis(q, u, v)
+             dLBasisdx(q,1:2) = dTriangleNodalPBasis(q, u, v) 
+          END DO
+       CASE(3)
+          DO q=1,n
+             Basis(q) = TetraNodalPBasis(q, u, v, w)
+             dLBasisdx(q,1:3) = dTetraNodalPBasis(q, u, v, w)
+          END DO
+       END SELECT
+
+       !-----------------------------------------------------------------------
+       ! Get data for performing the Piola transformation...
+       !-----------------------------------------------------------------------
+       stat = PiolaTransformationData(n, Element, Nodes, F, detF, dLBasisdx) 
+       !------------------------------------------------------------------------
+       ! ... in order to define RT basis via applying the Piola transformation as
+       !    RT(K) = { B | B = 1/(det F) F b(f^{-1}(x)) }
+       ! with b giving the RT basis function on the reference element k,
+       ! f mapping k to the actual element K, i.e. K = f(k) and F = grad f. This 
+       ! function returns the local basis functions b and their divergence (with respect
+       ! to local coordinates) evaluated at the integration point. The effect of 
+       ! the Piola transformation need to be considered when integrating, so we 
+       ! shall return also the values of F and det F.
+       !
+       ! The construction of RT bases could be done in an easier way for 
+       ! triangles and tetrahedra, while the chosen approach has the benefit that
+       ! it generalizes to other cases. For example general quadrilaterals may now 
+       ! be handled in the same way.
+       !---------------------------------------------------------------------------
+       SELECT CASE(dim)
+       CASE(2)
+          !-----------------------------------------------------------
+          ! This branch is currently for handling triangles. Note that
+          ! the global orientation of face normal is taken to be
+          ! n = t x e_z where the tangent vector t is aligned with
+          ! the element edge and points towards the node that has
+          ! a larger global index.
+          !---------------------------------------------------
+          EdgeMap => LGetEdgeMap(3)
+          !EdgeMap => GetEdgeMap(GetElementFamily(Element))
+
+          i = EdgeMap(1,1)
+          j = EdgeMap(1,2)
+          ni = Element % NodeIndexes(i)
+          nj = Element % NodeIndexes(j)
+          RTBasis(1,1) = sqrt(3.0d0)/6.0d0 * u
+          RTBasis(1,2) = -0.5d0 + sqrt(3.0d0)/6.0d0 * v
+          DivRTBasis(1) =  sqrt(3.0d0)/3.0d0
+          IF (nj<ni) THEN
+             RTBasis(1,:) = -RTBasis(1,:)
+             DivRTBasis(1) = -DivRTBasis(1)
+          END IF
+
+          i = EdgeMap(2,1)
+          j = EdgeMap(2,2)
+          ni = Element % NodeIndexes(i)
+          nj = Element % NodeIndexes(j)
+          RTBasis(2,1) = sqrt(3.0d0)/6.0d0 * (1.0d0 + u)
+          RTBasis(2,2) = sqrt(3.0d0)/6.0d0 * v
+          DivRTBasis(2) =  sqrt(3.0d0)/3.0d0        
+          IF (nj<ni) THEN
+             RTBasis(2,:) = -RTBasis(2,:)
+             DivRTBasis(2) = -DivRTBasis(2)
+          END IF
+
+          i = EdgeMap(3,1)
+          j = EdgeMap(3,2)
+          ni = Element % NodeIndexes(i)
+          nj = Element % NodeIndexes(j)
+          RTBasis(3,1) = sqrt(3.0d0)/6.0d0 * (-1.0d0 + u)
+          RTBasis(3,2) = sqrt(3.0d0)/6.0d0 * v
+          DivRTBasis(3) =  sqrt(3.0d0)/3.0d0          
+          IF (nj<ni) THEN
+             RTBasis(3,:) = -RTBasis(3,:)
+             DivRTBasis(3) = -DivRTBasis(3)
+          END IF
+
+       CASE(3)
+          !-----------------------------------------
+          ! This branch is for handling tetrahedra
+          !-----------------------------------------
+          FaceMap => TetraFaceMap
+          Ind => Element % Nodeindexes
+
+          DO q=1,4
+             !-----------------------------------------------------------------------------------
+             ! Check first whether a sign reversion will be needed as face dofs have orientation.
+             ! If the sign is not reverted, a positive value of the degree of freedom produces
+             ! positive outward flux from the element through the face handled.
+             !-----------------------------------------------------------------------------------
+             RevertSign(q) = .FALSE.
+             i = FaceMap(q,1)
+             j = FaceMap(q,2)
+             k = FaceMap(q,3)
+
+             SELECT CASE(q)
+             CASE(1)
+                IF ( (Ind(i) < Ind(j)) .AND. (Ind(i) < Ind(k)) ) THEN
+                   IF (Ind(j) < Ind(k)) THEN
+                      RevertSign(q) = .TRUE.
+                   END IF
+                ELSE IF ( ( Ind(j) < Ind(i) ) .AND. ( Ind(j) < Ind(k) ) ) THEN
+                   IF ( Ind(k) < Ind(i) ) THEN
+                      RevertSign(q) = .TRUE.
+                   END IF
+                ELSE  
+                   IF ( Ind(i) < Ind(j) ) THEN
+                      RevertSign(q) = .TRUE.
+                   END IF
+                END IF
+
+             CASE(2,3,4)
+                IF ( (Ind(i) < Ind(j)) .AND. (Ind(i) < Ind(k)) ) THEN
+                   IF (Ind(k) < Ind(j)) THEN
+                      RevertSign(q) = .TRUE.
+                   END IF
+                ELSE IF ( ( Ind(j) < Ind(i) ) .AND. ( Ind(j) < Ind(k) ) ) THEN
+                   IF ( Ind(i) < Ind(k) ) THEN
+                      RevertSign(q) = .TRUE.
+                   END IF
+                ELSE  
+                   IF ( Ind(j) < Ind(i) ) THEN
+                      RevertSign(q) = .TRUE.
+                   END IF
+                END IF
+
+             END SELECT
+
+          END DO
+
+          !----------------------------------------------------------------------
+          ! Another way for finding sign reversions. This code is retained here,
+          ! although it was used for verification purposes...
+          !----------------------------------------------------------------------
+          CheckSignReversions = .FALSE.
+          IF (CheckSignReversions) THEN
+             DO q=1,4
+                RevertSign2(q) = .FALSE.
+                i = FaceMap(q,1)
+                j = FaceMap(q,2)
+                k = FaceMap(q,3)
+
+                IF ( ( Ind(i) < Ind(j) ) .AND. ( Ind(i) < Ind(k) ) ) THEN
+                   A = i
+                   IF (Ind(j) < Ind(k)) THEN
+                      B = j
+                      C = k
+                   ELSE
+                      B = k
+                      C = j
+                   END IF
+                ELSE IF ( ( Ind(j) < Ind(i) ) .AND. ( Ind(j) < Ind(k) ) ) THEN
+                   A = j
+                   IF (Ind(i) < Ind(k)) THEN
+                      B = i
+                      C = k
+                   ELSE
+                      B = k
+                      C = i
+                   END IF
+                ELSE
+                   A = k
+                   IF (Ind(i) < Ind(j)) THEN
+                      B = i
+                      C = j
+                   ELSE
+                      B = j
+                      C = i
+                   END IF
+                END IF
+
+                t1(1) = Nodes % x(B) - Nodes % x(A)
+                t1(2) = Nodes % y(B) - Nodes % y(A)              
+                t1(3) = Nodes % z(B) - Nodes % z(A)
+
+                t2(1) = Nodes % x(C) - Nodes % x(A)
+                t2(2) = Nodes % y(C) - Nodes % y(A)              
+                t2(3) = Nodes % z(C) - Nodes % z(A)
+
+                m(1:3) = CrossProduct(t1,t2)
+
+                SELECT CASE(q)
+                CASE(1)
+                   D = 4
+                CASE(2)
+                   D = 3 
+                CASE(3)
+                   D = 1
+                CASE(4)
+                   D = 2                   
+                END SELECT
+
+                e(1) = Nodes % x(D) - Nodes % x(A)
+                e(2) = Nodes % y(D) - Nodes % y(A)                
+                e(3) = Nodes % z(D) - Nodes % z(A)  
+
+                IF ( SUM(m(1:3) * e(1:3)) > 0.0d0 ) RevertSign2(q) = .TRUE.
+
+             END DO
+
+             IF ( ANY(RevertSign(1:4) .NEQV. RevertSign2(1:4)) ) THEN
+                PRINT *, 'CONFLICTING SIGN REVERSIONS SUGGESTED'
+                print *, RevertSign(1:4)
+                print *, RevertSign2(1:4)
+                STOP
+             END IF
+
+          END IF
+
+          !-------------------------------------------------------------------------
+          ! The basis functions that define RT space on reference element
+          !-----------------------------------------------------------------------
+          RTBasis(1,1) = sqrt(2.0d0)/4.0d0 * u
+          RTBasis(1,2) = -sqrt(6.0d0)/12.0d0 + sqrt(2.0d0)/4.0d0 * v
+          RTBasis(1,3) = -1.0d0/sqrt(3.0d0) + sqrt(2.0d0)/4.0d0 * w
+          DivRTBasis(1) = 3.0d0*sqrt(2.0d0)/4.0d0
+          IF ( RevertSign(1) ) THEN
+             RTBasis(1,:) = -RTBasis(1,:)
+             DivRTBasis(1) = -DivRTBasis(1)
+          END IF
+
+          RTBasis(2,1) = sqrt(2.0d0)/4.0d0 * u
+          RTBasis(2,2) = -sqrt(6.0d0)/4.0d0 + sqrt(2.0d0)/4.0d0 * v
+          RTBasis(2,3) = sqrt(2.0d0)/4.0d0 * w
+          DivRTBasis(2) = 3.0d0*sqrt(2.0d0)/4.0d0
+          IF ( RevertSign(2) ) THEN
+             RTBasis(2,:) = -RTBasis(2,:)
+             DivRTBasis(2) = -DivRTBasis(2)
+          END IF
+
+          RTBasis(3,1) = sqrt(2.0d0)/4.0d0 + sqrt(2.0d0)/4.0d0 * u
+          RTBasis(3,2) = sqrt(2.0d0)/4.0d0 * v
+          RTBasis(3,3) = sqrt(2.0d0)/4.0d0 * w
+          DivRTBasis(3) = 3.0d0*sqrt(2.0d0)/4.0d0
+          IF ( RevertSign(3) ) THEN
+             RTBasis(3,:) = -RTBasis(3,:)
+             DivRTBasis(3) = -DivRTBasis(3)
+          END IF
+
+          RTBasis(4,1) = -sqrt(2.0d0)/4.0d0 + sqrt(2.0d0)/4.0d0 * u
+          RTBasis(4,2) = sqrt(2.0d0)/4.0d0 * v
+          RTBasis(4,3) = sqrt(2.0d0)/4.0d0 * w
+          DivRTBasis(4) = 3.0d0*sqrt(2.0d0)/4.0d0
+          IF ( RevertSign(4) ) THEN
+             RTBasis(4,:) = -RTBasis(4,:)
+             DivRTBasis(4) = -DivRTBasis(4)
+          END IF
+
+       END SELECT
+
+!-----------------------------------------------------------------------------
+     END FUNCTION RTElementInfo
+!------------------------------------------------------------------------------
+
+
+!----------------------------------------------------------------------------------------------
+!> This function returns data for performing the Piola transformation 
+!------------------------------------------------------------------------------------------------
+     FUNCTION PiolaTransformationData(nn,Element,Nodes,F,DetF,dLBasisdx) RESULT(Success)
+!-------------------------------------------------------------------------------------------------
+       INTEGER :: nn                   !< The number of classic nodes used in the element mapping
+       TYPE(Element_t) :: Element      !< Element structure
+       TYPE(Nodes_t) :: Nodes          !< Data corresponding to the classic element nodes
+       REAL(KIND=dp) :: F(:,:)         !< The gradient of the element mapping
+       REAL(KIND=dp) :: DetF           !< The determinant of the gradient matrix (or the Jacobian matrix)
+       REAL(KIND=dp) :: dLBasisdx(:,:) !< Derivatives of nodal basis functions with respect to local coordinates
+       LOGICAL :: Success              !< Could and should return .FALSE. if the element is degenerate
+!-----------------------------------------------------------------------------------------------------
+!      Local variables
+!-------------------------------------------------------------------------------------------------
+       REAL(KIND=dp), DIMENSION(:), POINTER :: x,y,z
+       INTEGER :: cdim,dim,n,i
+!-------------------------------------------------------------------------------------------------
+       x => Nodes % x
+       y => Nodes % y
+       z => Nodes % z     
+
+       ! cdim = CoordinateSystemDimension()
+       n = MIN( SIZE(x), nn )
+       dim  = Element % TYPE % DIMENSION
+
+       !------------------------------------------------------------------------------
+       ! The gradient of the element mapping K = f(k), with k the reference element
+       !------------------------------------------------------------------------------
+       DO i=1,dim
+          F(1,i) = SUM( x(1:n) * dLBasisdx(1:n,i) )
+          F(2,i) = SUM( y(1:n) * dLBasisdx(1:n,i) )
+          IF (dim == 3) &
+               F(3,i) = SUM( z(1:n) * dLBasisdx(1:n,i) )
+       END DO
+
+       SELECT CASE( dim )    
+       CASE (2)
+          DetF = F(1,1)*F(2,2) - F(1,2)*F(2,1)
+       CASE(3)
+          DetF = F(1,1) * ( F(2,2)*F(3,3) - F(2,3)*F(3,2) ) + &
+               F(1,2) * ( F(2,3)*F(3,1) - F(2,1)*F(3,3) ) + &
+               F(1,3) * ( F(2,1)*F(3,2) - F(2,2)*F(3,1) )
+       END SELECT
+
+       success = .TRUE.
+!------------------------------------------------
+     END FUNCTION PiolaTransformationData
+!------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Perform the cross product of two vectors
+!------------------------------------------------------------------------------
+     FUNCTION CrossProduct( v1, v2 ) RESULT( v3 )
+!------------------------------------------------------------------------------
+       REAL(KIND=dp) :: v1(3), v2(3), v3(3)
+       v3(1) =  v1(2)*v2(3) - v1(3)*v2(2)
+       v3(2) = -v1(1)*v2(3) + v1(3)*v2(1)
+       v3(3) =  v1(1)*v2(2) - v1(2)*v2(1)
+!------------------------------------------------------------------------------
+     END FUNCTION CrossProduct
+!------------------------------------------------------------------------------
+
+
 
 !------------------------------------------------------------------------------
 !>  Returns Whitney basis vector functions (edge elements W1 in 3D) values
@@ -3266,152 +3658,6 @@ END IF
    END FUNCTION WhitneyElementInfo
 !------------------------------------------------------------------------------
 
-
-!------------------------------------------------------------------------------
-!>  Returns Whitney basis vector functions (face elements W2 in 3D) values
-!>  and Whitney basis function global first derivatives at given point in
-!>  local coordinates.
-!------------------------------------------------------------------------------
-   FUNCTION Whitney2ElementInfo( Element,Basis,dBasisdx, &
-      nfaces, WhitneyBasis,dWhitneyBasisdx ) RESULT(stat)
-!------------------------------------------------------------------------------
-!
-! ARGUMENTS:
-!  Type(Element_t) :: element
-!    INPUT: element structure
-!
-!  Type(Nodes_t) :: Nodes
-!    INPUT: element nodal coordinates
-!     
-!  REAL(KIND=dp) :: u,v,w
-!    INPUT: Point at which to evaluate the basis functions
-!
-!  REAL(KIND=dp) :: Basis(:)
-!    INPUT: Barycentric basis function (#nodes) values at (u,v,w)
-!
-!  REAL(KIND=dp) :: WhitneyBasis(:,:)
-!    OUTPUT: Basis vector function (#faces,3) values at (u,v,w)
-!
-!  REAL(KIND=dp) :: dWhitneyBasisdx(:,:,:)
-!    OUTPUT: Global first derivatives of basis functions at (u,v,w)
-!
-! FUNCTION VALUE:
-!    LOGICAL :: stat
-!      If .FALSE. element is degenerate or not a Whitney element
-!   
-!------------------------------------------------------------------------------
-
-     TYPE(Element_t) :: Element
-     REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),WhitneyBasis(:,:),dWhitneyBasisdx(:,:,:)
-     INTEGER :: nfaces
-     LOGICAL :: stat
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-
-     INTEGER :: i,j,k,l,q,n,dim,cdim,ip,jp,kp
-     INTEGER, DIMENSION(:), POINTER :: Ind
-     REAL(KIND=dp), DIMENSION(3,3) :: apu
-     REAL (KIND=dp) :: Edge(3,3)
-!------------------------------------------------------------------------------
-
-     n    = Element % TYPE % NumberOfNodes
-     dim  = Element % TYPE % DIMENSION
-     cdim = CoordinateSystemDimension()
-
-     IF ( (dim /= 3) .OR. (cdim /= 3 ) ) THEN
-       stat = .FALSE.
-       CALL Error( 'Whitney2ElementInfo', &
-              'Whitney elements implemented only in 3D' )
-       RETURN
-     END IF
-
-     nfaces = 4 ! tetras, 6 for bricks not supported
-
-     DO q=1,nfaces
-! Find appropriate end nodes (i,j,k) for face q
-       IF (nfaces == 4) THEN
-! For tetras
-         SELECT CASE (q)
-           CASE(1)
-           i=1
-           j=2
-           k=3
-           CASE(2)
-           i=1
-           j=2
-           k=4
-           CASE(3)
-           i=1
-           j=3
-           k=4
-           CASE(4)
-           i=2
-           j=3
-           k=4
-         END SELECT
-       ELSE
-         CALL Fatal( 'Whitney2ElementInfo', &
-              'Not appropriate number of edges for W2 elements' )
-         STOP
-       END IF
-
-! Guess the face direction is defined between elements (not internal)
-     Ind => Element % Nodeindexes
-     IF ( (Ind(i) < Ind(j)) .AND. (Ind(i) < Ind(k)) ) THEN
-       ip = i
-       IF  ( Ind(j) < Ind(k) ) THEN
-         jp = j
-         kp = k
-       ELSE
-         jp = k
-         kp = j
-       END IF
-     ELSE IF ( ( Ind(j) < Ind(i) ) .AND. ( Ind(j) < Ind(k) ) ) THEN
-       ip = j
-       IF ( Ind(i) < Ind(k) ) THEN
-         jp = i
-         kp = k
-       ELSE
-         jp = k
-         kp = i
-       END IF
-     ELSE
-       ip = k
-       IF  ( Ind(i) < Ind(j) ) THEN
-         jp = i
-         kp = j
-       ELSE
-         jp = j
-         kp = i
-       END IF
-     END IF
-
-! Put the beef in here
-! Components of the basis function q
-       apu(1,1) = dBasisdx(jp,2)*dBasisdx(kp,3) - dBasisdx(jp,3)*dBasisdx(kp,2)
-       apu(1,2) = dBasisdx(kp,2)*dBasisdx(ip,3) - dBasisdx(kp,3)*dBasisdx(ip,2)
-       apu(1,3) = dBasisdx(ip,2)*dBasisdx(jp,3) - dBasisdx(ip,3)*dBasisdx(jp,2)
-       apu(2,1) = dBasisdx(jp,3)*dBasisdx(kp,1) - dBasisdx(jp,1)*dBasisdx(kp,3)
-       apu(2,2) = dBasisdx(kp,3)*dBasisdx(ip,1) - dBasisdx(kp,1)*dBasisdx(ip,3)
-       apu(2,3) = dBasisdx(ip,3)*dBasisdx(jp,1) - dBasisdx(ip,1)*dBasisdx(jp,3)
-       apu(3,1) = dBasisdx(jp,1)*dBasisdx(kp,2) - dBasisdx(jp,2)*dBasisdx(kp,1)
-       apu(3,2) = dBasisdx(kp,1)*dBasisdx(ip,2) - dBasisdx(kp,2)*dBasisdx(ip,1)
-       apu(3,3) = dBasisdx(ip,1)*dBasisdx(jp,2) - dBasisdx(ip,2)*dBasisdx(jp,1)
-! Component k
-       DO k=1,dim
-         WhitneyBasis(q,k) = 2._dp * ( Basis(ip) * apu(k,1) + &
-             Basis(jp) * apu(k,2) + Basis(kp) * apu(k,3) )
-!         WhitneyBasis(q,k) = WhitneyBasis(q,k) / SQRT(SUM(CrossProduct(Edge(1,:),Edge(2,:))**2)) * 2._dp
-! And its derivative l
-         DO l=1,dim
-           dWhitneyBasisdx(q,k,l) = 2._dp * ( dBasisdx(ip,l) * apu(k,1) + &
-               dBasisdx(jp,l) * apu(k,2) + dBasisdx(kp,l) * apu(k,3) )
-         END DO
-       END DO
-     END DO
-   END FUNCTION Whitney2ElementInfo
-!------------------------------------------------------------------------------
 
 
 
@@ -5358,6 +5604,160 @@ END FUNCTION PointFaceDistance
        retVal = .TRUE.
     END IF
   END FUNCTION wedgeOrdering
+
+
+!------------------------------------------------------------------------------
+!>  Returns Whitney basis vector functions (face elements W2 in 3D) values
+!>  and Whitney basis function global first derivatives at given point in
+!>  local coordinates.
+!>  IMPORTANT NOTE: For performing approximation by using face elements consider
+!>  utilizing the function RTElementInfo which is newer, offers better
+!>  extendability and is expected to be the place where future developments
+!>  are directed.
+!------------------------------------------------------------------------------
+   FUNCTION Whitney2ElementInfo( Element,Basis,dBasisdx, &
+      nfaces, WhitneyBasis,dWhitneyBasisdx ) RESULT(stat)
+!------------------------------------------------------------------------------
+!
+! ARGUMENTS:
+!  Type(Element_t) :: element
+!    INPUT: element structure
+!
+!  Type(Nodes_t) :: Nodes
+!    INPUT: element nodal coordinates
+!     
+!  REAL(KIND=dp) :: u,v,w
+!    INPUT: Point at which to evaluate the basis functions
+!
+!  REAL(KIND=dp) :: Basis(:)
+!    INPUT: Barycentric basis function (#nodes) values at (u,v,w)
+!
+!  REAL(KIND=dp) :: WhitneyBasis(:,:)
+!    OUTPUT: Basis vector function (#faces,3) values at (u,v,w)
+!
+!  REAL(KIND=dp) :: dWhitneyBasisdx(:,:,:)
+!    OUTPUT: Global first derivatives of basis functions at (u,v,w)
+!
+! FUNCTION VALUE:
+!    LOGICAL :: stat
+!      If .FALSE. element is degenerate or not a Whitney element
+!   
+!------------------------------------------------------------------------------
+
+     TYPE(Element_t) :: Element
+     REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),WhitneyBasis(:,:),dWhitneyBasisdx(:,:,:)
+     INTEGER :: nfaces
+     LOGICAL :: stat
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+
+     INTEGER :: i,j,k,l,q,n,dim,cdim,ip,jp,kp
+     INTEGER, DIMENSION(:), POINTER :: Ind
+     REAL(KIND=dp), DIMENSION(3,3) :: apu
+     REAL (KIND=dp) :: Edge(3,3)
+!------------------------------------------------------------------------------
+
+     n    = Element % TYPE % NumberOfNodes
+     dim  = Element % TYPE % DIMENSION
+     cdim = CoordinateSystemDimension()
+
+     IF ( (dim /= 3) .OR. (cdim /= 3 ) ) THEN
+       stat = .FALSE.
+       CALL Error( 'Whitney2ElementInfo', &
+              'Whitney elements implemented only in 3D' )
+       RETURN
+     END IF
+
+     nfaces = 4 ! tetras, 6 for bricks not supported
+
+     DO q=1,nfaces
+! Find appropriate end nodes (i,j,k) for face q
+       IF (nfaces == 4) THEN
+! For tetras
+         SELECT CASE (q)
+           CASE(1)
+           i=1
+           j=2
+           k=3
+           CASE(2)
+           i=1
+           j=2
+           k=4
+           CASE(3)
+           i=1
+           j=3
+           k=4
+           CASE(4)
+           i=2
+           j=3
+           k=4
+         END SELECT
+       ELSE
+         CALL Fatal( 'Whitney2ElementInfo', &
+              'Not appropriate number of edges for W2 elements' )
+         STOP
+       END IF
+
+! Guess the face direction is defined between elements (not internal)
+     Ind => Element % Nodeindexes
+     IF ( (Ind(i) < Ind(j)) .AND. (Ind(i) < Ind(k)) ) THEN
+       ip = i
+       IF  ( Ind(j) < Ind(k) ) THEN
+         jp = j
+         kp = k
+       ELSE
+         jp = k
+         kp = j
+       END IF
+     ELSE IF ( ( Ind(j) < Ind(i) ) .AND. ( Ind(j) < Ind(k) ) ) THEN
+       ip = j
+       IF ( Ind(i) < Ind(k) ) THEN
+         jp = i
+         kp = k
+       ELSE
+         jp = k
+         kp = i
+       END IF
+     ELSE
+       ip = k
+       IF  ( Ind(i) < Ind(j) ) THEN
+         jp = i
+         kp = j
+       ELSE
+         jp = j
+         kp = i
+       END IF
+     END IF
+
+! Put the beef in here
+! Components of the basis function q
+       apu(1,1) = dBasisdx(jp,2)*dBasisdx(kp,3) - dBasisdx(jp,3)*dBasisdx(kp,2)
+       apu(1,2) = dBasisdx(kp,2)*dBasisdx(ip,3) - dBasisdx(kp,3)*dBasisdx(ip,2)
+       apu(1,3) = dBasisdx(ip,2)*dBasisdx(jp,3) - dBasisdx(ip,3)*dBasisdx(jp,2)
+       apu(2,1) = dBasisdx(jp,3)*dBasisdx(kp,1) - dBasisdx(jp,1)*dBasisdx(kp,3)
+       apu(2,2) = dBasisdx(kp,3)*dBasisdx(ip,1) - dBasisdx(kp,1)*dBasisdx(ip,3)
+       apu(2,3) = dBasisdx(ip,3)*dBasisdx(jp,1) - dBasisdx(ip,1)*dBasisdx(jp,3)
+       apu(3,1) = dBasisdx(jp,1)*dBasisdx(kp,2) - dBasisdx(jp,2)*dBasisdx(kp,1)
+       apu(3,2) = dBasisdx(kp,1)*dBasisdx(ip,2) - dBasisdx(kp,2)*dBasisdx(ip,1)
+       apu(3,3) = dBasisdx(ip,1)*dBasisdx(jp,2) - dBasisdx(ip,2)*dBasisdx(jp,1)
+! Component k
+       DO k=1,dim
+         WhitneyBasis(q,k) = 2._dp * ( Basis(ip) * apu(k,1) + &
+             Basis(jp) * apu(k,2) + Basis(kp) * apu(k,3) )
+!         WhitneyBasis(q,k) = WhitneyBasis(q,k) / SQRT(SUM(CrossProduct(Edge(1,:),Edge(2,:))**2)) * 2._dp
+! And its derivative l
+         DO l=1,dim
+           dWhitneyBasisdx(q,k,l) = 2._dp * ( dBasisdx(ip,l) * apu(k,1) + &
+               dBasisdx(jp,l) * apu(k,2) + dBasisdx(kp,l) * apu(k,3) )
+         END DO
+       END DO
+     END DO
+   END FUNCTION Whitney2ElementInfo
+!------------------------------------------------------------------------------
+
+
+
 
 END MODULE ElementDescription
 
