@@ -81,7 +81,8 @@ MODULE NetCDFInterface
       LOGICAL, INTENT(OUT)       :: UniformCoords     ! Will only be true if all coordinate variables appear to be uniform
       !------------------------------------------------------------------------------
       LOGICAL :: Found
-      CHARACTER (len=MAX_NAME_LEN) :: CoordName       ! Name of the space or time coordinate
+      CHARACTER (len=MAX_NAME_LEN) :: DimName         ! Name of the space or time dimension
+      CHARACTER (len=MAX_NAME_LEN) :: CoordName       ! Name of the space or time coordinate variable (may be same as dimension)
       CHARACTER (len=MAX_NAME_LEN) :: FileName        ! File name for reading the data (of .nc format)
       CHARACTER (len=MAX_NAME_LEN) :: str
       INTEGER :: i, j, k, dimid, size, VarDim, IndVec(1) 
@@ -108,39 +109,56 @@ MODULE NetCDFInterface
       NetDim = 0
 
       DO i=1,4
+        
         IF( i == 1 ) THEN
-          CoordName = GetString( Params, "X Dim Name", Found )
+           DimName = GetString( Params, "X Dim Name", Found )
+           IF ( .NOT. found ) THEN 
+              DimName = GetString( Params, "X Name", Found )
+           END IF
         ELSE IF( i== 2 ) THEN
-          CoordName = GetString( Params, "Y Dim Name", Found )
+           DimName = GetString( Params, "Y Dim Name", Found )
+           IF ( .NOT. found ) THEN 
+              DimName = GetString( Params, "Y Name", Found )
+           END IF
         ELSE IF( i == 3 ) THEN
-          CoordName = GetString( Params, "Z Dim Name", Found )
+           DimName = GetString( Params, "Z Dim Name", Found )
+           IF ( .NOT. found ) THEN 
+              DimName = GetString( Params, "Z Name", Found )
+           END IF
         ELSE IF( i == 4 ) THEN
-          CoordName = GetString( Params, "Time Dim Name", Found ) 
+           DimName = GetString( Params, "Time Dim Name", Found ) 
+           IF ( .NOT. found ) THEN 
+              DimName = GetString( Params, "Time Name", Found )
+           END IF
         END IF
         
         IF(.NOT. Found ) THEN
           IF( i > 2 ) THEN
             CYCLE
           ELSE
-            CALL Fatal('GridDataReader',"Unable to find compulsory coordinate name:"//TRIM(CoordName))
+            CALL Fatal('GridDataReader',"Unable to find compulsory coordinate name:"//TRIM(DimName))
           END IF
         END IF
         IF( i <= 3 ) NetDim = i
         
         ! Get the dimension id
-        NetCDFstatus = NF90_INQ_DIMID(FileId,CoordName,dimid)
+        NetCDFstatus = NF90_INQ_DIMID(FileId,DimName,dimid)
         IF ( NetCDFstatus /= NF90_NOERR ) THEN 
-          CALL Fatal('GridDataReader','Dimension identifier could not be found:'//TRIM(CoordName)) 
+          CALL Fatal('GridDataReader','Dimension identifier could not be found:'//TRIM(DimName)) 
         END IF
 
         IF( i == 1 ) THEN
-          CoordName = GetString( Params, "X Var Name", Found )
+           CoordName = GetString( Params, "X Var Name", Found )
         ELSE IF( i== 2 ) THEN
-          CoordName = GetString( Params, "Y Var Name", Found )
+           CoordName = GetString( Params, "Y Var Name", Found )
         ELSE IF( i == 3 ) THEN
-          CoordName = GetString( Params, "Z Var Name", Found )
+           CoordName = GetString( Params, "Z Var Name", Found )
         ELSE IF( i == 4 ) THEN
-          CoordName = GetString( Params, "Time Var Name", Found ) 
+           CoordName = GetString( Params, "Time Var Name", Found ) 
+        END IF
+
+        IF ( .NOT. Found ) THEN
+           CoordName = DimName
         END IF
 
         ! Get the variable id and check whether it is 1D or 2D
@@ -873,8 +891,8 @@ SUBROUTINE GridDataReader( Model,Solver,dtime,TransientSimulation )
   CALL Info('GridDataReader','All done',Level=5)
   CALL Info('GridDataReader', '-----------------------------------------', Level=5 )
 
-  WRITE(Message,'(A,ES20.10)') 'NCTESTSTAT: ',SUM(field)
-  CALL Info('GridDataReader',Message,Level=2)
+!  WRITE(Message,'(A,ES20.10)') 'NCTESTSTAT: ',SUM(field)
+!  CALL Info('GridDataReader',Message,Level=2)
 
 CONTAINS
 
