@@ -8098,6 +8098,7 @@ CONTAINS
       y1 => Mesh % Nodes % y
       z1 => Mesh % Nodes % z
     ELSE
+      ReUse = ListGetLogical(Params,'Coordinate Transformation Reuse',Found ) 
       FirstTime = .NOT. ASSOCIATED( Mesh % NodesMapped )
       IF( FirstTime ) THEN
         ALLOCATE( Mesh % NodesMapped )
@@ -8113,10 +8114,16 @@ CONTAINS
         END IF
       END IF
 
+      IF( CoordTransform == 'previous' ) THEN
+        IF( FirstTime ) THEN
+          CALL Fatal('CoordinateTransformation','One cannot reuse unexisting transformation!')
+        END IF
+        ReUse = .TRUE.
+      END IF
+
       ! Note that if many solvers reutilize the same coordinates then they must 
       ! also have the same coordinate mapping. 
       !------------------------------------------------------------------------
-      ReUse = ListGetLogical(Params,'Coordinate Transformation Reuse',Found ) 
       UpdateNodes = FirstTime .OR. .NOT. ReUse 
       ! Map different nodes if the original ones are kept
       x1 => Mesh % NodesMapped % x

@@ -4544,28 +4544,27 @@ END FUNCTION SearchNodeL
 !> solver, or for a permutation vector defined by an optional flag that
 !> is used as a mask to define the set of active nodes.
 !------------------------------------------------------------------------------
-
   SUBROUTINE CalculateNodalWeights(Solver,WeightAtBoundary,Perm,VarName)
-
+!------------------------------------------------------------------------------
     IMPLICIT NONE 
     TYPE(Solver_t) :: Solver
     LOGICAL :: WeightAtBoundary
     INTEGER, POINTER, OPTIONAL :: Perm(:)
     CHARACTER(*), OPTIONAL :: VarName
-
-
+!------------------------------------------------------------------------------
     CHARACTER(LEN=MAX_NAME_LEN) :: IntVarName
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(Variable_t), POINTER :: WeightsVar
+    TYPE(ValueList_t), POINTER :: ElemParams
     REAL(KIND=dp), POINTER :: Weights(:), Solution(:)    
     TYPE(Nodes_t) :: ElementNodes
     TYPE(Element_t), POINTER :: Element
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-    INTEGER ::e, t, n, ElemStart, ElemFin
+    INTEGER ::k, e, t, n, ElemStart, ElemFin
     INTEGER, POINTER :: IntPerm(:), Indexes(:),LocalIndexes(:)
     REAL(KIND=dp) :: u,v,w,s,detJ
     REAL(KIND=dp), ALLOCATABLE :: Basis(:)
-    LOGICAL :: GotIt, stat, VariableOutput
+    LOGICAL :: GotIt, stat, VariableOutput, UseMask
 
 
     Mesh => Solver % Mesh
@@ -4583,9 +4582,11 @@ END FUNCTION SearchNodeL
     IF( WeightAtBoundary ) THEN
       ElemStart = Mesh % NumberOfBulkElements + 1
       ElemFin = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+      UseMask = ListCheckPresentAnyBC( CurrentModel, IntVarName )
     ELSE
       ElemStart = 1
       ElemFin = Mesh % NumberOfBulkElements 
+      UseMask = ListCheckPresentAnyBodyForce( CurrentModel, IntVarName )
     END IF
 
     NULLIFY( IntPerm ) 
@@ -4633,6 +4634,18 @@ END FUNCTION SearchNodeL
       n = Element % TYPE % NumberOfNodes
       LocalIndexes(1:n) = IntPerm( Indexes ) 
       IF( ANY( LocalIndexes(1:n) == 0 ) ) CYCLE
+
+      IF( UseMask ) THEN
+        IF( WeightAtBoundary ) THEN
+          DO k=1,CurrentModel % NumberOfBCs
+            IF ( Element % BoundaryInfo % Constraint == CurrentModel % BCs(k) % Tag ) EXIT
+          END DO
+          ElemParams => CurrentModel % BCs(k) % Values
+        ELSE
+          ElemParams => CurrentModel % Bodies(Element % BodyId) % Values
+        END IF
+        IF( .NOT. ListGetLogical( ElemParams, IntVarName, Stat ) ) CYCLE
+      END IF
 
       n = Element % TYPE % NumberOfNodes
       ElementNodes % x(1:n) = Mesh % Nodes % x(Indexes)
