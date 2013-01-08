@@ -320,16 +320,18 @@
     
 !------------------------------------------------------------------------------
 
-     CALL DefaultUpdateEquations( STIFF, FORCE )
+    CALL DefaultUpdateEquations( STIFF, FORCE )
    END DO
 !------------------------------------------------------------------------------
 
-   CALL NodalDisplacementPenalty()
-
-   
    CALL DefaultFinishAssembly()
    CALL Info( 'MeshSolve', 'Assembly done', Level=4 )
-
+   
+!------------------------------------------------------------------------------
+! Set the nodal displacement for the nodes by using weights, if requested
+!------------------------------------------------------------------------------
+   CALL NodalDisplacementPenalty()
+      
 !------------------------------------------------------------------------------
 ! Dirichlet boundary conditions
 !------------------------------------------------------------------------------
@@ -343,9 +345,11 @@
 
    UNorm = DefaultSolve()
       
-   
+   Relax = ListGetCReal( Params,'Nonlinear System Relaxation Factor',Found)
+   IF( Found ) MeshUpdate = Relax * MeshUpdate
+
    n = SIZE( MeshPerm )
-   Relax = ListGetConstReal( Params,'Mesh Relaxation Factor',Found)
+   Relax = ListGetCReal( Params,'Mesh Relaxation Factor',Found)
    IF( .NOT. Found ) Relax = 1.0_dp
    
    IF( MovingMesh ) THEN
@@ -653,15 +657,34 @@
 
    INTEGER :: i,j,k,j2
    REAL(KIND=dp) :: ExtDisp(3),GradSurface(3),AbsGradSurface2,Surface,&
-       RefSurface,TargetCoeff
-   LOGICAL :: LocalPenalty
-   INTEGER, POINTER :: PenaltyPerm(:)
+       RefSurface,TargetCoeff,Coeff
+   LOGICAL :: LocalPenalty, GotWeightSol,Visited=.FALSE.
+   INTEGER, POINTER :: PenaltyPerm(:),WeightPerm(:)
+   TYPE(Variable_t), POINTER :: WeightSol
+
+   SAVE Visited
 
    IF(.NOT. (GotTargetSurface .OR. GotTargetField) ) RETURN
 
    TargetCoeff = GetCReal(Params,'Nodal Penalty Factor',Found)     
    IF( ABS( TargetCoeff ) < TINY(TargetCoeff) ) RETURN
 
+   GotWeightSol = .FALSE.
+   IF( GetLogical( Params,'Use Boundary Weights',Found) ) THEN
+     IF( .NOT. Visited ) THEN
+       CALL CalculateNodalWeights( Solver,.TRUE.,VarName = 'Boundary Weights') 
+       WeightSol => VariableGet( Model % Variables,'Boundary Weights')
+       WeightSol % Output = .FALSE.
+     ELSE
+       WeightSol => VariableGet( Model % Variables,'Boundary Weights')
+     END IF       
+     GotWeightSol = ASSOCIATED(WeightSol)
+     IF( GotWeightSol ) THEN
+       CALL Info('NonphysicalMeshSolver','Using Boundary Weights for setting nodal penalty',Level=8)
+     ELSE
+       CALL Fatal('NonphysicalMeshSolver','Boundary Weights not present!')
+     END IF
+   END IF
 
    LocalPenalty = ListCheckPresentAnyBC( Model,'Apply Nodal Penalty') 
    IF(.NOT. LocalPenalty ) THEN
@@ -672,7 +695,7 @@
      CALL Info('NonphysicalMeshSolve','Setting permutation for local penalties')
      ALLOCATE( PenaltyPerm( Mesh % NumberOfNodes ) )
      CALL MakePermUsingMask( Model, Solver, Mesh,'Apply Nodal Penalty', .FALSE., PenaltyPerm, i )
-     PRINT *,'Number of penalty nodes',i
+     ! PRINT *,'Number of penalty nodes',i
    END IF
    
    IF( .NOT. GotTargetField ) THEN
@@ -713,12 +736,16 @@
 
      DO k=1,dim
        ind = 3 * (j-1) + k
+       Coeff = TargetCoeff
+       IF( GotWeightSol ) Coeff = Coeff * WeightSol % Values( WeightSol % Perm(i) )
        Solver % Matrix % rhs(ind) = Solver % Matrix % rhs(ind) + TargetCoeff * ExtDisp(k)
        CALL CRS_AddToMatrixElement( Solver % Matrix,ind,ind,TargetCoeff )
      END DO
    END DO
 
    IF( LocalPenalty ) DEALLOCATE( PenaltyPerm ) 
+
+   Visited = .TRUE.
 
  END SUBROUTINE NodalDisplacementPenalty
 
