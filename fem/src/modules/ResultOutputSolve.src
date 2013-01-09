@@ -3033,7 +3033,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   INTEGER, SAVE :: nTime = 0
   LOGICAL :: GotIt, Parallel, FixedMesh
   CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
-  CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile, PvdFile, DataSetFile
+  CHARACTER(MAX_NAME_LEN) :: BaseFile, VtuFile, PvtuFile, PvdFile, DataSetFile
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Variable_t), POINTER :: Var
   INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
@@ -3246,16 +3246,16 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
-  Dir = GetString( Params,'Output Directory',GotIt) 
-  IF(.NOT. GotIt ) THEN
-    IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
-      Dir = TRIM(Mesh % Name) 
-    ELSE
-      Dir = "."
+  BaseFile = FilePrefix
+  IF ( .NOT. FileNameQualified(FilePrefix) ) THEN
+    Dir = GetString( Params,'Output Directory',GotIt) 
+    IF( GotIt .AND. LEN_TRIM(Dir) > 0 ) THEN
+      BaseFile = TRIM(Dir)// '/' //TRIM(FilePrefix)
+      CALL MakeDirectory( TRIM(Dir) // CHAR(0) )
+    ELSE IF( LEN_TRIM(OutputPath ) > 0 ) THEN
+      BaseFile = TRIM(OutputPath)// '/' //TRIM(FilePrefix)
     END IF
-  END IF  
-  CALL MakeDirectory( TRIM(Dir) // CHAR(0) )
-  Dir = TRIM(Dir)// "/"
+  END IF
 
   ActiveModes => ListGetIntegerArray( Params,'Active EigenModes',GotActiveModes ) 
   IF( GotActiveModes ) THEN
@@ -3294,11 +3294,11 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 
   IF(Parallel) THEN
     IF( NoFileindex ) THEN
-      WRITE( PvtuFile,'(A,A,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix)
+      WRITE( PvtuFile,'(A,".pvtu")' ) TRIM(BaseFile)
     ELSE IF( FileIndex < 10000 ) THEN
-      WRITE( PvtuFile,'(A,A,I4.4,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
+      WRITE( PvtuFile,'(A,I4.4,".pvtu")' ) TRIM(BaseFile),FileIndex
     ELSE   
-      WRITE( PvtuFile,'(A,A,I0,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
+      WRITE( PvtuFile,'(A,I0,".pvtu")' ) TRIM(BaseFile),FileIndex
     END IF
     CALL WritePvtuFile( PvtuFile, Model )
   END IF
@@ -3309,21 +3309,21 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( NumberOfNodes > 0 ) THEN
     IF ( Parallel ) THEN
       IF( NoFileindex ) THEN
-        WRITE( VtuFile,'(A,A,I4.4,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par"
+        WRITE( VtuFile,'(A,I4.4,A,".vtu")' ) TRIM(BaseFile),Part+1,"par"
       ELSE IF( FileIndex < 10000 ) THEN
-        WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
+        WRITE( VtuFile,'(A,I4.4,A,I4.4,".vtu")' ) TRIM(BaseFile),Part+1,"par",&
             FileIndex
       ELSE
-        WRITE( VtuFile,'(A,A,I4.4,A,I0,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
+        WRITE( VtuFile,'(A,I4.4,A,I0,".vtu")' ) TRIM(BaseFile),Part+1,"par",&
             FileIndex
       END IF
     ELSE
       IF( NoFileindex ) THEN
-        WRITE( VtuFile,'(A,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix)
+        WRITE( VtuFile,'(A,".vtu")' ) TRIM(BaseFile)
       ELSE IF( FileIndex < 10000 ) THEN
-        WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
+        WRITE( VtuFile,'(A,I4.4,".vtu")' ) TRIM(BaseFile),FileIndex
       ELSE
-        WRITE( VtuFile,'(A,A,I0,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),FileIndex
+        WRITE( VtuFile,'(A,I0,".vtu")' ) TRIM(BaseFile),FileIndex
       END IF
     END IF
 
@@ -3335,7 +3335,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   !-----------------------------------------------------------
   IF( GetLogical( Params,'Vtu Time Collection', GotIt ) ) THEN
     IF( TransientSimulation .AND. .NOT. NoFileIndex ) THEN
-      WRITE( PvdFile,'(A,A,".pvd")' ) TRIM(Dir),TRIM(FilePrefix)
+      WRITE( PvdFile,'(A,".pvd")' ) TRIM(BaseFile)
       IF( Parallel ) THEN
         DataSetFile = PvtuFile
       ELSE
