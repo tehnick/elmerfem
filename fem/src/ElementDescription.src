@@ -3235,9 +3235,9 @@ END IF
           j = EdgeMap(1,2)
           ni = Element % NodeIndexes(i)
           nj = Element % NodeIndexes(j)
-          RTBasis(1,1) = sqrt(3.0d0)/6.0d0 * u
-          RTBasis(1,2) = -0.5d0 + sqrt(3.0d0)/6.0d0 * v
-          DivRTBasis(1) =  sqrt(3.0d0)/3.0d0
+          RTBasis(1,1) = SQRT(3.0d0)/6.0d0 * u
+          RTBasis(1,2) = -0.5d0 + SQRT(3.0d0)/6.0d0 * v
+          DivRTBasis(1) =  SQRT(3.0d0)/3.0d0
           IF (nj<ni) THEN
              RTBasis(1,:) = -RTBasis(1,:)
              DivRTBasis(1) = -DivRTBasis(1)
@@ -3247,9 +3247,9 @@ END IF
           j = EdgeMap(2,2)
           ni = Element % NodeIndexes(i)
           nj = Element % NodeIndexes(j)
-          RTBasis(2,1) = sqrt(3.0d0)/6.0d0 * (1.0d0 + u)
-          RTBasis(2,2) = sqrt(3.0d0)/6.0d0 * v
-          DivRTBasis(2) =  sqrt(3.0d0)/3.0d0        
+          RTBasis(2,1) = SQRT(3.0d0)/6.0d0 * (1.0d0 + u)
+          RTBasis(2,2) = SQRT(3.0d0)/6.0d0 * v
+          DivRTBasis(2) =  SQRT(3.0d0)/3.0d0        
           IF (nj<ni) THEN
              RTBasis(2,:) = -RTBasis(2,:)
              DivRTBasis(2) = -DivRTBasis(2)
@@ -3259,9 +3259,9 @@ END IF
           j = EdgeMap(3,2)
           ni = Element % NodeIndexes(i)
           nj = Element % NodeIndexes(j)
-          RTBasis(3,1) = sqrt(3.0d0)/6.0d0 * (-1.0d0 + u)
-          RTBasis(3,2) = sqrt(3.0d0)/6.0d0 * v
-          DivRTBasis(3) =  sqrt(3.0d0)/3.0d0          
+          RTBasis(3,1) = SQRT(3.0d0)/6.0d0 * (-1.0d0 + u)
+          RTBasis(3,2) = SQRT(3.0d0)/6.0d0 * v
+          DivRTBasis(3) =  SQRT(3.0d0)/3.0d0          
           IF (nj<ni) THEN
              RTBasis(3,:) = -RTBasis(3,:)
              DivRTBasis(3) = -DivRTBasis(3)
@@ -3392,8 +3392,8 @@ END IF
 
              IF ( ANY(RevertSign(1:4) .NEQV. RevertSign2(1:4)) ) THEN
                 PRINT *, 'CONFLICTING SIGN REVERSIONS SUGGESTED'
-                print *, RevertSign(1:4)
-                print *, RevertSign2(1:4)
+                PRINT *, RevertSign(1:4)
+                PRINT *, RevertSign2(1:4)
                 STOP
              END IF
 
@@ -3402,37 +3402,37 @@ END IF
           !-------------------------------------------------------------------------
           ! The basis functions that define RT space on reference element
           !-----------------------------------------------------------------------
-          RTBasis(1,1) = sqrt(2.0d0)/4.0d0 * u
-          RTBasis(1,2) = -sqrt(6.0d0)/12.0d0 + sqrt(2.0d0)/4.0d0 * v
-          RTBasis(1,3) = -1.0d0/sqrt(3.0d0) + sqrt(2.0d0)/4.0d0 * w
-          DivRTBasis(1) = 3.0d0*sqrt(2.0d0)/4.0d0
+          RTBasis(1,1) = SQRT(2.0d0)/4.0d0 * u
+          RTBasis(1,2) = -SQRT(6.0d0)/12.0d0 + SQRT(2.0d0)/4.0d0 * v
+          RTBasis(1,3) = -1.0d0/SQRT(3.0d0) + SQRT(2.0d0)/4.0d0 * w
+          DivRTBasis(1) = 3.0d0*SQRT(2.0d0)/4.0d0
           IF ( RevertSign(1) ) THEN
              RTBasis(1,:) = -RTBasis(1,:)
              DivRTBasis(1) = -DivRTBasis(1)
           END IF
 
-          RTBasis(2,1) = sqrt(2.0d0)/4.0d0 * u
-          RTBasis(2,2) = -sqrt(6.0d0)/4.0d0 + sqrt(2.0d0)/4.0d0 * v
-          RTBasis(2,3) = sqrt(2.0d0)/4.0d0 * w
-          DivRTBasis(2) = 3.0d0*sqrt(2.0d0)/4.0d0
+          RTBasis(2,1) = SQRT(2.0d0)/4.0d0 * u
+          RTBasis(2,2) = -SQRT(6.0d0)/4.0d0 + SQRT(2.0d0)/4.0d0 * v
+          RTBasis(2,3) = SQRT(2.0d0)/4.0d0 * w
+          DivRTBasis(2) = 3.0d0*SQRT(2.0d0)/4.0d0
           IF ( RevertSign(2) ) THEN
              RTBasis(2,:) = -RTBasis(2,:)
              DivRTBasis(2) = -DivRTBasis(2)
           END IF
 
-          RTBasis(3,1) = sqrt(2.0d0)/4.0d0 + sqrt(2.0d0)/4.0d0 * u
-          RTBasis(3,2) = sqrt(2.0d0)/4.0d0 * v
-          RTBasis(3,3) = sqrt(2.0d0)/4.0d0 * w
-          DivRTBasis(3) = 3.0d0*sqrt(2.0d0)/4.0d0
+          RTBasis(3,1) = SQRT(2.0d0)/4.0d0 + SQRT(2.0d0)/4.0d0 * u
+          RTBasis(3,2) = SQRT(2.0d0)/4.0d0 * v
+          RTBasis(3,3) = SQRT(2.0d0)/4.0d0 * w
+          DivRTBasis(3) = 3.0d0*SQRT(2.0d0)/4.0d0
           IF ( RevertSign(3) ) THEN
              RTBasis(3,:) = -RTBasis(3,:)
              DivRTBasis(3) = -DivRTBasis(3)
           END IF
 
-          RTBasis(4,1) = -sqrt(2.0d0)/4.0d0 + sqrt(2.0d0)/4.0d0 * u
-          RTBasis(4,2) = sqrt(2.0d0)/4.0d0 * v
-          RTBasis(4,3) = sqrt(2.0d0)/4.0d0 * w
-          DivRTBasis(4) = 3.0d0*sqrt(2.0d0)/4.0d0
+          RTBasis(4,1) = -SQRT(2.0d0)/4.0d0 + SQRT(2.0d0)/4.0d0 * u
+          RTBasis(4,2) = SQRT(2.0d0)/4.0d0 * v
+          RTBasis(4,3) = SQRT(2.0d0)/4.0d0 * w
+          DivRTBasis(4) = 3.0d0*SQRT(2.0d0)/4.0d0
           IF ( RevertSign(4) ) THEN
              RTBasis(4,:) = -RTBasis(4,:)
              DivRTBasis(4) = -DivRTBasis(4)
@@ -3776,10 +3776,15 @@ END IF
 100  Success = .FALSE.
      WRITE( Message,'(A,I0,A,I0)') 'Degenerate ',dim,'D element: ',Elm % ElementIndex
      CALL Error( 'ElementMetric', Message )
-     WRITE( Message,'(A,G10.3)') 'DetG:',DetG
+     WRITE( Message,'(A,ES12.3)') 'DetG:',DetG
      CALL Info( 'ElementMetric', Message, Level=3 )
-     DO i=1,cdim
-       WRITE( Message,'(A,I0,A,3G10.3)') 'Dir: ',i,' Coord:',x(i),y(i),z(i)       
+     DO i=1,n
+       WRITE( Message,'(A,I0,A,3ES12.3)') 'Node: ',i,' Coord:',x(i),y(i),z(i)       
+       CALL Info( 'ElementMetric', Message, Level=3 )
+     END DO
+     DO i=2,n
+       WRITE( Message,'(A,I0,A,3ES12.3)') 'Node: ',i,' dCoord:',&
+           x(i)-x(1),y(i)-y(1),z(i)-z(1)       
        CALL Info( 'ElementMetric', Message, Level=3 )
      END DO
      IF ( cdim < dim ) THEN
@@ -5421,7 +5426,7 @@ END FUNCTION PointFaceDistance
           PRINT *,'err',err,acc,SQRT(acc)
           PRINT *,'delta',delta,prevdelta
           PRINT *,'uvw',u,v,w
-          PRINT *,'code',Element % Type % ElementCode
+          PRINT *,'code',Element % TYPE % ElementCode
           PRINT *,'x:',x,ElementNodes % x
           PRINT *,'y:',y,ElementNodes % y
           PRINT *,'z:',z,ElementNodes % z

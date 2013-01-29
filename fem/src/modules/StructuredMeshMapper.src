@@ -247,8 +247,8 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   
   ! Get the new mapping using linear interpolation from bottom and top
   !-------------------------------------------------------------------
-  IF(.FALSE.) PRINT *,'perform linear mapping'
   DO i=1,nsize
+
     j = i
     IF( MaskExists ) THEN
       j = MaskPerm(i) 
@@ -290,6 +290,13 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
       ELSE
         BotVal = x0bot
       END IF       
+    END IF
+
+    ! PRINT *,'Val',j,wtop,TopVal,BotVal,TopVal-BotVal
+
+    IF( TopVal - BotVal < EPSILON( TopVal ) ) THEN
+      WRITE( Message,'(A,2ES12.3)') 'Top and bottom get tangled: ',TopVal, BotVal 
+      CALL Fatal( 'StructuredMeshMapper',Message )
     END IF
 
     xloc = wtop * TopVal + (1.0_dp - wtop) * BotVal

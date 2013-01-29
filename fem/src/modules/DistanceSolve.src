@@ -291,7 +291,9 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
   SAVE STIFF, FORCE
 !------------------------------------------------------------------------------
 
-  CALL Info('DistanceSolver1','Using geometric distance solver')
+  CALL Info('DistanceSolver1','-------------------------------------------',Level=5)
+  CALL Info('DistanceSolver1','Using geometric distance solver',Level=5)
+  CALL Info('DistanceSolver1','-------------------------------------------',Level=5)
   CALL ResetTimer('DistanceSolver1')
 
   Mesh => GetMesh()
@@ -343,6 +345,16 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
     END IF
   END DO
   
+  IF( ParEnv % PEs == 1 ) THEN
+    IF( nb == 0 ) THEN
+      CALL Fatal('DistanceSolver1','No known distances given for the distance solver!')
+    ELSE 
+      WRITE( Message,'(A,I0)') 'Number of fixed nodes on bulk: ',nb
+      CALL Info('DistanceSolver1',Message,Level=8)
+    END IF
+  END IF
+
+
   IF ( ParEnv % PEs > 1 ) THEN
     comm = Solver % Matrix % Comm
     gPerm => Mesh % ParallelInfo % GlobalDOFs
@@ -405,8 +417,16 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
 
   CALL distcomp()
 
+  IF( ParEnv % PEs == 1 ) THEN
+    WRITE( Message,'(A,ES12.3)') 'Maximum distance from given nodes: ',MAXVAL(distance)
+    CALL Info('DistanceSolver1',Message,Level=8)
+  END IF
+
+
   DEALLOCATE(xp,yp,zp,aperm,bperm,condition)
   Solver % Variable % Norm = SQRT(SUM(distance**2))
+
+  CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, Solver % Variable % Name )	
 
   CALL CheckTimer('DistanceSolver1',Delete=.TRUE.)
   CALL Info('DistanceSolver1','All done')

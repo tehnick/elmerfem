@@ -1136,7 +1136,7 @@ CONTAINS
            END IF
            Projector => Projector % Next
          END DO
-         
+
          n = NewMesh % NumberOfNodes
          ALLOCATE( LocalU(n), LocalV(n), LocalW(n), ElemPtrs(n) )
          DO i=1,n
@@ -1146,6 +1146,7 @@ CONTAINS
 !
 !      Check if using the spatial division hierarchy for the search:
 !      -------------------------------------------------------------
+
        RootQuadrant => OldMesh % RootQuadrant
        dim = CoordinateSystemDimension()
        
@@ -1291,8 +1292,8 @@ CONTAINS
          IF (.NOT.Found) THEN
            Element => NULL()
            IF (.NOT.PRESENT(FoundNodes) ) THEN
-             WRITE( Message, * ) 'Point was not found in any of the elements!',i
-             CALL Info( 'InterpolateMeshToMesh', Message, Level=5 )
+             WRITE( Message,'(A,I0,A)' ) 'Point ',i,' was not found in any of the elements!'
+             CALL Info( 'InterpolateMeshToMesh', Message, Level=20 )
              TotFails = TotFails + 1
            END IF
            CYCLE
@@ -1394,7 +1395,8 @@ CONTAINS
            IF( TotFails == 0 ) THEN
              CALL Info('InterpolateMeshToMesh','Found all nodes in the target mesh',Level=6)
            ELSE
-             WRITE( Message,'(A,I0)') 'Number of points not found: ',TotFails
+             WRITE( Message,'(A,I0,A,I0,A)') 'Points not found: ',TotFails,' (found ',&
+                 NewMesh % NumberOfNodes - TotFails,')'
              CALL Warn( 'InterpolateMeshToMesh', Message )
            END IF
          END IF
@@ -1639,11 +1641,10 @@ CONTAINS
 !------------------------------------------------------------------------------
       TYPE(Mesh_t), POINTER :: Mesh
       TYPE(Projector_t), POINTER :: Projector
-      TYPE(Variable_t), POINTER :: Var,PVar,Tmp
-!------------------------------------------------------------------------------
+      TYPE(Variable_t), POINTER :: Var,PVar,Tmp,AidVar
       REAL(KIND=dp), POINTER :: Vals(:)
       INTEGER :: i,k,n, DOFs
-      LOGICAL :: Found, GlobalBubbles
+      LOGICAL :: Found, GlobalBubbles, UseProjector
       CHARACTER(LEN=LEN_TRIM(Name)) :: str
       CHARACTER(LEN=MAX_NAME_LEN) :: tmpname
       DOUBLE PRECISION :: t1,CPUTime
@@ -1835,19 +1836,28 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! interpolation call
 !------------------------------------------------------------------------------
-t1 = CPUTime()
+      t1 = CPUTime()
+
+      UseProjector = ListGetLogical(CurrentModel % Simulation,'Use Mesh Projector',Found)
+      IF( .NOT. Found ) UseProjector = .TRUE.
 
       IF( PRESENT( MaskName ) ) THEN
        CALL InterpolateMeshToMesh( PVar % PrimaryMesh, &
             CurrentModel % Mesh, Var, Variables, MaskName=MaskName )
-      ELSE
+      ELSE IF( UseProjector ) THEN
         CALL InterpolateMeshToMesh( PVar % PrimaryMesh, &
             CurrentModel % Mesh, Var, Variables, Projector=Projector )
+      ELSE
+        AidVar => VariableGet( CurrentModel % Mesh % Variables, Name, ThisOnly = .TRUE. ) 
+        IF( ASSOCIATED( AidVar ) ) THEN
+          AidVar % Values = 0.0_dp
+        END IF
+        CALL InterpolateMeshToMesh( PVar % PrimaryMesh, &
+            CurrentModel % Mesh, Var, Variables )        
       END IF
 
-
-WRITE( Message, * ) 'Interpolation time: ', CPUTime()-t1
-CALL Info( 'VariableGet', Message, Level=7 )
+      WRITE( Message,'(A,ES12.3)' ) 'Interpolation time for > '//TRIM(Name)//' < :', CPUTime()-t1
+      CALL Info( 'VariableGet', Message, Level=7 )
 
 !------------------------------------------------------------------------------
 ! free the temporary list
@@ -3688,6 +3698,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
     Params => Model % Solver % Values
     Variables => Model % Mesh % Variables
 
+    IF( .NOT. ASSOCIATED( Variables ) ) THEN
+      CALL Warn('CreateListForSaving','Mesh does not include any variables!')
+      RETURN
+    END IF
+
 !------------------------------------------------------------------------------
 ! Sometimes the list must be cleared in order to use it for a different mesh
 !-----------------------------------------------------------------------------
@@ -3722,8 +3737,15 @@ CALL Info( 'VariableGet', Message, Level=7 )
     ! First check that there is a need to create the list i.e. it is not
     ! already manually defined
     !-------------------------------------------------------------------
-    IF( ListCheckPresent( List,'Scalar Field 1' ) ) RETURN
-    IF( ListCheckPresent( List,'Vector Field 1' ) ) RETURN
+    IF( ListCheckPresent( List,'Scalar Field 1' ) ) THEN
+      CALL Info('CreateListForSaving','Scalar Field 1 exists, creating no list!',Level=10)
+      RETURN
+    END IF
+
+    IF( ListCheckPresent( List,'Vector Field 1' ) ) THEN
+      CALL Info('CreateListForSaving','Vector Field 1 exists, creating no list!',Level=10)
+      RETURN
+    END IF
 
     Nscalar = 0
     Nvector = 0
@@ -3733,6 +3755,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
     dim = Model % Mesh % MeshDim
     
     Var => Variables
+
+
     DO WHILE( ASSOCIATED( Var ) )
       
       IF ( .NOT. Var % Output ) THEN
@@ -3818,13 +3842,30 @@ CALL Info( 'VariableGet', Message, Level=7 )
                 IsVector = .NOT. ASSOCIATED(Var1)
               END IF
             END IF
-	    IF( IsVector ) THEN
-              WRITE(VarName,'(A)') TRIM(str(1:j-2))
-              ! Loop over the 2nd (and 3rd) components as they are already accounted for
-	      DO k=2,dim
-                Var => Var % Next
-              END DO
+            IF( IsVector ) WRITE(VarName,'(A)') TRIM(str(1:j-2))
+
+            ! Associated to the previous case, cycle the other components of the vector
+            ! and cycle them if they are part of the vector that will be detected above.
+          ELSE IF( str(j:j) == '2' ) THEN
+            Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 1',ThisOnly)		
+            IF( ASSOCIATED( Var1 ) ) THEN
+              IF( dim == 2 ) THEN 
+                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
+              ELSE IF( dim == 3 ) THEN
+                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
+              END IF
+              Set = ASSOCIATED( Var1 )
             END IF
+
+          ELSE IF( str(j:j) == '3' ) THEN
+            IF( dim == 3 ) THEN
+              Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 1',ThisOnly)		
+              IF( ASSOCIATED( Var1 ) ) THEN
+                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
+                Set = ASSOCIATED( Var1 )
+              END IF
+            END IF
+
           END IF
         END IF
       END SELECT
@@ -3876,7 +3917,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
         END IF
       END DO
     END IF
-
 
   END SUBROUTINE CreateListForSaving
   

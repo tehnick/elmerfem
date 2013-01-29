@@ -4171,12 +4171,15 @@ END FUNCTION SearchNodeL
     !--------------------------------------------------------------------------
     ! The norm should be bounded in order to reach convergence
     !--------------------------------------------------------------------------
+!   IF( ISNAN(Norm) ) THEN ! ISNAN not avaiable in all compilers
+    IF( Norm /= Norm ) THEN
+      CALL Fatal('ComputeChange','Norm of solution appears to be NaN')
+    END IF
 
     MaxNorm = ListGetCReal( SolverParams, &
         'Nonlinear System Max Norm', Stat )
     IF( .NOT. Stat) MaxNorm = HUGE( Norm )
 
-!   IF( ISNAN(Norm) .OR. Norm > MaxNorm ) THEN ! ISNAN not avaiable in all compilers
     IF(  Norm > MaxNorm ) THEN
       WRITE( Message, *) 'Computed Norm:',Norm
       CALL Info('ComputeChange',Message)

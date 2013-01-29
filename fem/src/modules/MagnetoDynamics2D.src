@@ -571,10 +571,7 @@ END SUBROUTINE MagnetoDynamics2D
 
 
 !------------------------------------------------------------------------------
-!> Given the vector potential computes its gradient i.e. the magnetic
-!> field intensity.  
-!------------------------------------------------------------------------------
-!> Solver the magnetic vector potential in cartesian 2D case.
+!> Solver the magnetic vector potential in cartesian 2D & complex case.
 !> The solver may take into account rotating boundary conditions.
 !> Also optionally compute moments and inertia. 
 !------------------------------------------------------------------------------
@@ -613,12 +610,12 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   Mesh => GetMesh()
 
   S=>Solver % Matrix
-  S % Complex = .TRUE.
+  S % COMPLEX = .TRUE.
 
   DO i=1,Model % NumberOFBCs
     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
     IF(FoundMortar) THEN
-      S % Complex = .FALSE.
+      S % COMPLEX = .FALSE.
 
       A => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
       FoundMortar = ASSOCIATED(A)
@@ -628,7 +625,7 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
 
   IF(FoundMortar) THEN
     CM => AllocateMatrix()
-    CM % Format = MATRIX_LIST
+    CM % FORMAT = MATRIX_LIST
     DO i=1,A % NumberOfRows
       DO j=A % Rows(i),A % Rows(i+1)-1
         jp = Solver % Variable % Perm(A % Cols(j))
@@ -1111,6 +1108,43 @@ END SUBROUTINE MagnetoDynamics2DHarmonic
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!> Initialization for the primary solver: BSolver
+!------------------------------------------------------------------------------
+SUBROUTINE Bsolver_init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver  
+  TYPE(Model_t) :: Model    
+  REAL(KIND=dp) :: dt       
+  LOGICAL :: Transient      
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t),POINTER :: SolverParams
+  LOGICAL :: Found
+
+  SolverParams => GetSolverParams()
+  IF( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+    CALL ListAddString( SolverParams, 'Variable','-nooutput bsolver_temp' )
+  END IF
+  IF( .NOT. ListCheckPresent( SolverParams,'Exported Variable 1') ) THEN
+    IF( GetLogical( SolverParams,'Target Variable Complex',Found ) ) THEN
+      CALL ListAddString( SolverParams,&
+          NextFreeKeyword('Exported Variable',SolverParams),'B[B re:2 B im:2]')
+    ELSE
+      CALL ListAddString( SolverParams,&
+          NextFreeKeyword('Exported Variable',SolverParams),'B[B:2]')
+    END IF
+  END IF
+  
+END SUBROUTINE Bsolver_init
+
+
+!------------------------------------------------------------------------------
 !> Given the vector potential computes its gradient i.e. the magnetic
 !> field intensity.  
 !------------------------------------------------------------------------------
@@ -1137,15 +1171,15 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), ALLOCATABLE, TARGET :: ForceVector(:,:)
   REAL(KIND=dp), POINTER :: SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
-
-  TYPE(Variable_t), POINTER :: FluxSol
+  
+  TYPE(Variable_t), POINTER :: FluxSol, AzSol
   LOGICAL ::  FoundMortar
   TYPE(Matrix_t),POINTER::A,B,CM,S
   
   SAVE Visited
 
   CALL Info( 'BSolver', '-------------------------------------',Level=4 )
-  CALL Info( 'BSolver', 'Computing the flux and/or gradient',Level=4 )
+  CALL Info( 'BSolver', 'Computing the magnetic field density ',Level=4 )
   CALL Info( 'BSolver', '-------------------------------------',Level=4 )
 
   dim = CoordinateSystemDimension()
@@ -1157,7 +1191,23 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   
   SolverParams => GetSolverParams()
 
+  VarName = GetString(GetSolverParams(),'Target Variable',GotIt)
+  IF(.NOT. GotIt) VarName = 'Az'
+  AzSol => VariableGet( Solver % Mesh % Variables, VarName ) 
+  IF( .NOT. ASSOCIATED( AzSol ) ) THEN
+    CALL Fatal('BSolver','Target field not present: '//TRIM(VarName) )
+  END IF
+
   FluxSol => VariableGet(Solver % Mesh % Variables, 'B')
+  IF( .NOT. ASSOCIATED( AzSol ) ) THEN
+    CALL Fatal('BSolver','Solution field not present: B' )
+  END IF
+
+  IF( FluxSol % Dofs / AzSol % Dofs /= 2 ) THEN
+    WRITE( Message,'(A,I0,A)') 'B field should have ',2 * AzSol % Dofs,' dofs!'
+    CALL Fatal('BSolver',Message)
+  END IF
+
 
   Dofs = FluxSol % Dofs
   ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', GotIt )
@@ -1174,8 +1224,6 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   ALLOCATE(ForceVector(SIZE(Solver % Matrix % RHS),DOFs))  
   ForceVector = 0.0_dp
   SaveRHS => Solver % Matrix % RHS
-
-  VarName = GetString(GetSolverParams(),'Target Variable',GotIt)
 
   at0 = RealTime()
   CALL BulkAssembly()

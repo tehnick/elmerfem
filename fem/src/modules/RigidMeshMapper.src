@@ -35,7 +35,6 @@
 ! *****************************************************************************/
 
 
-
 !------------------------------------------------------------------------------
 !>  Subroutine for mapping the mesh using analytical commands of scaling, 
 !> rotation, translation and smoothing. Additionally may include a grading field in [0,1]
@@ -116,15 +115,24 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
       VeloPerm => VeloVar % Perm
     ELSE
       n = SIZE( Xnew )
-      ALLOCATE( VeloVal(dim*n), VeloPerm(n))
+      ALLOCATE( VeloVal(dim*n), VeloPerm(n) )
       VeloVal = 0.0_dp
       DO i=1,n
         VeloPerm(i) = i
       END DO
-      CALL VariableAddVector( Mesh % variables, Mesh, Solver,'Mesh Velo',&
-                              dim, VeloVal, VeloPerm ) 
+      IF( dim == 2 ) THEN
+        CALL VariableAddVector( Mesh % variables, Mesh, Solver,'Mesh Velo[Mesh Velo:2]',&
+            dim, VeloVal, VeloPerm ) 
+      ELSE
+        CALL VariableAddVector( Mesh % variables, Mesh, Solver,'Mesh Velo[Mesh Velo:3]',&
+            dim, VeloVal, VeloPerm ) 
+      END IF
     END IF
+
+    CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh,'Mesh Velo' )	
   END IF
+
+
 
   ! If using original mesh as a reference mesh it must be saved,
   ! otherwise the analytic mapping does not require two meshes

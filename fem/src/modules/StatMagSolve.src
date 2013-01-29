@@ -1,4 +1,4 @@
-/*****************************************************************************/
+!/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
@@ -39,6 +39,7 @@
 !>  Solver for static or harmonic magnetic field with vector potential
 !>  formulation. Note that this solver has a long history and all choices
 !>  do not reflect the current best practices.
+!>  Currently this solver is the best choice only for axisymmetric problems.
 !> \ingroup Solvers
 !------------------------------------------------------------------------------
    SUBROUTINE StatMagSolver( Model, Solver, dt, Transient )
@@ -118,9 +119,9 @@
     IF (.NOT.gotIt) HarmonicSimulation = ( dofs == 2 )
 
     IF(HarmonicSimulation) THEN
-      WRITE( Message, * ) 'Assuming harmonic simulation'
+      CALL Info('StatMagSolver','Assuming harmonic simulation')
     ELSE
-      WRITE( Message, * ) 'Assuming steady-state simulation'
+      CALL Info('StatMagSolver','Assuming steady-state simulation')
     END IF
 
     IF( Dim == 3 ) THEN
@@ -128,6 +129,7 @@
         CALL Fatal('StatMagSolver','In 3D there must be three components for the vector potential!')
         CalculateJouleHeating = .FALSE.      
       END IF
+      CALL Warn('StatMagSolver','This solver does not really fulfill teh Coulomb gauge, use Whitney solver in 3D!')
     ELSE
       IF(HarmonicSimulation) THEN
         IF( dofs /= 2 ) THEN
@@ -221,7 +223,8 @@
 
     DO iter=1,NonlinearIter
   
-       WRITE( Message, * ) 'Magnetic Field Iteration: ', iter
+       WRITE( Message, '(A,I0)' ) 'Magnetic Field Iteration: ', iter
+       CALL Info( 'StatMagSolve', Message, Level=4)
       
        at  = CPUTime()
        at0 = RealTime()
@@ -416,7 +419,7 @@
      
 
      IF( Solver % Variable % NonlinConverged == 1 ) THEN
-       WRITE( Message, * ) 'Convergence after ',iter,' iterations'
+       WRITE( Message,'(A,I0,A)' ) 'Convergence after ',iter,' iterations'
        CALL Info( 'StatMagSolve', Message, Level = 4 )
        EXIT
      END IF
@@ -495,9 +498,8 @@
      CALL ListAddConstReal( Model % Simulation, 'res: Joule heating',TotalHeating)
    END IF
 
-   CALL Info( 'StatMagSolve', 'All done, exiting')
-   CALL Info( 'StatMagSolve','------------------------------------------------')
-   CALL Info( 'StatMagSolve', ' ')
+   CALL Info( 'StatMagSolve', 'All done, exiting',Level=4)
+   CALL Info( 'StatMagSolve','------------------------------------------------',Level=4)
 
 
 CONTAINS

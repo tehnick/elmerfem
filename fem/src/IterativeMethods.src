@@ -147,7 +147,7 @@ CONTAINS
 
       Residual = rnorm / bnorm
       Converged = (Residual < MinTolerance) 
-      Diverged = (Residual > MaxTolerance)     
+      Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)
       IF( Converged .OR. Diverged) RETURN
 
       DO k=1,Rounds
@@ -177,7 +177,7 @@ CONTAINS
         END IF
         
         Converged = (Residual < MinTolerance) 
-        Diverged = (Residual > MaxTolerance)     
+        Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)
         IF( Converged .OR. Diverged) RETURN
         
       END DO
@@ -262,7 +262,7 @@ CONTAINS
       
       Residual = rnorm / bnorm
       Converged = (Residual < MinTolerance) 
-      Diverged = (Residual > MaxTolerance)     
+      Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)    
       IF( Converged .OR. Diverged) RETURN
       
       DO i=1,Rounds
@@ -281,7 +281,7 @@ CONTAINS
         END IF
         
         Converged = (Residual < MinTolerance) 
-        Diverged = (Residual > MaxTolerance)     
+        Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)
         IF( Converged .OR. Diverged) EXIT
       END DO
       
@@ -375,7 +375,7 @@ CONTAINS
 
       Residual = rnorm / bnorm
       Converged = (Residual < MinTolerance) 
-      Diverged = (Residual > MaxTolerance)     
+      Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)
       IF( Converged .OR. Diverged) RETURN
 
       ! Perform preconditioning by mass lumping
@@ -408,7 +408,7 @@ CONTAINS
         END IF
         
         Converged = (Residual < MinTolerance) 
-        Diverged = (Residual > MaxTolerance)     
+        Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)
         IF( Converged .OR. Diverged) EXIT
       END DO
       
@@ -441,7 +441,7 @@ CONTAINS
     ! Parameters
     INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
     REAL(KIND=dp), DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
-    REAL(KIND=dp), target :: &
+    REAL(KIND=dp), TARGET :: &
        xvec(HUTI_NDIM),rhsvec(HUTI_NDIM),work(HUTI_WRKDIM,HUTI_NDIM)
 
     INTEGER :: ndim
@@ -596,7 +596,7 @@ CONTAINS
       !--------------------------------------------------------------------
       errorind = rnrm0 / bnrm
       Converged = (errorind < Tol)
-      Diverged = (errorind > MaxTol)
+      Diverged = (errorind > MaxTol) .OR. (errorind /= errorind)
 
       IF( Converged .OR. Diverged) RETURN
 
@@ -768,7 +768,7 @@ CONTAINS
         END IF
     
         Converged = (errorind < Tol) 
-        Diverged = (errorind > MaxTol)     
+        Diverged = (errorind > MaxTol) .OR. (errorind /= errorind)
         IF( Converged .OR. Diverged) EXIT    
       END DO
 
@@ -874,9 +874,9 @@ CONTAINS
       
       Residual = rnorm / bnorm
       Converged = (Residual < MinTolerance) 
-      Diverged = (Residual > MaxTolerance)     
+      Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)
       IF( Converged .OR. Diverged) RETURN
-      
+       
       DO k=1,Rounds
 	 !----------------------------------------------
 	 ! Check for restarting
@@ -929,7 +929,7 @@ CONTAINS
          END IF
         
          Converged = (Residual < MinTolerance) 
-         Diverged = (Residual > MaxTolerance)     
+         Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)    
          IF( Converged .OR. Diverged) EXIT
         
       END DO
@@ -1050,7 +1050,7 @@ CONTAINS
       
       Residual = rnorm / bnorm
       Converged = (Residual < MinTolerance) 
-      Diverged = (Residual > MaxTolerance)     
+      Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)    
       IF( Converged .OR. Diverged) RETURN
       
       DO k=1,Rounds
@@ -1105,7 +1105,7 @@ CONTAINS
          END IF
         
          Converged = (Residual < MinTolerance) 
-         Diverged = (Residual > MaxTolerance)     
+         Diverged = (Residual > MaxTolerance) .OR. (Residual /= Residual)    
          IF( Converged .OR. Diverged) EXIT
         
       END DO
@@ -1244,7 +1244,7 @@ CONTAINS
       !--------------------------------------------------------------------
       errorind = rnrm0 / bnrm
       Converged = (errorind < Tol)
-      Diverged = (errorind > MaxTol)
+      Diverged = (errorind > MaxTol) .OR. (errorind /= errorind)
 
       IF( Converged .OR. Diverged) RETURN
       EarlyExit = .FALSE.
@@ -1411,7 +1411,7 @@ CONTAINS
          END IF
 
          Converged = (errorind < Tol) 
-         Diverged = (errorind > MaxTol)     
+         Diverged = (errorind > MaxTol) .OR. (errorind /= errorind)    
          IF( Converged .OR. Diverged) EXIT    
       END DO
 

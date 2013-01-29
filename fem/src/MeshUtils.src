@@ -373,7 +373,15 @@ END SUBROUTINE GetMaxDefs
        CALL Fatal( 'LoadMesh', Message )
     END IF
 
-    Mesh % Nodes % NumberOfNodes = Mesh % NumberOfNodes
+    IF( Mesh % NumberOfNodes == 0 ) THEN
+      CALL Fatal('LoadMesh','Mesh has zero nodes!')
+    END IF
+    IF( Mesh % NumberOfBulkElements == 0 ) THEN
+      CALL Fatal('LoadMesh','Mesh has zero bulk elements!')
+    END IF
+
+
+    Mesh % Nodes % NumberOfNodes = Mesh % NumberOfNodes    
 
     IF ( BoundariesOnly ) Mesh % NumberOfBulkElements = 0
 
@@ -7773,6 +7781,7 @@ CONTAINS
     ALLOCATE( Nodes % x(n), Nodes % y(n),Nodes % z(n) )
     
     DO elem = 1,Mesh % NumberOfBulkElements      
+
       Element => Mesh % Elements(elem)
       NodeIndexes => Element % NodeIndexes
       CurrentModel % CurrentElement => Element
@@ -7855,6 +7864,16 @@ CONTAINS
       END DO
       IF( UpHit == 0 .AND. DownHit == 0 ) EXIT
     END DO
+    ! The last round is always a check
+    Rounds = Rounds - 1
+
+    WRITE( Message,'(A,I0,A)') 'Layered structure detected in ',Rounds,' cycles'
+    CALL Info('DetectExtrudedStructure',Message,Level=9)
+    IF( Rounds == 0 ) THEN
+      CALL Info('DetectExtrudedStructure','Try to increase value for > Dot Product Tolerance < ')
+      CALL Fatal('DetectExtrudedStructure','Zero rounds implies unsuccesfull operation')
+    END IF
+
 
     ! Compute the number of layers. The Rounds above may in some cases 
     ! be too small. Here just one layer is used to determine the number
@@ -7882,10 +7901,11 @@ CONTAINS
         END IF
       END DO      
 
-      IF( NumberOfLayers < Rounds-1 ) THEN
-        CALL Warn('DetectExtrudedStructure','There seems to be varying number of layers?')
-        PRINT *,'NumberOfLayers:',NumberOfLayers,Rounds-1
-        NumberOfLayers = Rounds-1
+      IF( NumberOfLayers < Rounds ) THEN
+        WRITE( Message,'(A,I0,A,I0)') 'There seems to be varying number of layers: ',&
+            NumberOfLayers,' vs. ',Rounds
+        CALL Warn('DetectExtrudedStructure', Message )
+        NumberOfLayers = Rounds
       END IF
       WRITE(Message,'(A,I0)') 'Extruded structure layers: ',NumberOfLayers
       CALL Info('DetectExtrudedStructure',Message)

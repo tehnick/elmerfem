@@ -1725,7 +1725,6 @@ CONTAINS
     CALL LoadInputFile( Model,InFileUnit,ModelName,MeshDir,MeshName, .TRUE., .FALSE. )
     IF ( .NOT. OpenFile ) CLOSE( InFileUnit )
 
-
     CALL InitializeOutputLevel()
 
     Transient=ListGetString(Model % Simulation, &
@@ -1934,7 +1933,11 @@ CONTAINS
 
     DO s=1,Model % NumberOfSolvers
       Name = ListGetString( Model % Solvers(s) % Values, 'Mesh', GotIt )
-      IF ( GotIt ) THEN
+
+      IF( GotIt ) THEN
+        WRITE(Message,'(A,I0)') 'Loading solver specific mesh > '//TRIM(Name)// ' < for solver ',s
+        CALL Info('LoadModel',Message,Level=7)
+
         single=.FALSE.
         IF ( Name(1:8) == '-single ' ) THEN
           single=.TRUE.
@@ -1944,6 +1947,7 @@ CONTAINS
         k = 1
         i = 1
         nlen = LEN_TRIM(name)
+        MeshName = ' '
         DO WHILE( k<=nlen .AND. name(k:k) /= ' ' )
           MeshDir(i:i)  = name(k:k)
           Meshname(i:i) = name(k:k)
@@ -2012,6 +2016,8 @@ CONTAINS
           Model % Solvers(s) % Mesh => &
             LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype,Def_Dofs )
         END IF
+        Model % Solvers(s) % Mesh % OutputActive = .TRUE.
+
 
         MeshLevels = ListGetInteger( Model % Solvers(s) % Values, 'Mesh Levels', GotIt )
         IF ( .NOT. GotIt ) MeshLevels=1

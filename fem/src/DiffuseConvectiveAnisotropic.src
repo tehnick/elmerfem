@@ -190,7 +190,7 @@ MODULE DiffuseConvective
 !    Integration stuff
 !------------------------------------------------------------------------------
      IF ( Bubbles ) THEN
-        IntegStuff = GaussPoints( element, Element % Type % GaussPoints2 )
+        IntegStuff = GaussPoints( element, Element % TYPE % GaussPoints2 )
      ELSE
         IntegStuff = GaussPoints( element )
      END IF
@@ -217,9 +217,9 @@ MODULE DiffuseConvective
        dNodalBasisdx = 0._dp
        GradNodal = 0._dp
        DO p=1,n
-          u = Element % Type % NodeU(p)
-          v = Element % Type % NodeV(p)
-          w = Element % Type % NodeW(p)
+          u = Element % TYPE % NodeU(p)
+          v = Element % TYPE % NodeV(p)
+          w = Element % TYPE % NodeW(p)
           stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
  
           dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
@@ -254,11 +254,11 @@ MODULE DiffuseConvective
        END IF
 
        LC1 = 2._dp/mK
-       LC(1,1:n) = Element % Type % NodeU(1:n)
-       LC(2,1:n) = Element % Type % NodeV(1:n)
-       LC(3,1:n) = Element % Type % NodeW(1:n)
+       LC(1,1:n) = Element % TYPE % NodeU(1:n)
+       LC(2,1:n) = Element % TYPE % NodeV(1:n)
+       LC(3,1:n) = Element % TYPE % NodeW(1:n)
 
-       DO i=1,Element % Type % Dimension
+       DO i=1,Element % TYPE % DIMENSION
          minl=MINVAL(LC(i,1:n))
          maxl=MAXVAL(LC(i,1:n))
          LC(i,1:n) = 2*(LC(i,1:n)-minl)/(maxl-minl)-1
@@ -269,9 +269,9 @@ MODULE DiffuseConvective
        mK = element % StabilizationMK
        dNodalBasisdx = 0._dp
        DO p=1,n
-         u = Element % Type % NodeU(p)
-         v = Element % Type % NodeV(p)
-         w = Element % Type % NodeW(p)
+         u = Element % TYPE % NodeU(p)
+         v = Element % TYPE % NodeV(p)
+         w = Element % TYPE % NodeW(p)
          stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
          dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
        END DO
@@ -317,7 +317,13 @@ MODULE DiffuseConvective
             dTemp = dTemp + SUM( NodalTemperature(1:n) * dBasisdx(1:n,i) )**2
           END DO
 
-          CT = SQRT( dEnth/dTemp )
+          IF( dTemp > TINY( dTemp ) ) THEN
+            CT = SQRT( dEnth/dTemp )
+          ELSE
+            CALL Info('DiffuseConvectiveCompose',&
+                'Temperature difference almost zero, cannot account for phase change!',Level=7)
+            CT = 0.0
+          END IF
         END IF
 !------------------------------------------------------------------------------
 !      Coefficient of the diffusion term & it s derivatives at the

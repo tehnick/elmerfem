@@ -45,14 +45,15 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   INTEGER :: i,nInterval=1, nstep=0, OutputCount = 0, MeshDim,MeshLevel,nlen
   INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
 
-  TYPE(Mesh_t), POINTER :: Mesh, iMesh
+  TYPE(Mesh_t), POINTER :: Mesh, iMesh, ListMesh
   CHARACTER(10) :: OutputFormat
   CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, MeshName, iMeshName
   LOGICAL :: SubroutineVisited=.FALSE.,Found
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Variable_t), POINTER :: ModelVariables
     
-  SAVE SubroutineVisited, OutputCount, ListSet, MeshDim
+  SAVE SubroutineVisited, OutputCount, ListSet, MeshDim, ListMesh
+
   INTERFACE
     RECURSIVE SUBROUTINE ElmerPostOutputSolver( Model, Solver,dt,TransientSimulation,ONOEfound )
       USE DefUtils
@@ -139,11 +140,12 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   DO WHILE( ASSOCIATED(iMesh) )
     
     IF ( .NOT. iMesh % OutputActive ) THEN
+      CALL Info('ResultOutputSolver','Skipping mesh: '//TRIM(iMesh % Name), Level=10 )
       iMesh => iMesh % next
       CYCLE 
     END IF    
 
-    CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(iMesh % Name) )
+    CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(iMesh % Name), Level=7 )
     WRITE(Message,'(A,I0)') 'Dimension of mesh: ',iMesh % MeshDim 
     CALL Info('ResultOutputSolver',Message) 
 
@@ -167,12 +169,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL Info('ResultOutputSolver','Creating list for saving - if not present')
       CALL CreateListForSaving( Model, Params,.TRUE. )    
       ListSet = .TRUE.
-    ELSE IF( MeshDim /= Model % Mesh % MeshDim ) THEN
+    ELSE IF( MeshDim /= Model % Mesh % MeshDim .OR. .NOT. ASSOCIATED(iMesh, ListMesh)) THEN
       CALL Info('ResultOutputSolver','Recreating list for saving')
-      CALL CreateListForSaving( Model, Params,.TRUE.)
+      CALL CreateListForSaving( Model, Params,.TRUE.,.TRUE.)
     END IF
 
     MeshDim = Model % Mesh % MeshDim
+    ListMesh => iMesh
 
     ! In case there are multiple mesh levels one may also save coarser ones
     !----------------------------------------------------------------------
@@ -3249,13 +3252,16 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   BaseFile = FilePrefix
   IF ( .NOT. FileNameQualified(FilePrefix) ) THEN
     Dir = GetString( Params,'Output Directory',GotIt) 
-    IF( GotIt .AND. LEN_TRIM(Dir) > 0 ) THEN
-      BaseFile = TRIM(Dir)// '/' //TRIM(FilePrefix)
-      CALL MakeDirectory( TRIM(Dir) // CHAR(0) )
-    ELSE IF( LEN_TRIM(OutputPath ) > 0 ) THEN
-      BaseFile = TRIM(OutputPath)// '/' //TRIM(FilePrefix)
+    IF( GotIt ) THEN
+      IF( LEN_TRIM(Dir) > 0 ) THEN
+        BaseFile = TRIM(Dir)// '/' //TRIM(FilePrefix)
+        CALL MakeDirectory( TRIM(Dir) // CHAR(0) )
+      END IF
+    ELSE 
+      BaseFile = TRIM(OutputPath) // '/' // TRIM(Mesh % Name) // '/' //TRIM(FilePrefix)
     END IF
   END IF
+
 
   ActiveModes => ListGetIntegerArray( Params,'Active EigenModes',GotActiveModes ) 
   IF( GotActiveModes ) THEN
@@ -4272,7 +4278,6 @@ CONTAINS
       n = MAX( LEN_TRIM( Str ), n ) 
       
       RecLen = ((n/4)+1)*4
-      PRINT *,'Record Length: ',RecLen
     END IF
 
     IF( nTime == 1 ) THEN
@@ -4560,7 +4565,7 @@ CONTAINS
     CASE( 820 )
       VTKCode = 25
     CASE DEFAULT
-      PRINT *,'ElmerCode',ElmerCode
+      WRITE(Message,'(A,I0)') 'Not implemented for elementtype: ',ElmerCode
       CALL Fatal('Elmer2VtkElement','Not Implemented for elementtype')
       
     END SELECT

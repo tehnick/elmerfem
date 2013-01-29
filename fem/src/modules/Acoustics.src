@@ -150,6 +150,8 @@ SUBROUTINE AcousticsSolver( Model,Solver,dt,TransientSimulation )
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
   Solver % Matrix % COMPLEX = .TRUE.
 
+  ! Nullify pointer
+  HSol => Null()
   Flow     => Solver % Variable % Values
   FlowPerm => Solver % Variable % Perm
   LocalNodes = COUNT( FlowPerm > 0 )

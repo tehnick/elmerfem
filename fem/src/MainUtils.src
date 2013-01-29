@@ -945,16 +945,9 @@ CONTAINS
         ELSE IF ( Solver % TimeOrder >= 2 ) THEN
           Component => Solver % Variable % PrevValues(:,2)
           str = TRIM( Solver % Variable % Name ) // ' Acceleration'
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+          CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, Solver, &
               str, Solver % Variable % Dofs, Component, Solver % Variable % Perm, &
               Secondary = .TRUE. )
-          
-          DO k=1,Solver % Variable % DOFs
-            Component => Solver % Variable % PrevValues(k::Solver % Variable % DOFs,2)          
-            str = ComponentName( Solver % Variable % Name) // ' Acceleration ' // CHAR(i+ICHAR('0'))
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                str, 1, Component, Solver % Variable % Perm, Secondary = .TRUE. )
-          END DO
         END IF
       END IF
 
