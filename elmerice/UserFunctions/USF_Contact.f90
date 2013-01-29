@@ -63,7 +63,7 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
   REAL(KIND=dp) :: NonLinIter, comp, cond
   CHARACTER*20 :: USF_Name='SlidCoef_Contact', Sl_Law
 
-  SAVE FirstTime, yeschange, told, GLmoves
+  SAVE FirstTime, yeschange, told, GLmoves, thresh
   SAVE DIM, USF_Name, Normal, Fwater, Fbase, relChangeOld, Sl_Law
 
 !----------------------------------------------------------------------------

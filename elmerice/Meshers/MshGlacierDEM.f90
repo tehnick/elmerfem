@@ -247,18 +247,13 @@ INTEGER :: NtN, i, j, Ns, Nsx, Nsy, Nb, Nbx, Nby, n, Npt, ix, iy, imin, is, ib
            zsurf = (zi(1,1)*(x2-x)*(y2-y)+zi(2,1)*(x-x1)*(y2-y)+zi(1,2)*(x2-x)*(y-y1)+zi(2,2)*(x-x1)*(y-y1))/(dsx*dsy)
         END IF      
         
-!       IF ((zsurf + 10.0) .LE. zbed) THEN
-!          zsurf = zbed + 10.0
-!       END IF
-        
         znew = zbed + z * MAX((zsurf - zbed),hmin) 
         
         WRITE(12,1200)n,-1,x,y,znew
-!       WRITE(*,*)N,-1,x,y,znew, zsurf, zbed
       END DO
       WRITE(*,*)'END WITH NO TROUBLE ...'
 !
-1000 FORMAT(4x,I6)
+1000 FORMAT(I6)
 1200 FORMAT(i5,2x,i5,3(2x,e22.15)) 
 
 End Program MshGlacierDEM
