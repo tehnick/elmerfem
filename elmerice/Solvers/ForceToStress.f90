@@ -30,7 +30,7 @@
 
 ! ****************************************************************************/
 ! -----------------------------------------------------------------------
-!> Solver to go from a Force (or Debit) to Stress (or Flux) SDOFs = 1
+!> Solver to go from a Force (or Debit) to Stress (or Flux) SDOFs = 1 
    RECURSIVE SUBROUTINE ForceToStress( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
@@ -95,7 +95,7 @@
        LocalStiffMatrix(:,:), LocalForce(:), &
        NodalForce(:)
             
-     CHARACTER(LEN=MAX_NAME_LEN) :: FlowSolverName
+     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, INputVariableName
 
      REAL(KIND=dp) :: at, at0, CPUTime, RealTime
 
@@ -108,14 +108,21 @@
 !------------------------------------------------------------------------------
 !  Get Force variable                                         
 !------------------------------------------------------------------------------
-      
-     ForceSol => VariableGet( Solver % Mesh % Variables, 'Force' )
+     SolverName = 'ForceToStress'
+
+     InputVariableName = GetString( Solver % Values, 'Force Variable Name', GotIt )
+     IF (.NOT.GotIt) THEN
+        InputVariableName = 'Force'
+        CALL INFO(SolverName,'Force Variable Name sets to Force',Level=4)
+     END IF 
+
+     ForceSol => VariableGet( Solver % Mesh % Variables, InputVariableName )
      IF ( ASSOCIATED( ForceSol ) ) THEN
        ForcePerm    => ForceSol % Perm
        ForceValues  => ForceSol % Values
      ELSE
-       CALL Info('ForceToStress', &
-                      & 'No variable for Force associated.', Level=4)
+       CALL FATAL(SolverName, &
+                      & 'No variable for Force associated.')
      END IF
 !              
 !------------------------------------------------------------------------------
@@ -162,7 +169,7 @@
                  LocalForce( 2*STDOFs*N ),  STAT=istat )
 
        IF ( istat /= 0 ) THEN
-          CALL Fatal( 'ForceToStress', 'Memory allocation error.' )
+          CALL Fatal( SolverName, 'Memory allocation error.' )
        END IF
 !------------------------------------------------------------------------------
        AllocationsDone = .TRUE.
@@ -176,11 +183,7 @@
        at  = CPUTime()
        at0 = RealTime()
 
-       CALL Info( 'ForceToStress', ' ', Level=4 )
-       CALL Info( 'ForceToStress', ' ', Level=4 )
-       CALL Info( 'ForceToStress', ' ', Level=4 )
-       CALL Info( 'ForceToStress', ' ', Level=4 )
-       CALL Info( 'ForceToStress', 'Starting assembly...',Level=4 )
+       CALL Info( SolverName, 'Starting assembly...',Level=4 )
 
 !------------------------------------------------------------------------------
        CALL DefaultInitialize()
@@ -191,7 +194,7 @@
            WRITE(Message,'(a,i3,a)' ) '   Assembly: ',  &
              INT(100.0 - 100.0 * (Solver % NumberOfActiveElements-t) / &
              (1.0*Solver % NumberOfActiveElements)), ' % done'
-           CALL Info( 'ForceToStress', Message, Level=5 )
+           CALL Info( SolverName, Message, Level=5 )
            at0 = RealTime()
          END IF
 
@@ -230,7 +233,7 @@
          END IF
       END DO
 
-      CALL Info( 'ForceToStress', 'Assembly done', Level=4 )
+      CALL Info( SolverName, 'Assembly done', Level=4 )
 
 
       CALL DefaultFinishAssembly()
@@ -242,7 +245,7 @@
 
 !------------------------------------------------------------------------------
 
-      CALL Info( 'ForceToStress', 'Set boundaries done', Level=4 )
+      CALL Info( SolverName, 'Set boundaries done', Level=4 )
 
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
@@ -266,9 +269,9 @@
       END IF
 
       WRITE( Message, * ) 'Result Norm   : ',UNorm, PrevUNorm
-      CALL Info( 'ForceToStress', Message, Level=4 )
+      CALL Info( SolverName, Message, Level=4 )
       WRITE( Message, * ) 'Relative Change : ',RelativeChange
-      CALL Info( 'ForceToStress', Message, Level=4 )
+      CALL Info( SolverName, Message, Level=4 )
 
 
 !------------------------------------------------------------------------------
