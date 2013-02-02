@@ -32,7 +32,8 @@ Solvers/IntegratedVelocity.f90 \
 Solvers/PorousSolve.f90 \
 Solvers/SIASolver.f90 \
 Solvers/SSASolver.f90 \
-Solvers/TemperateIce.f90
+Solvers/TemperateIce.f90\
+Solvers/ExportVertically.f90
 USFSOURCE := \
 UserFunctions/Buoyancy.f90 \
 UserFunctions/USF_Contact.f90 \
