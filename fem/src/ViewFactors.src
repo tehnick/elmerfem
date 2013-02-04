@@ -422,14 +422,14 @@
              Surfaces(2*(t-1)+2) = Element % NodeIndexes(2)-1
            END IF
          ELSE
-           j = Element % Type % ElementCode/100
+           j = Element % TYPE % ElementCode/100
            SELECT CASE(j)
              CASE(2)
-                Type(t) = 202
+                TYPE(t) = 202
              CASE(3)
-                Type(t) = 303
+                TYPE(t) = 303
              CASE(4)
-                Type(t) = 404
+                TYPE(t) = 404
            END SELECT
            DO i=1,j
              Surfaces(j*(t-1)+i) = Element % NodeIndexes(i) - 1
@@ -471,8 +471,8 @@
          IF ( .NOT. GotIt ) Nrays = 1
 
          CALL ViewFactors3D( &
-             N, Surfaces, Type, Coords, Normals, &
-             0, Surfaces, Type, Coords, Normals, &
+             N, Surfaces, TYPE, Coords, Normals, &
+             0, Surfaces, TYPE, Coords, Normals, &
              Factors, AreaEPS, FactEPS, RayEPS, Nrays, 4, 3, CombineInt )
        END IF
        
@@ -488,11 +488,11 @@
          END DO
          
 	 IF( .NOT. RadiationOpen .AND. s < 0.1 ) THEN
-	  print *,'Problematic row sum',i,s,n
+	  PRINT *,'Problematic row sum',i,s,n
 	  j = Surfaces(2*i-1)
-	  print *,'coord 1:',j,Coords(2*j-1),Coords(2*j)
+	  PRINT *,'coord 1:',j,Coords(2*j-1),Coords(2*j)
 	  j = Surfaces(2*i)
-	  print *,'coord 2:',j,Coords(2*j-1),Coords(2*j)
+	  PRINT *,'coord 2:',j,Coords(2*j-1),Coords(2*j)
          END IF
 
          IF(i == 1) THEN
@@ -506,7 +506,7 @@
        
        
        CALL Info( 'ViewFactors', ' ', Level=3 )
-       CALL info( 'ViewFactors', 'Viewfactors before normalizing: ', Level=3 )
+       CALL info( 'ViewFactors', 'Viewfactors before manipulation: ', Level=3 )
        CALL Info( 'ViewFactors', ' ', Level=3 )
        WRITE( LMessage, * ) '        Minimum row sum: ',FMin
        CALL Info( 'ViewFactors', LMessage, Level=3 )
@@ -515,38 +515,45 @@
        CALL Info( 'ViewFactors', ' ', Level=3 )
        
        
-       IF(.NOT. RadiationOpen) THEN
-         at0 = CPUTime()
+       at0 = CPUTime()
 
-         CALL Info( 'ViewFactors', 'Normalizing Factors... ', Level=3 )
-         CALL NormalizeFactors( Model )
-
-         DO i=1,N
-           s = 0.0D0
-           DO j=1,N
-             s = s + Factors((i-1)*N+j)
-           END DO
-           IF(i == 1) THEN
-             Fmin = s
-             Fmax = s
-           ELSE
-             FMin = MIN( FMin,s )
-             FMax = MAX( FMax,s )
-           END IF
-         END DO
-
-         WRITE (Message,'(A,F8.2)') 'View factors normalized in time (s):',CPUTime()-at0
-         CALL Info( 'ViewFactors',Message, Level=3 )
-          
-         CALL Info( 'ViewFactors', ' ', Level=3 )
-         CALL info( 'ViewFactors', 'Viewfactors after normalizing: ', Level=3 )
-         CALL Info( 'ViewFactors', ' ', Level=3 )
-         WRITE( LMessage, * ) '        Minimum row sum: ',FMin
-         CALL Info( 'ViewFactors', LMessage, Level=3 )
-         WRITE( LMessage, * ) '        Minimum row sum: ',FMax
-         CALL Info( 'ViewFactors', LMessage, Level=3 )
-         CALL Info( 'ViewFactors', ' ', Level=3 )
+       IF( RadiationOpen ) THEN
+         CALL Info( 'ViewFactors','Symmetrizing Factors... ', Level=3 )
+       ELSE
+         CALL Info( 'ViewFactors','Normalizaing Factors...',Level=3)
        END IF
+
+       CALL NormalizeFactors( Model )
+
+
+       DO i=1,N
+         s = 0.0D0
+         DO j=1,N
+           s = s + Factors((i-1)*N+j)
+         END DO
+         IF(i == 1) THEN
+           Fmin = s
+           Fmax = s
+         ELSE
+           FMin = MIN( FMin,s )
+           FMax = MAX( FMax,s )
+         END IF
+       END DO
+       
+       WRITE (Message,'(A,F8.2)') 'View factors manipulated in time (s):',CPUTime()-at0
+       CALL Info( 'ViewFactors',Message, Level=3 )
+       
+       CALL Info( 'ViewFactors', ' ', Level=3 )
+       CALL info( 'ViewFactors', 'Viewfactors after manipulation: ', Level=3 )
+       CALL Info( 'ViewFactors', ' ', Level=3 )
+       WRITE( LMessage, * ) '        Minimum row sum: ',FMin
+       CALL Info( 'ViewFactors', LMessage, Level=3 )
+       WRITE( LMessage, * ) '        Maximum row sum: ',FMax
+       CALL Info( 'ViewFactors', LMessage, Level=3 )
+       IF( FMax > 1.0_dp ) THEN
+         CALL Warn('ViewFactors','Rowsum of view factors should not be larger than one!')
+       END IF
+       CALL Info( 'ViewFactors', ' ', Level=3 )
 
 
        ViewFactorsFile = GetString( GetSimulation(),'View Factors',GotIt)
@@ -615,11 +622,10 @@
         REAL(KIND=dp) :: at1, CPUTime  
 
 
-        ALLOCATE( RHS(n),SOL(n),PSOL(n),Areas(n),Jdiag(n),Jacobian(n,n),STAT=istat )
-
+        ALLOCATE( Areas(n),STAT=istat )
         IF ( istat /= 0 ) THEN
           CALL Fatal( 'Viewfactors', &
-              'Memory allocation error in NormalizeFactors.Aborting.' )
+              'Memory allocation error 1 in NormalizeFactors.Aborting.' )
         END IF
 
 !------------------------------------------------------------------------------
@@ -627,7 +633,7 @@
 !------------------------------------------------------------------------------
         DO i=1,n
           Areas(i) = ElementArea( Model % Mesh, RadElements(i), &
-               RadElements(i) % Type % NumberOfNodes )
+               RadElements(i) % TYPE % NumberOfNodes )
         END DO
 
         DO i=1,n
@@ -657,52 +663,69 @@
 !       well behaved equation (symmetric, diagonal dominant), no need for any
 !       tricks...)
 !------------------------------------------------------------------------------
-        SOL = 1.0_dp
-        cum = 1.0_dp
+        IF(.NOT. RadiationOpen ) THEN
+          
+          ALLOCATE( RHS(n),SOL(n),PSOL(n),Jdiag(n),Jacobian(n,n),STAT=istat )
+          IF ( istat /= 0 ) THEN
+            CALL Fatal( 'Viewfactors', &
+                'Memory allocation error 2 in NormalizeFactors.Aborting.' )
+          END IF
 
-        DO it=1,itmax
-
-          DO i=1,n
-            cum = 0.0_dp
-            DO j=1,n
-              cum = cum + Factors((i-1)*n+j) * SOL(j)
+          SOL = 1.0_dp
+          cum = 1.0_dp
+          
+          DO it=1,itmax
+            
+            DO i=1,n
+              cum = 0.0_dp
+              DO j=1,n
+                cum = cum + Factors((i-1)*n+j) * SOL(j)
+              END DO
+              cum = cum * SOL(i)
+              RHS(i) = Areas(i) - cum
             END DO
-            cum = cum * SOL(i)
-            RHS(i) = Areas(i) - cum
+            
+            cum = SUM( RHS*RHS/Areas ) / n
+            
+            WRITE (Message,'(A,I2,A,ES12.3)') 'Normalization iteration',it,': ',cum
+            CALL Info( 'ViewFactors',Message, Level=3 )
+            
+            IF ( cum <= eps ) EXIT
+            
+            DO i=1,n
+              DO j=1,n
+                Jacobian(i,j) = Factors((i-1)*n+j) * SOL(i)
+              END DO
+              DO j=1,n
+                Jacobian(i,i) = Jacobian(i,i) + Factors((i-1)*n+j) * SOL(j)
+              END DO
+              Jdiag(i) = 1._dp / Jacobian(i,i)
+            END DO
+            
+            PSOL = SOL
+            CALL IterSolv( n,SOL,RHS )
+            SOL = PSOL + SOL
           END DO
-
-          cum = SUM( RHS*RHS/Areas ) / n
-
-          WRITE (Message,'(A,I2,A,ES12.3)') 'Normalization iteration',it,': ',cum
-          CALL Info( 'ViewFactors',Message, Level=3 )
-
-          IF ( cum <= eps ) EXIT
-
-          DO i=1,n
-            DO j=1,n
-              Jacobian(i,j) = Factors((i-1)*n+j) * SOL(i)
-            END DO
-            DO j=1,n
-              Jacobian(i,i) = Jacobian(i,i) + Factors((i-1)*n+j) * SOL(j)
-            END DO
-            Jdiag(i) = 1._dp / Jacobian(i,i)
-          END DO
-             
-          PSOL = SOL
-          CALL IterSolv( n,SOL,RHS )
-          SOL = PSOL + SOL
-        END DO
-
+          
 !------------------------------------------------------------------------------
 !       Normalize the factors and (re)divide by areas
 !------------------------------------------------------------------------------
-        DO i=1,N
-          DO j=1,N
-            Factors((i-1)*N+j) = Factors((i-1)*N+j)*SOL(i)*SOL(j)/Areas(i)
+          DO i=1,N
+            DO j=1,N
+              Factors((i-1)*N+j) = Factors((i-1)*N+j)*SOL(i)*SOL(j)/Areas(i)
+            END DO
           END DO
-        END DO
+          DEALLOCATE( SOL,RHS,PSOL,Jdiag,Jacobian )
 
-        DEALLOCATE( SOL,RHS,PSOL,Areas,Jdiag,Jacobian )
+        ELSE
+         DO i=1,N
+           DO j=1,N
+             Factors((i-1)*N+j) = Factors((i-1)*N+j)/Areas(i)
+           END DO
+         END DO
+       END IF
+
+       DEALLOCATE( Areas )
 
     END SUBROUTINE NormalizeFactors
 

@@ -1288,8 +1288,12 @@ CONTAINS
           IF( GetLogical( BC, 'Radiation Boundary Open', Found) ) THEN
             AText(1:n) = GetReal( BC, 'Radiation External Temperature',Found )
             IF(.NOT. Found) AText(1:n) = GetReal( BC, 'External Temperature' )
-            Atext(1:n) = ( (1 - VisibleFraction) * Atext(1:n)**4 + &
-                VisibleFraction * Text**4 ) ** 0.25_dp
+            IF( VisibleFraction >= 1.0_dp ) THEN
+              Atext(1:n) = Text
+            ELSE
+              Atext(1:n) = ( (1 - VisibleFraction) * Atext(1:n)**4 + &
+                  VisibleFraction * Text**4 ) ** 0.25_dp
+            END IF
           ELSE
             AText(1:n) = Text
           END IF
@@ -1461,7 +1465,7 @@ CONTAINS
 
       Asum = 0.0d0
       IF ( .NOT. NewtonLinearization ) THEN
-
+PRINT *,'a1'
         Text = ComputeRadiationLoad( Model, Solver % Mesh, Element, &
                  Temperature, TempPerm, Emissivity, AngleFraction)
 
@@ -1470,6 +1474,7 @@ CONTAINS
 !       Go trough surfaces (j) this surface (i) is getting
 !       radiated from.
 !------------------------------------------------------------------------------
+
         Area  = ElementArea( Solver % Mesh, Element, n )
         ElementList => Element % BoundaryInfo % GebhardtFactors % Elements
 
