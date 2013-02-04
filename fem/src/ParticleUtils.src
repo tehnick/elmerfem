@@ -4814,6 +4814,19 @@ RETURN
       WRITE( 10, '(A,I2)' ) 'Dimension of particle set is',dim
       i = 1
       WRITE( 10, '(I2,A)' )  i,': time'
+
+      IF( NumberFilesBySteps ) THEN
+        WRITE( 10,'(I2, A)' ) i+1, ': particle id'
+        i = i + 1
+      ELSE IF( NumberFilesByParticles ) THEN
+        WRITE( 10,'(I2, A)' ) i+1, ': visited time'
+        i = i + 1
+      ELSE     
+        WRITE( 10,'(I2, A)' ) i+1, ': visited time'  
+        WRITE( 10,'(I2, A)' ) i+2, ': particle id'
+        i = i + 2
+      END IF
+
       WRITE( 10, '(I2,A)' )  i+1,': Coordinate_1'
       WRITE( 10, '(I2,A)' )  i+2,': Coordinate_2'
       IF(dim == 3) WRITE( 10, '(I2,A)' )  i+3,': Coordinate_3'
@@ -4894,7 +4907,7 @@ RETURN
         WRITE( 10,'(2I6)', ADVANCE = 'NO' ) VisitedTimes, No
       END IF
 
-      WRITE( 10,'(7ES12.4)', ADVANCE = 'NO' ) Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
+      WRITE( 10,'(6ES12.4)', ADVANCE = 'NO' ) Coord(No,1:dim), Velo(No,1:dim) !Dist(No) 
        
       IF( GotDistVar ) WRITE (10,'(ES12.4)',ADVANCE='NO') PartDistVar % Values(No)
       IF( GotTimeVar ) WRITE (10,'(ES12.4)',ADVANCE='NO') PartTimeVar % Values(No)
@@ -4915,6 +4928,116 @@ RETURN
   END SUBROUTINE ParticleOutputTable
 
 
+
+  !------------------------------------------------------------------------
+  !> Write particles to an external file in Gmsh format as vector points.
+  ! Subroutine contributed by Emilie Marchandise.
+  !-------------------------------------------------------------------------
+  SUBROUTINE ParticleOutputGmsh( Particles )
+    
+    TYPE(Particle_t), POINTER :: Particles
+    
+    TYPE(Variable_t), POINTER :: TimeVar
+    TYPE(ValueList_t), POINTER :: Params 
+    CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, FileNameGmsh, FileNameOut
+    LOGICAL :: Found
+    REAL(KIND=dp), POINTER :: Coord(:,:), Velo(:,:), Dist(:)
+    REAL(KIND=dp), POINTER :: CoordInit(:,:)
+    REAL(KIND=dp) :: time
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER, POINTER :: Status(:)
+    INTEGER :: i,j,k, dim, NoParticles, nStep
+    INTEGER :: VisitedTimes = 0
+    INTEGER, POINTER :: TimeSteps(:)
+    LOGICAL :: GotTimeVar, GotDistVar
+    TYPE(Variable_t), POINTER :: PartTimeVar, PartDistVar    
+
+    SAVE :: VisitedTimes, Params, FilePrefix, TimeVar, FileNameGmsh, CoordInit
+
+    Params => GetSolverParams()
+    FilePrefix = ListGetString(Params,'Filename Prefix')
+
+    WRITE( FileNameGmsh,'(A,A)') TRIM(FilePrefix),'.pos'
+    
+    Mesh => GetMesh()
+    dim = Particles % dim
+
+    Coord => Particles % Coordinate
+    Velo => Particles % Velocity 
+    Status => Particles % Status
+    
+    NoParticles = Particles % NumberOfParticles
+
+    VisitedTimes = VisitedTimes + 1
+    IF (VisitedTimes==1) THEN
+
+       OPEN (10, FILE=FileNameGmsh )
+       WRITE( 10, '(A)') 'View[0].VectorType=5; //for displacement type'
+       WRITE( 10, '(A)') 'View[0].PointType=1; // for spheres'
+       WRITE( 10, '(A)') 'View[0].PointSize=5; // for spheres'
+       WRITE( 10, '(A)') 'View[0].IntervalsType = 1; //for iso-values interval'
+       WRITE( 10, '(A)') 'View[0].NbIso = 1; //for one color'
+       WRITE( 10, '(A)') 'View[0].ShowScale = 0; ' 
+       CLOSE( 10 )
+
+       ALLOCATE( CoordInit(NoParticles,dim) )
+       CoordInit = Particles % Coordinate
+  
+       TimeVar => VariableGet( Mesh % Variables,'time')
+    END IF
+
+    time = TimeVar % Values(1)
+    CALL Info( 'ParticleTracker', 'Saving particle paths to file: '//TRIM(FileNameGmsh), Level=4 )
+    
+    OPEN (10, FILE=FileNameGmsh, POSITION='APPEND' )   
+    WRITE( 10, '(A)') 'View "particles" {'
+    WRITE( 10, '(A)', ADVANCE='NO') 'TIME{'
+    WRITE( 10, '(ES16.7E3)', ADVANCE='NO') time
+    WRITE( 10, '(A)') '};'
+
+    DO i = 1, NoParticles
+        WRITE( 10, '(A)', ADVANCE='NO') 'VP('
+        DO k=1,dim
+           WRITE( 10, '(ES16.7E3)', ADVANCE='NO') CoordInit(i,k)
+           IF(k < dim) WRITE( 10, '(A)', ADVANCE='NO') ','
+        END DO
+        IF (dim ==2)  WRITE( 10, '(A)', ADVANCE='NO') ', 0.0'
+        WRITE( 10, '(A)', ADVANCE='NO') '){'
+        DO k=1,dim
+           WRITE( 10, '(ES16.7E3)', ADVANCE='NO') Coord(i,k)-CoordInit(i,k)
+           IF(k < dim) WRITE( 10, '(A)', ADVANCE='NO') ','
+        END DO
+        IF (dim ==2)  WRITE( 10, '(A)', ADVANCE='NO') ', 0.0'
+        WRITE( 10, '(A)') '};'
+    END DO
+    WRITE( 10, '(A)') '};'
+
+
+    ! Save for last timestep, this is a conservative estimate assuming 
+    ! savig after each timestep.
+    !-----------------------------------------------------------------
+    Timesteps => ListGetIntegerArray( CurrentModel % Simulation, &
+        'Timestep Intervals', Found )
+    nStep = SUM( TimeSteps )
+
+    IF (VisitedTimes == nStep) THEN 
+       WRITE( FileNameOut,'(A,A)') TRIM(FilePrefix),'_combined.pos";'
+       WRITE( 10, '(A)') 'Combine TimeStepsByViewName;'
+       WRITE( 10, '(A)', ADVANCE='NO') 'Save View [0] "'
+       WRITE( 10, '(A)') FileNameOut
+       WRITE( 10, '(A)') 'Printf("View[0].VectorType=5;'
+       WRITE( 10, '(A)') 'View[0].PointType=1; // for spheres'
+       WRITE( 10, '(A)') 'View[0].PointSize=5; // for spheres'
+       WRITE( 10, '(A)') 'View[0].IntervalsType = 1; //for iso-values interval'
+       WRITE( 10, '(A)') 'View[0].NbIso = 1; //for one color'
+       WRITE( 10, '(A)', ADVANCE='NO') 'View[0].ShowScale = 0; ") >> "'
+       WRITE( 10, '(A)') FileNameOut
+    END IF
+
+    CLOSE( 10 )
+
+
+  END SUBROUTINE ParticleOutputGmsh
 
 
 !------------------------------------------------------------------------------
@@ -6216,7 +6339,7 @@ RETURN
     LOGICAL :: Visited = .FALSE.
     TYPE(ValueList_t), POINTER :: Params     
     CHARACTER(LEN=MAX_NAME_LEN) :: FileFormat
-    LOGICAL :: VtuFormat, TableFormat, AnyFormat, Found
+    LOGICAL :: VtuFormat, TableFormat, GmshFormat, AnyFormat, Found
     
     SAVE :: TableFormat, VtuFormat, Visited
 
@@ -6225,14 +6348,16 @@ RETURN
     Params => GetSolverParams()
     
     TableFormat = ListGetLogical( Params,'Table Format',Found)
+    GmshFormat = ListGetLogical( Params,'Gmsh Format',Found)
     VtuFormat = ListGetLogical( Params,'Vtu Format',Found)
     FileFormat = ListGetString( Params,'Output Format',Found) 
     IF( Found ) THEN
+      IF( FileFormat == 'gmsh') GmshFormat = .TRUE.
       IF( FileFormat == 'vtu') VtuFormat = .TRUE.
       IF( FileFormat == 'table') TableFormat = .TRUE.
     END IF
     
-    AnyFormat = TableFormat .OR. VtuFormat 
+    AnyFormat = TableFormat .OR. VtuFormat .OR. GmshFormat
     IF( .NOT. AnyFormat ) THEN
       CALL Warn('SaveParticleData','No active file format given!')
       RETURN
@@ -6243,6 +6368,7 @@ RETURN
     END IF
     
     IF( TableFormat ) CALL ParticleOutputTable( Particles )
+    IF( GmshFormat ) CALL ParticleOutputGmsh( Particles ) 
     IF( VtuFormat ) CALL ParticleOutputVtu( Particles ) 
 
 
