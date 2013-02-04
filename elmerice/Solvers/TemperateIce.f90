@@ -690,6 +690,8 @@
               CALL DefaultUpdateEquations( STIFF, FORCE )
            END DO     !  Bulk elements
 
+           ! This was introduced to enable the computation of loads in the new system 
+           CALL DefaultFinishBulkAssembly()
 
            !------------------------------------------------------------------------------
            ! Neumann & Newton boundary conditions
@@ -923,7 +925,7 @@
                  !CALL INFO(SolverName,Message,Level=1)
                  !WRITE(Message,'(a,i10)') 'Number of constrained points:', COUNT(ActiveNode) 
                  !CALL
-                 if (k>0) PRINT *, ParEnv % myPe, ':', 'Deactivated Periodic BC nodes:', k
+                 IF (k>0) PRINT *, ParEnv % myPe, ':', 'Deactivated Periodic BC nodes:', k
                  PRINT *, ParEnv % myPe, ':',' Number of constrained points:', COUNT(ActiveNode)
               END IF
            END IF
