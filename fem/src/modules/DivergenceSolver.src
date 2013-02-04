@@ -116,6 +116,12 @@ SUBROUTINE DivergenceSolver( Model,Solver,dt,Transient )
   END IF
 
   CALL BulkAssembly()
+  IF( ConstantBulkMatrix ) THEN
+    IF(.NOT. ConstantBulkMatrixInUse ) THEN
+      CALL DefaultFinishBulkAssembly( BulkUpdate = .TRUE.)
+    END IF
+  END IF
+
   CALL DefaultFinishAssembly()
   CALL DefaultDirichletBCs()
 
@@ -211,8 +217,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
       IF ( .NOT. ConstantBulkMatrixInUse ) THEN
-        CALL DefaultUpdateEquations( STIFF, FORCE(1:nd), &
-            BulkUpdate=ConstantBulkMatrix )
+        CALL DefaultUpdateEquations( STIFF, FORCE(1:nd) )
       ELSE
         CALL DefaultUpdateForce( FORCE(1:nd) )        
       END IF

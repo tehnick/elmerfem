@@ -119,6 +119,9 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   SaveRHS => Solver % Matrix % RHS
 !    
   CALL BulkAssembly()
+  CALL DefaultFinishBulkAssembly()
+
+  !No flux BCs for this solver
   CALL DefaultFinishAssembly()
 
   at1 = RealTime()
@@ -240,8 +243,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       IF ( .NOT. ConstantBulkMatrixInUse ) THEN
         Solver % Matrix % RHS => SaveRHS
-        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
-            BulkUpdate=ConstantBulkMatrix )
+        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd) )
       END IF
 
       DO i=1,dim

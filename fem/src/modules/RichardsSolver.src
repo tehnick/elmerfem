@@ -467,6 +467,8 @@ END MODULE PorousMaterials
         CALL DefaultUpdateEquations( STIFF, FORCE )
       END DO
 
+      CALL DefaultFinishBulkAssembly( )
+
       
       !------------------------------------------------------------------------------
       !  Boundary Assembly
@@ -873,6 +875,8 @@ SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
   SaveRHS => Solver % Matrix % RHS
   
   CALL BulkAssembly()
+  CALL DefaultFinishBulkAssembly()
+
   CALL DefaultFinishAssembly()
   
   at1 = RealTime()
@@ -991,8 +995,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       IF ( .NOT. ConstantBulkMatrixInUse ) THEN
         Solver % Matrix % RHS => SaveRHS
-        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
-            BulkUpdate=ConstantBulkMatrix )
+        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd) )
       ELSE
         CALL DefaultUpdateForce( FORCE(1,1:nd) )       
       END IF

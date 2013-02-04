@@ -344,6 +344,7 @@
 !------------------------------------------------------------------------------
       END DO
 
+      CALL DefaultFinishBulkAssembly()
       CALL Info( 'MagneticSolve', 'Assembly done', Level=4 )
 
       at = CPUTime() - at
@@ -520,8 +521,8 @@
       INTEGER :: Reorder(:)
 
 
-      Type(Nodes_t) :: Nodes
-      Type(Element_t), POINTER :: Element
+      TYPE(Nodes_t) :: Nodes
+      TYPE(Element_t), POINTER :: Element
       TYPE(ValueList_t), POINTER :: Material
 
       REAL(KIND=dp), POINTER :: EConductivity(:), MPermeability(:)
@@ -705,7 +706,7 @@
       DEALLOCATE( ExMx, ExMy, ExMz )
       DEALLOCATE( TotBx, TotBy, TotBz )
 
-      print*, 'And finishing...'
+      PRINT*, 'And finishing...'
 
     END SUBROUTINE ComputeNodalField
 

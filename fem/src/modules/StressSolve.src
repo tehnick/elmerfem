@@ -602,13 +602,15 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
          IF ( ConstantBulkSystem ) GO TO 2000
          IF ( ConstantSystem )     GO TO 3000
        END IF
-
+ 
        CALL DefaultInitialize()
 
 1000   CALL BulkAssembly()
+       CALL DefaultFinishBulkAssembly()
+       CALL Info( 'StressSolve', 'Bulk assembly done', Level=4 )
 
-2000   CALL Info( 'StressSolve', 'Assembly done', Level=4 )
-       CALL BCAssembly()
+2000   CALL BCAssembly()
+       CALL DefaultFinishBoundaryAssembly()
 
 3000   IF ( Transient .AND.(ConstantBulkMatrix .OR. &
            ConstantBulkSystem .OR. ConstantSystem) ) CALL AddGlobalTime()
@@ -1048,19 +1050,19 @@ CONTAINS
 !      Update global matrices from local matrices 
 !------------------------------------------------------------------------------
        IF ( ConstantBulkMatrixInUse ) THEN
-         CALL DefaultUpdateForce( FORCE, BulkUpdate=.TRUE. )
+         CALL DefaultUpdateForce( FORCE )
          IF ( HarmonicAnalysis ) THEN
            SaveRHS => Solver % Matrix % RHS
            Solver % Matrix % RHS => Solver % Matrix % RHS_im
-           CALL DefaultUpdateForce( FORCE_im, BulkUpdate=.FALSE. )
+           CALL DefaultUpdateForce( FORCE_im )
            Solver % Matrix % RHS => SaveRHS
          END IF
        ELSE
-         CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
+         CALL DefaultUpdateEquations( STIFF, FORCE )
          IF ( HarmonicAnalysis ) THEN
            SaveRHS => Solver % Matrix % RHS
            Solver % Matrix % RHS => Solver % Matrix % RHS_im
-           CALL DefaultUpdateForce( FORCE_im, BulkUpdate=.FALSE. )
+           CALL DefaultUpdateForce( FORCE_im )
            Solver % Matrix % RHS => SaveRHS
          END IF
 
@@ -1076,7 +1078,6 @@ CONTAINS
 !------------------------------------------------------------------------------
    END SUBROUTINE BulkAssembly
 !------------------------------------------------------------------------------
-
 
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
@@ -1178,11 +1179,11 @@ CONTAINS
 
           ! Update global matrices from local matrices:;
           !---------------------------------------------
-          CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.FALSE. )
+          CALL DefaultUpdateEquations( STIFF, FORCE )
           IF ( HarmonicAnalysis ) THEN
             SaveRHS => Solver % Matrix % RHS
             Solver % Matrix % RHS => Solver % Matrix % RHS_im
-            CALL DefaultUpdateForce( FORCE_im, BulkUpdate=.FALSE. )
+            CALL DefaultUpdateForce( FORCE_im )
             Solver % Matrix % RHS => SaveRHS
           END IF
           IF ( EigenOrHarmonicAnalysis() .OR. ConstantSystem.AND.Transient ) &

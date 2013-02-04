@@ -277,6 +277,7 @@
          CALL DefaultUpdateEquations( STIFF, FORCE )
 !------------------------------------------------------------------------------
       END DO     !  Bulk elements
+      CALL DefaultFinishBulkAssembly()
       CALL Info( 'V2-F-Solver', 'Assembly done', Level=4 )
 
 !------------------------------------------------------------------------------
@@ -411,7 +412,7 @@ CONTAINS
 !    Integration stuff
 !------------------------------------------------------------------------------
      IF ( Bubbles ) THEN
-        IntegStuff = GaussPoints( element, element % Type % GaussPoints2 )
+        IntegStuff = GaussPoints( element, element % TYPE % GaussPoints2 )
      ELSE
         IntegStuff = GaussPoints( element )
      END IF
@@ -827,6 +828,7 @@ CONTAINS
          CALL DefaultUpdateEquations( STIFF, FORCE )
 !------------------------------------------------------------------------------
       END DO     !  Bulk elements
+      CALL DefaultFinishBulkAssembly()
       CALL Info( 'V2-F-Solver', 'Assembly done', Level=4 )
 
 !------------------------------------------------------------------------------
@@ -955,7 +957,7 @@ CONTAINS
 !    Integration stuff
 !------------------------------------------------------------------------------
      IF ( Bubbles ) THEN
-        IntegStuff = GaussPoints( element, element % Type % GaussPoints2 )
+        IntegStuff = GaussPoints( element, element % TYPE % GaussPoints2 )
      ELSE
         IntegStuff = GaussPoints( element )
      END IF

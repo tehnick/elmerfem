@@ -117,8 +117,11 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
       CALL LCondensate( nd, nb, STIFF, FORCE )
       CALL DefaultUpdateEquations( STIFF, FORCE )
     END DO
+    CALL DefaultFinishBulkAssembly()
 
+    ! No Flux BCs
     CALL DefaultFinishAssembly()
+
     CALL DefaultDirichletBCs()
 
     ! And finally, solve:

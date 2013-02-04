@@ -158,7 +158,7 @@
 
      DO i = 1, Solver % Mesh % NumberOfNodes
         j = DeflectionPerm(i)
-        if(j < 1) cycle
+        IF(j < 1) CYCLE
        Unorm = Unorm + Deflection(6*j-5)**2 + Deflection(6*j-4)**2 + Deflection(6*j-3)**2
      END DO
      Unorm = SQRT( Unorm )
@@ -295,6 +295,8 @@
      at = CPUTime()
      CALL DefaultInitialize()
      CALL BulkAssembly()
+     CALL DefaultFinishBulkAssembly()
+
      CALL BCAssembly()
      CALL DefaultFinishAssembly()
      CALL ConcentratedLoads()
@@ -552,7 +554,7 @@
              
              IF ( r < 1.0d-8 ) THEN
                 k = DeflectionPerm( i )
-                if(k < 1) cycle
+                IF(k < 1) CYCLE
                 ForceVector( 6*k-5 ) = ForceVector( 6*k-5 ) + Fx
                 ForceVector( 6*k-4 ) = ForceVector( 6*k-4 ) + Fy
                 ForceVector( 6*k-3 ) = ForceVector( 6*k-3 ) + Fz

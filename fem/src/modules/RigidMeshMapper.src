@@ -185,7 +185,9 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
         CALL LocalMatrix(  STIFF, FORCE, Element, n )
         CALL DefaultUpdateEquations( STIFF, FORCE )
       END DO
-      
+      CALL DefaultFinishBulkAssembly()
+
+      ! No Flux BCs
       CALL DefaultFinishAssembly()
       CALL DefaultDirichletBCs()
       Norm = DefaultSolve()      

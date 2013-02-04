@@ -134,6 +134,11 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
   END IF
 
   CALL BulkAssembly()
+  IF(.NOT. ConstantBulkMatrixInUse ) THEN
+    CALL DefaultFinishBulkAssembly()
+  END IF
+
+  ! No flux BCs
   CALL DefaultFinishAssembly()
 
   at1 = RealTime()
@@ -264,8 +269,7 @@ CONTAINS
 
       IF ( .NOT. ConstantBulkMatrixInUse ) THEN
         IF(Dofs > 1) Solver % Matrix % RHS => SaveRHS
-        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
-            BulkUpdate=ConstantBulkMatrix )
+        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd) )
       ELSE
         CALL DefaultUpdateForce( FORCE(1,1:nd) )        
       END IF

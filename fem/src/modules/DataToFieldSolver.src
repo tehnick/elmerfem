@@ -101,8 +101,13 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
   ! Create the matrix equation with r.h.s. data and regularization
   !------------------------------------------------------------------------
   CALL DefaultInitialize()  
+
   CALL BulkAssembly()
+  CALL DefaultFinishBulkAssembly()
+
+  ! No flux BCs
   CALL DefaultFinishAssembly()
+
   CALL DefaultDirichletBCs()
 
   ! Solver the matrix 

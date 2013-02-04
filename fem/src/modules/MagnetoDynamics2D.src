@@ -126,6 +126,8 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
     END DO
 !$omp end parallel do
 
+    CALL DefaultFinishBulkAssembly()
+
     Active = GetNOFBoundaryElements()
 !$omp parallel do private(Element, n, nd, BC,Found)
     DO t=1,active

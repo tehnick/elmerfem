@@ -2346,6 +2346,7 @@ CONTAINS
      n = GetElementDOFs( Indexes, Element, Solver )
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)), UElement=Element )
 
+#if 0
      BUpd = .FALSE.
      IF ( PRESENT(BulkUpdate) ) THEN
        BUpd=BulkUpdate 
@@ -2375,6 +2376,7 @@ CONTAINS
                 x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE., UElement = Element )
        A % Values => SaveValues
      END IF
+#endif 
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateEquationsR
 !------------------------------------------------------------------------------
@@ -2458,6 +2460,7 @@ CONTAINS
 
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
 
+#if 0
      BUpd = .FALSE.
      IF ( PRESENT(BulkUpdate) ) THEN
        BUpd=BulkUpdate 
@@ -2487,7 +2490,8 @@ CONTAINS
           x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
         A % Values => SaveValues
      END IF
- 
+#endif 
+
      DEALLOCATE( G, F)
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateEquationsC
@@ -2544,6 +2548,7 @@ CONTAINS
     CALL UpdateGlobalForce( Solver % Matrix % RHS, &
        F, n, x % DOFs, x % Perm(Indexes(1:n)), UElement=Element)
 
+#if 0
     BUpd = .FALSE.
     IF ( PRESENT(BulkUpdate) ) THEN
       BUpd=BulkUpdate 
@@ -2562,6 +2567,7 @@ CONTAINS
       CALL UpdateGlobalForce( Solver % Matrix % BulkRHS, &
          F, n, x % DOFs, x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
     END IF
+#endif
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateForceR
 !------------------------------------------------------------------------------
@@ -3246,6 +3252,7 @@ CONTAINS
      TYPE(Element_t), POINTER :: Element, Parent, Edge, Face, SaveElement
 
      CHARACTER(LEN=MAX_NAME_LEN) :: name
+     LOGICAL :: BUpd
 
      SAVE gInd, lInd, STIFF, Work
 
@@ -3256,6 +3263,25 @@ CONTAINS
      END IF
 
      Params => GetSolverParams(Solver)
+
+     ! This is a check to help detecting backward incompatible code
+     ! that was created in order to make saving of bulk values thread safe.
+     !---------------------------------------------------------------------
+     IF( .NOT. ASSOCIATED( Solver % Matrix % BulkValues ) ) THEN
+       BUpd = GetLogical( Params,'Calculate Loads', Found )
+       BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk System', Found )
+       BUpd = BUpd .OR. GetLogical( Params,'Save Bulk System', Found )
+       BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk Matrix', Found )
+       IF( BUpd ) THEN
+         CALL Info('ElmerSolver','Solver code should be updated!',Level=3)
+         CALL Info('ElmerSolver','IF you need to save Bulk Values add the following code after bulk assembly',Level=3)
+         CALL Info('ElmerSolver','  CALL DefaultFinishBulkAssembly()',Level=3)
+         CALL Info('ElmerSolver','Then recompile and rerun, thank you',Level=3)
+         CALL Fatal('ElmerSolver','Now I can no longer continue, exiting...')
+       END IF
+     END IF
+
+
      IF ( GetString(Params,'Linear System Solver',Found)=='feti') THEN
        IF ( GetLogical(Params,'Total FETI', Found)) RETURN
      END IF
@@ -3832,6 +3858,123 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalBcBDOFs
 !------------------------------------------------------------------------------
+
+
+!> Finished the bulk assembly of the matrix equation.
+!> Optionally save the matrix for later use
+!------------------------------------------------------------------------------
+  SUBROUTINE DefaultFinishBulkAssembly( Solver, BulkUpdate )
+!------------------------------------------------------------------------------
+    TYPE(Solver_t), OPTIONAL, TARGET :: Solver
+    LOGICAL, OPTIONAL :: BulkUpdate
+
+    TYPE(Solver_t), POINTER :: PSolver
+    TYPE(ValueList_t), POINTER :: Params
+    TYPE(Matrix_t), POINTER :: A
+    LOGICAL :: Bupd, Found
+    INTEGER :: n
+
+    IF( PRESENT( Solver ) ) THEN
+      PSolver => Solver
+    ELSE
+      PSolver => CurrentModel % Solver
+    END IF
+
+    BUpd = .FALSE.
+    IF ( PRESENT(BulkUpdate) ) THEN
+      BUpd = BulkUpdate 
+      IF ( .NOT. BUpd ) RETURN
+    END IF
+
+    Params => GetSolverParams( PSolver ) 
+
+    BUpd = BUpd .OR. GetLogical( Params,'Calculate Loads', Found )
+    BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk System', Found )
+    BUpd = BUpd .OR. GetLogical( Params,'Save Bulk System', Found )
+    BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk Matrix', Found )
+
+    IF(.NOT. BUpd ) RETURN
+
+    CALL Info('DefaultFinishBulkAssembly','Saving bulk values for Solver: '//TRIM(PSolver % Variable % Name) )
+
+    A => PSolver % Matrix
+
+    n = SIZE( A % Rhs )
+    IF( ASSOCIATED( A % BulkRhs ) ) THEN
+      IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
+    END IF
+    IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+      ALLOCATE( A % BulkRHS( n ) )
+    END IF
+    A % BulkRHS = A % Rhs
+    
+    n = SIZE( A % Values )
+    IF( ASSOCIATED( A % BulkValues ) ) THEN
+      IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
+    END IF
+    IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+      ALLOCATE( A % BulkValues( n ) )
+    END IF
+    A % BulkValues = A % Values
+
+  END SUBROUTINE DefaultFinishBulkAssembly
+
+
+!> Finished the boundary assembly of the matrix equation.
+!> Optionally save the matrix for later use
+!------------------------------------------------------------------------------
+  SUBROUTINE DefaultFinishBoundaryAssembly( Solver, BulkUpdate )
+!------------------------------------------------------------------------------
+    TYPE(Solver_t), OPTIONAL, TARGET :: Solver
+    LOGICAL, OPTIONAL :: BulkUpdate
+
+    TYPE(Solver_t), POINTER :: PSolver
+    TYPE(ValueList_t), POINTER :: Params
+    TYPE(Matrix_t), POINTER :: A
+    LOGICAL :: Bupd, Found
+    INTEGER :: n
+
+    IF( PRESENT( Solver ) ) THEN
+      PSolver => Solver
+    ELSE
+      PSolver => CurrentModel % Solver
+    END IF
+
+    BUpd = .FALSE.
+    IF ( PRESENT(BulkUpdate) ) THEN
+      BUpd = BulkUpdate 
+      IF ( .NOT. BUpd ) RETURN
+    END IF
+
+    Params => GetSolverParams( PSolver ) 
+
+    BUpd = BUpd .OR. GetLogical( Params,'Constant System', Found )
+    IF(.NOT. BUpd ) RETURN
+
+    CALL Info('DefaultFinishBoundaryAssembly','Saving system values for Solver: '//TRIM(PSolver % Variable % Name) )
+
+    A => PSolver % Matrix
+
+    n = SIZE( A % Rhs )
+    IF( ASSOCIATED( A % BulkRhs ) ) THEN
+      IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
+    END IF
+    IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+      ALLOCATE( A % BulkRHS( n ) )
+    END IF
+    A % BulkRHS = A % Rhs
+    
+    n = SIZE( A % Values )
+    IF( ASSOCIATED( A % BulkValues ) ) THEN
+      IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
+    END IF
+    IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+      ALLOCATE( A % BulkValues( n ) )
+    END IF
+    A % BulkValues = A % Values
+
+  END SUBROUTINE DefaultFinishBoundaryAssembly
+
 
 
 !> Finished the assembly of the matrix equation, mainly effects in transient simulation

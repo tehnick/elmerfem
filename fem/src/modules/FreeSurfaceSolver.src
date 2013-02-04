@@ -528,6 +528,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         CALL DefaultUpdateEquations( STIFF, FORCE )
         !------------------------------------------------------------------------------
      END DO ! End loop bulk elements
+     CALL DefaultFinishBulkAssembly()
 
      !------------------------------------------------------------------------------
      !     Neumann & Newton boundary conditions
@@ -763,11 +764,11 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
 
        UseLinear = GetLogical( GetSolverParams(), 'Use linear elements', Stat )
        UseLinear = UseLinear .OR. ANY(ActiveNode(NodeIndexes,:))
-       UseLinear = UseLinear .AND. Element % Type % BasisFunctionDegree==2
+       UseLinear = UseLinear .AND. Element % TYPE % BasisFunctionDegree==2
 
        IF ( UseLinear ) THEN
-         SaveElementType => Element % Type
-         Element % Type => GetElementType(LinType(GetElementFamily()))
+         SaveElementType => Element % TYPE
+         Element % TYPE => GetElementType(LinType(GetElementFamily()))
        END IF
 
        hK = ElementDiameter( Element, Nodes )
@@ -776,7 +777,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
        !      Numerical integration:
        !      ----------------------
        IF (Bubbles) THEN
-          IntegStuff = GaussPoints( Element, Element % type % gausspoints2)
+          IntegStuff = GaussPoints( Element, Element % TYPE % gausspoints2)
        ELSE
           IntegStuff = GaussPoints( Element )
        END IF
@@ -909,7 +910,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
 
        IF (UseLinear) THEN
          EdgeMap => GetEdgeMap(GetElementFamily())
-         n = ELement % Type % NumberOfNodes
+         n = ELement % TYPE % NumberOfNodes
          DO i=n+1,n+SIZE(EdgeMap,1)
            j=EdgeMap(i-n,1)
            k=EdgeMap(i-n,2)
@@ -921,7 +922,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            STIFF(i,j) = -0.5_dp
            STIFF(i,k) = -0.5_dp
            FORCE(i) = 0._dp
-           Element % Type => SaveElementType
+           Element % TYPE => SaveElementType
          END DO
        END IF
 

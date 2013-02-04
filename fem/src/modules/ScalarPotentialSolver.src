@@ -146,6 +146,11 @@ SUBROUTINE ScalarPotentialSolver( Model,Solver,dt,Transient )
   END IF
   
   CALL BulkAssembly()
+  IF(.NOT. ConstantBulkMatrixInUse ) THEN
+    CALL DefaultFinishBulkAssembly()
+  END IF
+
+  ! No flux BCs
   CALL DefaultFinishAssembly()
 
   CALL DefaultDirichletBCs()
@@ -279,8 +284,7 @@ CONTAINS
 !      Update global matrices from local matrices 
 !------------------------------------------------------------------------------
      IF ( .NOT. ConstantBulkMatrixInUse ) THEN
-       CALL DefaultUpdateEquations( STIFF, FORCE(1:nd), &
-           BulkUpdate=ConstantBulkMatrix )
+       CALL DefaultUpdateEquations( STIFF, FORCE(1:nd) )
      ELSE
        CALL DefaultUpdateForce( FORCE(1:nd) )       
      END IF

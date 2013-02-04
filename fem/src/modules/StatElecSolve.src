@@ -83,6 +83,11 @@ SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
       END IF
     END IF
 
+    IF( ListGetLogical( Params,'Calculate Capacitance Matrix', Found ) ) THEN
+      CALL ListAddLogical( Params,'Constant Bulk System',.TRUE.)
+    END IF
+
+
 !------------------------------------------------------------------------------
 END SUBROUTINE StatElecSolver_Init
 !------------------------------------------------------------------------------
@@ -498,10 +503,13 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-      CALL DefaultUpdateEquations( LocalStiffMatrix,LocalForce, BulkUpdate = ConstantBulk )
+      CALL DefaultUpdateEquations( LocalStiffMatrix,LocalForce )
 
 !------------------------------------------------------------------------------
     END DO
+
+    CALL DefaultFinishBulkAssembly()
+
     
 !------------------------------------------------------------------------------
 !     Neumann boundary conditions

@@ -68,8 +68,11 @@ SUBROUTINE ElementSizeSolver( Model,Solver,dt,TransientSimulation )
     !---------------------------------------------------------------
     CALL DefaultUpdateEquations( STIFF, FORCE )
   END DO
+  CALL DefaultFinishBulkAssembly()
   
+  ! No flux BCs
   CALL DefaultFinishAssembly()
+
   CALL DefaultDirichletBCs()
   Norm = DefaultSolve()
   

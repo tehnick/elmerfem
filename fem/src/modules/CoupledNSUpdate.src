@@ -294,9 +294,13 @@ SUBROUTINE OptimalSolutionUpdate( Model,Solver,dt,TransientSimulation )
         !-----------------------------------------------------------------
         ! Update global matrix and rhs vector from local matrix & vector:
         !----------------------------------------------------------------
-        CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=ConstantSystem )
+        CALL DefaultUpdateEquations( STIFF, FORCE )
 
      END DO
+
+     IF(.NOT. ConstantBulkMatrixInUse ) THEN
+       CALL DefaultFinishBulkAssembly()
+     END IF
 
 
      ! Terms on outflow boundary

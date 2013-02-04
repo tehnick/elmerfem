@@ -133,14 +133,16 @@ SUBROUTINE CompressibilitySolver( Model,Solver,dt,TransientSimulation )
      !----------------------------------------------------------------
      !CALL DefaultUpdateEquations( STIFF, FORCE )
      IF ( .NOT. ConstantBulkMatrixInUse ) THEN
-        CALL DefaultUpdateEquations( STIFF, FORCE, &
-             BulkUpdate=ConstantBulkMatrix )        
+        CALL DefaultUpdateEquations( STIFF, FORCE )
      ELSE
         CALL DefaultUpdateForce( FORCE ) 
      END IF
         
   END DO
 
+  IF( .NOT. ConstantBulkMatrixInUse ) THEN
+    CALL DefaultFinishBulkAssembly()
+  END IF
   CALL DefaultFinishAssembly()
   CALL DefaultDirichletBCs()
   

@@ -108,7 +108,7 @@ SUBROUTINE VelocitySolver( Model,Solver,dt,TransientSimulation )
      ! Optimize performance if ILU preconditioning is used...
      str = ListGetString( Solver % Values, &
           'Linear System Preconditioning', Found )          
-     IF ( Found .and. str(1:3) == 'ilu' ) THEN
+     IF ( Found .AND. str(1:3) == 'ilu' ) THEN
         IF (NewTimeStep) THEN
            CALL ListAddLogical(Solver % Values, 'No Precondition Recompute', .FALSE.) 
         ELSE
@@ -325,13 +325,17 @@ SUBROUTINE VelocitySolver( Model,Solver,dt,TransientSimulation )
         !CALL DefaultUpdateEquations( STIFF, FORCE )
         CALL Default1stOrderTime( MASS, STIFF, FORCE )
         IF ( .NOT. ConstantBulkMatrixInUse ) THEN
-           CALL DefaultUpdateEquations( STIFF, FORCE, &
-                BulkUpdate=ConstantBulkMatrix )        
+           CALL DefaultUpdateEquations( STIFF, FORCE )
         ELSE
            CALL DefaultUpdateForce( FORCE ) 
         END IF
 
      END DO
+
+     ! This routine is used to save the bulk values after bulk assembly 
+     IF(.NOT. ConstantBulkMatrixInUse ) THEN
+       CALL DefaultFinishBulkAssembly()
+     END IF
     
 
      ! Terms on outflow boundary
