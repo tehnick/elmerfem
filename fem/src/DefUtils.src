@@ -91,62 +91,98 @@ MODULE DefUtils
      MODULE PROCEDURE GetScalarLocalEigenmode, GetVectorLocalEigenmode
    END INTERFACE
 
-   INTEGER, ALLOCATABLE, TARGET, PRIVATE :: IndexStore(:,:)
+   INTEGER, ALLOCATABLE, TARGET, PRIVATE :: IndexStore(:)
    REAL(KIND=dp), ALLOCATABLE, TARGET, PRIVATE  :: Store(:)
+   ! TODO: Get actual values for these from mesh
+   INTEGER, PARAMETER, PRIVATE :: ISTORE_MAX_SIZE = 1024
+   INTEGER, PARAMETER, PRIVATE :: STORE_MAX_SIZE = 1024
+   ! SAVE IndexStore, Store
 
+   !$OMP THREADPRIVATE(IndexStore, Store)
    PRIVATE :: GetIndexStore, GetStore
 
 CONTAINS
 
+!
+!  FUNCTION GetIndexStore() RESULT(ind)
+!    INTEGER, POINTER :: Ind(:)
+!    INTEGER :: thread, nthreads, istat
+!    INTEGER :: omp_get_max_threads, omp_get_thread_num
+!
+!    IF ( .NOT.ALLOCATED(IndexStore) ) THEN
+! !$omp barrier
+! !$omp critical(get_index)
+!      IF ( .NOT.ALLOCATED(IndexStore) ) THEN
+!        nthreads = 1
+! !$      nthreads = omp_get_max_threads()
+!        ALLOCATE( IndexStore(nthreads,512), STAT=istat )
+!        IF ( Istat /= 0 ) &
+!           CALL Fatal( 'GetIndexStore', 'Memory allocation error.' )
+!      END IF
+! !$omp end critical(get_index)
+!    END IF
+!
+!10  thread = 1
+! !$  thread=omp_get_thread_num()+1
+!    ind => IndexStore( thread, : )
+!  END FUNCTION GetIndexStore
+
+
+!  FUNCTION GetStore(n) RESULT(val)
+!    REAL(KIND=dp), POINTER :: val(:)
+!    INTEGER :: n,thread, nthreads, istat
+!    INTEGER :: omp_get_max_threads, omp_get_thread_num
+!
+!    IF ( .NOT.ALLOCATED(Store) ) THEN
+! !$omp barrier
+! !$omp critical(get_store)
+!       IF ( .NOT.ALLOCATED(Store) ) THEN
+!         nthreads = 1
+! !$      nthreads = omp_get_max_threads()
+!         ALLOCATE( Store(nthreads*MAX_ELEMENT_NODES), STAT=istat )
+!         IF ( Istat /= 0 ) &
+!            CALL Fatal( 'GetStore', 'Memory allocation error.' )
+!       END IF
+! !$omp end critical(get_store)
+!      END IF
+!
+!      thread = 0
+! !$   thread=omp_get_thread_num()
+!      val => Store( thread*MAX_ELEMENT_NODES+1:thread*MAX_ELEMENT_NODES+n )
+!   END FUNCTION GetStore
 
   FUNCTION GetIndexStore() RESULT(ind)
     INTEGER, POINTER :: Ind(:)
-    INTEGER :: thread, nthreads, istat
-    INTEGER :: omp_get_max_threads, omp_get_thread_num
+    INTEGER :: istat
 
-    IF ( .NOT.ALLOCATED(IndexStore) ) THEN
-!$omp barrier
-!$omp critical(get_index)
-      IF ( .NOT.ALLOCATED(IndexStore) ) THEN
-        nthreads = 1
-!$      nthreads = omp_get_max_threads()
-        ALLOCATE( IndexStore(nthreads,512), STAT=istat )
-        IF ( Istat /= 0 ) &
-           CALL Fatal( 'GetIndexStore', 'Memory allocation error.' )
-      END IF
-!$omp end critical(get_index)
+    IF ( .NOT. ALLOCATED(IndexStore) ) THEN
+        ALLOCATE( IndexStore(ISTORE_MAX_SIZE), STAT=istat )
+        IndexStore = 0
+        IF ( Istat /= 0 ) CALL Fatal( 'GetIndexStore', 'Memory allocation error.' )
     END IF
 
-10  thread = 1
-!$  thread=omp_get_thread_num()+1
-    ind => IndexStore( thread, : )
+    ind => IndexStore( : )
   END FUNCTION GetIndexStore
-
 
   FUNCTION GetStore(n) RESULT(val)
     REAL(KIND=dp), POINTER :: val(:)
-    INTEGER :: n,thread, nthreads, istat
-    INTEGER :: omp_get_max_threads, omp_get_thread_num
+    INTEGER :: n, istat
 
     IF ( .NOT.ALLOCATED(Store) ) THEN
-!$omp barrier
-!$omp critical(get_store)
-      IF ( .NOT.ALLOCATED(Store) ) THEN
-        nthreads = 1
-!$      nthreads = omp_get_max_threads()
-        ALLOCATE( Store(nthreads*MAX_ELEMENT_NODES), STAT=istat )
-        IF ( Istat /= 0 ) &
-           CALL Fatal( 'GetStore', 'Memory allocation error.' )
-      END IF
-!$omp end critical(get_store)
-     END IF
+        ALLOCATE( Store(STORE_MAX_SIZE), STAT=istat )
+        Store = 0D0
+        IF ( Istat /= 0 ) CALL Fatal( 'GetStore', 'Memory allocation error.' )
+    END IF
 
-     thread = 0
-!$   thread=omp_get_thread_num()
-     val => Store( thread*MAX_ELEMENT_NODES+1:thread*MAX_ELEMENT_NODES+n )
+    IF (n > STORE_MAX_SIZE) THEN
+        CALL Fatal( 'GetStore', 'Not enough memory allocated for store.' )
+    END IF
+
+    val => Store( 1:n )
   END FUNCTION GetStore
 
-!> Resturns handle to the active solver
+
+!> Returns handle to the active solver
   FUNCTION GetSolver() RESULT( Solver )
      TYPE(Solver_t), POINTER :: Solver
      Solver => CurrentModel % Solver
@@ -1335,10 +1371,10 @@ CONTAINS
      n = MAX(Solver % Mesh % MaxElementNodes,Solver % Mesh % MaxElementDOFs)
 
      IF ( .NOT. ASSOCIATED( ElementNodes % x ) ) THEN
-       ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
+          ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
      ELSE IF ( SIZE(ElementNodes % x)<n ) THEN
-       DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z)
-       ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
+         DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z)
+         ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
      END IF
 
      n = Element % TYPE % NumberOfNodes
@@ -1629,8 +1665,11 @@ CONTAINS
 
      TYPE(Element_t), POINTER :: Element
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT(Uelement) ) Element => UElement
+	 IF ( PRESENT(UElement) ) THEN
+	 	Element => UElement
+	 ELSE
+	 	Element => CurrentModel % CurrentElement
+	 END IF
 
      DO bc_id=1,CurrentModel % NumberOfBCs
         IF ( Element % BoundaryInfo % Constraint == CurrentModel % BCs(bc_id) % Tag ) EXIT
@@ -1652,8 +1691,11 @@ CONTAINS
 
      TYPE(Element_t), POINTER :: Element
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT(Uelement) ) Element => UElement
+	 IF ( PRESENT(Uelement) ) THEN
+	    Element => UElement
+	 ELSE
+	    Element => CurrentModel % CurrentElement
+	 END IF
 
      NULLIFY(bc)
      bc_id = GetBCId( Element )
@@ -1733,8 +1775,11 @@ CONTAINS
     REAL(KIND=dp) :: dt
     INTEGER, POINTER :: Indexes(:)
 
-    Solver => CurrentModel % Solver
-    IF ( PRESENT(USolver) ) Solver => USolver
+    IF ( PRESENT(USolver) ) THEN
+      Solver => USolver
+    ELSE
+      Solver => CurrentModel % Solver
+    END IF
 
     Params => GetSolverParams(Solver)
 
@@ -1743,8 +1788,11 @@ CONTAINS
       RETURN
     END IF
 
-    Element => CurrentModel % CurrentElement
-    IF ( PRESENT(UElement) ) Element => UElement
+    IF ( PRESENT(UElement) ) THEN
+      Element => UElement
+    ELSE
+      Element => CurrentModel % CurrentElement
+    END IF
 
     x => Solver % Variable
 
@@ -1753,7 +1801,7 @@ CONTAINS
     n = GetElementDOFs( Indexes,Element,Solver )
 
     CALL Add1stOrderTime( M, A, F, dt, n, x % DOFs, &
-           x % Perm(Indexes(1:n)), Solver )
+           x % Perm(Indexes(1:n)), Solver, UElement=Element )
 !------------------------------------------------------------------------------
   END SUBROUTINE Default1stOrderTimeR
 !------------------------------------------------------------------------------
@@ -1779,8 +1827,11 @@ CONTAINS
     REAL(KIND=dp) :: dt
     INTEGER, POINTER :: Indexes(:)
 
-    Solver => CurrentModel % Solver
-    IF ( PRESENT(USolver) ) Solver => USolver
+    IF ( PRESENT(USolver) ) THEN
+      Solver => USolver
+    ELSE
+      Solver => CurrentModel % Solver
+    END IF
 
     Params=>GetSolverParams(Solver)
 
@@ -1789,8 +1840,11 @@ CONTAINS
       RETURN
     END IF
 
-    Element => CurrentModel % CurrentElement
-    IF ( PRESENT(UElement) ) Element => UElement
+    IF ( PRESENT(UElement) ) THEN
+      Element => UElement
+    ELSE
+      Element => CurrentModel % CurrentElement
+    END IF
 
     x => Solver % Variable
 
@@ -1817,7 +1871,7 @@ CONTAINS
     END DO
 
     CALL Add1stOrderTime( M, A, F, dt, n, x % DOFs, &
-           x % Perm(Indexes(1:n)), Solver )
+           x % Perm(Indexes(1:n)), Solver, UElement=Element )
 
     DO i=1,n*DOFs/2
       FC(i) = CMPLX( F(2*(i-1)+1), F(2*(i-1)+2),KIND=dp )
@@ -1847,6 +1901,7 @@ CONTAINS
    TYPE(Variable_t), POINTER :: DtVar
    SAVE STIFF, MASS, X
    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:),MASS(:,:), X(:,:)
+   !$OMP THREADPRIVATE(SaveValues)
 
    IF ( PRESENT(USolver) ) THEN
      Solver => Usolver
@@ -1936,6 +1991,7 @@ CONTAINS
    REAL(KIND=dp) :: FORCE(1)
    LOGICAL :: Found, HasDamping, HasMass
    REAL(KIND=dp), ALLOCATABLE, SAVE :: STIFF(:,:),MASS(:,:), DAMP(:,:), X(:,:)
+   !OMP THREADPRIVATE(SaveValues)
 
    IF ( PRESENT(USolver) ) THEN
      Solver => Usolver
@@ -2288,7 +2344,7 @@ CONTAINS
 
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
-     CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+     CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)), UElement=Element )
 
      BUpd = .FALSE.
      IF ( PRESENT(BulkUpdate) ) THEN
@@ -2301,19 +2357,22 @@ CONTAINS
                 'Calculate Loads', Found )
 
      IF ( BUpd ) THEN
+       ! TODO: make this thread safe
        IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
           ALLOCATE( A % BulkRHS(SIZE(A % RHS)) )
           A % BulkRHS = 0.0_dp
        END IF
 
+       ! TODO: make this thread safe
        IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
           ALLOCATE( A % BulkValues(SIZE(A % Values)) )
           A % BulkValues = 0.0_dp
        END IF
+       ! TODO: make this thread safe
        SaveValues => A % Values
        A % Values => A % BulkValues
        CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
-                x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
+                x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE., UElement = Element )
        A % Values => SaveValues
      END IF
 !------------------------------------------------------------------------------
@@ -2483,7 +2542,7 @@ CONTAINS
      END IF
 
     CALL UpdateGlobalForce( Solver % Matrix % RHS, &
-       F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+       F, n, x % DOFs, x % Perm(Indexes(1:n)), UElement=Element)
 
     BUpd = .FALSE.
     IF ( PRESENT(BulkUpdate) ) THEN

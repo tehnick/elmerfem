@@ -62,7 +62,7 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: NonlinTol, Norm, PrevNorm, RelC
   INTEGER :: i,j,k,n, nb, nd, t, istat, Active, NonlinIter, iter
 
-  TYPE(ValueList_t), POINTER :: BC=>NULL()
+  TYPE(ValueList_t), POINTER :: BC
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
                NEWX(:), NEWY(:), POT(:)
 
@@ -73,10 +73,12 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: IterV, CoordVar
 
   TYPE(Matrix_t),POINTER::A,B,CM,S
+
 !------------------------------------------------------------------------------
 
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
+  NULLIFY(BC)
   Mesh => GetMesh()
 
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
@@ -125,17 +127,19 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 !$omp end parallel do
 
     Active = GetNOFBoundaryElements()
+!$omp parallel do private(Element, n, nd, BC,Found)
     DO t=1,active
       Element => GetBoundaryElement(t)
-      BC=>GetBC()
+      BC=>GetBC( Element )
       IF(.NOT.ASSOCIATED(BC)) CYCLE
 
       IF(GetLogical(BC,'Infinity BC',Found)) THEN
-         n  = GetElementNOFNodes()
-         nd = GetElementNOFDOFs()
-         CALL LocalMatrixBC(  Element, n, nd )
+         n  = GetElementNOFNodes( Element )
+         nd = GetElementNOFDOFs( Element )
+         CALL LocalMatrixBC(Element, n, nd)
       END IF
     END DO
+!$omp end parallel do
 
     CALL DefaultFinishAssembly()
 
@@ -181,19 +185,19 @@ CONTAINS
    U=0._dp; a=0._dp; torq=0._dp; IMoment=0._dp;IA=0
    DO i=1,GetNOFActive()
      Element => GetActiveElement(i)
-     nd = GetElementNOFDOFs()
-     n  = GetElementNOFNodes()
+     nd = GetElementNOFDOFs(Element)
+     n  = GetElementNOFNodes(Element)
 
      CALL Torque(Torq,Element,n,nd)
 
-     Params=>GetBodyForce()
+     Params=>GetBodyForce(Element)
      IF(ASSOCIATED(Params)) THEN
-       bfid=GetBodyForceId()
+       bfid=GetBodyForceId(Element)
        IF(GetLogical(Params,'Calculate Potential',Found)) &
          CALL Potential(u(bfid),a(bfid),Element,n,nd)
      END IF
 
-     Params=>GetBodyParams()
+     Params=>GetBodyParams(Element)
      IF(ASSOCIATED(Params)) THEN
        IF(GetLogical(Params,'Calculate Inertial Moment',Found)) &
          CALL InertialMoment(IMoment,IA,Element,n,nd)
@@ -237,11 +241,12 @@ CONTAINS
     LOGICAL :: stat,Found
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
 
-    Density(1:n) = GetReal(GetMaterial(),'Density',Found)
+    Density(1:n) = GetReal(GetMaterial(),'Density',Found,Element)
     IF(.NOT.Found) RETURN
 
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes, Element )
   
     !Numerical integration:
     !----------------------
@@ -275,19 +280,20 @@ CONTAINS
     LOGICAL :: stat, Found
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
 
     r0 = GetCReal(GetBodyParams(),'r inner',Found)
     r1 = GetCReal(GetBodyParams(),'r outer',Found)
     IF (.NOT.Found) RETURN
 
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes, Element )
 
     x = SUM(Nodes % x(1:n))/n
     y = SUM(Nodes % y(1:n))/n
     r = SQRT(x**2+y**2)
     IF (r<r0.OR.r>r1) RETURN
 
-    CALL GetLocalSolution(POT)
+    CALL GetLocalSolution(POT, UElement=Element)
   
     !Numerical integration:
     !----------------------
@@ -325,16 +331,17 @@ CONTAINS
     LOGICAL :: stat
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
 
     CALL GetElementNodes( Nodes )
 
-    CALL GetLocalSolution(POT)
-    CALL GetLocalSolution(pPOT,tstep=-1)
+    CALL GetLocalSolution(POT,UElement=Element)
+    CALL GetLocalSolution(pPOT,tstep=-1,UElement=Element)
     IF(Solver % Order<2.OR.GetTimeStep()<=2) THEN 
       dPot = (POT - pPOT)/dt
     ELSE
       dPot = 1.5_dp*POT - 2*pPOT
-      CALL GetLocalSolution(pPOT,tstep=-2)
+      CALL GetLocalSolution(pPOT,tstep=-2,UElement=Element)
       dPot = (dPOT + 0.5_dp*pPOT)/dt
     END IF
 
@@ -388,11 +395,12 @@ CONTAINS
 
     Lst => ListFind(Material,'H-B Curve',HBcurve)
     IF(HBcurve) THEN
-      CALL GetLocalSolution(POT,UElement=Element)
+      CALL GetLocalSolution(POT,UElement=Element,USolver=Solver)
       Cval => Lst % CubicCoeff
       Bval => Lst % TValues
       Hval => Lst % FValues(1,1,:)
     ELSE
+      ! CALL GetReluctivity(Material,R,n)
       CALL GetReluctivity(Material,R,n,Element)
     END IF
 
@@ -465,9 +473,9 @@ CONTAINS
     END IF
 
     IF(TransientSimulation) THEN
-      CALL Default1stOrderTime( MASS, STIFF, FORCE,UElement=Element )
+      CALL Default1stOrderTime( MASS, STIFF, FORCE,UElement=Element, USolver=Solver )
     END IF
-    CALL DefaultUpdateEquations( STIFF, FORCE,UElement=Element )
+    CALL DefaultUpdateEquations( STIFF, FORCE,UElement=Element, USolver=Solver)
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
@@ -491,8 +499,9 @@ CONTAINS
     TYPE(Element_t), POINTER :: Parent
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
+    !$OMP THREADPRIVATE(Nodes)
 !------------------------------------------------------------------------------
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes, Element )
     STIFF = 0._dp
     FORCE = 0._dp
 
@@ -501,7 +510,8 @@ CONTAINS
       Parent=>Element % BoundaryInfo % Right
     END IF
     Material => GetMaterial(Parent)
-    CALL GetReluctivity(Material,R,n)
+    ! CALL GetReluctivity(Material,R,n)
+    CALL GetReluctivity(Material,R,n,Element)
 
     !Numerical integration:
     !----------------------
@@ -526,7 +536,7 @@ CONTAINS
         END DO
       END DO
     END DO
-    CALL DefaultUpdateEquations( STIFF, FORCE )
+    CALL DefaultUpdateEquations( STIFF, FORCE, UElement=Element )
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrixBC
 !------------------------------------------------------------------------------
@@ -541,7 +551,9 @@ CONTAINS
     TYPE(Element_t), OPTIONAL :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp), SAVE :: Avacuum
-    LOGICAL :: Found, FirstTime = .TRUE.
+    LOGICAL :: Found
+    LOGICAL, SAVE :: FirstTime = .TRUE.
+    !$OMP THREADPRIVATE(Avacuum, FirstTime)
 !------------------------------------------------------------------------------
 
     IF ( FirstTime ) THEN
@@ -593,21 +605,23 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Norm,  PrevNorm, NonlinTOL, RelC
   INTEGER :: i,j,k,ip,jp,n, nb, nd, t, istat, Active, iter, NonlinIter
 
-  TYPE(ValueList_t), POINTER :: BC=>NULL()
+  TYPE(ValueList_t), POINTER :: BC
   TYPE(Mesh_t),   POINTER :: Mesh
   COMPLEX(KIND=dp), PARAMETER :: im=(0._dp,1._dp)
 
 
-  LOGICAL :: NewtonRaphson = .FALSE.
+  LOGICAL, SAVE :: NewtonRaphson = .FALSE.
   INTEGER :: CoupledIter
   TYPE(Variable_t), POINTER :: IterV, CoordVar
 
   TYPE(Matrix_t),POINTER::A,B,CM,S
+
 !------------------------------------------------------------------------------
 
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
   Mesh => GetMesh()
+  NULLIFY(BC)
 
   S=>Solver % Matrix
   S % COMPLEX = .TRUE.
@@ -667,18 +681,19 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
 !$omp end parallel do
 
     Active = GetNOFBoundaryElements()
+!$omp parallel do private(Element, n, nd, BC, Found)
     DO t=1,active
       Element => GetBoundaryElement(t)
-      BC=>GetBC()
+      BC=>GetBC(Element)
       IF(.NOT.ASSOCIATED(BC)) CYCLE
  
       IF(GetLogical(BC,'Infinity BC',Found)) THEN
-         n  = GetElementNOFNodes()
-         nd = GetElementNOFDOFs()
+         n  = GetElementNOFNodes(Element)
+         nd = GetElementNOFDOFs(Element)
          CALL LocalMatrixBC(  Element, n, nd )
       END IF
     END DO
-
+!$omp end parallel do
 
     CALL DefaultFinishAssembly()
 
@@ -724,19 +739,19 @@ CONTAINS
    U=0._dp; a=0._dp; torq=0._dp; IMoment=0._dp;IA=0
    DO i=1,GetNOFActive()
      Element => GetActiveElement(i)
-     nd = GetElementNOFDOFs()
-     n  = GetElementNOFNodes()
+     nd = GetElementNOFDOFs(Element)
+     n  = GetElementNOFNodes(Element)
 
      CALL Torque(Torq,Element,n,nd)
 
-     Params=>GetBodyForce()
+     Params=>GetBodyForce(Element)
      IF(ASSOCIATED(Params)) THEN
-       bfid=GetBodyForceId()
+       bfid=GetBodyForceId(Element)
        IF(GetLogical(Params,'Calculate Potential',Found)) &
          CALL Potential(u(bfid),a(bfid),Element,n,nd)
      END IF
 
-     Params=>GetBodyParams()
+     Params=>GetBodyParams(Element)
      IF(ASSOCIATED(Params)) THEN
        IF(GetLogical(Params,'Calculate Inertial Moment',Found)) &
          CALL InertialMoment(IMoment,IA,Element,n,nd)
@@ -772,11 +787,12 @@ CONTAINS
     LOGICAL :: stat,Found
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
 
-    Density(1:n) = GetReal(GetMaterial(),'Density',Found)
+    Density(1:n) = GetReal(GetMaterial(),'Density',Found,UElement=Element)
     IF(.NOT.Found) RETURN
 
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes, Element )
   
     !Numerical integration:
     !----------------------
@@ -811,19 +827,20 @@ CONTAINS
     LOGICAL :: stat
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
 
     r0 = GetCReal(GetBodyParams(),'r inner',Found)
     r1 = GetCReal(GetBodyParams(),'r outer',Found)
     IF (.NOT.Found) RETURN
 
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes, Element )
 
     x = SUM(Nodes % x(1:n))/n
     y = SUM(Nodes % y(1:n))/n
     r = SQRT(x**2+y**2)
     IF (r<r0.OR.r>r1) RETURN
 
-    CALL GetLocalSolution(POT)
+    CALL GetLocalSolution(POT, UElement=Element)
     POTC=POT(1,:)+im*POT(2,:)
   
     !Numerical integration:
@@ -865,9 +882,9 @@ CONTAINS
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
 
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes, Element )
 
-    CALL GetLocalSolution(POT)
+    CALL GetLocalSolution(POT, UElement=Element)
     POTC = POT(1,:) + im*POT(2,:)
     Omega = GetAngularFrequency(Found=Found)
 
@@ -927,7 +944,8 @@ CONTAINS
       Bval => Lst % TValues
       Hval => Lst % FValues(1,1,:)
     ELSE
-      CALL GetReluctivity(Material,R,n)
+      ! CALL GetReluctivity(Material,R,n)
+      CALL GetReluctivity(Material,R,n,Element)
     END IF
 
     C = GetReal( Material, 'Electric Conductivity', Found, Element)
@@ -1028,8 +1046,9 @@ CONTAINS
     TYPE(Element_t), POINTER :: Parent
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
+ 	!$OMP THREADPRIVATE(Nodes)
 !------------------------------------------------------------------------------
-    CALL GetElementNodes( Nodes )
+    CALL GetElementNodes( Nodes, Element )
     STIFF = 0._dp
     FORCE = 0._dp
 
@@ -1038,7 +1057,8 @@ CONTAINS
       Parent=>Element % BoundaryInfo % Right
     END IF
     Material => GetMaterial(Parent)
-    CALL GetReluctivity(Material,R,n)
+    ! CALL GetReluctivity(Material,R,n)
+    CALL GetReluctivity(Material,R,n,Element)
 
     !Numerical integration:
     !----------------------
@@ -1063,7 +1083,7 @@ CONTAINS
         END DO
       END DO
     END DO
-    CALL DefaultUpdateEquations( STIFF, FORCE )
+    CALL DefaultUpdateEquations( STIFF, FORCE, UElement=Element )
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrixBC
 !------------------------------------------------------------------------------
@@ -1077,10 +1097,11 @@ CONTAINS
     REAL(KIND=dp) :: Acoef(:)
     TYPE(Element_t), OPTIONAL :: Element
 !------------------------------------------------------------------------------
-    LOGICAL :: Found, FirstTime = .TRUE.
-    REAL(KIND=dp) :: Avacuum
+    LOGICAL :: Found
+    REAL(KIND=dp), SAVE :: Avacuum
+	LOGICAL, SAVE :: FirstTime = .TRUE.
 
-    SAVE Avacuum 
+    !$OMP THREADPRIVATE(FirstTime, Avacuum)
 
     IF ( FirstTime ) THEN
       Avacuum = GetConstReal( CurrentModel % Constants, &

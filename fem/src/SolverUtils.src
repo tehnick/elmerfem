@@ -579,7 +579,7 @@ CONTAINS
 !>  to the local matrix containing other coefficients.
 !------------------------------------------------------------------------------
    SUBROUTINE Add1stOrderTime( MassMatrix, StiffMatrix,  &
-          Force, dt, n, DOFs, NodeIndexes, Solver )
+          Force, dt, n, DOFs, NodeIndexes, Solver, UElement )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: MassMatrix(:,:)   !< Local mass matrix.
      REAL(KIND=dp) :: StiffMatrix(:,:)  !< Local stiffness matrix.
@@ -589,6 +589,7 @@ CONTAINS
      INTEGER :: DOFs                    !< variable degrees of freedom
      INTEGER :: NodeIndexes(:)          !< element nodes
      TYPE(Solver_t) :: Solver           !< Solver structure.
+     TYPE(Element_t), TARGET, OPTIONAL :: UElement !< Element structure
 !------------------------------------------------------------------------------
      LOGICAL :: GotIt
      INTEGER :: i,j,k,l,m,Order
@@ -598,8 +599,14 @@ CONTAINS
      TYPE(Variable_t), POINTER :: DtVar
      REAL(KIND=dp) :: Dts(Solver % Order)
      LOGICAL :: ConstantDt
+     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
 
+     IF ( PRESENT(UElement) ) THEN
+       Element => UElement
+     ELSE
+       Element => CurrentModel % CurrentElement
+     END IF
 
      IF ( Solver % Matrix % Lumped ) THEN
 #ifndef OLD_LUMPING
@@ -657,7 +664,7 @@ CONTAINS
 
      LForce(1:n*DOFs) = Force(1:n*DOFs)
      CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), LForce, &
-                  n, DOFs, NodeIndexes )
+                  n, DOFs, NodeIndexes, UElement=Element )
 !------------------------------------------------------------------------------
 !PrevSol(:,Order) needed for BDF
      Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt )
@@ -941,7 +948,7 @@ CONTAINS
 !> Add element local matrices & vectors to global matrices and vectors.
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-      ForceVector, LocalForce, n, NDOFs, NodeIndexes, RotateNT )
+      ForceVector, LocalForce, n, NDOFs, NodeIndexes, RotateNT, UElement )
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix  !< The global matrix
      REAL(KIND=dp) :: LocalStiffMatrix(:,:)  !< Local matrix to be added to the global matrix.
@@ -951,6 +958,7 @@ CONTAINS
      INTEGER :: NDOFs                        !< Number of element nodes. 
      INTEGER :: NodeIndexes(:)               !< Element node to global node numbering mapping.
      LOGICAL, OPTIONAL :: RotateNT           !< Should the global equation be done in local normal-tangential coordinates.
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement !< Element to be updated
 !------------------------------------------------------------------------------
      INTEGER :: i,j,k,dim, Indexes(n)
      LOGICAL :: Rotate
@@ -958,18 +966,20 @@ CONTAINS
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
-
+     IF (PRESENT(UElement)) THEN
+        Element => UElement
+     ELSE
+        Element => CurrentModel % CurrentElement
+     END IF
 !------------------------------------------------------------------------------
 !    Check first if this element has been defined passive
 !------------------------------------------------------------------------------
-     IF ( CheckPassiveElement() )  RETURN
+     IF ( CheckPassiveElement(Element) )  RETURN
 
 !------------------------------------------------------------------------------
-
      Rotate = .TRUE.
      IF ( PRESENT(RotateNT) ) Rotate = RotateNT
 
-     Element => CurrentModel % CurrentElement
      dim = CoordinateSystemDimension()	
      IF ( Rotate .AND. NormalTangentialNOFNodes > 0 .AND. ndofs>=dim) THEN
        Indexes = 0
@@ -1013,7 +1023,7 @@ CONTAINS
 !> Update the global vector with the local vector entry.
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalForce(ForceVector, LocalForce, n, &
-             NDOFs, NodeIndexes, RotateNT )
+             NDOFs, NodeIndexes, RotateNT, UElement )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: LocalForce(:)          !< Element local force vector.
      REAL(KIND=dp) :: ForceVector(:)         !< The global RHS vector.
@@ -1021,6 +1031,7 @@ CONTAINS
      INTEGER :: NDOFs                        !< Number of element nodes. 
      INTEGER :: NodeIndexes(:)               !< Element node to global node numbering mapping.
      LOGICAL, OPTIONAL :: RotateNT           !< Should the global equation be done in local normal-tangential coordinates.
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement !< Element to be updated
 !------------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: Element
      INTEGER :: i,j,k, dim,indexes(n)
@@ -1029,8 +1040,13 @@ CONTAINS
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
+     IF (PRESENT(UElement)) THEN
+        Element => UElement
+     ELSE
+        Element => CurrentModel % CurrentElement
+     END IF
 
-     IF ( CheckPassiveElement() )  RETURN
+     IF ( CheckPassiveElement( Element ) )  RETURN
 
      Rotate = .TRUE.
      IF ( PRESENT(RotateNT) ) Rotate=RotateNT
@@ -1038,7 +1054,7 @@ CONTAINS
      IF ( Rotate .AND. NormalTangentialNOFNodes>0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Element => CurrentModel % CurrentElement
+       ! Element => CurrentModel % CurrentElement
        Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &

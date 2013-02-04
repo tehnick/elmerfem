@@ -67,7 +67,8 @@
 !    Local variables
 !------------------------------------------------------------------------------
 
-     INTEGER :: i,j,k,n,l,t,k1,k2,iter,Ndeg,istat,nproc
+     INTEGER :: i,j,k,n,l,t,k1,k2,iter,Ndeg,istat,nproc,tlen,nthreads
+     CHARACTER(LEN=MAX_STRING_LEN) :: threads
 
      REAL(KIND=dp) :: s,dt,dtfunc
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
@@ -110,6 +111,8 @@
      INTEGER :: ExtrudeLevels
      TYPE(Mesh_t), POINTER :: ExtrudedMesh
 
+     INTEGER :: omp_get_max_threads
+
 #ifdef HAVE_TRILINOS
 INTERFACE
       SUBROUTINE TrilinosCleanup() BIND(C,name='TrilinosCleanup')
@@ -130,7 +133,7 @@ END INTERFACE
        ! Print banner to output:
 #include "../config.h"
        ! -----------------------
-       NoArgs = IARGC() 
+       NoArgs = IARGC()
        ! Info Level is always true until the model has been read!
        ! This makes it possible to cast something 
        Silent = .FALSE.
@@ -144,6 +147,24 @@ END INTERFACE
                ( OptionString=='-v' .OR. OptionString == '--version' )
          END DO
        END IF
+
+       ! Set number of OpenMP threads
+       nthreads = 1
+       !$ nthreads = omp_get_max_threads()
+       IF (nthreads > 1) THEN
+         ! Check if OMP_NUM_THREADS environment variable is set
+         CALL envir( 'OMP_NUM_THREADS'//char(0), threads, tlen )
+         IF (tlen==0) THEN
+           CALL Warn('MAIN','OMP_NUM_THREADS not set. Using only 1 thread.')
+           nthreads = 1
+           ! Set number of threads to 1
+           !$ CALL omp_set_num_threads(nthreads)
+#ifdef HAVE_MKL
+           CALL mkl_set_num_threads(nthreads)
+#endif
+         END IF
+       END IF
+
 
        IF( .NOT. Silent ) THEN
          CALL Info( 'MAIN', ' ')
@@ -161,6 +182,12 @@ END INTERFACE
          IF ( ParEnv % PEs > 1 ) &
              CALL Info( 'MAIN', ' Running in parallel using ' // &
              TRIM(i2s(ParEnv % PEs)) // ' tasks.')
+
+         ! Print out number of threads in use
+         IF ( nthreads > 1 ) &
+             CALL Info('MAIN', ' Running in parallel with ' // &
+                       TRIM(i2s(nthreads)) // ' threads per task.')
+
 #ifdef HAVE_HYPRE
          CALL Info( 'MAIN', ' HYPRE library linked in.')
 #endif

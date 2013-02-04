@@ -564,11 +564,14 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 
   static int been_here = 0;
   char *ptr, c, cc[32];
-  int slen = *len, i;
+  int slen, i;
+#pragma omp threadprivate(been_here)
 
-#pragma omp critical
-{
-  if ( been_here==0 ) {
+  /* MB: Critical section removed since Matc library
+   * modified to be thread safe */
+
+   slen = *len;
+   if ( been_here==0 ) {
      mtc_init( NULL, stdout, stderr ); 
      strcpy( cc, "format( 12,\"rowform\")" );
      mtc_domath( cc );
@@ -578,7 +581,8 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
   c = cmd[slen];
   cmd[slen] = '\0';
 
-  if ( ptr = (char *)mtc_domath(cmd) ) 
+  ptr = (char *)mtc_domath(cmd);
+  if ( ptr )
   {
     strcpy( Value, (char *)ptr );
     *len = strlen(Value)-1; /* ignore linefeed! */
@@ -593,9 +597,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
     *Value = ' ';
   }
   cmd[slen]=c;
-}
-}
-
+  }
 
 /*--------------------------------------------------------------------------
   INTERNAL: execute user material function

@@ -172,16 +172,27 @@ CONTAINS
 
     IF ( .NOT. A % Ordered ) THEN
       IF ( SortValues ) THEN
+        !$OMP PARALLEL DO SCHEDULE(DYNAMIC) DEFAULT(NONE) &
+        !$OMP SHARED(Rows, Cols, Values, N) &
+        !$OMP PRIVATE(i)
         DO i=1,N
           CALL SortF( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),Values(Rows(i):Rows(i+1)-1) )
         END DO
+        !$OMP END PARALLEL DO
       ELSE
+        !$OMP PARALLEL DO SCHEDULE(DYNAMIC) DEFAULT(NONE) &
+        !$OMP SHARED(Rows, Cols, N) &
+        !$OMP PRIVATE(i)
         DO i=1,N
           CALL Sort( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1) )
         END DO
+        !$OMP END PARALLEL DO
       END IF
 
       IF ( ASSOCIATED(Diag) ) THEN
+        !$OMP PARALLEL DO SCHEDULE(DYNAMIC) DEFAULT(NONE) &
+        !$OMP SHARED(Diag, Rows, Cols, N) &
+        !$OMP PRIVATE(i,j)
         DO i=1,N
           DO j=Rows(i),Rows(i+1)-1
             IF ( Cols(j) == i ) THEN
@@ -190,6 +201,7 @@ CONTAINS
             END IF
           END DO
         END DO
+        !$OMP END PARALLEL DO
       END IF
 
       A % Ordered = .TRUE.
@@ -957,7 +969,18 @@ END FUNCTION CRS_RowSum
 
      INTEGER :: i,j,k,n
      REAL(KIND=dp) :: rsum
-
+#ifdef HAVE_MKL
+	INTERFACE
+		SUBROUTINE mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
+	 		USE Types
+	 		CHARACTER :: transa
+	 		INTEGER :: m
+	 		REAL(KIND=dp) :: a(*)
+	 		INTEGER :: ia(*), ja(*)
+	 		REAL(KIND=dp) :: x(*), y(*)
+	 	END SUBROUTINE mkl_dcsrgemv
+	END INTERFACE
+#endif
 !------------------------------------------------------------------------------
 
      n = A % NumberOfRows
@@ -965,6 +988,10 @@ END FUNCTION CRS_RowSum
      Cols   => A % Cols
      Values => A % Values
 
+	! Use MKL to perform mvp if it is available
+#ifdef HAVE_MKL
+	CALL mkl_dcsrgemv('T', n, Values, Rows, Cols, u, v)
+#else
      v(1:n) = 0.0_dp
      DO i=1,n
        DO j=Rows(i),Rows(i+1)-1
@@ -972,7 +999,7 @@ END FUNCTION CRS_RowSum
          v(k) = v(k) + u(i) * Values(j)
        END DO
      END DO
-
+#endif
 !------------------------------------------------------------------------------
    END SUBROUTINE CRS_TransposeMatrixVectorMultiply
 !------------------------------------------------------------------------------

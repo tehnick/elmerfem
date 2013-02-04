@@ -755,6 +755,8 @@ CONTAINS
      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix = '  '
 
      INTEGER, PARAMETER :: A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A'),Tab=9
+     CHARACTER(LEN=MAXLEN) :: tmatcstr, tcmdstr
+     INTEGER :: tninlen
 
      SAVE ReadStr, ValueStarts, Prefix, OpenSection
 
@@ -871,7 +873,25 @@ CONTAINS
               IF ( copystr(j:j) == '$' ) EXIT
             END DO
             ninlen = j - i
-            CALL MATC( copystr(i+1:), matcstr, ninlen )
+
+            ! Initialize variables for each copy of MATC separately
+
+            !$OMP PARALLEL DEFAULT(NONE) &
+            !$OMP SHARED(copystr, i, matcstr, ninlen, inlen) &
+            !$OMP PRIVATE(tcmdstr, tmatcstr, tninlen)
+
+            tninlen = ninlen
+            tcmdstr = copystr(i+1:inlen)
+            CALL MATC( tcmdstr, tmatcstr, tninlen )
+			!$OMP BARRIER
+
+            !$OMP SINGLE
+            matcstr(1:tninlen) = tmatcstr(1:tninlen)
+            ninlen = tninlen
+            !$OMP END SINGLE
+
+            !$OMP END PARALLEL
+
             DO k=1,ninlen
               readstr(m:m) = matcstr(k:k)
               m = m + 1

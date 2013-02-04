@@ -58,8 +58,9 @@ MODULE Integration
       REAL(KIND=dp), POINTER :: u(:),v(:),w(:),s(:)
    END TYPE GaussIntegrationPoints_t
 
-   TYPE(GaussIntegrationPoints_t), ALLOCATABLE, TARGET, PRIVATE :: IntegStuff(:)
-   SAVE IntegStuff
+   TYPE(GaussIntegrationPoints_t), TARGET, PRIVATE :: IntegStuff
+   ! SAVE IntegStuff, GInit
+   !$OMP THREADPRIVATE(IntegStuff)
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -579,43 +580,79 @@ CONTAINS
    END FUNCTION GaussPointsInitialized
 !--------------------------------------------------------------------------
 
+! !------------------------------------------------------------------------------
+!    SUBROUTINE GaussPointsInit
+! !------------------------------------------------------------------------------
+!      INTEGER :: i,n,istat
+!      INTEGER :: nthreads, thread, omp_get_max_threads, omp_get_thread_num
+!
+!      IF ( .NOT. ALLOCATED(IntegStuff) ) THEN
+! !$omp barrier
+! !$omp critical
+!        IF ( .NOT. GInit ) THEN
+!          GInit = .TRUE.
+!          nthreads = 1
+! !$       nthreads = omp_get_max_threads()
+!          ALLOCATE( IntegStuff(nthreads) )
+!          DO i=1,nthreads
+!            IntegStuff(i) % u => NULL()
+!            IntegStuff(i) % v => NULL()
+!            IntegStuff(i) % w => NULL()
+!            IntegStuff(i) % s => NULL()
+!          END DO
+!          DO n=1,MAXN
+!            CALL ComputeGaussPoints1D( Points(1:n,n),Weights(1:n,n),n )
+!          END DO
+!        END IF
+! !$omp end critical
+!      END IF
+!
+!      thread = 1
+! !$   thread = omp_get_thread_num()+1
+!     ALLOCATE( IntegStuff(thread) % u(MAX_INTEGRATION_POINTS), &
+!               IntegStuff(thread) % v(MAX_INTEGRATION_POINTS), &
+!               IntegStuff(thread) % w(MAX_INTEGRATION_POINTS), &
+!               IntegStuff(thread) % s(MAX_INTEGRATION_POINTS), STAT=istat )
+!
+!     IF ( istat /= 0 ) THEN
+!       CALL Fatal( 'GaussPointsInit', 'Memory allocation error.' )
+!       STOP
+!     END IF
+! !------------------------------------------------------------------------------
+! !  END SUBROUTINE GaussPointsInit
+! !------------------------------------------------------------------------------
+
 !------------------------------------------------------------------------------
    SUBROUTINE GaussPointsInit
 !------------------------------------------------------------------------------
      INTEGER :: i,n,istat
-     INTEGER :: nthreads, thread, omp_get_max_threads, omp_get_thread_num
+	 INTEGER :: omp_get_thread_num
 
-     IF ( .NOT. ALLOCATED(IntegStuff) ) THEN
-!$omp barrier
-!$omp critical
-       IF ( .NOT. GInit ) THEN
-         GInit = .TRUE.
-         nthreads = 1
-!$       nthreads = omp_get_max_threads()
-         ALLOCATE( IntegStuff(nthreads) )
-         DO i=1,nthreads
-           IntegStuff(i) % u => NULL()
-           IntegStuff(i) % v => NULL()
-           IntegStuff(i) % w => NULL()
-           IntegStuff(i) % s => NULL()
-         END DO
-         DO n=1,MAXN
-           CALL ComputeGaussPoints1D( Points(1:n,n),Weights(1:n,n),n )
-         END DO
-       END IF
-!$omp end critical
+     IF ( .NOT. GInit ) THEN
+        IntegStuff % u => NULL()
+        IntegStuff % v => NULL()
+        IntegStuff % w => NULL()
+        IntegStuff % s => NULL()
+        !$omp do schedule(dynamic)
+        DO n=1,MAXN
+        	CALL ComputeGaussPoints1D( Points(1:n,n),Weights(1:n,n),n )
+        END DO
+        !$omp end do
+        !$omp single
+        GInit = .TRUE.
+        !$omp end single
      END IF
 
-     thread = 1
-!$   thread = omp_get_thread_num()+1
-     ALLOCATE( IntegStuff(thread) % u(MAX_INTEGRATION_POINTS), &
-               IntegStuff(thread) % v(MAX_INTEGRATION_POINTS), &
-               IntegStuff(thread) % w(MAX_INTEGRATION_POINTS), &
-               IntegStuff(thread) % s(MAX_INTEGRATION_POINTS), STAT=istat )
-
+     ALLOCATE( IntegStuff % u(MAX_INTEGRATION_POINTS), &
+               IntegStuff % v(MAX_INTEGRATION_POINTS), &
+               IntegStuff % w(MAX_INTEGRATION_POINTS), &
+               IntegStuff % s(MAX_INTEGRATION_POINTS), STAT=istat )
+     IntegStuff % u = 0D0
+     IntegStuff % v = 0D0
+     IntegStuff % w = 0D0
+     IntegStuff % s = 0D0
      IF ( istat /= 0 ) THEN
        CALL Fatal( 'GaussPointsInit', 'Memory allocation error.' )
-       STOP
      END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE GaussPointsInit
@@ -627,12 +664,13 @@ CONTAINS
 !------------------------------------------------------------------------------
       INTEGER :: n
       TYPE(GaussIntegrationPoints_t), POINTER :: p
-      INTEGER :: thread, omp_get_thread_num
+!     INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!     thread = 1
+! !$    thread = omp_get_thread_num()+1
+!     p => IntegStuff(thread)
+      p => IntegStuff
       p % n = 1
       p % u(1) = 0
       p % v(1) = 0
@@ -651,13 +689,13 @@ CONTAINS
       INTEGER :: n   !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
-      INTEGER :: thread, omp_get_thread_num
+!     INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
-
+!     thread = 1
+! !$    thread = omp_get_thread_num()+1
+!      p => IntegStuff(thread)
+      p => IntegStuff
       IF ( n < 1 .OR. n > MAXN ) THEN
         p % n = 0
         WRITE( Message, * ) 'Invalid number of points: ',n
@@ -679,12 +717,13 @@ CONTAINS
       INTEGER :: i,n
       TYPE(GaussIntegrationPoints_t), POINTER :: p
       REAL (KIND=dp) :: uq, vq, sq
-      INTEGER :: thread, omp_get_thread_num
+!     INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!      thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       ! Construct gauss points for p (barycentric) triangle from 
       ! gauss points for quadrilateral
@@ -713,12 +752,14 @@ CONTAINS
       INTEGER :: n    !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
-      INTEGER :: i,thread, omp_get_thread_num
+      INTEGER :: i
+!     INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!       thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       SELECT CASE (n)
       CASE (1)
@@ -788,13 +829,13 @@ CONTAINS
    INTEGER :: i,np,n
    TYPE(GaussIntegrationPoints_t), POINTER :: p
    REAL(KIND=dp) :: uh, vh, wh, sh
-      INTEGER :: thread, omp_get_thread_num
+!  INTEGER :: thread, omp_get_thread_num
    
    IF ( .NOT. GInit ) CALL GaussPointsInit
-   thread = 1
-!$ thread = omp_get_thread_num()+1
-   p => IntegStuff(thread)
-
+!    thread = 1
+! !$ thread = omp_get_thread_num()+1
+!    p => IntegStuff(thread)
+   p => IntegStuff
    n = DBLE(np)**(1.0D0/3.0D0) + 0.5D0
 
    ! Get gauss points of p brick 
@@ -829,12 +870,14 @@ END FUNCTION GaussPointsPTetra
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       REAL( KIND=dp ) :: ScaleFactor
-      INTEGER :: i, thread, omp_get_thread_num
+      INTEGER :: i
+!     INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!       thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       SELECT CASE (n)
       CASE (1)
@@ -893,12 +936,13 @@ END FUNCTION GaussPointsPTetra
    INTEGER :: np,n,i
    REAL(KIND=dp) :: uh,vh,wh,sh
    TYPE(GaussIntegrationPoints_t), POINTER :: p
-      INTEGER :: thread, omp_get_thread_num
+!  INTEGER :: thread, omp_get_thread_num
 
    IF ( .NOT. GInit ) CALL GaussPointsInit
-   thread = 1
-!$ thread = omp_get_thread_num()+1
-   p => IntegStuff(thread)
+!    thread = 1
+! !$ thread = omp_get_thread_num()+1
+!    p => IntegStuff(thread)
+   p => IntegStuff
 
    n = DBLE(np)**(1.0D0/3.0D0) + 0.5D0
 
@@ -934,12 +978,13 @@ END FUNCTION GaussPointsPTetra
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       INTEGER :: i,j,k,n,t
-      INTEGER :: thread, omp_get_thread_num
+!       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!       thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       n = REAL(np)**(1.0D0/3.0D0) + 0.5D0
 
@@ -979,12 +1024,13 @@ END FUNCTION GaussPointsPTetra
    INTEGER :: n, i
    REAL(KIND=dp) :: uh,vh,wh,sh
    TYPE(GaussIntegrationPoints_t), POINTER :: p
-      INTEGER :: thread, omp_get_thread_num
+!   INTEGER :: thread, omp_get_thread_num
 
    IF ( .NOT. GInit ) CALL GaussPointsInit
-   thread = 1
-!$ thread = omp_get_thread_num()+1
-   p => IntegStuff(thread)
+!    thread = 1
+! !$ thread = omp_get_thread_num()+1
+!    p => IntegStuff(thread)
+   p => IntegStuff
 
    ! Get gauss points of brick
    p = GaussPointsBrick(n)
@@ -1015,12 +1061,13 @@ END FUNCTION GaussPointsPTetra
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       INTEGER :: i,j,k,n,t
-      INTEGER :: thread, omp_get_thread_num
+!       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!       thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       n = REAL(np)**(1.0d0/3.0d0) + 0.5d0
 
@@ -1064,12 +1111,13 @@ END FUNCTION GaussPointsPTetra
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       INTEGER i,j,n,t
-      INTEGER :: thread, omp_get_thread_num
+!      INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!      thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       n = SQRT( REAL(np) ) + 0.5
 
@@ -1109,12 +1157,13 @@ END FUNCTION GaussPointsPTetra
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       INTEGER i,j,k,t
-      INTEGER :: thread, omp_get_thread_num
+!       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!       thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       ! Check validity of number of integration points
       IF ( nx < 1 .OR. nx > MAXN .OR. &
@@ -1153,12 +1202,13 @@ END FUNCTION GaussPointsPTetra
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       INTEGER i,j,k,n,t
-      INTEGER :: thread, omp_get_thread_num
+!      INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
-      thread = 1
-!$    thread = omp_get_thread_num()+1
-      p => IntegStuff(thread)
+!      thread = 1
+! !$    thread = omp_get_thread_num()+1
+!       p => IntegStuff(thread)
+      p => IntegStuff
 
       n = REAL(np)**(1.0D0/3.0D0) + 0.5D0
 

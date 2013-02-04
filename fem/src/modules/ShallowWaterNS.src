@@ -61,7 +61,7 @@ SUBROUTINE ShallowWaterNSSolver( Model,Solver,dt,Transient)
   INTEGER :: NewtonIter,  NonlinIter
   REAL(KIND=dp):: NewtonTol, NonlinTol, RelativeChange
 !------------------------------------------------------------------------------
-  Params => GetSolverParams()
+  Params => GetSolverParams(Solver)
 
   NewtonIter = GetInteger(Params,'Nonlinear System Newton After Iterations',Found)
   NewtonTol  = GetConstReal(Params,'Nonlinear System Newton After Tolerance',Found)
@@ -129,7 +129,7 @@ CONTAINS
     TYPE(GaussIntegrationPoints_t) :: IP
 
     REAL(KIND=dp) :: s, f, g, diff, Speed, ICz, d, h, U(3), diff_n(n), &
-     gradU(2,2), gradF(2), gradH(2)=0, gradd(2), Uwind(2), wcoeff, Uwind_n(2,n)
+     gradU(2,2), gradF(2), gradH(2), gradd(2), Uwind(2), wcoeff, Uwind_n(2,n)
 
     TYPE(ValueList_t), POINTER :: Material, BF
 
@@ -157,8 +157,7 @@ CONTAINS
 
     wcoeff = GetCReal(Material,'Wind-Stress Coefficient',Found)
     Uwind_n(1,1:n) = GetReal(Material,'Wind 1',Found,Element)
-    Uwind_n(2,1:n) = GetReal(Material,'Wind 2',Found,Element)
- 
+    Uwind_n(2,1:n) = GetReal(Material,'Wind 2',Found,Element) 
     f = GetCReal(Material,'Coriolis Coefficient',Found)
 
     diff_n(1:n) = GetReal(Material,'Viscosity Coefficient',Found,Element)
@@ -280,9 +279,9 @@ CONTAINS
     END DO
 
     IF(Transient) THEN
-      CALL Default1stOrderTime(MASS,STIFF,FORCE,UElement=Element)
+      CALL Default1stOrderTime(MASS,STIFF,FORCE,UElement=Element,USolver=Solver)
     END IF
-    CALL DefaultUpdateEquations( STIFF, FORCE,UElement=Element )
+    CALL DefaultUpdateEquations( STIFF, FORCE,UElement=Element,USolver=Solver)
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
@@ -337,10 +336,10 @@ CONTAINS
     IF(.NOT.ASSOCIATED(BC)) RETURN
 
     CALL GetElementNodes( Nodes,Element )
+    rout = .FALSE.
     IF(dim==1) THEN
      Parent => Element % BoundaryInfo % Left
      CALL GetElementNodes( PNodes,Parent )
-     rout = .FALSE.
      pind =[1,2]
      IF (Element % NodeIndexes(1)/=Parent % NodeIndexes(1)) pind=[2,1]
      rout = PNodes % x(pind(1)) > PNodes % x(pind(2))

@@ -486,27 +486,65 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(ListMatrixEntry_t), POINTER :: Clist
     INTEGER :: i,j,k,l,m,k1,k2
+    INTEGER, POINTER :: Rows(:), Cols(:)
 !------------------------------------------------------------------------------
 
+	Rows => Matrix % Rows
+	Cols => Matrix % Cols
     DO i=1,n
-       CList => List(i) % Head
-       j = Reorder( InvInitialReorder(i) )
-       DO WHILE( ASSOCIATED( CList ) )
-         k = Reorder( InvInitialReorder(Clist % INDEX) )
-         DO l=1,DOFs
-           DO m=1,DOFs
-              k1 = DOFs * (j-1) + l
-              k2 = DOFs * (k-1) + m
-              CALL CRS_MakeMatrixIndex( Matrix,k1,k2 )
-           END DO
-         END DO
-         CList => Clist % Next
-       END DO
+      DO l=1,DOFs
+        CList => List(i) % Head
+        j = Reorder( InvInitialReorder(i) )
+        k1 = DOFs * (j-1) + l
+        k2 = Rows(k1)-1
+        DO WHILE( ASSOCIATED( CList ) )
+          k = Reorder( InvInitialReorder(Clist % INDEX))
+          k = DOFs*(k-1)
+          DO m=k+1,k+DOFs
+             k2 = k2+1
+             Cols(k2) = m
+          END DO
+          CList => Clist % Next
+        END DO
+      END DO
     END DO
 
     IF ( Matrix % FORMAT == MATRIX_CRS ) CALL CRS_SortMatrix( Matrix )
 !------------------------------------------------------------------------------
   END SUBROUTINE InitializeMatrix
+!------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
+!  SUBROUTINE InitializeMatrix( Matrix, n, List, Reorder, &
+!                 InvInitialReorder, DOFs )
+!------------------------------------------------------------------------------
+!    INTEGER :: Reorder(:), InvInitialReorder(:)
+!    INTEGER :: DOFs, n
+!    TYPE(Matrix_t),POINTER :: Matrix
+!    TYPE(ListMatrix_t) :: List(:)
+!------------------------------------------------------------------------------
+!    TYPE(ListMatrixEntry_t), POINTER :: Clist
+!    INTEGER :: i,j,k,l,m,k1,k2
+!------------------------------------------------------------------------------
+
+!    DO i=1,n
+!       CList => List(i) % Head
+!       j = Reorder( InvInitialReorder(i) )
+!       DO WHILE( ASSOCIATED( CList ) )
+!         k = Reorder( InvInitialReorder(Clist % INDEX) )
+!         DO l=1,DOFs
+!           DO m=1,DOFs
+!              k1 = DOFs * (j-1) + l
+!              k2 = DOFs * (k-1) + m
+!              CALL CRS_MakeMatrixIndex( Matrix,k1,k2 )
+!           END DO
+!         END DO
+!         CList => Clist % Next
+!       END DO
+!    END DO
+
+ !   IF ( Matrix % FORMAT == MATRIX_CRS ) CALL CRS_SortMatrix( Matrix )
+!------------------------------------------------------------------------------
+!  END SUBROUTINE InitializeMatrix
 !------------------------------------------------------------------------------
 
 
