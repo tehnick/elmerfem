@@ -89,7 +89,7 @@ static unsigned char gra_ps_rgb[GRA_PS_MAXC][3] =
 static double sh = -1,
               fs = -1,
               pip180 = 3.14158/180.0;
-
+#pragma omp threadprivate (gra_ps_rgb, sh, fs, pip180)
 
 void gra_ps_open(dev) int dev;
 {

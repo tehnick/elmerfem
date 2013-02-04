@@ -92,6 +92,7 @@ $  usage of the function and type of the parameters
 
 static SYMTYPE symbol, bendsym;
 static char *str, csymbol[4096], buf[4096];
+#pragma omp threadprivate (symbol, bendsym, str, csymbol, buf)
 
 int char_in_list(int ch, char *list)
 {

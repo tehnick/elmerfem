@@ -104,7 +104,8 @@ double urand(int *iy)
    static double s, halfm;
    static int  ia, ic, m, mic;
    static int m2 = 0, itwo = 2;
-  
+#pragma omp threadprivate (s, halfm, ia, ic, m, mic, m2, itwo)
+
   if (m2 == 0)
   {
     

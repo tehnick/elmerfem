@@ -102,6 +102,7 @@ $  usage of the function and type of the parameters
 #ifdef DEBUG
       static FILE *fplog;
       static int tot;
+#pragma omp threadprivate (fplog, tot)
 #endif
 /*======================================================================
 ? main program, initialize few constants and go for it.
@@ -132,6 +133,30 @@ void mtc_init( FILE *input_file, FILE *output_file, FILE *error_file )
        "First form of the command gives list of available commands.\n"
        "Second form gives help on specific routine.\n"
    };
+
+#ifdef _OPENMP
+   /* Allocate listheaders for each thread separately */
+#pragma omp parallel
+   {
+	   /* Do malloc and initialize listheaders */
+	   listheaders = (LIST *) malloc(sizeof(LIST)*MAX_HEADERS);
+	   /* memory allocations */
+	   listheaders[ALLOCATIONS].next = NULL;
+	   listheaders[ALLOCATIONS].name = "Allocations";
+	   /* global CONSTANTS */
+	   listheaders[CONSTANTS].next = NULL;
+	   listheaders[CONSTANTS].name = "Constants";
+	   /* global VARIABLES */
+	   listheaders[VARIABLES].next = NULL;
+	   listheaders[VARIABLES].name = "Currently defined VARIABLES";
+	   /* internal commands */
+	   listheaders[COMMANDS].next = NULL;
+	   listheaders[COMMANDS].name = "Builtin Functions";
+	   /* user defined functions */
+	   listheaders[FUNCTIONS].next = NULL;
+	   listheaders[FUNCTIONS].name = "User Functions";
+   }
+#endif /* _OPENMP */
 
 #ifdef DEBUG
       fplog = fopen("matcdbg","w");
@@ -695,7 +720,7 @@ VARIABLE *com_el(ptr) VARIABLE *ptr;
                                /* containig indexes            */
 
   static double defind = 0.0;
-
+#pragma omp threadprivate (defind)
   double *ind1 = &defind, *ind2;
 
   int      i, j, k,      /* loop indexes */

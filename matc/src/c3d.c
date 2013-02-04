@@ -129,6 +129,7 @@ VARIABLE *c3d_gc3dlevels(var) VARIABLE *var;
 ***********************************************************************/
 static int c3d_clevels     = 10,
     c3d_perspective = FALSE;
+#pragma omp threadprivate (c3d_clevels, c3d_perspective)
 
 /***********************************************************************
 void C3D_Contour(matrix, nr, nc) double *matrix; int nr, nc;
@@ -163,6 +164,7 @@ void C3D_Contour(double *matrix, int nr, int nc)
             0, 0, 1, 0,
             0, 0, 0, 1
          };
+#pragma omp threadprivate (ident)
 
   int i, j, k, n;
 

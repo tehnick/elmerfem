@@ -59,25 +59,35 @@ typedef struct list {
     pointers to start of global lists
 */
 #ifdef MODULE_MATC
+#ifdef _OPENMP
+  /* Move initialization to matc.c::mtc_init() for thread safety */
+  EXT LIST * listheaders;
+#pragma omp threadprivate(listheaders)
 
-  EXT LIST listheaders[5] = {
-    {
-      NULL, "Allocations"                    /* memory allocations     */
-    }, {
-      NULL, "Constants"                     /* global CONSTANTS        */
-    }, {
-      NULL, "Currently defined VARIABLES"    /* global VARIABLES       */
-    }, { 
-      NULL, "Builtin Functions"              /* internal commands      */
-    }, {
-      NULL, "User Functions"                 /* user defined functions */
-    }
-  };
 #else
-
+  EXT LIST listheaders[5] = {
+      {
+        NULL, "Allocations"                   /* memory allocations */
+      }, {
+        NULL, "Constants"                     /* global CONSTANTS */
+      }, {
+        NULL, "Currently defined VARIABLES"   /* global VARIABLES */
+      }, {
+        NULL, "Builtin Functions"             /* internal commands */
+      }, {
+        NULL, "User Functions"                /* user defined functions */
+      }
+    };
+#endif /* _OPENMP */
+#else
+#ifdef _OPENMP
+  /* Move initialization to matc.c::mtc_init() for thread safety */
+  EXT LIST * listheaders;
+#pragma omp threadprivate(listheaders)
+#else
   EXT LIST listheaders[];
-
-#endif
+#endif /* _OPENMP */
+#endif /* MODULE_MATC */
 
 #define ALLOCATIONS 0
 #define CONSTANTS   1
@@ -85,7 +95,7 @@ typedef struct list {
 #define COMMANDS    3
 #define FUNCTIONS   4
 
-#define MAX_HEADERS 4
+#define MAX_HEADERS 5
 
 #define ALLOC_HEAD listheaders[ALLOCATIONS].next
 #define CONST_HEAD listheaders[CONSTANTS].next
@@ -256,7 +266,8 @@ char *symchars = "`._";
    EXT char *reswords[];
    EXT SYMTYPE rsymbols[];
    EXT char *symchars;
-
+   /* #pragma omp threadprivate(ssymbols, csymbols, reswords, rsymbols, symchars)
+    * TODO: this should be added when GCC 4.8 arrives if needed */
 #endif
 
 /*
@@ -369,13 +380,15 @@ typedef struct clause
 #define PMODE_CONT  "####> "
 
 EXT FILE *math_in, *math_out, *math_err;
-
+#pragma omp threadprivate(math_in, math_out, math_err)
 /* 
      see doread(), error() in matc.c
 */
 EXT jmp_buf *jmpbuf;
+#pragma omp threadprivate(jmpbuf)
 
 EXT int term;
+#pragma omp threadprivate(term)
 
 #ifdef VAX
 struct desc
@@ -394,6 +407,7 @@ struct desc
 #ifdef MODULE_MATC
 static char *math_out_str = NULL;
 static int math_out_count;
+#pragma omp threadprivate (math_out_str, math_out_count)
 #endif
 #endif
 
@@ -402,6 +416,7 @@ void mem_free_all(void);
 
 #ifdef MODULE_MATC
 static int math_out_allocated  = 0;
+#pragma omp threadprivate (math_out_allocated)
 void error( char *format, ... )
 {
     va_list args;

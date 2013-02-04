@@ -88,6 +88,7 @@ $  usage of the function and type of the parameters
 #define MAXFILES 32
 static FILE *fil_fps[MAXFILES];
 static FILE *fil_fps_save[3];
+#pragma omp threadprivate(fil_fps, fil_fps_save)
 
 VARIABLE *fil_fread(var) VARIABLE *var;
 {

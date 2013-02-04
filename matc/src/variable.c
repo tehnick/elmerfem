@@ -209,6 +209,7 @@ VARIABLE *var_rename(ptr, str) VARIABLE *ptr; char *str;
 
 static int var_pprec = 3,
     var_pinp = FALSE, var_rowintime = FALSE;
+#pragma omp threadprivate (var_pprec, var_pinp, var_rowintime)
 
 VARIABLE *var_format(var) VARIABLE *var;
 {

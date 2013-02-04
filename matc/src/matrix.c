@@ -179,6 +179,7 @@ VARIABLE *mtr_rand(A) VARIABLE *A;
   VARIABLE *C;
 
   static int seed = 0;
+#pragma omp threadprivate (seed)
   int i, n;
 
   double *c;

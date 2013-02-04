@@ -18,11 +18,13 @@
 
 double str_p[STR_MAXVALS];
 char str_pstr[STR_MAXLEN];
+#pragma omp threadprivate(str_p, str_pstr)
 
 #else
 
 extern double str_p[STR_MAXVALS];
 extern char str_pstr[STR_MAXLEN];
+#pragma omp threadprivate(str_p, str_pstr)
 
 #endif
 

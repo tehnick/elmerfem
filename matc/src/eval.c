@@ -450,6 +450,7 @@ VARIABLE *evalclause(root) CLAUSE *root;
            FILE *fp = popen( SDATA(root->this), "r" );
 #endif
            static char s[101];
+#pragma omp threadprivate (s)
 
            if ( !fp ) error( "systemcall: open failure: [%s].\n", SDATA(root->this) );
 
@@ -765,6 +766,7 @@ VARIABLE *put_values(ptr, resname, par) VARIABLE *ptr, *par; char *resname;
 ^=====================================================================*/
 {
   static double defind = 0.0;
+#pragma omp threadprivate (defind)
 
   double *ind1,
          *ind2,

@@ -62,6 +62,7 @@
 
 static double gra_vsx, gra_vsy,
              gra_vtx, gra_vty;
+#pragma omp threadprivate (gra_vsx, gra_vsy, gra_vtx, gra_vty)
 
 void gra_mult(GMATRIX gm1, GMATRIX gm2);
 void gra_ident(GMATRIX gm);
@@ -323,6 +324,7 @@ void gra_viewpoint(xf,yf,zf,xt,yt,zt) double xf,yf,zf,xt,yt,zt;
 void gra_rotate(rx, ry, rz) double rx, ry, rz;
 {
   static double pip180 = 3.1415926535898/180.0;
+#pragma omp threadprivate (pip180)
   GMATRIX grm;
 
   rx *= pip180;
