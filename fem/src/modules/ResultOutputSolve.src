@@ -3085,7 +3085,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 
   SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
   IF( SinglePrec ) THEN
-    CALL Info('VtuOutputSolver','Using single precision arithmetics in output!')
+    CALL Info('VtuOutputSolver','Using single precision arithmetics in output!',Level=7)
   END IF
 
   IF( SinglePrec ) THEN
@@ -3097,17 +3097,19 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
   IntSize = KIND(i)
 
-  NoFileindex = GetLogical( Params,'No Fileindex',GotIt)
-
-  IF ( nTime == 1 ) THEN
-    CALL Info('VtuOutputSolver','Saving results in VTK XML format')
-    FilePrefix = GetString( Params,'Output File Name',GotIt )
-    IF ( .NOT.GotIt ) FilePrefix = "Output"
-  END IF
-
   Partitions = ParEnv % PEs
   Part = ParEnv % MyPE
   Parallel = (Partitions > 1) .OR. GetLogical(Params,'Enforce Parallel format',GotIt)
+
+  NoFileindex = GetLogical( Params,'No Fileindex',GotIt)
+
+  IF ( nTime == 1 ) THEN
+    FilePrefix = GetString( Params,'Output File Name',GotIt )
+    IF ( .NOT.GotIt ) FilePrefix = "Output"
+    CALL Info('VtuOutputSolver','Saving results in VTK XML format with prefix: '//TRIM(FilePrefix))
+    WRITE( Message,'(A,I0)') 'Saving number of partitions: ',Partitions
+    CALL Info('VtuOutputSolver', Message )
+  END IF
 
   FixedMesh = ListGetLogical(Params,'Fixed Mesh',GotIt)
   Mesh => Model % Mesh
@@ -3261,6 +3263,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       BaseFile = TRIM(OutputPath) // '/' // TRIM(Mesh % Name) // '/' //TRIM(FilePrefix)
     END IF
   END IF
+  CALL Info('VtuOutputSolver','Full filename base is: '//TRIM(Basefile), Level=10 )
 
 
   ActiveModes => ListGetIntegerArray( Params,'Active EigenModes',GotActiveModes ) 
@@ -3306,7 +3309,9 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     ELSE   
       WRITE( PvtuFile,'(A,I0,".pvtu")' ) TRIM(BaseFile),FileIndex
     END IF
+    CALL Info('VtuOutputSolver','Writing the pvtu file: '//TRIM(PvtuFile), Level=10)
     CALL WritePvtuFile( PvtuFile, Model )
+    CALL Info('VtuOutputSolver','Finished writing pvtu file',Level=12)
   END IF
 
 
@@ -3333,8 +3338,9 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       END IF
     END IF
 
-    CALL Info('VtuOutputSolver','Saving to file: '//TRIM(VtuFile))
+    CALL Info('VtuOutputSolver','Writing the vtu file: '//TRIM(VtuFile),Level=7)
     CALL WriteVtuFile( VtuFile, Model, FixedMesh )
+    CALL Info('VtuOutputSolver','Finished writing vtu file',Level=12)
   END IF
 
   ! For transient simulation write a holder for the timesteps
@@ -3347,7 +3353,9 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       ELSE
         DataSetFile = VtuFile
       END IF
+      CALL Info('VtuOutputSolver','Writing the pvd file: '//TRIM(DataSetFile),Level=10)
       CALL WritePvdFile( PvdFile, DataSetFile, FileIndex, Model )
+      CALL Info('VtuOutputSolver','Finished writing pvd file',Level=12)     
     END IF
   END IF
 
@@ -3367,6 +3375,8 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       DEALLOCATE( DVals ) 
     END IF
   END IF
+
+  CALL Info('VtuOutputSolver','All done for now',Level=10)     
 
 
 CONTAINS
@@ -4332,9 +4342,13 @@ CONTAINS
 ! Why does this not work?
     NoActive = NINT( ParallelReduction( 1.0_dp * Active ) )
     IF( NoActive == 0 ) THEN
-!      CALL Warn('WritePvtuFile','No active partitions for saving')
+      CALL Warn('WritePvtuFile','No active partitions for saving')
     END IF
     AllActive = ( NoActive == Partitions )
+    
+    WRITE( Message,'(A,I0,A,I0,A)') 'Number of active partitions is ',&
+        NoActive,' (out of ',Partitions,')'
+    CALL Info('WritePvtuFile',Message,Level=10)
 
     IF(.NOT. AllActive ) THEN
       IF( Part == 0 ) THEN
@@ -4354,8 +4368,10 @@ CONTAINS
         END IF
       END DO
     END IF
-    
+
     IF( Part > 0 ) RETURN
+    CALL Info('WritePvtuFile','List of active partitions was composed',Level=12)
+
 
     OPEN( UNIT=VtuUnit, FILE=VtuFile, form = 'formatted', STATUS='UNKNOWN' )
     dim = 3
