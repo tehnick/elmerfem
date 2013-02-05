@@ -455,9 +455,10 @@ CONTAINS
      !Update global matrix and rhs vector from local matrix & vector:
      !---------------------------------------------------------------
      IF (Transient) CALL DefaultUpdateMass(MASS)
-     CALL DefaultUpdateEquations(STIFF,FORCE, &
-          BulkUpdate=ConstantBulk.OR.ConstantSystem)
+     CALL DefaultUpdateEquations(STIFF,FORCE)
   END DO
+
+  CALL DefaultFinishBulkAssembly(BulkUpdate=ConstantBulk.OR.ConstantSystem)
 
 100 CONTINUE
 
@@ -495,9 +496,10 @@ CONTAINS
      Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
 
      CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
-     CALL DefaultUpdateEquations( STIFF,FORCE,Element, &
-             BulkUpdate=ConstantSystem)
+     CALL DefaultUpdateEquations( STIFF,FORCE,Element)
   END DO
+
+  CALL DefaultFinishBoundaryAssembly(BulkUpdate=ConstantSystem)
 
   DoneAssembly = .TRUE.
 
