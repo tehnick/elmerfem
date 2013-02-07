@@ -181,8 +181,8 @@ CONTAINS
     INTEGER :: i,j,k,N,ipar(50),wsize,istat,IterType,PCondType,ILUn,Blocks
     LOGICAL :: Internal
 
-    REAL(KIND=dp) :: ILUT_TOL
-    LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize,Found
+    REAL(KIND=dp) :: ILUT_TOL, DiagFactor
+    LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize,Found,GotDiagFactor
     TYPE(ValueList_t), POINTER :: Params
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -415,7 +415,22 @@ CONTAINS
         IF ( .NOT. Gotit ) Refactorize = .TRUE.
         
         IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize.AND.MOD(A % SolveCount, n)==0) ) THEN
+
+
           IF ( A % FORMAT == MATRIX_CRS ) THEN
+
+            ! Optionally one may emphasize the diagonal entries in the linear system
+            ! to make the preconditioning more stable.
+            !-------------------------------------------------------------------------          
+            DiagFactor = ListGetCReal( Params,'Linear System ILU Factor',GotIt ) 
+            GotDiagFactor = ( DiagFactor > EPSILON( DiagFactor ) ) 
+            IF( GotDiagFactor ) THEN
+              CALL Info('IterSolver','Applying diagonal relaxation for ILU', Level=8)
+              DiagFactor = DiagFactor + 1.0_dp
+              A % Values( A % Diag ) = DiagFactor * A % Values( A % Diag )      
+            END IF
+
+
             IF ( A % COMPLEX ) THEN
               IF ( PCondType == PRECOND_ILUn ) THEN
                 Condition = CRS_ComplexIncompleteLU(A,ILUn)
@@ -434,7 +449,7 @@ CONTAINS
                   IF(ASSOCIATED(A % ILUValues)) DEALLOCATE(A % ILUValues)
 
                   PrecMat => AllocateMatrix()
-                  PrecMat % Format = MATRIX_LIST
+                  PrecMat % FORMAT = MATRIX_LIST
 
                   DO i=CM % NumberOfRows,1,-1
                     CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
@@ -498,6 +513,12 @@ CONTAINS
                 !                  CALL VankaCreate( A, SolverParam )
               END SELECT
             END IF
+
+            IF( GotDiagFactor ) THEN
+              CALL Info('IterSolver','Reverting diagonal relaxation for ILU', Level=10)
+               A % Values( A % Diag ) = A % Values( A % Diag ) / DiagFactor
+            END IF
+
           ELSE
             IF ( PCondType == PRECOND_ILUn ) THEN
               CALL Warn( 'IterSolve', 'No ILU Preconditioner for Band Matrix format,' )
@@ -508,6 +529,9 @@ CONTAINS
         END IF
       END IF
     END IF
+
+    
+    
     
     A % SolveCount = A % SolveCount + 1
 !------------------------------------------------------------------------------

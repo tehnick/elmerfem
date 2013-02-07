@@ -77,6 +77,7 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE :: Q(:), Z(:), Ri(:), T(:), &
              T1(:), T2(:), S(:), V(:), Pr(:), dx(:)
 !------------------------------------------------------------------------------
+
       
       SAVE Z, Pr, Q, Ri, T, T1, T2, S, V
 
@@ -100,7 +101,7 @@ CONTAINS
 
       Pre = .FALSE.
       IF( PRESENT( PreSmooth ) ) Pre = PreSmooth
-      
+
 
 !      Smoothing iterative method:
 !      ---------------------------
@@ -123,6 +124,7 @@ CONTAINS
           IterMethod = 'bsgs'
         END IF
       END IF
+
 
       Rounds = 0
       IF(Lowest) THEN
@@ -169,7 +171,7 @@ CONTAINS
         ALLOCATE( dx(n) )
 
       END SELECT
-    
+
       IF( IterMethod(1:1) == 'w') THEN
         TmpArray => ListGetConstRealArray(Solver % Values,'MG Smoother Relaxation Factor')
         IF( ASSOCIATED(TmpArray)) THEN
@@ -179,7 +181,12 @@ CONTAINS
         END IF
       END IF
 
-      CALL Info('MGSmooth','Applying smoother: '//TRIM(IterMethod), Level=10 )
+      IF( Pre ) THEN
+        CALL Info('MGSmooth','Applying pre-smoother: '//TRIM(IterMethod), Level=10 )
+      ELSE
+        CALL Info('MGSmooth','Applying post-smoother: '//TRIM(IterMethod), Level=10 )
+      END IF
+
 
       SELECT CASE( IterMethod )
       CASE( 'jacobi' ) 
@@ -258,6 +265,8 @@ CONTAINS
       CASE( 'bicgstab' )
         DEALLOCATE( Pr, Ri, T, T1, T2, S, V )
       END SELECT
+
+      CALL Info('MGSmooth','Smoothing finished',Level=12)
 
 !------------------------------------------------------------------------------
 

@@ -76,7 +76,15 @@ CONTAINS
        LOGICAL :: Found, Algebraic, Cluster, Geometric, Pelement
        CHARACTER(LEN=MAX_NAME_LEN) :: MGMethod
        TYPE(ValueList_t), POINTER :: Params
-       
+
+
+       IF( Level == Solver % MultigridLevel ) THEN 
+         CALL Info('MultiGridSolve','*********************************',Level=10)
+         WRITE( Message,'(A,I0)') 'Performing multigrid solution cycle: ',&
+             Matrix1 % NumberOfRows
+         CALL Info('MultiGridSolve',Message,Level=10 )
+       END IF
+
        Params => Solver % Values
        MGMethod = ListGetString( Params,'MG Method',Found) 
        IF( Found ) THEN
@@ -163,12 +171,20 @@ CONTAINS
 !
 !      Check for top & bottom levels:
 !      ------------------------------ 
+
        IF ( Level == Solver % MultiGridLevel ) THEN
           NewLinearSystem = .TRUE.
           IF ( PRESENT( NewSystem ) ) THEN
              NewLinearSystem = NewLinearSystem .AND. NewSystem
           END IF
+          IF( NewLinearSystem ) THEN
+            CALL Info('GMGSolve','Encountered a new linear system',Level=10)
+          END IF
+          WRITE( Message,'(A,I0)') 'Size of variable field (in partition 1):',&
+              SIZE( Solver % Variable % Values )
+          CALL Info('GMGSolve', Message, Level=12 )
        ELSE IF ( Level <= 1 ) THEN
+
           CALL ListAddLogical( Params,'Linear System Free Factorization', .FALSE. )
           CALL ListAddLogical( Params,'Linear System Refactorize', NewLinearSystem )
 
@@ -181,6 +197,8 @@ CONTAINS
             LowestSolver='direct'
             IF ( LIter ) LowestSolver='iterative'
           END IF
+
+          CALL Info('GMGSolve','Starting lowest linear solver using: '//TRIM(LowestSolver),Level=10 )
 
           SELECT CASE(LowestSolver)
 
@@ -226,6 +244,9 @@ CONTAINS
 
           DEALLOCATE( Residual )
           NewLinearSystem = .FALSE.
+
+          CALL Info('GMGSolve','Exiting lowest level',Level=12)
+
           RETURN
        END IF
 
@@ -253,14 +274,14 @@ CONTAINS
        Variable1   => Solver % Variable
        Permutation => Variable1 % Perm
 
-       Mesh2   => Mesh1 % Parent
-       Matrix2 => Matrix1 % Parent
+       Mesh2 => Mesh1 % Parent
 !---------------------------------------------------------------------
 !
 !      Allocate mesh and variable structures for the
 !      next level mesh, if not already there:
 !      ---------------------------------------------
        IF ( .NOT. ASSOCIATED( Mesh2 ) ) THEN
+
           mgname = ListGetString( Params, 'MG Mesh Name', Found )
           IF ( .NOT. Found ) mgname = 'mgrid'
 
@@ -315,13 +336,18 @@ CONTAINS
 
           Permutation2 => Solver % Variable % Perm
        ELSE
-          Solver % Mesh => Mesh2
-          CALL SetCurrentMesh( CurrentModel, Mesh2 )
-          Solver % Variable => VariableGet( Mesh2 % Variables, &
-                 Variable1 % Name, ThisOnly = .TRUE. )
-       END IF
-       Permutation2 => Solver % Variable % Perm
+         Matrix2 => Matrix1 % Parent
+         IF(.NOT. ASSOCIATED( Matrix2 ) ) THEN
+           CALL Fatal('GMGSolve','Matrix2 not associated!')
+         END IF
 
+         Solver % Mesh => Mesh2
+         CALL SetCurrentMesh( CurrentModel, Mesh2 )
+         Solver % Variable => VariableGet( Mesh2 % Variables, &
+             Variable1 % Name, ThisOnly = .TRUE. )
+       END IF
+       
+ 
 !------------------------------------------------------------------------------
 !
 !      Some more initializations:
@@ -331,6 +357,7 @@ CONTAINS
 
        Residual2 => Matrix2 % RHS
        Solution2 => Solver % Variable % Values
+       Permutation2 => Solver % Variable % Perm
 
 !------------------------------------------------------------------------------
 !
@@ -343,7 +370,6 @@ CONTAINS
 
        Project = ListGetLogical( Params, 'MG Project Matrix', Found )
        IF ( .NOT. Found ) Project = .TRUE.
-
 
        IF ( Project ) THEN
           IF ( NewLinearSystem ) THEN
@@ -371,7 +397,6 @@ CONTAINS
              CALL ListAddInteger( Params,'Nonlinear System Max Iterations',MAX(1, k) )
           END IF
        END IF
-
 !------------------------------------------------------------------------------
 !
 !      Global iteration parameters:
@@ -443,7 +468,6 @@ CONTAINS
 
        END IF
 
-
 !------------------------------------------------------------------------------
 !
 !      Ok, lets go:
@@ -476,11 +500,12 @@ CONTAINS
        Solver % Variable => SaveVariable
        Solver % Mesh     => SaveMesh
        Solver % Matrix   => SaveMatrix
+
        CALL SetCurrentMesh( CurrentModel, Solver % Mesh )
        CurrentModel % Meshes => Solver % Mesh
 
        IF ( Level == Solver % MultiGridTotal ) THEN
-          WRITE( Message,'(A,F8.2)') 'MG iter time: ', CPUTime() - tt
+          WRITE( Message,'(A,F8.2)') 'MG sweep performed in time: ', CPUTime() - tt
           CALL Info( 'GMGSolve', Message, Level=5 )
        END IF
 
@@ -514,6 +539,9 @@ CONTAINS
          Sweeps = 1
        END IF
 
+       WRITE( Message,'(A,I0,A,I0)') 'Performing ',Sweeps,' sweeps on Level ',Level
+       CALL Info('GMGSweep',Message,Level=10)
+
        PSolver => Solver
 
        RNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, &
@@ -526,6 +554,7 @@ CONTAINS
 !
 !     Project current residual to the lower level mesh:
 !     -------------------------------------------------
+      CALL Info('GMGSweep','Projecting residual to lower level mesh',Level=12)
       DO i=1,DOFs
          R2 => Residual2(i:n2:DOFs)
          R1 => Residual (i:n :DOFs)
@@ -533,18 +562,23 @@ CONTAINS
          CALL CRS_ApplyProjector( ProjPN, R1, Permutation, &
                 R2, Permutation2, Trans = .FALSE. )
       END DO
+      CALL Info('GMGSweep','Projector applied',Level=20)
 
 !
 !     Recursively solve (PAQ)z = Pr:
 !     ------------------------------
+      CALL Info('GMGSolve','Calling recursively MG solver',Level=12)
       DO i=1,Sweeps
          CALL MultigridSolve( Matrix2, Solution2, Residual2, &
              DOFs, Solver, Level-1, NewLinearSystem )
       END DO
+      CALL Info('GMGSolve','Returning from MG solver call',Level=12)
+ 
 !
 !     Compute x = x + Qz:
 !     -------------------
 
+      CALL Info('GMGSweep','Projecting solution to higher level mesh',Level=12)
       DO i=1,DOFs
          R1 => Residual (i:n :DOFs)
          R2 => Solution2(i:n2:DOFs)
@@ -552,12 +586,12 @@ CONTAINS
          CALL CRS_ApplyProjector( ProjQT, R2, Permutation2, &
                 R1, Permutation, Trans = .TRUE.)
       END DO
+      CALL Info('GMGSweep','Projector applied',Level=20)
 
       Solution(1:n) = Solution(1:n) + Residual(1:n)
 !
 !     Post smoothing:
 !     ---------------
-
 
       RNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, ForceVector, &
                    Residual, Level, DOFs )
