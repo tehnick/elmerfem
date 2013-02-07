@@ -172,6 +172,8 @@ CONTAINS
           CALL ListAddLogical( Params,'Linear System Free Factorization', .FALSE. )
           CALL ListAddLogical( Params,'Linear System Refactorize', NewLinearSystem )
 
+          CALL ListSetNamespace('mglowest:')
+
           LowestSolver = ListGetString(Params,'MG Lowest Linear Solver',Found)
           IF ( .NOT. Found ) THEN
             LIter=ListGetLogical(Params,'MG Lowest Linear Solver Iterative',Found)
@@ -216,6 +218,8 @@ CONTAINS
                CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
              END IF
           END SELECT
+
+          CALL ListSetNamespace('')
 
           Solution(1:n) = Solution(1:n) * RHSNorm
           ForceVector(1:n) = ForceVector(1:n) * RHSnorm
@@ -892,6 +896,8 @@ CONTAINS
 !      If at lowest level, solve directly:
 !      -----------------------------------
        IF ( Level <= 1 ) THEN
+         CALL ListSetNamespace('mglowest:')
+
          IF ( .NOT. Parallel ) THEN
            IF (ListGetLogical(Params,'MG Lowest Linear Solver Iterative',Found)) THEN
              CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
@@ -902,6 +908,9 @@ CONTAINS
            CALL ParallelIter( Matrix1, Solver % Mesh % ParallelInfo, DOFs, &
                Solution, ForceVector, Solver, Matrix1 % ParMatrix )
          END IF
+
+         CALL ListSetNamespace('')
+
          RETURN
        END IF
 !
@@ -1465,6 +1474,8 @@ CONTAINS
     IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
+      CALL ListSetNamespace('mglowest:')
+
       NewLinearSystem = .FALSE.
       IF(PRESENT(NewSystem)) NewSystem = .FALSE.
       IF ( ListGetLogical( Params, 'MG Lowest Linear Solver Unsolve',gotit ) ) THEN
@@ -1479,6 +1490,9 @@ CONTAINS
         CALL ParallelIter( Matrix1, Solver % Mesh % ParallelInfo, DOFs, &
             Solution, ForceVector, Solver, Matrix1 % ParMatrix )
       END IF
+
+      CALL ListSetNamespace('')
+
       RETURN
     END IF
 
