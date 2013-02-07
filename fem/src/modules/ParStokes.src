@@ -127,7 +127,9 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   dim = CoordinateSystemDimension()
   BlockPreconditioning = ListGetLogical( Solver % Values, 'Block Preconditioning', Found)
   IF ( .NOT. Found) BlockPreconditioning = .FALSE.
-  Convect = .FALSE. 
+
+  Convect = GetLogical( GetSolverParams(), 'Convective', Found )
+  IF ( .NOT. Found ) Convect = .FALSE. 
 
   DoScaling=ListGetLogical(Solver % Values, 'Linear System Scaling', Found) 
   DoEquilibration=ListGetLogical(Solver % Values, 'Linear System Row Equilibration', Found)
@@ -1114,6 +1116,12 @@ CONTAINS
           END IF
        END IF
 
+       IF (Convect) THEN
+          w1 = SUM( Vx(1:n) * Basis(1:n) ) 
+          w2 = SUM( Vy(1:n) * Basis(1:n) )           
+          IF (dim > 2) w3 = SUM( Vz(1:n) * Basis(1:n) )  
+       END IF
+
        !--------------------------------------------
        ! The source term at the integration point:
        !------------------------------------------
@@ -1171,6 +1179,23 @@ CONTAINS
                  END DO
                END DO
              END IF
+
+             IF (Convect) THEN
+                A(1,1) = A(1,1) + s * RhoAtIP * w1 * dBasisdx(q,1) * Basis(p)
+                A(1,1) = A(1,1) + s * RhoAtIP * w2 * dBasisdx(q,2) * Basis(p)
+                A(2,2) = A(2,2) + s * RhoAtIP * w1 * dBasisdx(q,1) * Basis(p)
+                A(2,2) = A(2,2) + s * RhoAtIP * w2 * dBasisdx(q,2) * Basis(p)
+
+                IF (dim > 2) THEN
+                   A(1,1) = A(1,1) + s * RhoAtIP * w3 * dBasisdx(q,3) * Basis(p)
+                   A(2,2) = A(2,2) + s * RhoAtIP * w3 * dBasisdx(q,3) * Basis(p)
+                   A(3,3) = A(3,3) + s * RhoAtIP * w1 * dBasisdx(q,1) * Basis(p)
+                   A(3,3) = A(3,3) + s * RhoAtIP * w2 * dBasisdx(q,2) * Basis(p)
+                   A(3,3) = A(3,3) + s * RhoAtIP * w3 * dBasisdx(q,3) * Basis(p)
+                END IF
+
+             END IF
+             
 
           END DO
 
