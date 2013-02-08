@@ -173,7 +173,7 @@ CONTAINS
     INTEGER, OPTIONAL :: ndim
     INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF, PrecF, StopcF
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: Adiag,CM,PrecMat
+    TYPE(Matrix_t), POINTER :: Adiag,CM,PrecMat,SaveGlobalM
 
     REAL(KIND=dp) :: dpar(50),stopfun
 !   external stopfun
@@ -679,9 +679,11 @@ CONTAINS
     
 !------------------------------------------------------------------------------
 
+    SaveGlobalM => GlobalMatrix
     GlobalMatrix => A
     CALL IterCall( iterProc, x, b, ipar, dpar, work, &
         mvProc, pcondProc, pcondrProc, dotProc, normProc, stopcProc )
+    GlobalMatrix => SaveGlobalM
     
     IF ( A % COMPLEX ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
