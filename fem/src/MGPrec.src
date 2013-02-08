@@ -69,7 +69,7 @@
     DOFs =  PSolver % Variable % DOFs
     x = b
     CALL MultiGridSolve( A, x, b, &
-          DOFs,  PSolver, PSolver % MultiGridLevel, FirstCall)
+          DOFs,  PSolver, PSolver % MultiGridLevel, FirstCall(stack_pos))
 
     IF ( ParEnv % PEs > 1 ) THEN
       j = 0
@@ -82,7 +82,7 @@
       DEALLOCATE( x,b )
     END IF
 
-    FirstCall = .FALSE.
+    FirstCall(stack_pos) = .FALSE.
 
   END SUBROUTINE MultigridPrec
 !------------------------------------------------------------------------------

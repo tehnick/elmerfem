@@ -78,7 +78,9 @@ MODULE IterSolve
    INTEGER, PARAMETER, PRIVATE :: PRECOND_BILUn     =           550
    INTEGER, PARAMETER, PRIVATE :: PRECOND_Vanka     =           560
 
-   LOGICAL :: FirstCall = .TRUE.
+   INTEGER, PARAMETER :: stack_max=64
+   INTEGER :: stack_pos=0
+   LOGICAL :: FirstCall(stack_max) = .TRUE.
 
 CONTAINS
 
@@ -351,6 +353,7 @@ CONTAINS
     IF ( istat /= 0 ) THEN
       CALL Fatal( 'IterSolve', 'Memory allocation failure.' )
     END IF
+    work=0._dp
     
     IF ( ALL(x == 0.0) ) x = 1.0d-8
     HUTI_INITIALX = HUTI_USERSUPPLIEDX
@@ -529,9 +532,6 @@ CONTAINS
         END IF
       END IF
     END IF
-
-    
-    
     
     A % SolveCount = A % SolveCount + 1
 !------------------------------------------------------------------------------
@@ -541,7 +541,6 @@ CONTAINS
     IF ( .NOT. GotIt ) AbortNotConverged = .TRUE.
 
 !------------------------------------------------------------------------------
-    FirstCall = .TRUE.
     
     IF ( PRESENT(MatvecF) ) THEN
       mvProc = MatvecF
@@ -679,11 +678,19 @@ CONTAINS
     
 !------------------------------------------------------------------------------
 
+    stack_pos = stack_pos+1
+    IF(stack_pos>stack_max) THEN
+      CALL Fatal('IterSolver', 'Recursion too deep')
+    END IF
+    FirstCall(stack_pos) = .TRUE.
+
     SaveGlobalM => GlobalMatrix
     GlobalMatrix => A
     CALL IterCall( iterProc, x, b, ipar, dpar, work, &
         mvProc, pcondProc, pcondrProc, dotProc, normProc, stopcProc )
     GlobalMatrix => SaveGlobalM
+
+    stack_pos=stack_pos-1
     
     IF ( A % COMPLEX ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
