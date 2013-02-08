@@ -80,7 +80,7 @@ MODULE IterSolve
 
    INTEGER, PARAMETER :: stack_max=64
    INTEGER :: stack_pos=0
-   LOGICAL :: FirstCall(stack_max) = .TRUE.
+   LOGICAL :: FirstCall(stack_max)
 
 CONTAINS
 
@@ -681,6 +681,8 @@ CONTAINS
     stack_pos = stack_pos+1
     IF(stack_pos>stack_max) THEN
       CALL Fatal('IterSolver', 'Recursion too deep')
+    ELSE IF(stack_pos<=0) THEN
+      CALL Fatal('IterSolver', 'eh')
     END IF
     FirstCall(stack_pos) = .TRUE.
 

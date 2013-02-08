@@ -1849,7 +1849,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   INTEGER :: ILUn
   CHARACTER(LEN=MAX_NAME_LEN) :: Preconditioner
 
-  TYPE(Matrix_t), POINTER :: CM
+  TYPE(Matrix_t), POINTER :: CM,SaveMatrix
   INTEGER, POINTER :: SPerm(:), SCols(:)
 
 real(kind=dp)::cputime,realtime,tt,rt
@@ -1885,6 +1885,7 @@ real(kind=dp)::cputime,realtime,tt,rt
     END IF
   END DO
 
+  SaveMatrix => GlobalMatrix
   GlobalMatrix => SplittedMatrix % InsideMatrix
   GlobalData % SplittedMatrix => SplittedMatrix
   GlobalMatrix % MatVecSubr = SourceMatrix % MatVecSubr
@@ -1963,6 +1964,8 @@ real(kind=dp)::cputime,realtime,tt,rt
        TmpRHSVec, Solver, DotF=AddrFunc(SParCDotProd), NormF=AddrFunc(SParCNorm), &
          MatVecF=AddrFunc(SParCMatrixVector) )
   END IF
+
+  GlobalMatrix => SaveMatrix
 
   !----------------------------------------------------------------------
   !

@@ -382,12 +382,14 @@ CONTAINS
       INTEGER :: i,ipar(1)
       REAL(KIND=dp), POINTER CONTIG :: Mx(:), Mr(:), Mb(:), r(:)
 
+      TYPE(Matrix_t), POINTER :: SaveMatrix
       TYPE(SplittedMatrixT), POINTER :: SP
       TYPE(Matrix_t), POINTER :: SavePtrIN
       TYPE(BasicMatrix_t), POINTER :: SavePtrIF(:), SavePtrNB(:)
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
       GlobalData => Matrix % ParMatrix
+      SaveMatrix  => GlobalMatrix
       GlobalMatrix => Matrix
       ParEnv = GlobalData % ParEnv
       ParEnv % ActiveComm = Matrix % Comm
@@ -508,6 +510,7 @@ CONTAINS
       ELSE
          CALL SParMatrixVector( x, b, ipar )
       END IF
+      GlobalMatrix => SaveMatrix
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelMatrixVector
