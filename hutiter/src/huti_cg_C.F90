@@ -104,7 +104,7 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Local variables
 
-  complex :: alpha, beta, rho, oldrho=0
+  complex :: alpha, beta, rho, oldrho
   integer iter_count
   real :: residual, rhsnorm, precrhsnorm
 
@@ -119,6 +119,7 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
   ! First the initialization part
   !
 
+  oldrho = 0
   iter_count = 1
 
   ! Norms of right-hand side vector are used in convergence tests

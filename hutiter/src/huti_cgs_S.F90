@@ -113,7 +113,7 @@ subroutine  huti_scgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! Local variables
 
-  real :: rho, oldrho=0, alpha, beta
+  real :: rho, oldrho, alpha, beta
   integer :: iter_count
 
   real :: residual, rhsnorm, precrhsnorm
@@ -129,6 +129,7 @@ subroutine  huti_scgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
   ! First the initialization part
   !
 
+  oldrho = 0
   iter_count = 1
 
   ! The following applies for all matrix operations in this solver

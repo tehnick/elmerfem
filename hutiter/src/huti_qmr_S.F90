@@ -135,8 +135,8 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Local variables
 
-  real :: beta, gamma, oldgamma=0, delta, rho, rhonext
-  real :: psi, theta, oldtheta=0, eta, epsilon
+  real :: beta, gamma, oldgamma, delta, rho, rhonext
+  real :: psi, theta, oldtheta, eta, epsilon
   integer iter_count
   real :: residual, rhsnorm, precrhsnorm
 
@@ -151,6 +151,8 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
   ! First the initialization part
   !
 
+  oldgamma = 0
+  oldtheta = 0
   iter_count = 1
 
   ! Norms of right-hand side vector are used in convergence tests

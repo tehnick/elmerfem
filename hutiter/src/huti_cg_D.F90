@@ -81,7 +81,7 @@
 !*************************************************************************
 !*************************************************************************
 
-subroutine  huti_dcgsolv  ( ndim, wrkdim, xvec, rhsvec, &
+recursive subroutine  huti_dcgsolv  ( ndim, wrkdim, xvec, rhsvec, &
                           ipar, dpar, work, matvecsubr, pcondlsubr, &
                           pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -104,9 +104,10 @@ subroutine  huti_dcgsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Local variables
 
-  double precision :: alpha, beta, rho, oldrho=0
+  double precision :: alpha, beta, rho, oldrho
   integer iter_count
   double precision :: residual, rhsnorm, precrhsnorm
+
 
   !
   ! End of variable declarations
@@ -119,6 +120,7 @@ subroutine  huti_dcgsolv  ( ndim, wrkdim, xvec, rhsvec, &
   ! First the initialization part
   !
 
+  oldrho=0
   iter_count = 1
 
   ! Norms of right-hand side vector are used in convergence tests

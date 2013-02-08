@@ -125,7 +125,7 @@ subroutine  huti_ctfqmrsolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! Local variables
 
-  complex :: rho, oldrho=0, eta, tau, gamma, oldgamma=0, alpha
+  complex :: rho, oldrho, eta, tau, gamma, oldgamma, alpha
   complex :: beta, c
   integer :: iter_count
 
@@ -142,6 +142,8 @@ subroutine  huti_ctfqmrsolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
   ! First the initialization part
   !
 
+  oldrho = 0
+  oldgamma = 0
   iter_count = 1
 
   ! The following applies for all matrix operations in this solver

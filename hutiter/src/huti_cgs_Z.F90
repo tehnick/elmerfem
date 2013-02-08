@@ -113,7 +113,7 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! Local variables
 
-  double complex :: rho, oldrho=0, alpha, beta
+  double complex :: rho, oldrho, alpha, beta
   integer :: iter_count
 
   double precision :: residual, rhsnorm, precrhsnorm
@@ -129,6 +129,7 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
   ! First the initialization part
   !
 
+  oldrho = 0
   iter_count = 1
 
   ! The following applies for all matrix operations in this solver
