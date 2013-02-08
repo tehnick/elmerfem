@@ -802,128 +802,9 @@ END SUBROUTINE GetMaxDefs
     Model % BoundaryCurvatures => NULL()
 !------------------------------------------------------------------------------
 
-    IF ( NeedEdges ) THEN
-      CALL FindMeshEdges( Mesh )
+    IF ( NeedEdges ) CALL SetMeshEdgeFaceDOFs(Mesh,EdgeDOFs,FaceDOFs)
+    CALL SetMeshMaxDOFs(Mesh)
 
-      ! Set edge and face polynomial degree and degrees of freedom for
-      ! all elements
-      DO i=1,Mesh % NumberOFBulkElements
-         Element => Mesh % Elements(i)
-         
-         ! Iterate each edge of element
-         DO j = 1,Element % TYPE % NumberOfEdges
-            Edge => Mesh % Edges( Element % EdgeIndexes(j) ) 
-            
-            ! Set attributes of p element edges
-            IF ( ASSOCIATED(Element % PDefs) ) THEN   
-               ! Set edge polynomial degree and dofs
-               Edge % PDefs % P = MAX( Element % PDefs % P, Edge % PDefs % P)
-               Edge % BDOFs = MAX(Edge % BDOFs, Edge % PDefs % P - 1)
-               Edge % PDefs % isEdge = .TRUE.
-               ! Get gauss points for edge. If no dofs 2 gauss points are 
-               ! still needed for integration of linear equation!
-               Edge % PDefs % GaussPoints = (Edge % BDOFs+2)**Edge % TYPE % DIMENSION  
-
-               IF (ASSOCIATED(Edge % BoundaryInfo % Left) ) THEN
-                 CALL AssignLocalNumber(Edge, Edge % BoundaryInfo % Left, Mesh)
-               ELSE
-                 CALL AssignLocalNumber(Edge, Edge % BoundaryInfo % Right, Mesh)
-               END IF
-               
-            ! Other element types, which need edge dofs
-            ELSE
-               Edge % BDOFs = MAX(EdgeDOFs(i), Edge % BDOFs)
-            END IF
-
-            ! Get maximum dof for edges
-            Mesh % MaxEdgeDOFs = MAX(Edge % BDOFs, Mesh % MaxEdgeDOFs)
-         END DO
-
-         ! Iterate each face of element
-         DO j=1,Element % TYPE % NumberOfFaces
-            Face => Mesh % Faces( Element % FaceIndexes(j) )
-
-            ! Set attibutes of p element faces
-            IF ( ASSOCIATED(Element % PDefs) ) THEN
-               ! Set face polynomial degree and dofs
-               Face % PDefs % P = MAX(Element % PDefs % P, Face % PDefs % P)
-               ! Get number of face dofs
-               Face % BDOFs = MAX( Face % BDOFs, getFaceDOFs(Element, Face % PDefs % P, j) )
-               Face % PDefs % isEdge = .TRUE.
-               Face % PDefs % GaussPoints = getNumberOfGaussPointsFace( Face, Mesh )
-               IF (ASSOCIATED(Face % BoundaryInfo % Left) ) THEN
-                 CALL AssignLocalNumber(Face, Face % BoundaryInfo % Left, Mesh)
-               ELSE
-                 CALL AssignLocalNumber(Face, Face % BoundaryInfo % Right, Mesh)
-               END IF
-            ELSE
-               Face % BDOFs = MAX(FaceDOFs(i), Face % BDOFs)
-            END IF
-               
-            ! Get maximum dof for faces
-            Mesh % MaxFaceDOFs = MAX(Face % BDOFs, Mesh % MaxFaceDOFs)
-         END DO
-      END DO
-
-      ! Set local edges for boundary elements
-      DO i=Mesh % NumberOfBulkElements + 1, &
-           Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-         Element => Mesh % Elements(i)
-
-         ! Here set local number and copy attributes to this boundary element for left parent.
-         IF (ASSOCIATED(Element % BoundaryInfo % Left)) THEN
-            ! Local edges are only assigned for p elements
-            IF (ASSOCIATED(Element % BoundaryInfo % Left % PDefs)) THEN
-
-               CALL AllocatePDefinitions(Element)
-               Element % PDefs % isEdge = .TRUE.
-               CALL AssignLocalNumber(Element, Element % BoundaryInfo % Left, Mesh)
-               ! CYCLE
-            END IF
-         END IF
-
-         ! Here set local number and copy attributes to this boundary element for right parent
-         IF (ASSOCIATED(Element % BoundaryInfo % Right)) THEN
-            ! Local edges are only assigned for p elements
-            IF (ASSOCIATED(Element % BoundaryInfo % Right % PDefs)) THEN
-               CALL AllocatePDefinitions(Element)
-               Element % PDefs % isEdge = .TRUE.
-               CALL AssignLocalNumber(Element, Element % BoundaryInfo % Right, Mesh)
-            END IF
-         END IF
-      END DO
-   END IF
-
-   ! Set gauss points for each p element
-   DO i=1,Mesh % NumberOfBulkElements
-     Element => Mesh % Elements(i)
-     IF ( ASSOCIATED(Element % PDefs) ) THEN
-        Element % PDefs % GaussPoints = getNumberOfGaussPoints( Element, Mesh )
-     END IF
-
-     ! Set max element dofs here (because element size may have changed
-     ! when edges and faces have been set). This is the absolute worst case.
-     ! Element which has MaxElementDOFs may not even be present as a 
-     ! real element
-     Mesh % MaxElementDOFs = MAX( Mesh % MaxElementDOFs, &
-          Element % TYPE % NumberOfNodes + &
-          Element % TYPE % NumberOfEdges * Mesh % MaxEdgeDOFs + &
-          Element % TYPE % NumberOfFaces * Mesh % MaxFaceDOFs + &
-          Element % BDOFs, &
-          Element % DGDOFs )
-
-     Mesh % MaxBDOFs = MAX( Element % BDOFs, Mesh % MaxBDOFs )
-   END DO
-
-   DO i=1,Mesh % NumberOFBulkElements
-     Element => Mesh % Elements(i)
-     IF ( Element % BDOFs > 0 ) THEN
-       ALLOCATE( Element % BubbleIndexes(Element % BDOFs) )
-       DO j=1,Element % BDOFs
-         Element % BubbleIndexes(j) = Mesh % MaxBDOFs*(i-1)+j
-       END DO
-     END IF
-   END DO
    IF ( ASSOCIATED(EdgeDOFs) ) DEALLOCATE(EdgeDOFs, FaceDOFs)
 
    ! Reallocate coordinate arrays for iso-parametric p-elements:
@@ -1079,6 +960,151 @@ END SUBROUTINE GetMaxDefs
   END FUNCTION LoadMesh
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+  SUBROUTINE SetMeshEdgeFaceDOFs(Mesh,EdgeDOFs,FaceDOFs)
+!------------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER, OPTIONAL :: EdgeDOFs(:), FaceDOFs(:)
+!------------------------------------------------------------------------------
+    INTEGER :: i,j
+    TYPE(Element_t), POINTER :: Element, Edge, Face
+!------------------------------------------------------------------------------
+
+    CALL FindMeshEdges(Mesh)
+
+    ! Set edge and face polynomial degree and degrees of freedom for
+    ! all elements
+    DO i=1,Mesh % NumberOFBulkElements
+       Element => Mesh % Elements(i)
+       
+       ! Iterate each edge of element
+       DO j = 1,Element % TYPE % NumberOfEdges
+          Edge => Mesh % Edges( Element % EdgeIndexes(j) ) 
+          
+          ! Set attributes of p element edges
+          IF ( ASSOCIATED(Element % PDefs) ) THEN   
+             ! Set edge polynomial degree and dofs
+             Edge % PDefs % P = MAX( Element % PDefs % P, Edge % PDefs % P)
+             Edge % BDOFs = MAX(Edge % BDOFs, Edge % PDefs % P - 1)
+             Edge % PDefs % isEdge = .TRUE.
+             ! Get gauss points for edge. If no dofs 2 gauss points are 
+             ! still needed for integration of linear equation!
+             Edge % PDefs % GaussPoints = (Edge % BDOFs+2)**Edge % TYPE % DIMENSION  
+
+             IF (ASSOCIATED(Edge % BoundaryInfo % Left) ) THEN
+               CALL AssignLocalNumber(Edge, Edge % BoundaryInfo % Left, Mesh)
+             ELSE
+               CALL AssignLocalNumber(Edge, Edge % BoundaryInfo % Right, Mesh)
+             END IF
+             
+          ! Other element types, which need edge dofs
+          ELSE IF(PRESENT(EdgeDOFs)) THEN
+             Edge % BDOFs = MAX(EdgeDOFs(i), Edge % BDOFs)
+          END IF
+
+          ! Get maximum dof for edges
+          Mesh % MaxEdgeDOFs = MAX(Edge % BDOFs, Mesh % MaxEdgeDOFs)
+       END DO
+
+       ! Iterate each face of element
+       DO j=1,Element % TYPE % NumberOfFaces
+          Face => Mesh % Faces( Element % FaceIndexes(j) )
+
+          ! Set attibutes of p element faces
+          IF ( ASSOCIATED(Element % PDefs) ) THEN
+             ! Set face polynomial degree and dofs
+             Face % PDefs % P = MAX(Element % PDefs % P, Face % PDefs % P)
+             ! Get number of face dofs
+             Face % BDOFs = MAX( Face % BDOFs, getFaceDOFs(Element, Face % PDefs % P, j) )
+             Face % PDefs % isEdge = .TRUE.
+             Face % PDefs % GaussPoints = getNumberOfGaussPointsFace( Face, Mesh )
+             IF (ASSOCIATED(Face % BoundaryInfo % Left) ) THEN
+               CALL AssignLocalNumber(Face, Face % BoundaryInfo % Left, Mesh)
+             ELSE
+               CALL AssignLocalNumber(Face, Face % BoundaryInfo % Right, Mesh)
+             END IF
+          ELSE IF (PRESENT(FaceDOFs)) THEN
+             Face % BDOFs = MAX(FaceDOFs(i), Face % BDOFs)
+          END IF
+             
+          ! Get maximum dof for faces
+          Mesh % MaxFaceDOFs = MAX(Face % BDOFs, Mesh % MaxFaceDOFs)
+       END DO
+    END DO
+
+    ! Set local edges for boundary elements
+    DO i=Mesh % NumberOfBulkElements + 1, &
+         Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+       Element => Mesh % Elements(i)
+
+       ! Here set local number and copy attributes to this boundary element for left parent.
+       IF (ASSOCIATED(Element % BoundaryInfo % Left)) THEN
+          ! Local edges are only assigned for p elements
+          IF (ASSOCIATED(Element % BoundaryInfo % Left % PDefs)) THEN
+
+             CALL AllocatePDefinitions(Element)
+             Element % PDefs % isEdge = .TRUE.
+             CALL AssignLocalNumber(Element, Element % BoundaryInfo % Left, Mesh)
+             ! CYCLE
+          END IF
+       END IF
+
+       ! Here set local number and copy attributes to this boundary element for right parent
+       IF (ASSOCIATED(Element % BoundaryInfo % Right)) THEN
+          ! Local edges are only assigned for p elements
+          IF (ASSOCIATED(Element % BoundaryInfo % Right % PDefs)) THEN
+             CALL AllocatePDefinitions(Element)
+             Element % PDefs % isEdge = .TRUE.
+             CALL AssignLocalNumber(Element, Element % BoundaryInfo % Right, Mesh)
+          END IF
+       END IF
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE SetMeshEdgeFaceDofs
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+ SUBROUTINE SetMeshMaxDOFs(Mesh)
+!------------------------------------------------------------------------------
+   TYPE(Mesh_t), POINTER :: Mesh
+!------------------------------------------------------------------------------
+   TYPE(Element_t), POINTER :: Element
+   INTEGER :: i,j,n
+
+   ! Set gauss points for each p element
+   DO i=1,Mesh % NumberOfBulkElements
+     Element => Mesh % Elements(i)
+     IF ( ASSOCIATED(Element % PDefs) ) THEN
+        Element % PDefs % GaussPoints = getNumberOfGaussPoints( Element, Mesh )
+     END IF
+
+     ! Set max element dofs here (because element size may have changed
+     ! when edges and faces have been set). This is the absolute worst case.
+     ! Element which has MaxElementDOFs may not even be present as a 
+     ! real element
+     Mesh % MaxElementDOFs = MAX( Mesh % MaxElementDOFs, &
+          Element % TYPE % NumberOfNodes + &
+          Element % TYPE % NumberOfEdges * Mesh % MaxEdgeDOFs + &
+          Element % TYPE % NumberOfFaces * Mesh % MaxFaceDOFs + &
+          Element % BDOFs, &
+          Element % DGDOFs )
+
+     Mesh % MaxBDOFs = MAX( Element % BDOFs, Mesh % MaxBDOFs )
+   END DO
+
+   DO i=1,Mesh % NumberOFBulkElements
+     Element => Mesh % Elements(i)
+     IF ( Element % BDOFs > 0 ) THEN
+       ALLOCATE( Element % BubbleIndexes(Element % BDOFs) )
+       DO j=1,Element % BDOFs
+         Element % BubbleIndexes(j) = Mesh % MaxBDOFs*(i-1)+j
+       END DO
+     END IF
+   END DO
+!------------------------------------------------------------------------------
+ END SUBROUTINE SetMeshMaxDOFs
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   SUBROUTINE ReadElementPropertyFile(FileName,Mesh)
@@ -3292,7 +3318,7 @@ END SUBROUTINE GetMaxDefs
         ExtrudedCoord
     TYPE(ParallelInfo_t), POINTER :: PI_in, PI_out
     INTEGER :: nnodes,gnodes,ierr
-    LOGICAL :: isParallel, Found
+    LOGICAL :: isParallel, Found,NeedEdges
     REAL(KIND=dp)::w,MinCoord,MaxCoord,CurrCoord
     REAL(KIND=dp), POINTER :: ActiveCoord(:)
     REAL(KIND=dp), ALLOCATABLE :: Wtable(:)
@@ -3393,12 +3419,12 @@ END SUBROUTINE GetMaxDefs
     Mesh_out % MaxElementNodes = 0
 
     cnt=0
+    NeedEdges=.FALSE.
     n=Mesh_in % NumberOfNodes
     DO i=0,in_levels
       DO j=1,Mesh_in % NumberOfBulkElements
 
         cnt=cnt+1
-
         Mesh_out % Elements(cnt) = Mesh_in % Elements(j)
 
         l_n=0
@@ -3423,6 +3449,14 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Elements(cnt) % ElementIndex = cnt
         ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n)) 
         Mesh_out % Elements(cnt) % NodeIndexes = ind(1:l_n)
+        Mesh_out % Elements(cnt) % EdgeIndexes => Null()
+        Mesh_out % Elements(cnt) % FaceIndexes => Null()
+        Mesh_out % Elements(cnt) % BubbleIndexes => Null()
+        IF(ASSOCIATED(Mesh_in % Elements(j) % PDefs)) THEN
+          NeedEdges=.TRUE.
+          ALLOCATE(Mesh_out % Elements(cnt) % PDefs)
+          Mesh_out % Elements(cnt) % PDefs=Mesh_in % Elements(j) % PDefs
+        END IF
       END DO
     END DO
     Mesh_out % NumberOfBulkElements=cnt
@@ -3468,6 +3502,10 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Elements(cnt) % ElementIndex = cnt + &
                Mesh_out % NumberOfBulkElements
         Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
+        Mesh_out % Elements(cnt) % PDefs => Null()
+        Mesh_out % Elements(cnt) % EdgeIndexes => Null()
+        Mesh_out % Elements(cnt) % FaceIndexes => Null()
+        Mesh_out % Elements(cnt) % BubbleIndexes => Null()
       END DO
     END DO
     
@@ -3519,6 +3557,10 @@ END SUBROUTINE GetMaxDefs
       Mesh_out % Elements(cnt) % ElementIndex = cnt
       Mesh_out % Elements(cnt) % TYPE => &
         Mesh_in % Elements(i) % TYPE
+      Mesh_out % Elements(cnt) % PDefs => Null()
+      Mesh_out % Elements(cnt) % EdgeIndexes => Null()
+      Mesh_out % Elements(cnt) % FaceIndexes => Null()
+      Mesh_out % Elements(cnt) % BubbleIndexes => Null()
     END DO
 
     ! Add top boundary:
@@ -3550,6 +3592,10 @@ END SUBROUTINE GetMaxDefs
       Mesh_out % Elements(cnt) % ElementIndex = cnt
       Mesh_out % Elements(cnt) % TYPE => &
         Mesh_in % Elements(i) % TYPE
+      Mesh_out % Elements(cnt) % PDefs => Null()
+      Mesh_out % Elements(cnt) % EdgeIndexes => Null()
+      Mesh_out % Elements(cnt) % FaceIndexes => Null()
+      Mesh_out % Elements(cnt) % BubbleIndexes => Null()
     END DO
 
     Mesh_out % NumberOfBoundaryElements=cnt-Mesh_out % NumberOfBulkElements
@@ -3558,6 +3604,10 @@ END SUBROUTINE GetMaxDefs
     Mesh_out % MaxElementDOFs  = Mesh_out % MaxElementNodes
     Mesh_out % MeshDim = 3
     CurrentModel % DIMENSION = 3
+
+    IF ( NeedEdges ) CALL SetMeshEdgeFaceDOFs(Mesh_out)
+    CALL SetMeshMaxDOFs(Mesh_out)
+
 !   CALL WriteMeshToDisk( Mesh_out, 'test')
 !------------------------------------------------------------------------------
 
@@ -7038,9 +7088,10 @@ CONTAINS
     TYPE(Mesh_t), POINTER :: Mesh            !< Finite element mesh containing faces and edges.
 !------------------------------------------------------------------------------
     ! Local variables
+
     INTEGER i,j,n,edgeNumber, numEdges, bMap(4)
     TYPE(Element_t), POINTER :: Edge
-    
+
     ! Get number of points, edges or faces
     numEdges = 0
     SELECT CASE (Element % TYPE % DIMENSION)
@@ -7089,7 +7140,7 @@ CONTAINS
           bMap = getElementBoundaryMap( Element, edgeNumber )
           DO j=1,n
           	EdgeElement % NodeIndexes(j) = Element % NodeIndexes(bMap(j))
-		  END DO
+	  END DO
 
           ! Copy attributes of edge element to boundary element
           ! Misc attributes
