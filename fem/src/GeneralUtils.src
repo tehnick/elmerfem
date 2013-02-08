@@ -1347,9 +1347,9 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
    SUBROUTINE ClearMatrix( Matrix ) 
      TYPE(Matrix_t), POINTER :: Matrix
+INCLUDE "mpif.h"
   
      Matrix % FORMAT = MATRIX_CRS
-
 
       NULLIFY( Matrix % Child )
       NULLIFY( Matrix % Parent )
@@ -1409,6 +1409,7 @@ END FUNCTION ComponentNameVar
       Matrix % NumberOfRows = 0
 
       Matrix % DGMatrix = .FALSE.
+      Matrix % Comm = MPI_COMM_WORLD
 
    END SUBROUTINE ClearMatrix
 
@@ -1420,7 +1421,6 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
       ALLOCATE( Matrix )
       CALL ClearMatrix( Matrix )
-
 !------------------------------------------------------------------------------
    END FUNCTION AllocateMatrix
 !------------------------------------------------------------------------------
