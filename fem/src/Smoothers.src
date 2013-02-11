@@ -233,7 +233,11 @@ CONTAINS
 
       CASE( 'jacobi+isgs' )                                             
         CALL SmoothedJacobi( n, A, M, Mx, Mb, Mr, Omega, Rounds )
+        IF(Parallel) CALL ParallelUpdateResult(A,x,r)
+
         CALL InternalSGS( n, A, M, x, b, r, Rounds)
+        IF(Parallel) CALL ParallelUpdateSolve(A,x,r)
+
         CALL SmoothedJacobi( n, A, M, Mx, Mb, Mr, Omega, Rounds )
 
       CASE( 'bsgs' )                                     
