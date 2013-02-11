@@ -214,6 +214,14 @@ CONTAINS
       CASE( 'sgs' )                                     
         CALL SGS( n, A, M, Mx, Mb, Mr, Rounds)
 
+      CASE( 'isgs' )                                     
+        CALL InternalSGS( n, A, M, Mx, Mb, Mr, Rounds)
+
+      CASE( 'jacobi+isgs' )                                             
+        CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
+        CALL InternalSGS( n, A, M, Mx, Mb, Mr, Rounds)
+        CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
+
       CASE( 'bsgs' )                                     
         CALL BSGS( n, A, M, Mx, Mb, Mr, DOFs, Rounds)
        
@@ -336,7 +344,7 @@ CONTAINS
       SUBROUTINE MGmv( A, x, b, Update )
 !------------------------------------------------------------------------------
         REAL(KIND=dp) CONTIG :: x(:), b(:)
-        TYPE(Matrix_t) :: A
+        TYPE(Matrix_t), POINTER :: A
         LOGICAL, OPTIONAL :: Update
 !------------------------------------------------------------------------------
         IF ( .NOT. Parallel ) THEN
@@ -369,7 +377,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       SUBROUTINE Jacobi( n, A, M, x, b, r, Rounds)
 !-------------------------------------------------------------------------------
-        TYPE(Matrix_t) :: A, M
+        TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
         REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
@@ -636,6 +644,54 @@ CONTAINS
           END DO
         END DO
       END SUBROUTINE SGS
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Internal symmetric-gauss-seidel for parallel computations
+!------------------------------------------------------------------------------
+      SUBROUTINE InternalSGS( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
+        INTEGER :: i,j,k,n
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
+        
+        Rows   => M % Rows
+        Cols   => M % Cols 
+        Values => M % Values
+        
+        DO k=1,Rounds
+          DO i=1,n
+            ! Skip the interface elements as the gauss-seidel cannot be used to update them
+            IF( Parallel ) THEN
+              IF( SIZE( A % ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) CYCLE
+            END IF
+
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / Diag(i)
+            x(i) = x(i) + r(i)
+          END DO
+          
+          DO i=n,1,-1
+            IF( Parallel ) THEN
+              IF( SIZE( A % ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) CYCLE
+            END IF
+
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / Diag(i)
+            x(i) = x(i) + r(i)
+          END DO
+        END DO
+      END SUBROUTINE InternalSGS
 !------------------------------------------------------------------------------
 
 
