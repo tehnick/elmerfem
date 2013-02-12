@@ -14,7 +14,6 @@ MKDIR_P := mkdir -p
 SOLVERSOURCE := \
 Solvers/AIFlowSolve_nlD2.f90 \
 Solvers/AIFlowSolve_nlS2.f90 \
-Solvers/CaffeFlow.f90 \
 Solvers/CaffeSolver.f90 \
 Solvers/ComputeDevStressNS.f90 \
 Solvers/ComputeEigenValues.f90 \
@@ -37,6 +36,7 @@ Solvers/ExportVertically.f90
 USFSOURCE := \
 UserFunctions/Buoyancy.f90 \
 UserFunctions/USF_Contact.f90 \
+UserFunctions/CaffeFlow.f90 \
 UserFunctions/USF_LateralFriction.f90 \
 UserFunctions/USF_ShapeFactor.f90 \
 UserFunctions/USF_Sliding.f90 \

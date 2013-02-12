@@ -95,7 +95,7 @@
        LocalStiffMatrix(:,:), LocalForce(:), &
        NodalForce(:)
             
-     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, INputVariableName
+     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, InputVariableName
 
      REAL(KIND=dp) :: at, at0, CPUTime, RealTime
 
