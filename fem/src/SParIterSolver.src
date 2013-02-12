@@ -64,7 +64,7 @@ CONTAINS
 
   SUBROUTINE DPCond( u,v,ipar )
     REAL(KIND=dp) :: u(*),v(*)
-    integer :: ipar(*)
+    INTEGER :: ipar(*)
 
     u(1:HUTI_NDIM) = v(1:HUTI_NDIM)
   END SUBROUTINE DPCond
@@ -72,7 +72,7 @@ CONTAINS
 
   SUBROUTINE CPCond( u,v,ipar )
     COMPLEX(KIND=dp) :: u(*),v(*)
-    integer :: ipar(*)
+    INTEGER :: ipar(*)
 
     u(1:HUTI_NDIM) = v(1:HUTI_NDIM)
   END SUBROUTINE CPCond
@@ -87,7 +87,7 @@ CONTAINS
     TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
 
     TYPE (ParEnv_t), POINTER :: ParallelEnv
-real(kind=dp) :: tt,realtime
+REAL(kind=dp) :: tt,realtime
     !******************************************************************
 
     IF ( .NOT. ParEnv % Initialized ) THEN
@@ -154,10 +154,10 @@ real(kind=dp) :: tt,realtime
 
     LOGICAL :: NeedMass, NeedDamp, NeedPrec, GotNewCol, Found
 
-logical , allocatable :: neighs(:,:)
-integer :: ierr,status(1000)
+LOGICAL , ALLOCATABLE :: neighs(:,:)
+INTEGER :: ierr,status(1000)
 
-real(kind=dp) :: realtime,st
+REAL(kind=dp) :: realtime,st
   !******************************************************************
 !st = realtime()
     ALLOCATE( SplittedMatrix )
@@ -1250,7 +1250,7 @@ END SUBROUTINE ZeroSplittedMatrix
 SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
             RHSVec, Solver, SParMatrixDesc )
 
-  USE, intrinsic :: iso_c_binding                
+  USE, INTRINSIC :: iso_c_binding                
 
   TYPE (ParallelInfo_t) :: ParallelInfo
   TYPE (Matrix_t) :: SourceMatrix
@@ -1271,7 +1271,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   CHARACTER(LEN=MAX_NAME_LEN) :: XmlFile
   REAL(KIND=dp) :: TOL, hypre_dppara(5) = 0
   INTEGER :: ILUn, BILU, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob, &
-      hypre_solver, hypre_pre, hypremethod,  &
+      hypre_sol, hypre_pre, hypremethod,  &
       gind, hypre_intpara(10) = 0
 
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
@@ -1284,6 +1284,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   INTEGER :: verbosity
   
   INTEGER :: nrows, ncols, nnz
+  TYPE(ValueList_t), POINTER :: Params
 
 #ifdef HAVE_HYPRE
     INTERFACE
@@ -1291,7 +1292,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       SUBROUTINE SolveHYPRE( n, Rows, Cols, Vals, Perm, INVPerm, GDOFs, &
            Owner, Xvec, RHSVec, PE, ILUn, Rounds, TOL, &
            hypremethod, hypre_intpara, hypre_dppara)
-        USE, intrinsic :: iso_c_binding
+        USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
                    PE, Owner(n), Rounds, ILUn, hypremethod, &
                    symmetry, maxlevel, hypre_intpara(10)
@@ -1304,7 +1305,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
            Owner, ILUn, BILU, &
            hypremethod, hypre_intpara, hypre_dppara, &
            verbosity, hypreContainer)
-        USE, intrinsic :: iso_c_binding
+        USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), GDOFs(n), &
                    PE, Owner(n), ILUn, BILU, hypremethod, &
                    symmetry, maxlevel, hypre_intpara(10), verbosity
@@ -1316,7 +1317,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       !! solve linear system with same matrix as in SolveHYPRE1
       SUBROUTINE SolveHYPRE2( n, GDOFs, &
            Owner, Xvec, RHSVec, Rounds, TOL, verbosity, hypreContainer)
-        USE, intrinsic :: iso_c_binding
+        USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=c_int) :: n, GDOFs(n), Owner(n), Rounds, verbosity
         REAL(KIND=c_double) :: Xvec(n),RHSvec(n),TOL
         INTEGER(KIND=C_INTPTR_T) :: hypreContainer
@@ -1328,7 +1329,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       !! destroy the data structures (should be called when the matrix has
       !! to be updated and SolveHYPRE1 has to be called again).
       SUBROUTINE SolveHYPRE4(hypreContainer)
-        USE, intrinsic :: iso_c_binding
+        USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=C_INTPTR_T) :: hypreContainer
       END SUBROUTINE SolveHYPRE4
 
@@ -1341,9 +1342,9 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       SUBROUTINE SolveTrilinos1( n, nnz, Rows, Cols, Vals, &
            GDOFs, Owner, &
            xmlfilename, verbosity, triliContainer, n_nodes, &
-           xcoords,ycoords,zcoords,ierr) bind(C,name='SolveTrilinos1')
+           xcoords,ycoords,zcoords,ierr) BIND(C,name='SolveTrilinos1')
         
-        USE, intrinsic :: iso_c_binding
+        USE, INTRINSIC :: iso_c_binding
         
         INTEGER(KIND=c_int) :: n ! number of nodes belonging to local elements
         INTEGER(KIND=c_int) :: nnz   ! number of local nonzeros
@@ -1361,8 +1362,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       !! solve linear system with same matrix as in SolveHYPRE1
       SUBROUTINE SolveTrilinos2( n, Xvec, RHSVec, Rounds, TOL, &
       verbosity, triliContainer, ierr) &
-                bind(C,name='SolveTrilinos2')
-        USE, intrinsic :: iso_c_binding
+                BIND(C,name='SolveTrilinos2')
+        USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=c_int) :: n, Rounds, verbosity
         REAL(KIND=c_double) :: Xvec(n),RHSvec(n),TOL
         INTEGER(KIND=C_INTPTR_T) :: triliContainer
@@ -1374,8 +1375,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
       !! destroy the data structures (should be called when the matrix has
       !! to be updated and SolveTrilinos1 has to be called again).
-      SUBROUTINE SolveTrilinos4(triliContainer) bind(C,name='SolveTrilinos4')
-        USE, intrinsic :: iso_c_binding
+      SUBROUTINE SolveTrilinos4(triliContainer) BIND(C,name='SolveTrilinos4')
+        USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=C_INTPTR_T) :: triliContainer
       END SUBROUTINE SolveTrilinos4
 
@@ -1390,48 +1391,57 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
   !******************************************************************
 
+  Params => CurrentModel % Solver % Values
 
 #ifdef HAVE_HYPRE
-    IF (ListGetLogical(CurrentModel % Solver % Values,  &
-           'Linear System Use HYPRE', Found )) THEN
+    IF (ListGetLogical(Params,'Linear System Use HYPRE', Found )) THEN
 
-      Prec = ListGetString( Solver % Values, & 
-          'Linear System Preconditioning', Found )
+      Prec = ListGetString(Params,'Linear System Preconditioning', Found )
       ILUn = 0
-      hypre_pre=0
-      hypre_solver=0
+      hypre_pre = 0
+      hypre_sol = 0
 
-      IterativeMethod = &
-           ListGetString( Solver % Values,'Linear System Iterative Method' )
+      IterativeMethod = ListGetString( Params,'Linear System Iterative Method' )
 
       IF ( IterativeMethod(1:8) == 'bicgstab' ) THEN
-         hypre_solver=0;
-         IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Hypre: BiCGStab",Level=1)
-      ELSE IF ( IterativeMethod(1:2) == 'cg' ) THEN
-         hypre_solver=2;
-         IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Hypre: CG",Level=1)
+        CALL Info("SParIterSolver", "Hypre: BiCGStab",Level=3)
+        hypre_sol = 0;
       ELSE IF ( IterativeMethod(1:9) == 'boomeramg' )THEN
-         IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Hypre: BoomerAMG",Level=1)
-         hypre_solver=1;
+        CALL Info("SParIterSolver", "Hypre: BoomerAMG",Level=3)
+        hypre_sol = 1;
+      ELSE IF ( IterativeMethod(1:2) == 'cg' ) THEN
+        hypre_sol = 2;
+        CALL Info("SParIterSolver", "Hypre: CG",Level=3)
+      ELSE IF ( IterativeMethod(1:5) == 'gmres' ) THEN
+        hypre_sol = 3;
+        CALL Info("SParIterSolver", "Hypre: GMRes",Level=3)
+      ELSE IF ( IterativeMethod(1:9) == 'flexgmres' ) THEN
+        hypre_sol = 4;
+        CALL Info("SParIterSolver", "Hypre: FlexGMRes",Level=3)
+      ELSE IF ( IterativeMethod(1:6) == 'lgmres' ) THEN
+        hypre_sol = 5;
+        CALL Info("SParIterSolver", "Hypre: LGMRes",Level=3)
       ELSE
-         hypre_solver=0;
+        CALL Fatal('SParIterSolver','Unknown iterative method: '//TRIM(IterativeMethod))
       END IF
 
-      IF ( hypre_solver .NE. 1) THEN
+      IF ( hypre_sol /= 1) THEN
          IF ( Prec(1:3)=='ilu' .AND. Prec(4:4)/='t') THEN
-            READ( Prec(4:), * ) ILUn
-            WRITE( Message,'(a, i1)') 'Preconditioner: ILU', ILUn
-            IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", Message,Level=1)
+           READ( Prec(4:), * ) ILUn
+           WRITE( Message,'(a, i1)') 'Preconditioner: ILU', ILUn
+           CALL Info("SParIterSolver", Message,Level=3)
          ELSE IF( Prec(1:9) == 'parasails' ) THEN
-            IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Preconditioner: ParaSails",Level=1)
-            hypre_pre=1
+           CALL Info("SParIterSolver", "Preconditioner: ParaSails",Level=3)
+           hypre_pre = 1
          ELSE IF( Prec(1:9) == 'boomeramg' ) THEN
-            IF (ParEnv % MyPE == 0) CALL INFO("SParIterSolver", "Preconditioner: boomerAMG",Level=1)
-            hypre_pre=2
+           CALL Info("SParIterSolver", "Preconditioner: boomerAMG",Level=3)
+           hypre_pre = 2
          ELSE IF( Prec(1:4) == 'none' ) THEN
-            hypre_pre=9
+           hypre_pre = 9
          END IF
       END IF
+
+      hypremethod = hypre_sol * 10 + hypre_pre
 
       ! NB.: hypremethod = 0 ... BiCGStab + ILUn
       !                    1 ... BiCGStab + ParaSails
@@ -1440,81 +1450,89 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       !                   20 ... CG + ILUn
       !                   21 ... CG + ParaSails
       !                   22 ... CG + BoomerAMG  
-      hypremethod = hypre_solver * 10 + hypre_pre
+      !                   30 ... GMRes + ILUn
+      !                   31 ... GMRes + ParaSails
+      !                   32 ... GMRes + BoomerAMG  
+      !                   40 ... FlexGMRes + ILUn
+      !                   41 ... FlexGMRes + ParaSails
+      !                   42 ... FlexGMRes + BoomerAMG  
 
-      TOL = ListGetConstReal( Solver % Values, &
+      TOL = ListGetConstReal( Params, &
            'Linear System Convergence Tolerance', Found )
-      IF ( .NOT. Found ) TOL=1.0d-6
+      IF ( .NOT. Found ) TOL = 1.0d-6
 
-      Rounds = ListGetInteger( Solver % Values, &
+      Rounds = ListGetInteger( Params, &
            'Linear System Max Iterations', Found )
-      IF ( .NOT. Found ) Rounds=1000
+      IF ( .NOT. Found ) Rounds = 1000
 
-      IF ( hypre_pre==1) THEN
-
-         hypre_dppara(1) = ListGetConstReal( Solver % Values, &
-              'ParaSails Threshold', Found )
+      IF ( hypre_pre == 1) THEN
+         hypre_dppara(1) = ListGetConstReal( Params, &
+             'ParaSails Threshold', Found )
          IF ( .NOT. Found ) hypre_dppara(1) = -0.95d0;
 
-         hypre_dppara(2) = ListGetConstReal( Solver % Values, &
-              'ParaSails Filter', Found )
+         hypre_dppara(2) = ListGetConstReal( Params, &
+             'ParaSails Filter', Found )
          IF ( .NOT. Found ) hypre_dppara(2) = -0.95d0;
 
-         hypre_intpara(1) = ListGetInteger( Solver % Values, &
-              'ParaSails Symmetry', Found )
+         hypre_intpara(1) = ListGetInteger( Params, &
+             'ParaSails Symmetry', Found )
          IF ( .NOT. Found ) hypre_intpara(1) = 0;
 
-         hypre_intpara(2) = ListGetInteger( Solver % Values, &
-              'ParaSails Maxlevel', Found )
+         hypre_intpara(2) = ListGetInteger( Params, &
+             'ParaSails Maxlevel', Found )
          IF ( .NOT. Found ) hypre_intpara(2) = 1;
-      ELSE IF ( (hypre_pre==2) .OR. (hypre_solver==1) ) THEN
 
-         hypre_intpara(1) = ListGetInteger( Solver % Values, &
-              'BoomerAMG Relax Type', Found )
+      ELSE IF ( (hypre_pre == 2) .OR. (hypre_sol == 1) ) THEN
+         hypre_intpara(1) = ListGetInteger( Params, &
+             'BoomerAMG Relax Type', Found )
          IF (.NOT.Found) hypre_intpara(1) = 3
-         hypre_intpara(2) = ListGetInteger( Solver % Values, &
+
+         hypre_intpara(2) = ListGetInteger( Params, &
               'BoomerAMG Coarsen Type', Found )
          IF (.NOT.Found)  hypre_intpara(2)  = 0
 
-         hypre_intpara(3) = ListGetInteger( Solver % Values, &
+         hypre_intpara(3) = ListGetInteger( Params, &
               'BoomerAMG Num Sweeps', Found )
          IF (.NOT.Found)  hypre_intpara(3) = 1
 
-         hypre_intpara(4) = ListGetInteger( Solver % Values, &
+         hypre_intpara(4) = ListGetInteger( Params, &
               'Boomeramg Max Levels', Found )
          IF (.NOT.Found)  hypre_intpara(4) = 25
 
-         hypre_intpara(5) = ListGetInteger( Solver % Values, &
+         hypre_intpara(5) = ListGetInteger( Params, &
               'BoomerAMG Interpolation Type', Found )
          IF (.NOT.Found)  hypre_intpara(5) = 0
 
-         hypre_intpara(6) = ListGetInteger( Solver % Values, &
+         hypre_intpara(6) = ListGetInteger( Params, &
               'BoomerAMG Smooth Type', Found )
          IF (.NOT.Found)  hypre_intpara(6) = 6
 
-         hypre_intpara(7) = ListGetInteger( Solver % Values, &
+         hypre_intpara(7) = ListGetInteger( Params, &
               'BoomerAMG Cycle Type', Found )
          IF (.NOT.Found)  hypre_intpara(7) = 1
 
-         hypre_intpara(8) = ListGetInteger( Solver % Values, &
+         hypre_intpara(8) = ListGetInteger( Params, &
               'BoomerAMG Num Functions', Found )         
-         IF (.NOT.Found)  hypre_intpara(8) = CurrentModel % Solver % Variable % DOFs
-         IF (hypre_intpara(8) .NE. CurrentModel % Solver % Variable % DOFs) THEN
-            WRITE(Message,'(A,I1,A,I1)') 'Read >BoomerAMG Num Functions< value ',&
-                 hypre_intpara(8), ', not equal to DOFs of solver variable ', &
-                 CurrentModel % Solver % Variable % DOFs
-            IF (ParEnv % MyPE == 0) CALL WARN('SParIterSolver',Message)
+         k = CurrentModel % Solver % Variable % DOFs
+         IF (.NOT.Found)  THEN
+           hypre_intpara(8) = k
+         ELSE IF (hypre_intpara(8) /= k ) THEN
+           WRITE(Message,'(A,I0,A,I0)') 'Read > BoomerAMG Num Functions < value ',&
+                 hypre_intpara(8), ', not equal to DOFs of solver variable ',k
+           CALL Warn('SParIterSolver',Message)
          END IF
-         hypre_dppara(1) = ListGetConstReal( Solver % Values, &
+         hypre_dppara(1) = ListGetConstReal( Params, &
               'BoomerAMG Strong Threshold', Found )
          IF (.NOT.Found)  hypre_dppara(1) = 0.25
-!         hypre_intpara() = ListGetInteger( Solver % Values, &
-!              'BoomerAMG  ', Found )
-!         IF (.NOT.Found)  hypre_intpara() = 0
+      END IF
+
+      IF( hypre_sol == 3 .OR. hypre_sol == 4 ) THEN
+        hypre_intpara(9) = ListGetInteger( Params, &
+            'HYPRE GmRes Dimension',Found )
+        IF( .NOT. Found ) hypre_intpara(9) = 20
       END IF
 
 
-      !
       ! Hypre wants to have a continuous ascending numbering across
       ! partitions, try creating such a beast:
       ! ------------------------------------------------------------
@@ -1522,60 +1540,56 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       ALLOCATE( Owner(n), Aperm(n) )
       CALL ContinuousNumbering(ParallelInfo,SourceMatrix % Perm,APerm,Owner)
       ! ------------------------------------------------------------
-      if (.false.) then
-      ! monolithic HYPRE solve
-      CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
-        SourceMatrix % Cols, SourceMatrix % Values, SourceMatrix % Perm, &
-         SourceMatrix % InvPerm, Aperm, Owner, Xvec, RHSvec, &
-            ParEnv % MyPE, ILUn, Rounds, TOL, hypremethod,hypre_intpara, hypre_dppara)
-      else
-        verbosity=99 !TODO: get this from the simulation verbosity or something
-        NewSetup=ListGetLogical( Solver % Values, 'Linear System Refactorize',Found ) 
-        if (ListGetLogical(Solver % Values, 'HYPRE Block Diagonal', Found)) then
-          bilu=Solver % Variable % Dofs
-        else
-          bilu=1
-        end if
-        if (NewSetup) then
-          if (SourceMatrix % Hypre/=0) then
-            CALL SolveHYPRE4(SourceMatrix % Hypre)
-          end if    
-        end if 
-        ! setup solver/preconditioner
-        if (SourceMatrix % Hypre==0) then
-          CALL SolveHYPRE1( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
+      verbosity = ListGetInteger( CurrentModel % Simulation,'Max Output Level',Found )
+      IF( .NOT. Found ) verbosity = 10
+
+      NewSetup=ListGetLogical( Params, 'Linear System Refactorize',Found ) 
+      IF (ListGetLogical(Params, 'HYPRE Block Diagonal', Found)) THEN
+        bilu = Solver % Variable % Dofs
+      ELSE
+        bilu = 1
+      END IF
+
+      IF (NewSetup) THEN
+        IF (SourceMatrix % Hypre /= 0) THEN
+          CALL SolveHYPRE4(SourceMatrix % Hypre)
+        END IF
+      END IF
+      ! setup solver/preconditioner
+      IF (SourceMatrix % Hypre == 0) THEN
+        CALL SolveHYPRE1( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
             SourceMatrix % Cols, SourceMatrix % Values, Aperm, Owner, &
-              ILUn, BILU, hypremethod,hypre_intpara, hypre_dppara,&
-              verbosity, SourceMatrix % Hypre)        
-        end if
-        ! solve using previously computed HYPRE data structures.
-        ! NOTE: this is only correct if the matrix has not changed,
-        ! otherwise we should use the SolveHYPRE3 function, which is
-        ! not implemented, yet. This function will not update the matrix
-        ! in the solver and thus solve an old system if A has changed. 
-        CALL SolveHYPRE2( SourceMatrix % NumberOfRows, Aperm, Owner, Xvec, RHSvec, &
-              Rounds, TOL, verbosity, SourceMatrix % Hypre )
-      end if
+            ILUn, BILU, hypremethod,hypre_intpara, hypre_dppara,&
+            verbosity, SourceMatrix % Hypre)        
+      END IF
+
+      ! solve using previously computed HYPRE data structures.
+      ! NOTE: this is only correct if the matrix has not changed,
+      ! otherwise we should use the SolveHYPRE3 function, which is
+      ! not implemented, yet. This function will not update the matrix
+      ! in the solver and thus solve an old system if A has changed. 
+      CALL SolveHYPRE2( SourceMatrix % NumberOfRows, Aperm, Owner, Xvec, RHSvec, &
+          Rounds, TOL, verbosity, SourceMatrix % Hypre )
       
       DEALLOCATE( Owner, Aperm )
 
       ALLOCATE( VecEPerNB( ParEnv % PEs ) )
       VecEPerNB = 0
       DO i = 1, SourceMatrix % NumberOfRows
-         IF ( SIZE(ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) THEN
-            IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
-               DO j = 1, SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
-                  IF (ParallelInfo % NeighbourList(i) % Neighbours(j)/=ParEnv % MyPE) THEN
-                     nbind = ParallelInfo % NeighbourList(i) % Neighbours(j) + 1
-                     VecEPerNB(nbind) = VecEPerNB(nbind) + 1
-
-                     SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
-                     SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
-                       ParallelInfo % GlobalDOFs(i)
-                  END IF
-               END DO
-            END IF
-         END IF
+        IF ( SIZE(ParallelInfo % NeighbourList(i) % Neighbours) > 1 ) THEN
+          IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
+            DO j = 1, SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+              IF (ParallelInfo % NeighbourList(i) % Neighbours(j)/=ParEnv % MyPE) THEN
+                nbind = ParallelInfo % NeighbourList(i) % Neighbours(j) + 1
+                VecEPerNB(nbind) = VecEPerNB(nbind) + 1
+                
+                SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
+                SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                    ParallelInfo % GlobalDOFs(i)
+              END IF
+            END DO
+          END IF
+        END IF
       END DO
 
       CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
@@ -1586,27 +1600,27 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 #endif
 
 #ifdef HAVE_TRILINOS
-    IF (ListGetLogical(CurrentModel % Solver % Values,  &
+    IF (ListGetLogical( Params,  &
            'Linear System Use Trilinos', Found )) THEN
 
       ! we attempt to read Trilinos settings from an XML file,
       ! which is their usual way of getting parameters. If no 
       ! file is given, we use default settings and issue a    
       ! warning.
-      xmlfile = ListGetString( Solver % Values, & 
+      xmlfile = ListGetString( Params, & 
           'Trilinos Parameter File', Found )
-      if (.not. Found) then
+      IF (.NOT. Found) THEN
         xmlfile = 'none'
-      end if
+      END IF
       xmlfile = TRIM(xmlfile)//C_NULL_CHAR
 
       ! tolerance and max iter are taken from the Elmer
       ! internal list to overrule the settings inthe XML file
-      TOL = ListGetConstReal( Solver % Values, &
+      TOL = ListGetConstReal( Params, &
            'Linear System Convergence Tolerance', Found )
       IF ( .NOT. Found ) TOL=-1.0
 
-      Rounds = ListGetInteger( Solver % Values, &
+      Rounds = ListGetInteger( Params, &
            'Linear System Max Iterations', Found )
       IF ( .NOT. Found ) Rounds=-1
 
@@ -1616,14 +1630,14 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       nnz = SourceMatrix%Rows(n+1) ! number of local nonzeros
       
         verbosity=0 !TODO: get this from the simulation verbosity or something
-        NewSetup=ListGetLogical( Solver % Values, 'Linear System Refactorize',Found ) 
-        if (NewSetup) then
-          if (SourceMatrix % Trilinos/=0) then
+        NewSetup=ListGetLogical( Params, 'Linear System Refactorize',Found ) 
+        IF (NewSetup) THEN
+          IF (SourceMatrix % Trilinos/=0) THEN
             CALL SolveTrilinos4(SourceMatrix % Trilinos)
-          end if
-        end if
+          END IF
+        END IF
         ! setup solver/preconditioner
-        if (SourceMatrix % Trilinos==0) then
+        IF (SourceMatrix % Trilinos==0) THEN
 
           ALLOCATE( Owner(n))
           Owner = 0
@@ -1643,12 +1657,12 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
                 CurrentModel%Nodes%x, CurrentModel%Nodes%y, CurrentModel%Nodes%z, ierr)     
 
           DEALLOCATE( Owner )
-          if (ierr<0) then
-            call Fatal('SParIterSolver','Failed to construct Trilinos solver')
-          else if (ierr>0) then
-            call Warn('SParIterSolver','Warning issued when trying to construct Trilinos solver')          
-          end if
-        end if
+          IF (ierr<0) THEN
+            CALL Fatal('SParIterSolver','Failed to construct Trilinos solver')
+          ELSE IF (ierr>0) THEN
+            CALL Warn('SParIterSolver','Warning issued when trying to construct Trilinos solver')          
+          END IF
+        END IF
         ! solve using previously computed Trilinos data structures.
         ! NOTE: this is only correct if the matrix has not changed,
         ! otherwise we should use the SolveTrilinos3 function, which is
@@ -1658,7 +1672,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
                 Rounds, TOL, verbosity, SourceMatrix % Trilinos, ierr)
       
       IF (ierr<0) THEN
-        call Fatal('SParIterSolver',&
+        CALL Fatal('SParIterSolver',&
                'Linear system solve using Trilinos caused an error');
       ELSE IF (ierr>0) THEN
         IF (ListGetLogical(Solver%Values,'Linear System Abort Not Converged',Found)) THEN
@@ -1852,7 +1866,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   TYPE(Matrix_t), POINTER :: CM,SaveMatrix
   INTEGER, POINTER :: SPerm(:), SCols(:)
 
-real(kind=dp)::cputime,realtime,tt,rt
+REAL(kind=dp)::cputime,realtime,tt,rt
 
   !*******************************************************************
 
@@ -1891,7 +1905,7 @@ real(kind=dp)::cputime,realtime,tt,rt
   GlobalMatrix % MatVecSubr = SourceMatrix % MatVecSubr
 
   GlobalMatrix % Ematrix => SourceMatrix
-  GlobalMatrix % Complex = SourceMatrix % Complex
+  GlobalMatrix % COMPLEX = SourceMatrix % COMPLEX
  !----------------------------------------------------------------------
  !
  ! Set up the preconditioner
@@ -1932,7 +1946,7 @@ real(kind=dp)::cputime,realtime,tt,rt
  !
  !----------------------------------------------------------------------
 
-  IF ( .NOT. SourceMatrix % Complex ) THEN
+  IF ( .NOT. SourceMatrix % COMPLEX ) THEN
     CM => SourceMatrix % ConstraintMatrix
     IF (ASSOCIATED(CM)) THEN
       ALLOCATE(SPerm(SourceMatrix % NumberOfRows)); SPerm=0
@@ -1957,7 +1971,7 @@ real(kind=dp)::cputime,realtime,tt,rt
     IF (ASSOCIATED(CM)) THEN
       DEALLOCATE(CM % Cols)
       CM % Cols => SCols
-      SplittedMatrix % InsideMatrix % ConstraintMatrix => Null()
+      SplittedMatrix % InsideMatrix % ConstraintMatrix => NULL()
     END IF
   ELSE
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
@@ -2051,7 +2065,7 @@ END SUBROUTINE Solve
 
   INTEGER, ALLOCATABLE :: neigh(:), recv_size(:), requests(:)
 
-real(kind=dp) :: s, RealTime
+REAL(kind=dp) :: s, RealTime
   !*******************************************************************
 
   InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
@@ -2316,7 +2330,7 @@ SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo )
   ResEPerNB = 0; RHSEPerNB = 0
 
   DO i = 1, SourceMatrix % NumberOfRows
-     IF ( ParallelInfo % Interface(i) ) THEN
+     IF ( ParallelInfo % INTERFACE(i) ) THEN
         IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
            DO j = 1, SIZE( ParallelInfo % NeighbourList(i) % Neighbours )
                IF ( ParallelInfo % NeighbourList(i) % Neighbours(j)/=ParEnv % MyPE ) THEN
@@ -2491,7 +2505,7 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
         END DO
         i1 = i1 + 1
 
-     ELSE IF ( Ind /= -1 ) then
+     ELSE IF ( Ind /= -1 ) THEN
               
         DMat % Rows(Row)  = Col
         DMat % GRows(Row) = SMat1 % GRows(i1)
@@ -2698,12 +2712,12 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
                        PRINT*,ParEnv % MyPE,  'GlueFinalize: This should not happen 0'
                        PRINT*,ParEnv % MyPE, i-1, RecvdIfMatrix(i) % GRows(j), RowInd, &
                                    RecvdIfMatrix(i) % Cols(k), ColIndA
-                       CALL Flush(6)
+                       CALL FLUSH(6)
                     END IF
                  END DO
               ELSE
                  PRINT*,ParEnv % MyPE, 'GlueFinalize: This should not happen 1', RowInd
-                 CALL Flush(6)
+                 CALL FLUSH(6)
               END IF
            END IF
         END DO
