@@ -70,7 +70,7 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
       DisplacementMode, MaskExists, GotVeloVar, GotUpdateVar
   REAL(KIND=dp) :: UnitVector(3),x0loc,x0bot,x0top,xloc,wtop,BotVal,TopVal,&
       TopVal0, BotVal0, ElemVector(3),DotPro,Eps,Length
-  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
+  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime,Heps
   REAL(KIND=dp), POINTER :: Coord(:),BotField(:),TopField(:)
   REAL(KIND=dp), ALLOCATABLE :: OrigCoord(:), Field(:), Surface(:)
   TYPE(Variable_t), POINTER :: Var, VeloVar, UpdateVar
@@ -247,6 +247,9 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   
   ! Get the new mapping using linear interpolation from bottom and top
   !-------------------------------------------------------------------
+  Heps = GetCReal(SolverParams,'Minimum Mesh Height',GotIt)
+  IF(.NOT. GotIt) Heps = EPSILON( Heps )
+
   DO i=1,nsize
 
     j = i
@@ -292,9 +295,10 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
       END IF       
     END IF
 
-    ! PRINT *,'Val',j,wtop,TopVal,BotVal,TopVal-BotVal
-
-    IF( TopVal - BotVal < EPSILON( TopVal ) ) THEN
+    IF( TopVal - BotVal < Heps ) THEN
+      PRINT *,'Node',i,'Height',Coord(i),'W',wtop
+      PRINT *,'Position',Mesh % Nodes % x(i),Mesh % Nodes % y(i),Mesh % Nodes % z(i)
+      PRINT *,'TopVal',TopVal,'BotVal',Botval,'dVal',TopVal-BotVal
       WRITE( Message,'(A,2ES12.3)') 'Top and bottom get tangled: ',TopVal, BotVal 
       CALL Fatal( 'StructuredMeshMapper',Message )
     END IF
