@@ -48,10 +48,10 @@ SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
     LOGICAL ::  TransientSimulation
     REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------
-    LOGICAL :: Found, Calculate
+    LOGICAL :: Found, Calculate, CalculateCapMatrix
     TYPE(ValueList_t), POINTER :: Params
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
-    INTEGER :: dim
+    INTEGER :: i,dim
 
     Params => GetSolverParams()
     dim = CoordinateSystemDimension()
@@ -80,6 +80,26 @@ SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
         CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
             'elflux[Electric Flux:3]' )
       END IF
+    END IF
+
+
+    ! If computation of capacitance matrix is requested then compute 
+    ! set the flag for load computation also.
+    !------------------------------------------------------------------
+    CalculateCapMatrix = ListGetLogical( Params, &
+        'Calculate Capacitance Matrix', Found )
+    IF(.NOT. Found ) THEN
+      DO i = 1, Model % NumberOfEquations 
+        CalculateCapMatrix = ListGetLogical( Model % Equations(i) % Values, &
+            'Calculate Capacitance Matrix', Found )
+        IF ( CalculateCapMatrix ) THEN
+          CALL ListAddLogical( Params,'Calculate Capacitance Matrix',.TRUE.)
+          EXIT
+        END IF
+      END DO
+    END IF
+    IF( CalculateCapMatrix ) THEN
+      CALL ListAddLogical( Params,'Calculate Loads',.TRUE.)
     END IF
 
 !------------------------------------------------------------------------------
@@ -261,12 +281,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
     ConstantWeights = ListGetLogical( Params,'Constant Weights', GotIt )
 
-    DO i = 1, Model % NumberOfEquations 
-      CalculateCapMatrix = ListGetLogical( Model % Equations(i) % Values, &
-          'Calculate Capacitance Matrix', GotIt )
-      IF ( GotIt ) EXIT
-    END DO
-    IF ( .NOT. GotIt )  CalculateCapMatrix = ListGetLogical( Params, &
+    CalculateCapMatrix = ListGetLogical( Params, &
         'Calculate Capacitance Matrix', GotIt )
         
     IF(CalculateCapMatrix) THEN
@@ -381,12 +396,13 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     IF ( ConstantBulk .AND. AssemblyDone ) THEN
       Solver % Matrix % RHS = Solver % Matrix % BulkRHS
       Solver % Matrix % Values = Solver % Matrix % BulkValues
-      call BoundaryAssembly()
+    ELSE
+      CALL BulkAssembly()
+      CALL DefaultFinishBulkAssembly()
+      AssemblyDone = .TRUE.
     END IF
-    AssemblyDone = .TRUE.
-     
-    call BulkAssembly()
-    call BoundaryAssembly()
+
+    CALL BoundaryAssembly()
 
 !------------------------------------------------------------------------------
 !    Solve the system and we are done.
@@ -556,7 +572,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
    CONTAINS
 
 !------------------------------------------------------------------------------
-  subroutine BulkAssembly()
+  SUBROUTINE BulkAssembly()
 !------------------------------------------------------------------------------
 !$omp parallel
 !$omp do ordered
@@ -662,7 +678,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-      CALL DefaultUpdateEquations( LocalStiffMatrix,LocalForce, BulkUpdate = ConstantBulk )
+      CALL DefaultUpdateEquations( LocalStiffMatrix,LocalForce )
 
 !------------------------------------------------------------------------------
 !     Print the state of the assembly to stdout
@@ -680,11 +696,11 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !$omp end parallel
 
 !------------------------------------------------------------------------------
-  end subroutine BulkAssembly
+  END SUBROUTINE BulkAssembly
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  subroutine BoundaryAssembly()
+  SUBROUTINE BoundaryAssembly()
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !     Neumann boundary conditions
@@ -699,7 +715,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
       Ivals => ListGetIntegerArray( Params, &
              'Constraint DOF 1 Body', Gotit )
-      IF ( .NOT. ASSOCIATED(Ivals) ) continue
+      IF ( .NOT. ASSOCIATED(Ivals) ) CONTINUE
 
       Solver % Matrix % ConstraintMatrix % RHS(1) = &
         GetCReal( Params, 'Constraint DOF 1 Value', GotIt )
@@ -775,7 +791,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
      END IF
 
-     IF( .NOT. PossibleFluxElement(CurrentElement) ) cycle
+     IF( .NOT. PossibleFluxElement(CurrentElement) ) CYCLE
 
      ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
      ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
@@ -803,7 +819,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
      OpenBC = ListGetLogical( BC,'Electric Infinity BC',GotIt)
      IF(.NOT. GotIt) OpenBC = ListGetLogical( BC,TRIM(VarName)//' Infinity BC',GotIt)
      
-     IF(.NOT. ( LayerBC .OR. FluxBC .OR. OpenBC) ) cycle
+     IF(.NOT. ( LayerBC .OR. FluxBC .OR. OpenBC) ) CYCLE
 
      IF ( LayerBC ) THEN
        LayerH(1:n) = ListGetReal( BC, &
@@ -877,7 +893,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     WRITE( Message, * ) 'Assembly (s)          :',at
     CALL Info( 'StatElecSolve', Message, Level=4 )
 !------------------------------------------------------------------------------
-   end subroutine BoundaryAssembly
+   END SUBROUTINE BoundaryAssembly
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
