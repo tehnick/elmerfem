@@ -3946,7 +3946,8 @@ CONTAINS
       A % BulkValues = A % Values
     END IF
 
-    IF( GetLogical( Params,'Bulk System Multiply',Found ) ) THEN
+    IF( GetLogical( Params,'Bulk System Multiply',Found ) ) THEN	
+      CALL Info('DefaultFinishAssembly','Multiplying matrix equation',Level=10)
       CALL LinearSystemMultiply( PSolver )
     END IF
 
@@ -4064,6 +4065,7 @@ CONTAINS
     CALL FinishAssembly( PSolver, PSolver % Matrix % RHS )
 
     IF( GetLogical( Params,'Linear System Multiply',Found ) ) THEN
+      CALL Info('DefaultFinishAssembly','Multiplying matrix equation',Level=10)
       CALL LinearSystemMultiply( PSolver )
     END IF
 
