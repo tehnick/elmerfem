@@ -726,31 +726,6 @@ CONTAINS
 
 !     IF ( Matrix % Lumped ) THEN
 
-     IsFCT =  ListGetLogical( Solver % Values,'Linear System FCT',Found ) 
-
-     IF( IsFCT ) THEN
-       PRINT *,'Performing time-integration with mass lumping'
-       n = SIZE( Force ) 
-       IF( .NOT. ASSOCIATED( Matrix % MassValuesLumped ) ) THEN         
-         ALLOCATE( Matrix % MassValuesLumped( n ) )
-       END IF
-       ML => Matrix % MassValuesLumped 
-       Matrix % Lumped = .TRUE. 
-
-       ! Compute rowsum of mass matrix to obtain lumped mass matrix
-       Rows => Matrix % Rows
-       Cols => Matrix % Cols
-       DO i=1,n
-         msum = 0.0_dp
-         ! lumped mass
-         DO j=Rows(i),Rows(i+1)-1
-           msum = msum + Matrix % MassValues(j)
-         END DO
-         ML(i) = msum 
-       END DO
-
-       PRINT *,'SUMs:',SUM(ML),SUM(Matrix % MassValues)
-     END IF
 
 !------------------------------------------------------------------------------
      Order = MIN(Solver % DoneTime, Solver % Order)
@@ -3666,14 +3641,6 @@ END FUNCTION SearchNodeL
 
     IF ( Solver % Matrix % FORMAT == MATRIX_LIST ) THEN
       CALL List_toCRSMatrix(Solver % Matrix)
-    END IF
-
-    IF( ListGetLogical( Solver % Values,'Linear System FCT',Found ) ) THEN
-      IF( Solver % Variable % Dofs == 1 ) THEN
-        CALL CRS_FCTLowOrder( Solver % Matrix )
-      ELSE
-        CALL Fatal('FinishAssembly','FCT scheme implemented only for one dof')
-      END IF
     END IF
 
     Simulation = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
@@ -6933,6 +6900,255 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 !------------------------------------------------------------------------------
   END SUBROUTINE MortarRobinSolver
 !------------------------------------------------------------------------------
+
+
+!---------------------------------------------------------------------------------
+!> Multiply a linear system by a constant or a given scalar field.
+!
+!> There are three multiplication modes:
+!> 1) Multiply matrix or rhs with a constant factor
+!> 2) Multiply matrix or rhs with a constant factor but only blockwise
+!> 3) Multiply matrix or rhs with a vector retrieved by a field variable
+!
+!> And also three things to multiply:
+!> a) The right-hand-side of the linear system
+!> b) The matrix part of the linear system
+!> c) The diagonal entries of the matrix
+!
+!> Possible uses of the routine include cases where the user wants to introduce diagonal
+!> implicit relaxation to the linear system, or to eliminate some coupling terms in 
+!> monolithic systems that make the solution of the linear problems more difficult.
+!----------------------------------------------------------------------------------
+  SUBROUTINE LinearSystemMultiply( Solver )
+!----------------------------------------------------------------------------------    
+    TYPE(Solver_t) :: Solver
+    !------------------------------------------------------------------------------
+    INTEGER, POINTER :: Perm(:),Rows(:),Cols(:)
+    REAL(KIND=dp), POINTER :: Values(:),Rhs(:)
+    TYPE(Variable_t), POINTER :: ThisVar,CoeffVar
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(Mesh_t), POINTER :: Mesh
+    REAL(KIND=dp) :: Coeff
+    INTEGER :: i,j,k,l,jk,n,Mode,Dofs
+    LOGICAL :: Found, UpdateRhs
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: str, VarName
+
+
+    Params => Solver % Values
+    Mesh => Solver % Mesh
+    IF(.NOT. ASSOCIATED( Mesh ) ) THEN
+      CALL Fatal('LinearSystemMultiply','Subroutine requires a Mesh!')
+    END IF
+    A => Solver % Matrix
+    IF(.NOT. ASSOCIATED( A ) ) THEN
+      CALL Fatal('LinearSystemMultiply','Subroutine requires a matrix equation!')
+    END IF
+
+    ThisVar => Solver % Variable
+    Perm => ThisVar % Perm
+    Dofs = ThisVar % Dofs
+    n = A % NumberOfRows
+    Cols => A % Cols
+    Rows => A % Rows
+    Rhs => A % Rhs
+    Values => A % Values
+        
+    UpdateRhs = ListGetLogical( Params,'Linear System Multiply Consistent',Found)
+
+
+    ! First, Multiply the k:th piece of the r.h.s. vector if requested
+    !-----------------------------------------------------------
+    DO k=1,Dofs
+      Mode = 0
+      
+      WRITE( str,'(A)') 'Linear System Rhs Factor'
+      Coeff = ListGetCReal( Params, str, Found )
+      IF( Found ) THEN
+        Mode = 1
+        WRITE( Message,'(A,ES12.3)') 'Multiplying the rhs with ',Coeff
+        CALL Info('LinearSystemMultiply',Message, Level=6 )
+      ELSE
+        WRITE( str,'(A,I0)') TRIM(str)//' ',k
+        Coeff = ListGetCReal( Params, str, Found )
+        IF( Found ) THEN
+          Mode = 2 
+          WRITE( Message,'(A,I0,A,ES12.3)') 'Multiplying component ',k,' of the rhs with ',Coeff
+          CALL Info('LinearSystemMultiply',Message, Level=6 )
+        END IF
+      END IF
+      IF( Mode == 0 ) THEN
+        WRITE( str,'(A)') 'Linear System Rhs Variable'
+        VarName = ListGetString( Params,'str',Found ) 
+        NULLIFY( CoeffVar ) 
+        IF( Found ) THEN
+          CoeffVar => VariableGet( Mesh % Variables, VarName )
+          IF(.NOT. ASSOCIATED( CoeffVar ) ) THEN
+            WRITE( str,'(A,I0)') TRIM(str)//' ',k
+            VarName = ListGetString( Params,'str',Found )
+            IF( Found ) CoeffVar => VariableGet( Mesh % Variables, VarName )
+          END IF
+        END IF
+        IF( ASSOCIATED( CoeffVar ) ) THEN
+          IF( ANY( CoeffVar % Perm /= Perm ) ) THEN
+            CALL Fatal('LinearSystemMultiply','Permutations should be the same')
+          END IF
+          Mode = 3
+          WRITE( Message,'(A,I0,A)') 'Multiplying component ',k,' of the rhs with '//TRIM(VarName)
+          CALL Info('LinearSystemMultiply',Message, Level=6 )
+        END IF
+      END IF
+      IF( Mode == 0 ) CYCLE
+ 
+      IF( Mode == 1 ) THEN
+        IF( ABS( Coeff - 1.0_dp ) > EPSILON( Coeff ) ) THEN
+          Rhs = Coeff * Rhs
+        END IF
+        EXIT
+      ELSE 
+        DO j=1,SIZE( Perm ) 
+          jk = Dofs*(j-1)+k
+          IF( Mode == 2 ) Coeff = CoeffVar % Values(j)
+          Rhs( jk ) = Coeff * Rhs( jk )
+        END DO
+      END IF
+    END DO
+    ! End of r.h.s. multiplication
+
+    ! Secondly, Multiply the kl block of the matrix
+    !------------------------------------------------
+    DO k=1,Dofs
+      DO l=1,Dofs
+        Mode = 0
+        WRITE( str,'(A)') 'Linear System Matrix Factor'
+        Coeff = ListGetCReal( Params, str, Found )
+        IF( Found ) THEN
+          Mode = 1
+          WRITE( Message,'(A,ES12.3)') 'Multiplying the matrix with ',Coeff
+          CALL Info('LinearSystemMultiply',Message, Level=6 )
+        ELSE
+          WRITE( str,'(A,I0,I0)') TRIM(str)//' ',k,l
+          Coeff = ListGetCReal( Params, str, Found )
+          IF( Found ) THEN
+            Mode = 2
+            WRITE( Message,'(A,I0,I0,A,ES12.3)') 'Multiplying block (',k,l,') of the matrix with ',Coeff
+            CALL Info('LinearSystemMultiply',Message, Level=6 )
+          END IF
+        END IF
+        IF( Mode == 0 ) THEN
+          WRITE( str,'(A)') 'Matrix Multiplication Variable'
+          VarName = ListGetString( Params,'str',Found )
+          NULLIFY( CoeffVar ) 
+          IF( Found ) THEN
+            CoeffVar => VariableGet( Mesh % Variables, str )                        
+            IF( .NOT. ASSOCIATED( CoeffVar ) ) THEN          
+              WRITE( str,'(A,I0,I0)') TRIM(str)//' ',k,l
+              CoeffVar => VariableGet( Mesh % Variables, VarName )
+              IF( .NOT. ASSOCIATED( CoeffVar ) ) THEN
+                WRITE( str,'(A)') 'Matrix Multiplication Variable'
+                VarName = ListGetString( Params,'str',Found )
+                IF(Found) CoeffVar => VariableGet( Mesh % Variables, VarName )            
+              END IF
+            END IF
+          END IF
+          IF( ASSOCIATED( CoeffVar ) ) THEN
+            IF( ANY( CoeffVar % Perm /= Perm ) ) THEN
+              CALL Fatal('LinearSystemMultiply','Permutations should be the same')
+            END IF
+            Mode = 3
+            WRITE( Message,'(A,I0,I0)') 'Multiplying block (',k,l,') of the matrix with '//TRIM(str)
+            CALL Info('LinearSystemMultiply',Message, Level=6 )
+          END IF
+        END IF
+        IF( Mode == 0 ) CYCLE
+
+        IF( Mode == 1 ) THEN
+          IF( ABS( Coeff - 1.0_dp ) > EPSILON( Coeff ) ) THEN
+            Values = Coeff * Values
+          END IF
+        ELSE 
+          DO j=1,SIZE( Perm ) 
+            jk = Dofs*(j-1)+k
+            IF( Mode == 2 ) Coeff = CoeffVar % Values(j)
+            DO i=Rows(jk),Rows(jk+1)-1 
+              IF( MODULO( Cols(i), Dofs ) == MODULO( l, Dofs ) ) THEN
+                Values( i ) = Coeff * Values( i )
+              END IF
+            END DO
+          END DO
+        END IF
+      END DO
+      IF( Mode == 1 ) EXIT
+    END DO
+    ! end of matrix multiplication
+
+
+    ! Finally, Multiply the diagonal of the matrix
+    !------------------------------------------------
+    DO k=1,Dofs
+      Mode = 0
+
+      WRITE( str,'(A)') 'Linear System Diagonal Factor'
+      Coeff = ListGetCReal( Params, str, Found )
+      IF( Found ) THEN
+        Mode = 1
+        WRITE( Message,'(A,ES12.3)') 'Multiplying the diagonal with ',Coeff
+        CALL Info('LinearSystemMultiply',Message, Level=6 )
+      ELSE
+        WRITE( str,'(A,I0)') 'Linear System Diagonal Factor ',k
+        Coeff = ListGetCReal( Params, str, Found )
+        IF( Found ) THEN
+          Mode = 2 
+          WRITE( Message,'(A,I0,A,ES12.3)') 'Multiplying component ',k,' of the matrix diagonal with ',Coeff
+          CALL Info('LinearSystemMultiply',Message, Level=6 )          
+        END IF
+      END IF
+
+      IF( Mode == 0 ) THEN
+        WRITE( str,'(A)') 'Linear System Diagonal Variable'
+        VarName = ListGetString( Params,'str',Found )
+        NULLIFY( CoeffVar )
+        IF( Found ) THEN
+          CoeffVar => VariableGet( Mesh % Variables, VarName )
+          IF(.NOT. ASSOCIATED( CoeffVar ) ) THEN
+            WRITE( str,'(A,I0)') TRIM(str)//' ',k
+            VarName = ListGetString( Params,'str',Found )
+            IF( Found ) CoeffVar => VariableGet( Mesh % Variables, VarName )
+          END IF
+        END IF
+        IF( ASSOCIATED( CoeffVar ) ) THEN
+          IF( ANY( CoeffVar % Perm /= Perm ) ) THEN
+            CALL Fatal('LinearSystemMultiply','Permutations should be the same')
+          END IF
+          Mode = 3
+          WRITE( Message,'(A,I0,A)') 'Multiplying component ',k,' of the diagonal with '//TRIM(str)
+          CALL Info('LinearSystemMultiply',Message, Level=6 )
+        END IF
+      END IF
+      
+      IF( Mode == 0 ) CYCLE
+
+      IF( Mode == 1 ) THEN
+        IF( ABS( Coeff - 1.0_dp ) > EPSILON( Coeff ) ) THEN
+          IF( UpdateRhs ) Rhs = Rhs + ( Coeff - 1 ) * Values( A % Diag ) * ThisVar % Values
+          Values( A % Diag ) = Coeff * Values( A % Diag )
+        END IF
+        EXIT
+      ELSE 
+        DO j=1,SIZE( Perm ) 
+          jk = Dofs*(j-1)+k
+          IF( Mode == 2 ) Coeff = CoeffVar % Values(j)
+
+          IF( UpdateRhs ) Rhs( jk ) = Rhs( jk ) + (Coeff - 1) * Values(A % Diag(jk)) * ThisVar % Values(jk)
+          Values( A % Diag(jk) ) = Coeff * Values( A % Diag(jk) )
+        END DO
+      END IF
+    END DO
+    ! end of diagonal multiplication
+
+
+  END SUBROUTINE LinearSystemMultiply
+
 
 END MODULE SolverUtils
 

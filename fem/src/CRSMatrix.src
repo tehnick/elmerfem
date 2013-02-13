@@ -1503,12 +1503,17 @@ END FUNCTION CRS_RowSum
     TYPE(Matrix_t) :: A           !< Initial higher order matrix
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,k2,l,kb,n
-    REAL(KIND=dp) :: Aij,Aji,Aii,Dij,dFij
+    REAL(KIND=dp) :: Aij,Aji,Aii,Dij,dFij,msum
+    REAL(KIND=dp), POINTER :: ML(:)
+    INTEGER, POINTER :: Rows(:), Cols(:),Diag(:)
     LOGICAL :: Found
 
     CALL Info('CRS_FCTLowOrder','Making low order FCT correction to matrix',Level=6)
 
     N = A % NumberOfRows
+    Rows => A % Rows
+    Cols => A % Cols
+    Diag => A % Diag
 
     IF(.NOT. ASSOCIATED(A % FCT_D) ) THEN
       ALLOCATE( A % FCT_D(SIZE( A % Values) ) ) 
@@ -1521,15 +1526,15 @@ END FUNCTION CRS_RowSum
     A % BulkValues = A % Values
 
     DO i=1,N
-      DO k= A % Rows(i), A % Rows(i+1)-1
-        j = A % Cols(k)
+      DO k= Rows(i), Rows(i+1)-1
+        j = Cols(k)
 
         ! Go through the lower symmetric part (ij) and find the corresponding entry (ji)
         IF( i >= j ) CYCLE
 
         ! First find entry (j,i)
-        DO k2 = A % Rows(j), A % Rows(j+1)-1
-          IF( A % Cols(k2) == i ) THEN
+        DO k2 = Rows(j), Rows(j+1)-1
+          IF( Cols(k2) == i ) THEN
             Found = .TRUE.
             EXIT
           END IF
@@ -1544,7 +1549,7 @@ END FUNCTION CRS_RowSum
         ! Modified so that it also works similarly to A and -A
         Aij = A % Values(k)
         Aji = A % Values(k2)
-        Aii = A % Values(A % Diag(i))
+        Aii = A % Values(Diag(i))
         IF( Aii < 0.0_dp ) THEN
           Dij = MAX( -Aij, -Aji, 0.0_dp )
         ELSE
@@ -1552,8 +1557,8 @@ END FUNCTION CRS_RowSum
         END IF
 
         IF(.FALSE.) THEN
-          PRINT *,'ij',i,j,A % Cols(k2),A % Cols(k)
-          PRINT *,'Diag',A % Cols(A % Diag(i)),A % Cols(A % Diag(j))
+          PRINT *,'ij',i,j,Cols(k2),Cols(k)
+          PRINT *,'Diag',Cols(Diag(i)),Cols(Diag(j))
           PRINT *,'A',Aij,Aji,Aii,Dij
         END IF
 
@@ -1561,14 +1566,35 @@ END FUNCTION CRS_RowSum
         IF( ABS( Dij ) > 0.0_dp ) THEN
           A % FCT_D(k) = A % FCT_D(k) + Dij
           A % FCT_D(k2) = A % FCT_D(k2) + Dij
-          A % FCT_D(A % Diag(i)) = A % FCT_D(A % Diag(i)) - Dij
-          A % FCT_D(A % Diag(j)) = A % FCT_D(A % Diag(j)) - Dij          
+          A % FCT_D(Diag(i)) = A % FCT_D(Diag(i)) - Dij
+          A % FCT_D(Diag(j)) = A % FCT_D(Diag(j)) - Dij          
         END IF
-
+        
       END DO
     END DO
 
     A % Values = A % Values + A % FCT_D
+
+
+    CALL Info('CRS_FCTLowOder','Creating lumped mass matrix',Level=10)
+    IF( .NOT. ASSOCIATED( A % MassValuesLumped ) ) THEN         
+      ALLOCATE( A % MassValuesLumped( n ) )
+    END IF
+    ML => A % MassValuesLumped 
+    
+    ! Compute rowsum of mass matrix to obtain lumped mass matrix
+    DO i=1,n
+      msum = 0.0_dp
+      ! lumped mass
+      DO j=Rows(i),Rows(i+1)-1
+        msum = msum + A % MassValues(j)
+      END DO
+      ML(i) = msum 
+    END DO
+
+    IF(.FALSE.) THEN
+      PRINT *,'Comparing entry sums:',SUM(ML),SUM(A % MassValues)
+    END IF
 
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_FCTLowOrder

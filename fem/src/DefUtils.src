@@ -1897,7 +1897,7 @@ CONTAINS
    INTEGER :: i,j,k,l,n,Order
    REAL(KIND=dp), POINTER :: SaveValues(:) => NULL()
    REAL(KIND=dp) :: FORCE(1), Dts(16)
-   LOGICAL :: ConstantDt, Found, HasMass
+   LOGICAL :: ConstantDt, Found, HasMass, HasFCT
    TYPE(Variable_t), POINTER :: DtVar
    SAVE STIFF, MASS, X
    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:),MASS(:,:), X(:,:)
@@ -1940,15 +1940,42 @@ CONTAINS
        END DO
      END IF
    END IF
+   
+   HasFCT = ListGetLogical( Solver % Values,'Linear System FCT', Found )
+   IF( HasFCT ) THEN
+     IF( .NOT. HasMass ) THEN
+       CALL Fatal('Default1stOrderTimeGlobal','FCT only makes sense if there is a mass matrix!')
+     ELSE
+       IF(.NOT. ASSOCIATED( Solver % Matrix % MassValuesLumped ) ) THEN
+         CALL Fatal('Default1stOrderTimeGlobal','FCT requires a lumped mass matrix!')
+       END IF
+       HasMass = .FALSE.
+     END IF
+   END IF
 
    DO i=1,Solver % Matrix % NumberOFRows
      n = 0
+     k = 0
      DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
        n=n+1
        STIFF(1,n) = Solver % Matrix % Values(j)
-       IF( HasMass ) MASS(1,n) = Solver % Matrix % MassValues(j)
+       IF( HasMass ) THEN
+         MASS(1,n) = Solver % Matrix % MassValues(j)
+       ELSE IF( HasFCT ) THEN
+         IF( j == Solver % Matrix % Diag(i) ) k = n
+       END IF         
        X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
      END DO
+
+     ! Use lumped mass in lower order fct
+     IF( HasFCT ) THEN
+       MASS(1,1:n) = 0.0_dp
+       IF( k == 0 ) THEN
+         CALL Fatal('Default1stOrderTimeGlobal','Could not find diagonal entry for fct')
+       ELSE
+         MASS(1,k) = Solver % Matrix % MassValuesLumped(i)
+       END IF
+     END IF
      FORCE(1) = Solver % Matrix % RHS(i)
      Solver % Matrix % Force(i,1) = FORCE(1)
 
@@ -3860,8 +3887,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !> Finished the bulk assembly of the matrix equation.
-!> Optionally save the matrix for later use
+!> Optionally save the matrix for later use.
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishBulkAssembly( Solver, BulkUpdate )
 !------------------------------------------------------------------------------
@@ -3873,6 +3901,7 @@ CONTAINS
     TYPE(Matrix_t), POINTER :: A
     LOGICAL :: Bupd, Found
     INTEGER :: n
+    CHARACTER(LEN=MAX_NAME_LEN) :: str
 
     IF( PRESENT( Solver ) ) THEN
       PSolver => Solver
@@ -3880,48 +3909,54 @@ CONTAINS
       PSolver => CurrentModel % Solver
     END IF
 
+    Params => GetSolverParams( PSolver ) 
+
     BUpd = .FALSE.
     IF ( PRESENT(BulkUpdate) ) THEN
       BUpd = BulkUpdate 
-      IF ( .NOT. BUpd ) RETURN
+    ELSE
+      BUpd = BUpd .OR. GetLogical( Params,'Calculate Loads', Found )
+      BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk System', Found )
+      BUpd = BUpd .OR. GetLogical( Params,'Save Bulk System', Found )
+      BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk Matrix', Found )
     END IF
 
-    Params => GetSolverParams( PSolver ) 
+    IF( BUpd ) THEN
+      str = GetString( Params,'Equation',Found)
+      CALL Info('DefaultFinishBulkAssembly','Saving bulk values for: '//TRIM(str), Level=5 )
 
-    BUpd = BUpd .OR. GetLogical( Params,'Calculate Loads', Found )
-    BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk System', Found )
-    BUpd = BUpd .OR. GetLogical( Params,'Save Bulk System', Found )
-    BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk Matrix', Found )
-
-    IF(.NOT. BUpd ) RETURN
-
-    CALL Info('DefaultFinishBulkAssembly','Saving bulk values for Solver: '//TRIM(PSolver % Variable % Name) )
-
-    A => PSolver % Matrix
-
-    n = SIZE( A % Rhs )
-    IF( ASSOCIATED( A % BulkRhs ) ) THEN
-      IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
+      A => PSolver % Matrix
+      
+      n = SIZE( A % Rhs )
+      IF( ASSOCIATED( A % BulkRhs ) ) THEN
+        IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
+      END IF
+      IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+        ALLOCATE( A % BulkRHS( n ) )
+      END IF
+      A % BulkRHS = A % Rhs
+      
+      n = SIZE( A % Values )
+      IF( ASSOCIATED( A % BulkValues ) ) THEN
+        IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
+      END IF
+      IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+        ALLOCATE( A % BulkValues( n ) )
+      END IF
+      A % BulkValues = A % Values
     END IF
-    IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
-      ALLOCATE( A % BulkRHS( n ) )
+
+    IF( GetLogical( Params,'Bulk System Multiply',Found ) ) THEN
+      CALL LinearSystemMultiply( PSolver )
     END IF
-    A % BulkRHS = A % Rhs
-    
-    n = SIZE( A % Values )
-    IF( ASSOCIATED( A % BulkValues ) ) THEN
-      IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
-    END IF
-    IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
-      ALLOCATE( A % BulkValues( n ) )
-    END IF
-    A % BulkValues = A % Values
 
   END SUBROUTINE DefaultFinishBulkAssembly
 
 
+!------------------------------------------------------------------------------
 !> Finished the boundary assembly of the matrix equation.
 !> Optionally save the matrix for later use
+!> This is hardly used.
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishBoundaryAssembly( Solver, BulkUpdate )
 !------------------------------------------------------------------------------
@@ -3977,16 +4012,21 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
 !> Finished the assembly of the matrix equation, mainly effects in transient simulation
+!> Also may be used to set implicit relaxation on the linear system before
+!> applying Dirichlet conditions. 
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishAssembly( Solver )
 !------------------------------------------------------------------------------
     TYPE(Solver_t), OPTIONAL, TARGET :: Solver
 
-    INTEGER :: order
+    INTEGER :: order, n
     LOGICAL :: Found
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Solver_t), POINTER :: PSolver
+    TYPE(Matrix_t), POINTER :: A
+    CHARACTER(LEN=MAX_NAME_LEN) :: str
 
     IF( PRESENT( Solver ) ) THEN
       PSolver => Solver
@@ -3996,8 +4036,16 @@ CONTAINS
 
     Params => GetSolverParams(PSolver)
 
-    IF(GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
+    IF( ListGetLogical( Params,'Linear System FCT',Found ) ) THEN
+      IF( PSolver % Variable % Dofs == 1 ) THEN
+        CALL CRS_FCTLowOrder( PSolver % Matrix )
+      ELSE
+        CALL Fatal('DefaultFinishAssembly','FCT scheme implemented only for one dof')
+      END IF
+    END IF
 
+
+    IF(GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
       IF( ListGetString( CurrentModel % Simulation, 'Simulation Type' ) == 'transient') THEN
         order=GetInteger(Params,'Time Derivative Order',Found)
         IF(.NOT.Found) order=1
@@ -4014,6 +4062,10 @@ CONTAINS
     END IF
 
     CALL FinishAssembly( PSolver, PSolver % Matrix % RHS )
+
+    IF( GetLogical( Params,'Linear System Multiply',Found ) ) THEN
+      CALL LinearSystemMultiply( PSolver )
+    END IF
 
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultFinishAssembly
