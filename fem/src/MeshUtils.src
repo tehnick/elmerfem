@@ -3471,9 +3471,6 @@ END SUBROUTINE GetMaxDefs
         cnt=cnt+1
 
         Mesh_out % Elements(cnt) = Mesh_in % Elements(k)
-        Mesh_out % Elements(cnt) % NDOFs = 4
-
-        ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4)) 
 
         ALLOCATE(Mesh_out % Elements(cnt) % BoundaryInfo)
         Mesh_out % Elements(cnt) % BoundaryInfo = &
@@ -3493,15 +3490,27 @@ END SUBROUTINE GetMaxDefs
              Mesh_out % Elements(Mesh_in % NumberOfBulkElements*i+l)
         END IF
 
-        ind(1) = Mesh_in % Elements(k) % NodeIndexes(1)+i*n
-        ind(2) = Mesh_in % Elements(k) % NodeIndexes(2)+i*n
-        ind(3) = Mesh_in % Elements(k) % NodeIndexes(2)+(i+1)*n
-        ind(4) = Mesh_in % Elements(k) % NodeIndexes(1)+(i+1)*n
+        IF(Mesh_in % Elements(k) % Type % ElementCode>=200) THEN
+          Mesh_out % Elements(cnt) % NDOFs = 4
+          ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4)) 
 
-        Mesh_out % Elements(cnt) % NodeIndexes = ind(1:4)
+          ind(1) = Mesh_in % Elements(k) % NodeIndexes(1)+i*n
+          ind(2) = Mesh_in % Elements(k) % NodeIndexes(2)+i*n
+          ind(3) = Mesh_in % Elements(k) % NodeIndexes(2)+(i+1)*n
+          ind(4) = Mesh_in % Elements(k) % NodeIndexes(1)+(i+1)*n
+          Mesh_out % Elements(cnt) % NodeIndexes = ind(1:4)
+          Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
+        ELSE
+          Mesh_out % Elements(cnt) % NDOFs = 1
+          l=SIZE(Mesh_in % Elements(k) % NodeIndexes)
+          ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l))
+          Mesh_out % Elements(cnt) % NodeIndexes = &
+            Mesh_in % Elements(k) % NodeIndexes+i*n
+          Mesh_out % Elements(cnt) % Type => &
+             Mesh_in % Elements(k) % Type
+        END IF 
         Mesh_out % Elements(cnt) % ElementIndex = cnt + &
-               Mesh_out % NumberOfBulkElements
-        Mesh_out % Elements(cnt) % TYPE => GetElementType(404)
+                Mesh_out % NumberOfBulkElements
         Mesh_out % Elements(cnt) % PDefs => Null()
         Mesh_out % Elements(cnt) % EdgeIndexes => Null()
         Mesh_out % Elements(cnt) % FaceIndexes => Null()
