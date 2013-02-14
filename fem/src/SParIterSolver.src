@@ -2287,14 +2287,17 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
         IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
         DO j = 1, CurrIf % NumberOfRows / 2
           IF ( Currif % RowOwner(2*j-1) == ParEnv % MyPE ) THEN
-             rowind = (IfO % IfVec(2*j-1)+1)/2
-             DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1,2
-               Colind = (IfL % IfVec(k)+1)/2
-               IF ( ColInd > 0 ) THEN
-                 A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
-                 v(rowind) = v(rowind) + A * u(ColInd)
-               END IF
-             END DO
+!
+! This is now dealt with in the matrix initialization, by adding the entries
+! to 'InsideMatrix'...
+!            rowind = (IfO % IfVec(2*j-1)+1)/2
+!            DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1,2
+!              Colind = (IfL % IfVec(k)+1)/2
+!              IF ( ColInd > 0 ) THEN
+!                A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
+!                v(rowind) = v(rowind) + A * u(ColInd)
+!              END IF
+!            END DO
           ELSE
             DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
                IF ( IfL % IfVec(k) > 0 ) THEN
