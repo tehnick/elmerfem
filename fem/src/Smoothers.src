@@ -104,6 +104,8 @@ CONTAINS
         ALLOCATE(Diag(n))
         Diag = M % Values(M % Diag)
 
+#if 0
+! obsolete (at least for now...)
         DO i = 1, ParEnv % PEs
           CurrIf => A % ParMatrix % SplittedMatrix % IfMatrix(i)
           IF ( CurrIf % NumberOfRows == 0 ) CYCLE
@@ -120,6 +122,7 @@ CONTAINS
             END DO
           END DO
         END DO
+#endif
       END IF
       
       n = M % NumberOfRows

@@ -346,9 +346,7 @@ CONTAINS
        INTEGER, OPTIONAL :: op
        REAL(KIND=dp) CONTIG :: x(:)
 !-------------------------------------------------------------------------------
-
-       GlobalData => Matrix % ParMatrix
-       ParEnv     =  GlobalData % ParEnv
+       ParEnv = Matrix % ParMatrix % ParEnv
        ParEnv % ActiveComm = Matrix % Comm
 
        CALL ExchangeSourceVec( Matrix, Matrix % ParMatrix % SplittedMatrix, &
