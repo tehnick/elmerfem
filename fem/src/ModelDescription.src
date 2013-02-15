@@ -2872,7 +2872,7 @@ CONTAINS
       INTEGER, INTENT(OUT),OPTIONAL :: FoundTStep
       CHARACTER(40) :: VarName
       INTEGER :: iTime, nVar, i, Stat
-      INTEGER(IntOff_k) :: Offset
+      INTEGER(IntOff_k) :: Offset, Offset2
       INTEGER(Int8_k) :: tmp
       INTEGER(IntOff_k), SAVE :: HeaderEnd, TimeStepSize = 0
 
@@ -2899,7 +2899,8 @@ CONTAINS
             CALL Warn( 'LoadRestartFile',&
                  'Did not find the the requested timestep in the positions file;' )
             CALL Warn( 'LoadRestartFile','using the last found one instead.')
-            CALL BinFSeek( PosUnit, -TimeStepSize + VarNr*8 , BIN_SEEK_END )
+            Offset2 = -TimeStepSize + VarNr*8
+            CALL BinFSeek( PosUnit, Offset2 , BIN_SEEK_END )
             CALL BinReadInt8( PosUnit, tmp )
             Pos = tmp
 
@@ -2911,7 +2912,8 @@ CONTAINS
          END IF
       ELSE
          ! Find last time step
-         CALL BinFSeek( PosUnit, -TimeStepSize + VarNr*8 , BIN_SEEK_END )
+         Offset2 = -TimeStepSize + VarNr*8
+         CALL BinFSeek( PosUnit, Offset2 , BIN_SEEK_END )
          CALL BinReadInt8( PosUnit, tmp )
          Pos = tmp
          IF ( PRESENT(FoundTStep) ) THEN
