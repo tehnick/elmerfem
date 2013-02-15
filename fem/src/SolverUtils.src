@@ -6928,9 +6928,9 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
     TYPE(Variable_t), POINTER :: ThisVar,CoeffVar
     TYPE(Matrix_t), POINTER :: A
     TYPE(Mesh_t), POINTER :: Mesh
-    REAL(KIND=dp) :: Coeff
-    INTEGER :: i,j,k,l,jk,n,Mode,Dofs
-    LOGICAL :: Found, UpdateRhs
+    REAL(KIND=dp) :: Coeff,Coeff2
+    INTEGER :: i,j,j2,k,l,jk,n,Mode,Dofs
+    LOGICAL :: Found, UpdateRhs, Symmetric
     TYPE(ValueList_t), POINTER :: Params
     CHARACTER(LEN=MAX_NAME_LEN) :: str, VarName
 
@@ -6957,6 +6957,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
     Values => A % Values
         
     UpdateRhs = ListGetLogical( Params,'Linear System Multiply Consistent',Found)
+    Symmetric = ListGetLogical( Params,'Linear System Multiply Symmetric',Found)
 
     ! First, Multiply the k:th piece of the r.h.s. vector if requested
     !-----------------------------------------------------------
@@ -6996,6 +6997,8 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
           Mode = 3
           WRITE( Message,'(A,I0,A)') 'Multiplying component ',k,' of the rhs with > '//TRIM(VarName)//' <'
           CALL Info('LinearSystemMultiply',Message, Level=6 )
+
+          PRINT *,'Range:',Mode,MINVAL(CoeffVar % Values),MAXVAL(CoeffVar % Values)
         END IF
       END IF
       IF( Mode == 0 ) CYCLE
@@ -7008,7 +7011,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
       ELSE 
         DO j=1,SIZE( Perm ) 
           jk = Dofs*(j-1)+k
-          IF( Mode == 2 ) Coeff = CoeffVar % Values(j)
+          IF( Mode == 3 ) Coeff = CoeffVar % Values(j)
           Rhs( jk ) = Coeff * Rhs( jk )
         END DO
       END IF
@@ -7065,10 +7068,16 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
         ELSE 
           DO j=1,SIZE( Perm ) 
             jk = Dofs*(j-1)+k
-            IF( Mode == 2 ) Coeff = CoeffVar % Values(j)
+            IF( Mode == 3 ) Coeff = CoeffVar % Values(j)
             DO i=Rows(jk),Rows(jk+1)-1 
               IF( MODULO( Cols(i), Dofs ) == MODULO( l, Dofs ) ) THEN
-                Values( i ) = Coeff * Values( i )
+                IF( Mode == 3 .AND. Symmetric ) THEN          
+                  j2 = (Cols(i)-1)/Dofs + 1 
+                  Coeff2 = CoeffVar % Values(j2)
+                  Values( i ) = SQRT( Coeff * Coeff2 ) * Values( i )
+                ELSE
+                  Values( i ) = Coeff * Values( i )
+                END IF
               END IF
             END DO
           END DO
@@ -7132,7 +7141,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
       ELSE 
         DO j=1,SIZE( Perm ) 
           jk = Dofs*(j-1)+k
-          IF( Mode == 2 ) Coeff = CoeffVar % Values(j)
+          IF( Mode == 3 ) Coeff = CoeffVar % Values(j)
 
           IF( UpdateRhs ) Rhs( jk ) = Rhs( jk ) + (Coeff - 1) * Values(A % Diag(jk)) * ThisVar % Values(jk)
           Values( A % Diag(jk) ) = Coeff * Values( A % Diag(jk) )
