@@ -170,7 +170,7 @@ SUBROUTINE SIASolver( Model,Solver,dt,TransientSimulation )
      CALL INFO(SolverName,'No Velocity Cutoff has been set',Level=1)
   ELSE
      LimitVelocity = .TRUE.
-     WRITE(Message, '(A E10.4)') 'Velocity Cutoff set to ', VelocityCutOff
+     WRITE(Message, '(A,E10.4)') 'Velocity Cutoff set to ', VelocityCutOff
      CALL INFO(SolverName,Message, Level=1)
   END IF
 
