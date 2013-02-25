@@ -726,16 +726,69 @@ FUNCTION CRS_RowSum( A,k ) RESULT(rsum)
 !------------------------------------------------------------------------------
    TYPE(Matrix_t), INTENT(IN) :: A       !< Structure holding matrix
    INTEGER, INTENT(IN) :: k              !< Row index 
-   REAL(KIND=dp) :: rsum    !< Sum of the entries on the row
+   REAL(KIND=dp) :: rsum                 !< Sum of the entries on the row
 !------------------------------------------------------------------------------
    INTEGER :: i
    
    rsum = 0.0D0
-   DO i=1,A % Rows(k), A % Rows(k+1)-1
-     rsum  = rsum + A % Values( A % Cols(i) )
+   DO i=A % Rows(k), A % Rows(k+1)-1
+     rsum  = rsum + A % Values( i )
    END DO
 !------------------------------------------------------------------------------
 END FUNCTION CRS_RowSum
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Computes information on the matrix rowsums.
+!------------------------------------------------------------------------------
+SUBROUTINE CRS_RowSumInfo( A, Values ) 
+!------------------------------------------------------------------------------
+   TYPE(Matrix_t), INTENT(IN) :: A       
+   REAL(KIND=dp), POINTER, OPTIONAL :: Values(:)
+!------------------------------------------------------------------------------
+   REAL(KIND=dp), POINTER :: PValues(:)
+   INTEGER :: i,j,k              
+   REAL(KIND=dp) :: val,rsum,absrsum     
+   REAL(KIND=dp) :: minrsum,maxrsum,minabsrsum,maxabsrsum
+!------------------------------------------------------------------------------
+
+   minrsum = HUGE(minrsum)
+   maxrsum = -HUGE(maxrsum)
+   minabsrsum = HUGE(minabsrsum)
+   maxabsrsum = 0.0_dp
+   
+   IF( PRESENT( Values ) ) THEN
+     PValues => Values
+   ELSE
+     PValues => A % Values
+   END IF
+
+   DO i=1,A % NumberOfRows
+     rsum = 0.0_dp
+     absrsum = 0.0_dp
+
+     DO j=A % Rows(i), A % Rows(i+1)-1
+       val = PValues( j )
+       rsum = rsum + val
+       absrsum = absrsum + ABS( val ) 
+     END DO
+
+     minrsum = MIN( minrsum, rsum ) 
+     maxrsum = MAX( maxrsum, rsum ) 
+     minabsrsum = MIN( minabsrsum, absrsum ) 
+     maxabsrsum = MAX( maxabsrsum, absrsum ) 
+   END DO
+
+   WRITE( Message,'(A,ES12.4)') 'Total sum:',SUM( PValues )
+   CALL Info( 'CRS_RowSumInfo', Message ) 
+   WRITE( Message,'(A,2ES12.4)') 'Rowsum range:',minrsum,maxrsum
+   CALL Info( 'CRS_RowSumInfo', Message ) 
+   WRITE( Message,'(A,2ES12.4)') 'Absolute rowsum range:',minabsrsum,maxabsrsum
+   CALL Info( 'CRS_RowSumInfo', Message ) 
+   
+!------------------------------------------------------------------------------
+ END SUBROUTINE CRS_RowSumInfo
 !------------------------------------------------------------------------------
 
 
@@ -1506,7 +1559,8 @@ END FUNCTION CRS_RowSum
     REAL(KIND=dp) :: Aij,Aji,Aii,Dij,dFij,msum
     REAL(KIND=dp), POINTER :: ML(:)
     INTEGER, POINTER :: Rows(:), Cols(:),Diag(:)
-    LOGICAL :: Found
+    LOGICAL :: Found, Positive
+    INTEGER :: pcount
 
     CALL Info('CRS_FCTLowOrder','Making low order FCT correction to matrix',Level=6)
 
@@ -1525,35 +1579,44 @@ END FUNCTION CRS_RowSum
     END IF
     A % BulkValues = A % Values
 
+    pcount = 0
+    Positive = .TRUE.
+
     DO i=1,N
-      DO k= Rows(i), Rows(i+1)-1
+
+      Aii = A % Values(Diag(i))
+      IF( Aii > 0.0_dp ) pcount = pcount + 1
+
+      DO k = Rows(i), Rows(i+1)-1
         j = Cols(k)
 
         ! Go through the lower symmetric part (ij) and find the corresponding entry (ji)
         IF( i >= j ) CYCLE
 
         ! First find entry (j,i)
+        Found = .FALSE.
         DO k2 = Rows(j), Rows(j+1)-1
           IF( Cols(k2) == i ) THEN
             Found = .TRUE.
             EXIT
           END IF
         END DO
-        
         IF(.NOT. Found ) THEN
-          CALL Warn('CRS_FCTLowOrder','Entry not found, matrix might not be symmetric!')
-          CYCLE
+          CALL Fatal('CRS_FCTLowOrder','Entry not found, matrix topology not symmetric!?')
         END IF
 
         ! Formula (30) in Kuzmin's paper
         ! Modified so that it also works similarly to A and -A
         Aij = A % Values(k)
         Aji = A % Values(k2)
-        Aii = A % Values(Diag(i))
-        IF( Aii < 0.0_dp ) THEN
-          Dij = MAX( -Aij, -Aji, 0.0_dp )
-        ELSE
+
+        ! Positive = Aii > 0.0_dp
+        ! In Kuzmin's paper matrix K is -K compared to Elmer convention.
+        ! Hence also the condition here is opposite. 
+        IF( Positive ) THEN
           Dij = MIN( -Aij, -Aji, 0.0_dp )
+        ELSE
+          Dij = MAX( -Aij, -Aji, 0.0_dp )
         END IF
 
         IF(.FALSE.) THEN
@@ -1573,7 +1636,16 @@ END FUNCTION CRS_RowSum
       END DO
     END DO
 
+    WRITE( Message,'(A,I0,A,I0,A)'),'Positive diagonals ',pcount,' (out of ',n,')'
+    CALL Info('CRS_FCTLowOrder',Message,Level=8)
+
     A % Values = A % Values + A % FCT_D
+    
+    IF(.FALSE.) THEN
+      CALL CRS_RowSumInfo( A, A % BulkValues ) 
+      CALL CRS_RowSumInfo( A, A % Values ) 
+      CALL CRS_RowSumInfo( A, A % FCT_D ) 
+    END IF
 
 
     CALL Info('CRS_FCTLowOder','Creating lumped mass matrix',Level=10)
@@ -1591,10 +1663,6 @@ END FUNCTION CRS_RowSum
       END DO
       ML(i) = msum 
     END DO
-
-    IF(.FALSE.) THEN
-      PRINT *,'Comparing entry sums:',SUM(ML),SUM(A % MassValues)
-    END IF
 
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_FCTLowOrder

@@ -1901,6 +1901,7 @@ CONTAINS
    TYPE(Variable_t), POINTER :: DtVar
    SAVE STIFF, MASS, X
    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:),MASS(:,:), X(:,:)
+
    !$OMP THREADPRIVATE(SaveValues)
 
    IF ( PRESENT(USolver) ) THEN
@@ -1942,6 +1943,7 @@ CONTAINS
    END IF
    
    HasFCT = ListGetLogical( Solver % Values,'Linear System FCT', Found )
+
    IF( HasFCT ) THEN
      IF( .NOT. HasMass ) THEN
        CALL Fatal('Default1stOrderTimeGlobal','FCT only makes sense if there is a mass matrix!')
@@ -1956,6 +1958,7 @@ CONTAINS
    DO i=1,Solver % Matrix % NumberOFRows
      n = 0
      k = 0
+
      DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
        n=n+1
        STIFF(1,n) = Solver % Matrix % Values(j)
@@ -1969,7 +1972,6 @@ CONTAINS
 
      ! Use lumped mass in lower order fct
      IF( HasFCT ) THEN
-       MASS(1,1:n) = 0.0_dp
        IF( k == 0 ) THEN
          CALL Fatal('Default1stOrderTimeGlobal','Could not find diagonal entry for fct')
        ELSE
@@ -1982,23 +1984,27 @@ CONTAINS
      SELECT CASE( Method )
      CASE( 'fs' )
        CALL FractionalStep( n, Solver % dt, MASS, STIFF, FORCE, &
-                 X(:,1), Solver % Beta, Solver )
+           X(:,1), Solver % Beta, Solver )
+       
      CASE('bdf')
-
        IF(ConstantDt) THEN
          CALL BDFLocal( n, Solver % dt, MASS, STIFF, FORCE, X, Order )
        ELSE
          CALL VBDFLocal(n, Dts, MASS, STIFF, FORCE, X, Order )
        END IF
-
+       
      CASE DEFAULT
        CALL NewmarkBeta( n, Solver % dt, MASS, STIFF, FORCE, &
-                 X(:,1), Solver % Beta )
+           X(:,1), Solver % Beta )
      END SELECT
+
+     IF( HasFCT ) THEN
+       MASS(1,k) = 0.0_dp
+     END IF
 
      n = 0
      DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
-        n=n+1
+       n=n+1
        Solver % Matrix % Values(j) = STIFF(1,n)
      END DO
      Solver % Matrix % RHS(i) = FORCE(1)
