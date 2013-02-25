@@ -49,9 +49,6 @@
 #include "HYPRE.h"
 #include "HYPRE_parcsr_ls.h"
 
-! for the moment GMRES does not seem to work so it was commented out
-#define HAVE_GMRES 0
-
 typedef struct {
 
 int ilower, iupper;
@@ -64,6 +61,8 @@ HYPRE_Solver solver, precond;
 
 } ElmerHypreContainer;
 
+/* for the moment GMRES does not seem to work so it was commented out */
+#define HAVE_GMRES 0
 
 /* there are two possible procedures of calling HYPRE here, 
   the standard one (does everything once), and a step-wise
