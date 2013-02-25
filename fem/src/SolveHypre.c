@@ -49,6 +49,9 @@
 #include "HYPRE.h"
 #include "HYPRE_parcsr_ls.h"
 
+! for the moment GMRES does not seem to work so it was commented out
+#define HAVE_GMRES 0
+
 typedef struct {
 
 int ilower, iupper;
@@ -709,6 +712,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      HYPRE_ParCSRPCGSetup(solver, parcsr_A, par_b, par_x);
    }
 
+#if HAVE_GMRES
    else if ( hypre_sol == 3) { /* GMRes */
      /* Create solver */
      HYPRE_ParCSRGMRESCreate(MPI_COMM_WORLD, &solver);
@@ -799,6 +803,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      if (myid == 0 && verbosity >= 6 ) fprintf(stdout,"create preconditioner...");
      HYPRE_ParCSRLGMRESSetup(solver, parcsr_A, par_b, par_x);
    }
+#endif
 
    else {
      fprintf( stderr,"Hypre solver method not implemented\n");
@@ -942,6 +947,7 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
      HYPRE_ParCSRPCGSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 
+#if HAVE_GMRES
    else if ( hypre_sol == 3) {
      HYPRE_ParCSRGMRESSetMaxIter(solver, *Rounds); /* max iterations */
      HYPRE_ParCSRGMRESSetTol(solver, *TOL);       /* conv. tolerance */
@@ -959,6 +965,7 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
      HYPRE_ParCSRLGMRESSetTol(solver, *TOL);       /* conv. tolerance */
      HYPRE_ParCSRLGMRESSolve(Container->solver, parcsr_A, par_b, par_x);
    }
+#endif
 
 
    for( k=0,i=0; i<local_size; i++ )
@@ -1009,6 +1016,7 @@ void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(int** ContainerPtr) {
      else if ( hypre_sol == 2 ) {
        HYPRE_ParCSRPCGDestroy(Container->solver);
      }
+#if HAVE_GMRES
      else if ( hypre_sol == 3 ) {
        HYPRE_ParCSRGMRESDestroy(Container->solver);
      }
@@ -1018,6 +1026,7 @@ void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(int** ContainerPtr) {
      else if ( hypre_sol == 5 ) {
        HYPRE_ParCSRLGMRESDestroy(Container->solver);
      }
+#endif
 
      if ( hypre_pre == 0 ) {
        HYPRE_EuclidDestroy(Container->precond);
