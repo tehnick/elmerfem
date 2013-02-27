@@ -2207,15 +2207,27 @@ CONTAINS
 
 !> Performs initialization for matrix equation related to the active solver
 !------------------------------------------------------------------------------
-  SUBROUTINE DefaultInitialize( Solver )
+  SUBROUTINE DefaultInitialize( USolver )
 !------------------------------------------------------------------------------
-     TYPE(Solver_t), OPTIONAL :: Solver
+     TYPE(Solver_t), OPTIONAL, TARGET, INTENT(IN) :: USolver
+     TYPE(Solver_t), POINTER :: Solver
+     TYPE(ValueList_t), POINTER :: Params
+     LOGICAL :: Found
 
-     IF ( PRESENT( Solver ) ) THEN
-        CALL InitializeToZero( Solver % Matrix, Solver % Matrix % RHS )
+     IF ( PRESENT( USolver ) ) THEN
+       Solver => USolver
      ELSE
-        CALL InitializeToZero( CurrentModel % Solver % Matrix, &
-                CurrentModel % Solver % Matrix % RHS )
+       Solver => CurrentModel % Solver
+     END IF
+
+     CALL InitializeToZero( Solver % Matrix, Solver % Matrix % RHS )
+
+     Params => Solver % Values
+     IF( ListGetLogical( Params,'Linear System FCT',Found ) ) THEN
+       IF( ParEnv % PEs > 1 ) THEN
+         CALL Fatal('DefaultInitialize','FCT scheme not implemented in parallel yet!')
+       END IF
+       CALL ListAddLogical( Params,'Use Global Mass Matrix',.TRUE.)
      END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultInitialize
@@ -2276,6 +2288,11 @@ CONTAINS
 
     CALL SolveSystem(A,ParMatrix,b,x % Values,x % Norm,x % DOFs,Solver)
 
+    ! If flux corrected transport is used then apply the corrector to the system
+    IF( GetLogical( Params,'Linear System FCT',Found ) ) THEN
+      CALL FCT_Correction( Solver )
+    END IF
+ 
     IF (PRESENT(BackRotNT)) THEN
       IF (BackRot.NEQV.BackRotNT) &
         CALL ListAddLogical(Params,'Back Rotate N-T Solution',BackRot)
@@ -4022,7 +4039,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 !> Finished the assembly of the matrix equation, mainly effects in transient simulation
 !> Also may be used to set implicit relaxation on the linear system before
-!> applying Dirichlet conditions. 
+!> applying Dirichlet conditions. If flux corrected transport is applied then
+!> make the initial linear system to be of low order. 
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishAssembly( Solver )
 !------------------------------------------------------------------------------
@@ -4043,6 +4061,8 @@ CONTAINS
 
     Params => GetSolverParams(PSolver)
 
+    ! Makes a low order matrix of the initial one saving original values
+    ! to BulkValues. Also created a lumped mass matrix.
     IF( ListGetLogical( Params,'Linear System FCT',Found ) ) THEN
       IF( PSolver % Variable % Dofs == 1 ) THEN
         CALL CRS_FCTLowOrder( PSolver % Matrix )

@@ -1563,9 +1563,11 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 !------------------------------------------------------------------------------
 !> Makes a algebraic lower order scheme assuming steady state advection-diffusion equation.
 !> This can be applied together with flux corrected transport (FCT) scheme.
-! 
+!> Also creates a lumped mass to MassValuesLumped and saves the original stiffness
+!> matrix values to BulkValues.
+!
+!> For more information see, for example, 
 !> Dmitri Kuzmin (2008): "Explicit and implicit FEM-FCT algorithms with flux linearization"
-!> The current implemetation is really just a starting point. 
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_FCTLowOrder( A )
 !------------------------------------------------------------------------------
@@ -1578,7 +1580,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
     LOGICAL :: Found, Positive
     INTEGER :: pcount
 
-    CALL Info('CRS_FCTLowOrder','Making low order FCT correction to matrix',Level=6)
+    CALL Info('CRS_FCTLowOrder','Making low order FCT correction to matrix',Level=5)
 
     N = A % NumberOfRows
     Rows => A % Rows
@@ -1657,23 +1659,22 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 
     A % Values = A % Values + A % FCT_D
     
+    ! Just some optional stuff for debugging purposes
     IF(.FALSE.) THEN
       CALL CRS_RowSumInfo( A, A % BulkValues ) 
       CALL CRS_RowSumInfo( A, A % Values ) 
       CALL CRS_RowSumInfo( A, A % FCT_D ) 
     END IF
 
-
+    ! Create a lumped mass matrix by computing the rowsums of the 
+    ! initial mass matrix.
     CALL Info('CRS_FCTLowOder','Creating lumped mass matrix',Level=10)
     IF( .NOT. ASSOCIATED( A % MassValuesLumped ) ) THEN         
       ALLOCATE( A % MassValuesLumped( n ) )
     END IF
-    ML => A % MassValuesLumped 
-    
-    ! Compute rowsum of mass matrix to obtain lumped mass matrix
+    ML => A % MassValuesLumped     
     DO i=1,n
       msum = 0.0_dp
-      ! lumped mass
       DO j=Rows(i),Rows(i+1)-1
         msum = msum + A % MassValues(j)
       END DO

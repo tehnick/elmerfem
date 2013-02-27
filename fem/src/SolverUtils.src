@@ -719,13 +719,10 @@ CONTAINS
      REAL(KIND=dp) :: Dts(Solver % Order)
      REAL(KIND=dp), POINTER :: PrevSol(:,:), ML(:)
      INTEGER, POINTER :: Rows(:), Cols(:)
-     LOGICAL :: ConstantDt, Lumped, Found, IsFCT
+     LOGICAL :: ConstantDt, Lumped, Found
 !------------------------------------------------------------------------------
 
      CALL Info('Add1stOrderTime_CRS','Adding time discretization to CRS matrix')
-
-!     IF ( Matrix % Lumped ) THEN
-
 
 !------------------------------------------------------------------------------
      Order = MIN(Solver % DoneTime, Solver % Order)
@@ -7152,6 +7149,321 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 
 
   END SUBROUTINE LinearSystemMultiply
+
+
+  !----------------------------------------------------------------------
+  !> Make the high-order flux corrected transport (FCT) correction after 
+  !> the low order approximation has been solved. 
+  !
+  !> For more information see, for example, 
+  !> Dmitri Kuzmin (2008): "Explicit and implicit FEM-FCT algorithms with flux linearization"
+  !----------------------------------------------------------------------
+  SUBROUTINE FCT_Correction( Solver  )
+
+    TYPE(Solver_t), POINTER :: Solver
+
+    TYPE(Valuelist_t), POINTER :: Params
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER :: n,i,j,k,k2
+    INTEGER, POINTER :: Rows(:),Cols(:),Perm(:)
+    TYPE(Matrix_t), POINTER :: A
+    REAL(KIND=dp), POINTER :: BulkValues(:),u(:),M_L(:),M_C(:),udot(:),SaveValues(:),&
+        pp(:),pm(:),qp(:),qm(:),corr(:),ku(:),ulow(:)
+    REAL(KIND=dp) :: rsum, Norm,m_ij,k_ij,du,d_ij,f_ij,c_ij,Ceps,CorrCoeff,&
+        rmi,rmj,rpi,rpj,dt
+    TYPE(Variable_t), POINTER :: Var, Variables
+    LOGICAL :: Found, Symmetric, SaveFields, SkipCorrection
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, TmpVarName
+    TYPE(Varying_string) :: namesp
+
+
+    Params => Solver % Values
+
+    SkipCorrection = ListGetLogical( Params,'FCT Correction Skip',Found )
+    Symmetric = ListGetLogical( Params,'FCT Correction Symmetric',Found )
+    SaveFields = ListGetLogical( Params,'FCT Correction Save',Found )
+
+    IF( SkipCorrection .AND. .NOT. SaveFields ) THEN
+      CALL Info('FCT_Correction','Skipping the computation of FCT correction',Level=5)
+    END IF
+
+    CALL Info('FCT_Correction','Computing corrector for the low order solution',Level=5)
+
+    ! PRINT *,'FCT Norm Before Correction:',SQRT( SUM( Solver % Variable % Values**2) )
+ 
+    Mesh => Solver % Mesh
+    Variables => Solver % Mesh % Variables
+ 
+    ! Set pointers 
+    A => Solver % Matrix
+    n = A % NumberOfRows
+    Rows => A % Rows
+    Cols => A % Cols
+    BulkValues => A % BulkValues
+    M_C => A % MassValues
+    M_L => A % MassValuesLumped 
+    Perm => Solver % Variable % Perm
+
+    Var => VariableGet( Variables,'timestep size')
+    dt = Var % Values(1) 
+
+    ! low order solution at the start, high order in the end
+    u => Solver % Variable % Values
+    VarName = GetVarName( Solver % Variable ) 
+
+    ! Here a bunch of vectors are stored for visualization and debugging purposes
+    !----------------------------------------------------------------------------
+
+    ! low order solution is the solution without corrections
+    ! This is created and saved only if requested
+    !---------------------------------------------------------------------------
+    IF( SaveFields ) THEN
+      TmpVarName = TRIM( VarName )//' fctlow'    
+      Var => VariableGet( Variables, TmpVarName )
+      IF( .NOT. ASSOCIATED(Var) ) THEN
+        CALL VariableAddVector( Variables, Mesh, Solver,&
+            TmpVarName, Perm = Perm, Output = SaveFields )
+        Var => VariableGet( Variables, TmpVarName )
+      END IF
+      ulow => Var % Values
+      ulow = u
+    END IF
+
+    ! Create auxiliary vectors for the fct algorithm
+    !---------------------------------------------------------------------------
+
+    ! r.h.s. term
+    TmpVarName = TRIM( VarName )//' fctku'    
+    Var => VariableGet( Variables, TmpVarName )
+    IF( .NOT. ASSOCIATED(Var) ) THEN
+      CALL VariableAddVector( Variables, Mesh, Solver,&
+          TmpVarName, Perm = Perm, Output = SaveFields )
+      Var => VariableGet( Variables, TmpVarName )
+    END IF
+    ku => Var % Values
+
+    ! time derivative from lower order analysis
+    TmpVarName = TRIM( VarName )//' fctudot'    
+    Var => VariableGet( Variables, TmpVarName )
+    IF( .NOT. ASSOCIATED(Var) ) THEN
+      CALL VariableAddVector( Variables, Mesh, Solver,&
+          TmpVarName, Perm = Perm, Output = SaveFields )
+      Var => VariableGet( Variables, TmpVarName )
+    END IF
+    udot => Var % Values
+
+    ! Fields related to flux limiters
+    TmpVarName = TRIM( VarName )//' fctpp'    
+    Var => VariableGet( Variables, TmpVarName )
+    IF( .NOT. ASSOCIATED(Var) ) THEN
+      CALL VariableAddVector( Variables, Mesh, Solver,&
+          TmpVarName, Perm = Perm, Output = SaveFields )
+      Var => VariableGet( Variables, TmpVarName )
+    END IF
+    pp => Var % Values
+    
+    TmpVarName = TRIM( VarName )//' fctpm'    
+    Var => VariableGet( Variables, TmpVarName )
+    IF( .NOT. ASSOCIATED(Var) ) THEN
+      CALL VariableAddVector( Variables, Mesh, Solver,&
+          TmpVarName, Perm = Perm, Output = SaveFields )
+      Var => VariableGet( Variables, TmpVarName )
+    END IF
+    pm => Var % Values
+    
+    TmpVarName = TRIM( VarName )//' fctqp'    
+    Var => VariableGet( Variables, TmpVarName )
+    IF( .NOT. ASSOCIATED(Var) ) THEN
+      CALL VariableAddVector( Variables, Mesh, Solver,&
+          TmpVarName, Perm = Perm, Output = SaveFields )
+      Var => VariableGet( Variables, TmpVarName )
+    END IF
+    qp => Var % Values
+
+    TmpVarName = TRIM( VarName )//' fctqm'    
+    Var => VariableGet( Variables, TmpVarName )
+    IF( .NOT. ASSOCIATED(Var) ) THEN
+      CALL VariableAddVector( Variables, Mesh, Solver,&
+          TmpVarName, Perm = Perm, Output = SaveFields )
+      Var => VariableGet( Variables, TmpVarName )
+    END IF
+    qm => Var % Values
+
+    ! higher order correction 
+    TmpVarName = TRIM( VarName )//' fctcorr'    
+    Var => VariableGet( Variables, TmpVarName )
+    IF( .NOT. ASSOCIATED(Var) ) THEN
+      CALL VariableAddVector( Variables, Mesh, Solver,&
+          TmpVarName, Perm = Perm, Output = SaveFields )
+      Var => VariableGet( Variables, TmpVarName )
+    END IF
+    corr => Var % Values
+
+
+    ! 1) Compute the nodal time derivatives
+    ! M_C*udot=K*ulow  (M_C is the consistent mass matrix)
+    !----------------------------------------------------------------------
+    CALL Info('FCT_Correction','Compute nodal time derivatives',Level=10)
+    ! Compute: ku = K*ulow
+    DO i=1,n
+      rsum = 0.0_dp
+      DO k=Rows(i),Rows(i+1)-1
+        j = Cols(k)
+        K_ij = BulkValues(k)
+        rsum = rsum + K_ij * u(j) 
+      END DO
+      ku(i) = rsum
+    END DO
+    ! Solve the linear system for udot
+    ! The stiffness matrix is momentarily replaced by the consistent mass matrix M_C
+    ! Also the namespace is replaced to 'fct:' so that different strategies may 
+    ! be applied to the mass matrix solution.
+    Found = ListGetNameSpace(namesp)
+    CALL ListSetNameSpace('fct:')
+    SaveValues => A % Values
+    A % Values => M_C
+    CALL SolveLinearSystem( A, ku, udot, Norm, 1, Solver )
+    A % Values => SaveValues
+    CALL ListSetNameSpace(CHAR(namesp))
+
+    ! Computation of correction factors (Zalesak's limiter)
+    ! Code derived initially from Kuzmin's subroutine   
+    !---------------------------------------------------------
+    CALL Info('FCT_Correction','Compute correction factors',Level=10)
+    pp = 0 
+    pm = 0
+    qp = 0 
+    qm = 0
+
+    DO i=1,n
+      DO k=Rows(i),Rows(i+1)-1
+        j = Cols(k)
+
+        ! This is symmetric so lower section will do
+        IF( i >= j .AND. Symmetric ) CYCLE
+         
+        ! Compute the raw antidiffusive fluxes
+        ! f_ij=m_ij*[udot(i)-udot(j)]+d_ij*[ulow(i)-ulow(j)]
+        !-----------------------------------------------------
+        ! d_ij and m_ij are both symmetric
+        ! Hence F_ji = -F_ij
+        f_ij = M_C(k)*(udot(i)-udot(j)) + A % FCT_D(k) *(u(i)-u(j))
+  
+        ! Compared to Kuzmin's paper F_ij=-F_ij since d_ij and 
+        ! udot have different signs. 
+        f_ij = -f_ij
+
+        ! Antidiffusive fluxes to be limited
+        du = u(j)-u(i)
+
+        ! Prelimiting of antidiffusive fluxes i.e. du and the flux have different signs
+        IF (f_ij*du >= TINY(du)) THEN
+          f_ij = 0
+        ELSE        
+          ! Positive/negative edge contributions
+          pp(i) = pp(i)+MAX(0d0,f_ij)
+          pm(i) = pm(i)+MIN(0d0,f_ij)
+          ! symmetric part
+          IF( Symmetric ) THEN
+            pp(j) = pp(j)+MAX(0d0,-f_ij)
+            pm(j) = pm(j)+MIN(0d0,-f_ij)
+          END IF
+        END IF
+
+        ! Maximum/minimum solution increments
+        qp(i) = MAX(qp(i),du)
+        qm(i) = MIN(qm(i),du)
+        ! symmetric part
+        IF( Symmetric ) THEN
+          qp(j) = MAX(qp(j),-du)
+          qm(j) = MIN(qm(j),-du)
+        END IF
+      END DO
+    END DO
+
+    ! Computation of nodal correction factors
+    ! These are eliminated as vectors to save some space
+    ! and replaced by rpi, rpj, rmi, rmj
+    ! DO i=1,n
+    !  IF( pp(i) > Ceps ) THEN
+    !    rp(i) = MIN( 1.0_dp, M_L(i)*qp(i)/pp(i) )
+    !  END IF
+    !  IF( pm(i) < -Ceps ) THEN
+    !    rm(i) = MIN( 1.0_dp, M_L(i)*qm(i)/pm(i) )
+    !  END IF
+    ! END DO
+
+    ! Correct the low-order solution
+    ! (M_L*ufct)_i=(M_L*ulow)_i+dt*sum(alpha_ij*f_ij)
+    !-------------------------------------------------
+    ! Correction of the right-hand side
+    ! Symmetric flux limiting
+
+
+    Ceps = TINY( Ceps )
+    corr = 0.0_dp
+    DO i=1,n
+
+      IF( pp(i) > Ceps ) THEN
+        rpi = MIN( 1.0_dp, M_L(i)*qp(i)/pp(i) )
+      ELSE
+        rpi = 0.0_dp
+      END IF
+
+      IF( pm(i) < -Ceps ) THEN
+        rmi = MIN( 1.0_dp, M_L(i)*qm(i)/pm(i) )
+      ELSE
+        rmi = 0.0_dp
+      END IF
+
+      DO k=Rows(i),Rows(i+1)-1
+        j = Cols(k)
+        IF( i >= j .AND. Symmetric ) CYCLE
+               
+        f_ij = M_C(k)*(udot(i)-udot(j)) + A % FCT_D(k) *(u(i)-u(j))
+        f_ij = -f_ij
+
+        IF (f_ij > 0) THEN 
+          IF( pm(j) < -Ceps ) THEN
+            rmj = MIN( 1.0_dp, M_L(j)*qm(j)/pm(j) )
+          ELSE
+            rmj = 0.0_dp
+          END IF
+          c_ij = MIN(rpi,rmj)
+        ELSE 
+          IF( pp(j) > Ceps ) THEN
+            rpj = MIN( 1.0_dp, M_L(j)*qp(j)/pp(j) )
+          ELSE
+            rpj = 0.0_dp
+          END IF
+          c_ij = MIN(rmi,rpj)
+        END IF
+
+        corr(i) = corr(i) + c_ij * f_ij
+        IF( Symmetric ) THEN
+          corr(j) = corr(j) - c_ij * f_ij
+        END IF
+      END DO
+    END DO
+
+    CorrCoeff = ListGetCReal( Params,'FCT Correction Coefficient',Found )
+    IF( .NOT. Found ) CorrCoeff = 1.0_dp
+
+    ! This was suggestd in some code but results to invalida units, and poor results
+    ! CorrCoeff = CorrCoeff * dt
+
+    corr = CorrCoeff * corr / M_L
+
+    ! Optinally skip applying the correction, just for debugging purposes
+    IF( SkipCorrection ) THEN
+      CALL Info('FCT_Correction','Skipping Applying corrector',Level=4)
+    ELSE     
+      CALL Info('FCT_Correction','Applying corrector for the low order solution',Level=10)
+      u = u + corr
+      ! PRINT *,'FCT Norm After Correction:',SQRT( SUM( Solver % Variable % Values**2) )
+    END IF
+
+  END SUBROUTINE FCT_Correction
 
 
 END MODULE SolverUtils
