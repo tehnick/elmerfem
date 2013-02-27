@@ -554,7 +554,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(Model_t) :: Model
      TYPE(Mesh_t) :: Mesh
-     TYPE(Solver_t) :: Solver
+     TYPE(Solver_t), TARGET :: Solver
      INTEGER :: DOFs, MatrixFormat
      INTEGER, TARGET :: Perm(:)
      LOGICAL :: OptimizeBW
@@ -677,6 +677,7 @@ CONTAINS
 
      NULLIFY( Matrix % MassValues, Matrix % DampValues, Matrix % Force, Matrix % RHS_im )
 !------------------------------------------------------------------------------
+     Matrix % Solver => Solver
      Matrix % DGMatrix = DG
      Matrix % Subband = DOFs * n
      Matrix % COMPLEX = .FALSE.

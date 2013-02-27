@@ -45,7 +45,7 @@
 !-----------------------------------------------------------------------------
 MODULE CRSMatrix
 
-  USE GeneralUtils
+  USE Lists
 
   IMPLICIT NONE
 
@@ -121,24 +121,39 @@ CONTAINS
  
     INTEGER :: i
 
+    LOGICAL :: isMass, isDamp, EigenAnalysis, HarmonicAnalysis, Found
+
+    EigenAnalysis=.FALSE.; HarmonicAnalysis=.FALSE.
+    IF(ASSOCIATED(A % Solver)) THEN
+       EigenAnalysis = A % Solver % NOFEigenValues > 0 .AND. &
+           ListGetLogical( A % Solver % Values, 'Eigen Analysis',Found)
+
+       HarmonicAnalysis = A % Solver % NOFEigenValues>0 .AND. &
+          ListGetLogical( A % Solver % Values, 'Harmonic Analysis',Found)
+    END IF
+
+    isMass = (EigenAnalysis.OR.HarmonicAnalysis).AND.ASSOCIATED(A % MassValues)
+    IF ( isMass ) &
+      isMass = isMass .AND. SIZE(A % MassValues) == SIZE(A % Values)
+
+    isDamp = (EigenAnalysis.OR.HarmonicAnalysis).AND.ASSOCIATED(A % DampValues)
+    IF ( isDamp ) &
+      isDamp = isDamp .AND. SIZE(A % DampValues) == SIZE(A % Values)
+
     DO i=A % Rows(n),A % Rows(n+1)-1
       A % Values(i) = 0.0_dp
     END DO
 
-    IF ( ASSOCIATED(A % MassValues) ) THEN
-       IF ( SIZE(A % MassValues) == SIZE(A % Values) ) THEN
-         DO i=A % Rows(n),A % Rows(n+1)-1
-            A % MassValues(i) = 0.0_dp
-         END DO
-       END IF
+    IF ( isMass ) THEN
+      DO i=A % Rows(n),A % Rows(n+1)-1
+         A % MassValues(i) = 0.0_dp
+      END DO
     END IF
 
-    IF ( ASSOCIATED(A % DampValues) ) THEN
-       IF ( SIZE(A % DampValues) == SIZE(A % Values) ) THEN
-          DO i=A % Rows(n),A % Rows(n+1)-1
-            A % DampValues(i) = 0.0_dp
-          END DO
-       END IF
+    IF ( isDamp )  THEN
+      DO i=A % Rows(n),A % Rows(n+1)-1
+        A % DampValues(i) = 0.0_dp
+      END DO
     END IF
 
   END SUBROUTINE CRS_ZeroRow
@@ -670,6 +685,7 @@ CONTAINS
     isMass = ASSOCIATED(A % MassValues)
     IF ( isMass ) &
       isMass = isMass .AND. SIZE(A % MassValues) == SIZE(A % Values)
+
     isDamp = ASSOCIATED(A % DampValues)
     IF ( isDamp ) &
       isDamp = isDamp .AND. SIZE(A % DampValues) == SIZE(A % Values)
