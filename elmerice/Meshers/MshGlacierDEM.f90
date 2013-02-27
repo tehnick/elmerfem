@@ -89,7 +89,7 @@ INTEGER :: NtN, i, j, Ns, Nsx, Nsy, Nb, Nbx, Nby, n, Npt, ix, iy, imin, is, ib
       write(*,*)dsx,dsy,dbx,dby
 
       OPEN(10,file=TRIM(NameMsh)//"/mesh.header")
-        READ(10,1000)NtN
+        READ(10,*)NtN
       CLOSE(10)
       ALLOCATE(xnode(NtN), ynode(NtN), znode(NtN))
       
