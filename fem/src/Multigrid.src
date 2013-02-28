@@ -377,7 +377,7 @@ CONTAINS
 !            -----------------------------------------------
              CALL ProjectMatrix( Matrix1, Permutation, ProjPN, ProjQT, &
                          Matrix2, Permutation2, DOFs )
-          END IF
+         END IF
        ELSE
           IF ( NewLinearSystem ) THEN
              Transient = ListGetString( CurrentModel % Simulation, &
@@ -522,7 +522,7 @@ CONTAINS
        LOGICAL :: Found
        REAL(KIND=dp) :: RNorm
 !------------------------------------------------------------------------------
-       INTEGER :: Sweeps, InvLevel
+       INTEGER :: Sweeps
        REAL(KIND=dp) :: Bnorm 
        INTEGER, POINTER :: Iters(:)
        REAL(KIND=dp), POINTER :: R1(:),R2(:)
@@ -533,7 +533,7 @@ CONTAINS
 
        Iters => ListGetIntegerArray( Params,'MG Sweeps',Found)
        IF(Found) THEN
-         Sweeps = Iters(MIN(InvLevel,SIZE(Iters)))
+         Sweeps = Iters(MIN(Level,SIZE(Iters)))
        ELSE        
          Sweeps = 1
        END IF
@@ -714,7 +714,7 @@ CONTAINS
                   END DO
                   B % Values(j) = B % Values(j) + s * R1(k)
                END DO
-               R2(L2(1:nj)) = 0.0d0
+               R2(L2(1:nj)) = 0.0_dp
             END DO
          END DO
 
