@@ -209,7 +209,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
       CALL Info( 'FourierDiffusionSolve', ' ', Level=4 )
       CALL Info( 'FourierDiffusionSolve', 'Starting Assembly...', Level=4 )
 
-     CALL InitializeToZero( StiffMatrix, ForceVector )
+     CALL DefaultInitialize()
 !
 !    Do the bulk assembly:
 !    ---------------------
@@ -371,7 +371,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
      END DO
 !------------------------------------------------------------------------------
 
-     CALL FinishAssembly( Solver, ForceVector )
+     CALL DefaultFinishAssembly()
      CALL DefaultDirichletBCs()
 
 

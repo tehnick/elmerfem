@@ -374,7 +374,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
  
   IF(CalculateCapMatrix) NonlinearIter = CapBodies
   
-  CALL InitializeToZero( StiffMatrix, ForceVector )
+  CALL DefaultInitialize()
 !------------------------------------------------------------------------------
   CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
   CALL Info( 'StatElecSolve', 'STATELEC SOLVER:  ', Level=4 )
@@ -874,7 +874,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !    Dirichlet boundary settings. Actually no need to call it except for
 !    transient simulations.
 !------------------------------------------------------------------------------
-    CALL FinishAssembly( Solver,ForceVector )
+    CALL DefaultFinishAssembly()
 !$omp end parallel
 
 !------------------------------------------------------------------------------

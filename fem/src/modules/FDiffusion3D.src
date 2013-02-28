@@ -214,7 +214,7 @@ SUBROUTINE FourierDiffusion3DSolver( Model,Solver,dt,TransientSimulation )
       CALL Info( 'FourierDiffusion3DSolve', ' ', Level=4 )
       CALL Info( 'FourierDiffusion3DSolve', 'Starting Assembly...', Level=4 )
 
-     CALL InitializeToZero( StiffMatrix, ForceVector )
+     CALL DefaultInitialize( )
 !
 !    Do the bulk assembly:
 !    ---------------------
@@ -334,7 +334,7 @@ SUBROUTINE FourierDiffusion3DSolver( Model,Solver,dt,TransientSimulation )
 ! The scalar equation is handled in FDiffusion (LocalMatrixBoundary),
 ! and it (indices etc.) should be changed as LocalMatrix has been.
 
-     CALL FinishAssembly( Solver, ForceVector )
+     CALL DefaultFinishAssembly( )
 !
 !    Dirichlet BCs:
 !    --------------
