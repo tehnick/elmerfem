@@ -75,12 +75,13 @@
      TYPE(ValueList_t),POINTER :: Material, BC
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Element_t),POINTER :: CurrentElement
+     TYPE(Element_t),POINTER :: Element
 
      REAL(KIND=dp) :: RelativeChange, UNorm, PrevUNorm, s
                       
-     LOGICAL :: stat, CSymmetry 
+     LOGICAL :: stat, CSymmetry, IsPeriodicBC, Found 
 
-     INTEGER :: NewtonIter, NonlinearIter
+     INTEGER :: NewtonIter, NonlinearIter, bc_Id
 
      TYPE(Variable_t), POINTER :: StressSol, ForceSol 
 
@@ -213,11 +214,8 @@
 !        Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
 
-          NodalForce= 0.0d0
-          NodalForce(1:n) = ForceValues(ForcePerm(NodeIndexes(1:n)))
-
           CALL LocalMatrix( LocalMassMatrix, LocalStiffMatrix, &
-              LocalForce, NodalForce, CurrentElement, n, ElementNodes )
+              CurrentElement, n, ElementNodes )
               
 
 !------------------------------------------------------------------------------
@@ -228,20 +226,46 @@
       END DO
       
       DO i=1, Model % Mesh % NumberOfNodes
-         IF (ForcePerm(i)>0) THEN 
+         IF (StressPerm(i)>0) THEN 
             ForceVector(StressPerm(i)) = ForceValues(ForcePerm(i))
          END IF
       END DO
 
-      CALL Info( SolverName, 'Assembly done', Level=4 )
 
+!------------------------------------------------------------------------------
+!        Special traitment for nodes belonging in periodic boundary (F = 0)
+!------------------------------------------------------------------------------
+      DO t=1, Solver % Mesh % NumberOfBoundaryElements
+          ! get element information
+          Element => GetBoundaryElement(t)
+          n = GetElementNOFNodes()
+          IF ( GetElementFamily() == 1 ) CYCLE
+          BC => GetBC( Element )
+          bc_id = GetBCId()
+          CALL GetElementNodes( ElementNodes )
+
+          IF ( ASSOCIATED( BC ) ) THEN    
+             IsPeriodicBC = GetLogical(BC,'Periodic BC ' // TRIM(Solver % Variable % Name),Found)
+             IF (.NOT.Found) IsPeriodicBC = .FALSE.
+             IF (IsPeriodicBC) THEN 
+                DO i=1,N
+                   j = Element % NodeIndexes(i)
+                   IF (ForcePerm(j)>0) ForceVector(StressPerm(j)) = 0.0_dp
+                END DO
+             END IF
+          END IF
+      END DO        
+
+      CALL Info( SolverName, 'Assembly done', Level=4 )
 
       CALL DefaultFinishAssembly()
 
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-!     CALL DefaultDirichletBCs()
+! Only needed to account for periodic BC
+!
+      CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
 
@@ -283,13 +307,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-      SUBROUTINE LocalMatrix( MassMatrix, StiffMatrix, ForceVector, &
-              NodalForce, Element, n, Nodes )
+      SUBROUTINE LocalMatrix( MassMatrix, StiffMatrix,  &
+              Element, n, Nodes )
               
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: StiffMatrix(:,:), MassMatrix(:,:)
-     REAL(KIND=dp) ::  NodalForce(:), ForceVector(:)
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
      INTEGER :: n
@@ -314,7 +337,6 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
-      ForceVector = 0.0D0
       StiffMatrix = 0.0D0
       MassMatrix  = 0.0D0
 
