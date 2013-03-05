@@ -51,7 +51,8 @@
 #include <qwt_plot_curve.h>
 #include <qwt_plot_grid.h>
 #include <qwt_legend.h>
-#include <qwt_data.h>
+/*#include <qwt_data.h> <-- deprecated in Qwt6, using qwt_compat.h instead*/
+#include <qwt_compat.h>
 #include <qwt_text.h>
 #include <qwt_scale_engine.h>
 

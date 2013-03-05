@@ -201,7 +201,10 @@ void ConvergenceView::appendData(double *y, int size, QString name)
 
   double x = (double)(curve->d_data->count());
   curve->d_data->append(&x, y, size);
-  curve->d_curve->setRawData(curve->d_data->x(), 
+  /*curve->d_curve->setRawData(curve->d_data->x(), 
+			     curve->d_data->y(), 
+			     curve->d_data->count());*/
+  curve->d_curve->setRawSamples(curve->d_data->x(), 
 			     curve->d_data->y(), 
 			     curve->d_data->count());
   plot->setTitle(title);
@@ -219,7 +222,8 @@ void ConvergenceView::removeData()
   }
   curveList.clear();  
   title = "Convergence history";
-  plot->clear();
+  /*  plot->clear(); */
+  plot->detachItems();
   plot->replot();
 }
 
