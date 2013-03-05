@@ -1943,7 +1943,7 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp), target :: x(:),b(:)
 !------------------------------------------------------------------------------
     REAL(KIND=dp), ALLOCATABLE,target :: y(:)
-    REAL(KIND=dp) :: alpha(maxnz), zz, TOL
+    REAL(KIND=dp) :: alpha(maxnz), zz, TOL,mind,maxd
     INTEGER :: i,j,k,l,m,n,nd,q,d,nLC
 
     TYPE(Mesh_t), POINTER :: Mesh
@@ -2157,11 +2157,17 @@ END SUBROUTINE FetiProject
 #endif
     END IF
 
+    mind=ParallelReduction(nz*1._dp,1)
+    maxd=ParallelReduction(nz*1._dp,2)
+    WRITE(Message,*) 'min/max nz:',FLOOR(mind+0.5_dp),FLOOR(maxd+0.5_dp)
+    CALL Info('Feti:', Message,Level=6)
+
     IF(dumptofiles) THEN
       CALL SaveR()
       CALL Info( 'Feti:', 'File dumping completed, exiting.')
       CALL ParallelFinalize(); STOP
     END IF
+    
 
     ! add Dirichlet BC contribution to the r.h.s., if using Total FETI:
     ! ------------------------------------------------------------------
