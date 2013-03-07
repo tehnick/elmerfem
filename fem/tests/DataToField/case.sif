@@ -50,17 +50,17 @@ Solver 1
   Procedure = File "DataToFieldSolver" "DataToFieldSolver"
   Variable = Fit
 
-  Data Field Name = String "Data"
+  Target Variable = String "Data"
 
 ! Optional parameters not applicable to this case:
-!  Weight Field Name = String "Particle Weight"
-!  Normalize Data by Given Weight = Logical True
-!  Normalize Data by Nodal Weight = Logical True
+!  Weight Variable = String "Particle Weight"
+!  Normalize by Given Weight = Logical True
+!  Normalize by Nodal Weight = Logical True
      
 ! The variable used for masking and the interval [min,max] at which the values must 
 ! be to be considered ok. For the ok nodes the Diffusion coefficient may be optionally
 ! neglected. When done so the usable diffusion coefficient range is considerably larger.
-  Mask Field Name = String "Mask"
+  Mask Variable = String "Mask"
   Min Mask Value = Real -0.01
   Max Mask Value = Real 0.01
   Mask Diffusion = Logical True
@@ -114,7 +114,7 @@ Boundary Condition 1
   Name = "Free"
   Target Boundaries(3) = 1 3 4
 
-  Data To Field = Logical True
+  Fit Continue = Logical True
 End
 
 ! There must unfortunately be some fixed values
@@ -123,7 +123,7 @@ Boundary Condition 2
   Name = "Fixed"
   Target Boundaries(1) = 2
 
-  Data To Field = Logical True
+!  Fit Continue = Logical True
 
   Fit = Variable Coordinate
     Real MATC "1+tx(0)+2*tx(1)"
