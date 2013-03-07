@@ -55,7 +55,8 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: WeightVector(:),ForceVector(:),MaskVector(:)
   INTEGER, POINTER :: WeightPerm(:),ForcePerm(:),MaskPerm(:)
   REAL(KIND=dp) :: Norm, MinMaskVal, MaxMaskVal
-  LOGICAL :: GivenNormalize, NodalNormalize, Found, Found2, Mask, MaskDiffusion
+  LOGICAL :: GivenNormalize, NodalNormalize, Found, Found2, Mask, MaskDiffusion, &
+      ConstantWeightSum
   CHARACTER(LEN=MAX_NAME_LEN) :: VarName, FileName
 
 
@@ -67,6 +68,11 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------
   Params => GetSolverParams()
   VarName = GetString( Params,'Data Field Name',Found)
+  IF(.NOT. Found ) VarName = GetString( Params,'Target Variable',Found)
+  IF(.NOT. Found ) THEN
+    CALL Fatal('DataToFieldSolver','> Target Variable < must exist for the solver!')
+  END IF
+
   Var => VariableGet(Solver % Mesh % Variables, VarName )
   IF( ASSOCIATED( Var ) ) THEN    
     ForceVector => Var % Values
@@ -77,12 +83,16 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
 
   ! If normalization is requested then need the vector of weights as well
   !------------------------------------------------------------------------
-  GivenNormalize = GetLogical( Params,'Normalize Data by Given Weight',Found)
+  GivenNormalize = GetLogical( Params,'Normalize by Given Weight',Found)
   IF(.NOT. GivenNormalize ) THEN
     GivenNormalize = GetLogical( Params,'Normalize Data by Weight',Found)
   END IF
   IF( GivenNormalize ) THEN
     VarName = GetString( Params,'Weight Field Name',Found)
+    IF(.NOT. Found) VarName = GetString( Params,'Weight Variable',Found)
+    IF(.NOT. Found ) THEN
+      CALL Fatal('DataToFieldSolver','> Weight Variable < must exist for the solver!')
+    END IF    
     Var => VariableGet(Solver % Mesh % Variables, VarName )
     IF( ASSOCIATED( Var ) ) THEN    
       WeightVector => Var % Values
@@ -91,19 +101,23 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
       CALL Fatal('DataToFieldSolver','Variable not present: '//TRIM(VarName))      
     END IF
     CALL Info('DataToFieldSolver','Normalizing source using: '//TRIM(VarName),Level=6) 
+
+    ConstantWeightSum = GetLogical( Params,'Set Constant Weight Sum',Found)
   END IF
   
-  IF( .NOT. GivenNormalize ) THEN
-    NodalNormalize = GetLogical( Params,'Normalize Data by Nodal Weight',Found)    
-    CALL Info('DataToFieldSolver','Normalizing source nodal weight',Level=6) 
-  END IF
+  NodalNormalize = GetLogical( Params,'Normalize by Nodal Weight',Found)    
+  CALL Info('DataToFieldSolver','Normalizing source using nodal weight',Level=6) 
 
+  IF( GivenNormalize .AND. NodalNormalize ) THEN
+    CALL Fatal('DataToFieldSolver','Normalization cannot be both given and nodal!')
+  END IF
 
 
   ! The variable containing the field contributions
   !------------------------------------------------------------------------
   MaskDiffusion = .FALSE.
-  VarName = GetString( Params,'Mask Field Name',Mask)
+  VarName = ListGetString( Params,'Mask Field Name', Mask )
+  IF(.NOT. Mask) VarName = ListGetString( Params,'Mask Variable',Mask )
   IF( Mask ) THEN
     Var => VariableGet(Solver % Mesh % Variables, VarName )
     IF( ASSOCIATED( Var ) ) THEN    
@@ -359,10 +373,11 @@ CONTAINS
       ! that is desirable, or not, I don't know. 
       !-----------------------------------------------------------------------
       RealWeightSum = SUM( WeightVector ) 
-      WeightCorr = IdealWeightSum / RealWeightSum 
-
-      StiffMatrix => Solver % Matrix
-
+      IF( ConstantWeightSum ) THEN
+        WeightCorr = IdealWeightSum / RealWeightSum 
+      ELSE
+        WeightCorr = 1.0_dp
+      END IF
       StiffMatrix % Values( StiffMatrix % Diag ) = &
           StiffMatrix % Values( StiffMatrix % Diag) + &
           WeightCorr * WeightVector
@@ -379,7 +394,8 @@ CONTAINS
         END DO
       ELSE
         StiffMatrix % rhs = ForceVector
-        StiffMatrix % Values( StiffMatrix % Diag ) = NodalWeight
+        StiffMatrix % Values( StiffMatrix % Diag ) = &
+            StiffMatrix % Values( StiffMatrix % Diag) + NodalWeight
       END IF
     ELSE
       IF( Mask ) THEN
@@ -393,7 +409,8 @@ CONTAINS
         END DO
       ELSE
         StiffMatrix % rhs = NodalWeight * ForceVector
-        StiffMatrix % Values( StiffMatrix % Diag ) = NodalWeight
+        StiffMatrix % Values( StiffMatrix % Diag ) = &
+            StiffMatrix % Values( StiffMatrix % Diag) + NodalWeight
       END IF
     END IF
 
@@ -412,6 +429,10 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element,ParentElement
     TYPE(ValueList_t), POINTER :: BC
     LOGICAL :: Found
+    CHARACTER(LEN=MAX_NAME_LEN) :: CondName
+
+    CondName = ComponentName( Solver % Variable )
+    CondName = TRIM( CondName ) //' continue'
 
     DO t=1,GetNOFBoundaryElements()
       
@@ -419,7 +440,7 @@ CONTAINS
       IF(.NOT. ActiveBoundaryElement(Element)) CYCLE
       
       BC => GetBC( Element ) 
-      IF(.NOT. GetLogical( BC,'Data To Field',Found)) CYCLE
+      IF(.NOT. GetLogical( BC, CondName ,Found)) CYCLE
 
       n  = GetElementNOFNodes(Element)
       
@@ -516,30 +537,50 @@ SUBROUTINE DataToFieldSolver_init( Model,Solver,dt,TransientSimulation )
 ! local variables
 !------------------------------------------------------------------------------
   TYPE(ValueList_t), POINTER :: Params
-  LOGICAL :: GivenNormalize, NodalNormalize, Found
+  LOGICAL :: GivenNormalize, NodalNormalize, Found, HaveFile
   CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  
 
   Params => GetSolverParams()
 
-  VarName = GetString( Params,'Data Field Name',Found)
-  IF(.NOT. Found ) THEN
+  HaveFile = ListCheckPresent( Params,'Point Data Filename')
+
+  GivenNormalize = GetLogical( Params,'Normalize by Given Weight',Found)
+  IF(.NOT. GivenNormalize) GivenNormalize = GetLogical( Params,'Normalize Data by Weight',Found)
+
+  ! If the file is given then the two following fields will be created internally
+  ! and one can allocate them here, if not given otherwise. 
+  !-----------------------------------------------------------------------------
+  VarName = GetString( Params,'Target Variable',Found)
+  IF(.NOT. Found .AND. HaveFile ) THEN
     CALL ListAddString( Params,&
-        NextFreeKeyword('Exported Variable',Params),'Point Field')
-    CALL ListAddString( Params,'Data Field Name','Point Field')
-    CALL Info('DataToFieldSolver_init','Creating > Point Field < as exported variable')
+        NextFreeKeyword('Exported Variable',Params),'Point Data')
+    CALL ListAddString( Params,'Target Variable','Point Data')
+    CALL Info('DataToFieldSolver_init','Creating > Point Data < as exported variable')
   END IF
 
-  GivenNormalize = GetLogical( Params,'Normalize Data by Given Weight',Found)
-  IF(.NOT. GivenNormalize) GivenNormalize = GetLogical( Params,'Normalize Data by Weight',Found)
-  IF( GivenNormalize ) THEN
-    VarName = GetString( Params,'Weight Field Name',Found)
+  IF( GivenNormalize .AND. HaveFile ) THEN
+    VarName = GetString( Params,'Weight Variable',Found)
     IF(.NOT. Found ) THEN
       CALL ListAddString( Params,&
           NextFreeKeyword('Exported Variable',Params),'Point Weight')
-      CALL ListAddString( Params,'Weight Field Name','Point Weight')
+      CALL ListAddString( Params,'Weight Variable','Point Weight')
       CALL Info('DataToFieldSolver_init','Creating > Point Weight < as exported variable')
     END IF
   END IF
+
+  ! If the field is not given, create it
+  ! A different default name if point data set is used.
+  !-----------------------------------------------------
+  VarName = GetString( Params,'Variable',Found)
+  IF(.NOT. Found ) THEN
+    IF( HaveFile ) THEN
+      CALL ListAddString( Params,'Variable','Point Fit')     
+    ELSE
+      CALL ListAddString( Params,'Variable','Fit')
+    END IF
+  END IF
+
 
   CALL ListAddInteger( Params, 'Time derivative order', 0 )
   
@@ -554,7 +595,7 @@ SUBROUTINE DataToFieldSolver_init( Model,Solver,dt,TransientSimulation )
   IF(.NOT. ListCheckPresent(Params,'Linear System Max Iterations')) &
       CALL ListAddInteger(Params,'Linear System Max Iterations',1000)
   IF(.NOT. ListCheckPresent(Params,'Linear System Residual Output')) &
-      CALL ListAddInteger(Params,'Linear System Residual Output',10)
+      CALL ListAddInteger(Params,'Linear System Residual Output',20)
   IF(.NOT. ListCheckPresent(Params,'Linear System Convergence Tolerance')) &
       CALL ListAddConstReal(Params,'Linear System Convergence Tolerance',1.0e-10_dp)
   
