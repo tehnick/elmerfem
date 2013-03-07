@@ -104,12 +104,13 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !----------------------------------------------------------------------------- 
   LOGICAL :: BlockPreconditioning, Parallel, UpdateMatrix, UseTrueResidual, Timing, &
        OptimizeBW, GlobalBubbles
-  LOGICAL :: DoScaling, DoEquilibration, BlockDiagonalA, UseVeloLaplacian
+  LOGICAL :: DoScaling, DoEquilibration, BlockDiagonalA, UseVeloLaplacian, AdaptiveTols
   CHARACTER(LEN=MAX_NAME_LEN) :: Eq
   INTEGER :: i, j, k, nlen, Round, MaxIterations, RestartM
   INTEGER, ALLOCATABLE :: Indexes(:)
   INTEGER, POINTER :: NodeIndexes(:), Permutation(:)
-  REAL(KIND=dp) :: MinTolerance, t0, rt0, st, rst, ct, CPUTime, RealTime, maxU=0.0d0,maxV=0.0d0
+  REAL(KIND=dp) :: MinTolerance, t0, rt0, st, rst, ct, CPUTime, RealTime, maxU=0.0d0, maxV=0.0d0, &
+       BaseTolerance, TargetTol, RelTolerance, PrecondTol
   TYPE(Solver_t), POINTER :: PrecondSolver, PressureSolver, VelocitySolver, SubSolver, &
        GradSolver1, GradSolver2, GradSolver3
   TYPE(Matrix_t), POINTER :: PrecondMatrix, MMatrix, PMatrix, AMatrix, B1Matrix, B2Matrix, B3Matrix
@@ -137,6 +138,22 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 
   BlockDiagonalA = ListGetLogical( Solver % Values, 'Block Diagonal A', Found)
   UseVeloLaplacian = ListGetLogical( Solver % Values, 'Use Velocity Laplacian', Found)
+
+  AdaptiveTols = ListGetLogical(Solver % Values, 'Linear System Adaptive Tolerance', Found)
+  IF (AdaptiveTols) THEN
+     TargetTol = ListGetConstReal(Solver % Values, 'Linear System Convergence Tolerance')
+     IF (.NOT. ListCheckPresent(Solver % Values, 'Linear System Relative Tolerance')) THEN
+        RelTolerance = 1.0d-2
+     ELSE
+        RelTolerance = ListGetConstReal(Solver % Values, 'Linear System Relative Tolerance')
+     END IF
+     
+     IF (.NOT. ListCheckPresent(Solver % Values, 'Linear System Base Tolerance')) THEN
+        BaseTolerance = 1.0d-4
+     ELSE
+        BaseTolerance = ListGetConstReal(Solver % Values, 'Linear System Base Tolerance')
+     END IF
+  END IF
 
   !----------------------------------------------------------------------------------
   ! Find the preconditioning matrices and solvers generated before simulation
@@ -722,9 +739,22 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         !------------------------------------------------------------------
         Snew = 0.0d0 
 
-        MinTolerance = ListGetConstReal( Solver % Values, 'Linear System Convergence Tolerance')
-        UseTrueResidual = .TRUE.
+        IF (AdaptiveTols) THEN
+           !---------------------------------------------------------------------------------------
+           ! Adapt the linear system convergence tolerance in terms of the current nonlinear error
+           !---------------------------------------------------------------------------------------
+           IF (Iter > 1 ) THEN
+              MinTolerance = RelTolerance * NonLinError
+              IF (MinTolerance > BaseTolerance) MinTolerance = BaseTolerance
+              IF (MinTolerance < TargetTol) MinTolerance = TargetTol
+           ELSE
+              MinTolerance = BaseTolerance
+           END IF
+        ELSE
+           MinTolerance = ListGetConstReal( Solver % Values, 'Linear System Convergence Tolerance')
+        END IF
 
+        UseTrueResidual = .TRUE.
         !----------------------------------------------------------------------
         ! Perform solution timing for the actual GCR loop if desired...
         !--------------------------------------------------------------------- 
@@ -869,6 +899,16 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                'Linear System Refactorize', .FALSE.)
            END IF
            CurrentModel % Solver => VelocitySolver
+           !----------------------------------------------------------------------------
+           ! Adapt the preconditioning system convergence tolerance in terms of the 
+           ! current convergence tolerance for the primary system
+           !----------------------------------------------------------------------------
+           IF (AdaptiveTols) THEN
+              PrecondTol = 1/RelTolerance * MinTolerance
+              IF (PrecondTol > BaseTolerance) PrecondTol = BaseTolerance
+              CALL ListAddConstReal(VelocitySolver % Values, &
+                   'Linear System Convergence Tolerance', BaseTolerance)
+           END IF
            Norm = DefaultSolve(VelocitySolver)      
            CurrentModel % Solver => Solver
            CALL ListAddLogical(VelocitySolver % Values, &
