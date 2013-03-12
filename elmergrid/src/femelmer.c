@@ -184,7 +184,7 @@ end:
 int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int parts,
 				 int minstep, int maxstep, int dstep, int info)
 {
-#define LONGLINE 1024
+#define LONGLINE 2048
   int *noknots,*noelements,novctrs,elemcode,open;
   int totknots,totelements,sumknots,sumelements;
   int timesteps,i,j,k,l,step;
