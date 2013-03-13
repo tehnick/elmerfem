@@ -36,6 +36,8 @@ Solvers/ExportVertically.f90\
 Solvers/AdjointSolver.f90\
 Solvers/DJDBeta_Adjoint.f90\
 Solvers/CostSolver_Adjoint.f90\
+Solvers/DJDBeta_Robin.f90\
+Solvers/CostSolver_Robin.f90\
 Solvers/m1qn3.f\
 Solvers/Optimize_m1qn3Parallel.f90
 USFSOURCE := \
