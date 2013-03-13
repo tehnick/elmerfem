@@ -32,7 +32,12 @@ Solvers/PorousSolve.f90 \
 Solvers/SIASolver.f90 \
 Solvers/SSASolver.f90 \
 Solvers/TemperateIce.f90\
-Solvers/ExportVertically.f90
+Solvers/ExportVertically.f90\
+Solvers/AdjointSolver.f90\
+Solvers/DJDBeta_Adjoint.f90\
+Solvers/CostSolver_Adjoint.f90\
+Solvers/m1qn3.f\
+Solvers/Optimize_m1qn3Parallel.f90
 USFSOURCE := \
 UserFunctions/Buoyancy.f90 \
 UserFunctions/USF_Contact.f90 \
@@ -42,10 +47,11 @@ UserFunctions/USF_ShapeFactor.f90 \
 UserFunctions/USF_Sliding.f90 \
 UserFunctions/USF_Zs.f90
 
-solverobjects := $(patsubst %.f90,%.o,$(SOLVERSOURCE))
+solverobjects := $(filter %.o,$(patsubst %.f90,%.o,$(SOLVERSOURCE))) $(filter %.o,$(patsubst %.f,%.o,$(SOLVERSOURCE)))
 usfobjects := $(patsubst %.f90,%.o,$(USFSOURCE))
 
-all: clean compile
+
+all: compile
 
 compile:  $(EXECUTABLES)
 
@@ -74,7 +80,6 @@ $(ELMERICE_HOME)/include:
 	$(MKDIR_P) $(ELMERICE_HOME)/include
 
 ElmerIceSolvers.$(PLATFORM): $(solverobjects)
-	mv *.o Solvers
 	@if test '$(PLATFORM)' = 'Darwin'; then \
 	   echo "Dynamic linking solvers to $(PLATFORM)"; \
            elmerf90 $(solverobjects) -o ElmerIceSolvers.dylib; \
@@ -86,7 +91,6 @@ ElmerIceSolvers.$(PLATFORM): $(solverobjects)
         fi
 
 ElmerIceUSF.$(PLATFORM): $(usfobjects)
-	mv *.o UserFunctions
 	@if test '$(PLATFORM)' = 'Darwin'; then \
 	   echo "Dynamic linking user functions to $(PLATFORM)"; \
            elmerf90 $(usfobjects) -o ElmerIceUSF.dylib; \
@@ -124,8 +128,9 @@ purge: clean
 	rm -f $(INSTALLED)
 
 %.o: %.f90 
-	elmerf90-nosh  $< -c
+	elmerf90-nosh -c $< -o $@
 
-
+%.o: %.f
+	elmerf90-nosh -c $< -o $@
 
 

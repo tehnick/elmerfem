@@ -1,0 +1,21 @@
+Test Case for the inversion of the basal slip coefficient 
+using the control inverse method.
+
+The setup is based on Mac Ayeal, D.,"A tutorial on the use of control methods in ice-sheet modeling",  J. Glaciol., 39(131), 1993
+
+Synthetic data (for U and V surface velocity, bedrock elevation and surface elevation) used as "perfect" observations are stored under the Data directory and have been generated previously using a slip coefficient defined by
+$ function betaSquare(tx) {\
+  Lx = 200.0e3;\
+  Ly = 50.0e03;\
+  yearinsec = 365.25*24*60*60;\
+  F1=sin(3.0*pi*tx(0)/Lx)*sin(pi*tx(1)/Ly);\
+  F2=sin(pi*tx(0)/(2.0*Lx))*cos(4.0*pi*tx(1)/Ly);\
+  beta=5.0e3*F1+5.0e03*F2;\
+  _betaSquare=beta*beta/(1.0e06*yearinsec);\
+}
+
+
+-----------------------
+TO RUN the TEST:
+
+Edit/Update then execute RunTest.sh
