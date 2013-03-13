@@ -740,12 +740,13 @@ CONTAINS
      INTEGER, PARAMETER :: MAXLEN = 16384
 
      INTEGER :: Unit
-     CHARACTER(LEN=*) :: str
+     CHARACTER(LEN=:), ALLOCATABLE :: str
 
      LOGICAL, OPTIONAL :: Echo, literal
- 
+
      LOGICAL :: l
 
+     CHARACTER(LEN=:), ALLOCATABLE :: temp
      CHARACTER(LEN=12) :: tmpstr
      CHARACTER(LEN=MAXLEN) :: readstr = ' ', copystr = ' ', matcstr=' ' , IncludePath=' '
 
@@ -761,11 +762,13 @@ CONTAINS
      SAVE ReadStr, ValueStarts, Prefix, OpenSection
 
      IF ( PRESENT(literal) ) literal=.FALSE.
-
      l = .TRUE.
+
+     IF(.NOT.ALLOCATED(str)) ALLOCATE(character(512)::str)
      outlen = LEN(str)
+
      IF ( ValueStarts==0 .AND. OpenSection ) THEN
-       str = 'end'
+       str(1:3) = 'end'
        ValueStarts = 0
        OpenSection = .FALSE.
        RETURN
@@ -918,7 +921,6 @@ CONTAINS
      END DO
 
      InsideQuotes = .FALSE.
-     str = ' '
 
      IF ( PRESENT(literal) ) THEN
        IF ( readstr(i:i) == '"' ) literal=.TRUE.
@@ -954,7 +956,13 @@ CONTAINS
           END IF
 
           IF ( k>outlen ) THEN
-             CALL Fatal( 'ReadAndTrim', 'Output length exeeded.' )
+             temp = str
+             DEALLOCATE(str)
+             outlen=LEN(temp)+512
+             ALLOCATE(character(outlen)::str)
+             str(1:LEN(temp))=temp; str(LEN(temp)+1:)=''
+             DEALLOCATE(temp)
+!            CALL Fatal( 'ReadAndTrim', 'Output length exeeded.' )
           END IF
 
           j = ICHAR( readstr(i:i) )
@@ -978,6 +986,7 @@ CONTAINS
           i = i + 1
         END DO
      END DO
+     str(k:)=' '
 
      IF ( i <= inlen ) THEN
        Prefix = ' '

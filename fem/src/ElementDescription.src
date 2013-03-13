@@ -375,7 +375,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 !     Local variables
 !------------------------------------------------------------------------------
-      CHARACTER(LEN=MAX_STRING_LEN) :: str,elmer_home
+      CHARACTER(LEN=:), ALLOCATABLE :: str
+      CHARACTER(LEN=MAX_STRING_LEN) :: tstr,elmer_home
 
       INTEGER :: k, n
       INTEGER, DIMENSION(MaxDeg3) :: BasisTerms
@@ -409,30 +410,31 @@ CONTAINS
 
       ! then the rest of them....
       !--------------------------
-      str = 'ELMER_LIB'; str(10:10) = CHAR(0)
-      CALL envir( str,elmer_home,k ) 
+      tstr = 'ELMER_LIB'//CHAR(0)
+      CALL envir( tstr,elmer_home,k ) 
 
       IF (  k > 0 ) THEN
-         WRITE( str, '(a,a)' ) elmer_home(1:k),'/elements.def'
+         WRITE( tstr, '(a,a)' ) elmer_home(1:k),'/elements.def'
       ELSE
-        str = 'ELMER_HOME'; str(11:11) = CHAR(0)
-        CALL envir( str,elmer_home,k ) 
+        tstr = 'ELMER_HOME'//CHAR(0)
+        CALL envir( tstr,elmer_home,k ) 
         
 #include "../config.h"
 
         IF ( k > 0 ) THEN
-           WRITE( str, '(a,a)' ) elmer_home(1:k),&
+           WRITE( tstr, '(a,a)' ) elmer_home(1:k),&
 '/share/elmersolver/lib/elements.def'
         ELSE
 	   CALL GetSolverHome(elmer_home, n)
-	   WRITE(str, '(a,a)') elmer_home(1:n), &
+	   WRITE(tstr, '(a,a)') elmer_home(1:n), &
               '/lib/elements.def'
            
         END IF
       END IF
 
-      OPEN( 1,FILE=TRIM(str), STATUS='OLD' )
+      OPEN( 1,FILE=TRIM(tstr), STATUS='OLD' )
 
+      ALLOCATE(CHARACTER(MAX_STRING_LEN)::str)
       DO WHILE( ReadAndTrim(1,str) )
 
         IF ( str(1:7) == 'element' ) THEN

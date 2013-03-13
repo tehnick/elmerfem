@@ -241,7 +241,7 @@ CONTAINS
 
     INTEGER(KIND=AddrInt) :: Proc
 
-    CHARACTER(LEN=2048) :: section, name, depname, str
+    CHARACTER(LEN=:), ALLOCATABLE :: section, name, str
 
     LOGICAL :: SizeGiven
     LOGICAL :: FreeNames=.FALSE., Echo = .FALSE.
@@ -260,6 +260,12 @@ CONTAINS
 
     INTEGER :: nlen
     REAL(KIND=dp) :: VALUE
+
+!------------------------------------------------------------------------------
+
+    ALLOCATE(CHARACTER(MAX_STRING_LEN)::section)
+    ALLOCATE(CHARACTER(MAX_STRING_LEN)::str)
+    ALLOCATE(CHARACTER(MAX_STRING_LEN)::name)
 
 !------------------------------------------------------------------------------
 !   Read model header first
@@ -863,12 +869,15 @@ CONTAINS
        TYPE(HashTable_t), POINTER, SAVE :: Hash =>NULL()
        TYPE(HashValue_t), POINTER :: VALUE
        LOGICAL :: FirstTime = .TRUE.,lstat
-       CHARACTER(LEN=MAX_STRING_LEN) :: str,str1
+       CHARACTER(LEN=:), ALLOCATABLE :: str
+       CHARACTER(LEN=MAX_STRING_LEN) :: str1
        EXTERNAL ENVIR
 
        IF ( PRESENT( ReturnType ) ) ReturnType = .FALSE.
 
        IF ( CheckAbort <= 0 ) RETURN
+
+       ALLOCATE(CHARACTER(MAX_STRING_LEN) :: str)
 
        IF ( FirstTime ) THEN
 !
@@ -880,13 +889,13 @@ CONTAINS
 !         ------------------------------------------------------
 #include "../config.h"
 
-          str = 'ELMER_LIB'; str(10:10) = CHAR(0)
+          str(1:10) = 'ELMER_LIB'//CHAR(0)
           CALL envir( str,str1,k ) 
 
           IF ( k > 0  ) THEN
             str1 = str1(1:k) // '/SOLVER.KEYWORDS'
           ELSE
-             str = 'ELMER_HOME'; str(11:11) = CHAR(0)
+             str(1:11) = 'ELMER_HOME'//CHAR(0)
              CALL envir( str,str1,k ) 
              IF ( k > 0 ) THEN
                str1 = str1(1:k) // '/share/elmersolver/lib/' // 'SOLVER.KEYWORDS'
@@ -1074,13 +1083,16 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE :: Atx(:,:,:), ATt(:)
 
       CHARACTER(LEN=MAX_NAME_LEN) :: TypeString,Keyword
-      CHARACTER(LEN=MAX_STRING_LEN) :: Name,str, Depname
+      CHARACTER(LEN=:), ALLOCATABLE :: Name,str, Depname
       LOGICAL :: ReturnType, ScanOnly, String_literal,  SizeGiven, Cubic, AllInt
 
       INTEGER(KIND=AddrInt) :: Proc
       INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, TYPE, abuflen=0,maxbuflen=0
 
       ALLOCATE( ATt(1), ATx(1,1,1), IValues(1) )
+      ALLOCATE(CHARACTER(MAX_STRING_LEN)::Name)
+      ALLOCATE(CHARACTER(MAX_STRING_LEN)::str)
+      ALLOCATE(CHARACTER(MAX_STRING_LEN)::Depname)
 
 
       DO WHILE( ReadAndTrim( InFileUnit,Name,Echo ) )
@@ -1108,7 +1120,6 @@ CONTAINS
         N1   = 1
         N2   = 1
         SizeGiven = .FALSE.
-        str = ''
         DO WHILE( ReadAndTrim(InFileUnit,str,echo,string_literal) ) 
 
           IF ( string_literal ) THEN
@@ -1390,23 +1401,21 @@ CONTAINS
 
           CASE('variable')
 
-            DO k=MAX_NAME_LEN,1,-1
+            DO k=LEN(str),1,-1
               IF ( str(k:k) /= ' ' ) EXIT 
             END DO
 
-            Depname = ' '
-            Depname(1:k-9) = str(str_beg:k)
+            Depname = str(str_beg:k)
             TYPE = LIST_TYPE_VARIABLE_SCALAR
 
           CASE('equals')
 
             IF ( .NOT. ScanOnly ) THEN
-               DO k=MAX_NAME_LEN,1,-1
+               DO k=LEN(str),1,-1
                  IF ( str(k:k) /= ' ' ) EXIT 
                END DO
 
-               Depname = ' '
-               Depname(1:k-7) = str(str_beg:k)
+               Depname = str(str_beg:k)
 
                n = 1
                IF ( n > SIZE( ATt ) ) THEN
@@ -1424,12 +1433,11 @@ CONTAINS
           CASE('opposes')
 
            IF ( .NOT. ScanOnly ) THEN
-               DO k=MAX_NAME_LEN,1,-1
+               DO k=LEN(str),1,-1
                  IF ( str(k:k) /= ' ' ) EXIT 
                END DO
 
-               Depname = ' '
-               Depname(1:k-7) = str(str_beg:k)
+               Depname = str(str_beg:k)
 
                n = 1
                IF ( n > SIZE( ATt ) ) THEN
@@ -2500,7 +2508,8 @@ CONTAINS
     LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var, Comp
-    CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,PosName
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name,PosName
+    CHARACTER(LEN=:), ALLOCATABLE :: Row
     CHARACTER(LEN=MAX_STRING_LEN) :: FName,Trash
     INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
     INTEGER :: nNodes, Stat
@@ -2560,6 +2569,7 @@ CONTAINS
 
     RestartFileOpen = .TRUE.
 
+    ALLOCATE(CHARACTER(MAX_STRING_LEN)::Row)
     READ( RestartUnit, '(A)' ) Row
     IF ( Row(3:8) == 'BINARY' ) THEN
         Binary = .TRUE.
@@ -3025,7 +3035,9 @@ CONTAINS
     INTEGER, INTENT(OUT) :: SavedCount, Timestep
     REAL(dp), INTENT(OUT) :: Time
     INTEGER, INTENT(OUT) :: Stat
-    CHARACTER(80) :: String
+    CHARACTER(:), ALLOCATABLE :: String
+
+    ALLOCATE(CHARACTER(32)::String)
 
     IF ( Binary ) THEN
       CALL BinReadString( RestartUnit, String, Stat )
@@ -3130,7 +3142,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Variable_t), POINTER :: Var,Var1,Displacement,MeshUpdate,MaskVar
 
-    CHARACTER(LEN=512) :: Row
+    CHARACTER(LEN=:), ALLOCATABLE :: Row
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr
 
     LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists
@@ -3605,6 +3617,7 @@ CONTAINS
    END IF
 
 !------------------------------------------------------------------------------
+   ALLOCATE(CHARACTER(512)::Row)
    DO WHILE( .TRUE. )
       IF ( AppendFlag ) THEN
          SavedCount = Model % Mesh % SavesDone
