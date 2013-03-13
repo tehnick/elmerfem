@@ -85,7 +85,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NodeIndexes(:), MPIOper(:)
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: ScalarsFile, ScalarNamesFile, DateStr, &
-      VariableName, OldVariableName, ResultPrefix, Oper, ParOper, Name, &
+      VariableName, OldVariableName, ResultPrefix, Suffix, Oper, ParOper, Name, &
       CoefficientName, ScalarParFile, OutputDirectory, MinOper, MaxOper, &
       MaskName
   INTEGER :: i,j,k,l,q,n,ierr,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
@@ -133,8 +133,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           i = INDEX( ScalarsFile,'.',.TRUE. )
           j = LEN_TRIM(ScalarsFile)
           IF(i > 0) THEN
+	    Suffix = ScalarsFile(i:j)
             WRITE( ScalarsFile,'(A,I0,A)') &
-                ScalarsFile(1:i-1)//'_',ParEnv % PEs, ScalarsFile(i:j) 
+                ScalarsFile(1:i-1)//'_',ParEnv % PEs,Suffix
           ELSE
             WRITE( ScalarsFile,'(A,I0)') &
                 ScalarsFile(1:j)//'_',ParEnv % PEs 
