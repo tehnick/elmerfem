@@ -128,18 +128,16 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ! Optionally number files by the number of partitions
       ! This makes the benchmarking more convenient since each case 
       ! may use the same command file
-      IF( ParEnv % PEs > 1 ) THEN
-        IF(ListGetLogical(Params,'Partition Numbering',GotIt)) THEN
-          i = INDEX( ScalarsFile,'.',.TRUE. )
-          j = LEN_TRIM(ScalarsFile)
-          IF(i > 0) THEN
-	    Suffix = ScalarsFile(i:j)
-            WRITE( ScalarsFile,'(A,I0,A)') &
-                ScalarsFile(1:i-1)//'_',ParEnv % PEs,Suffix
-          ELSE
-            WRITE( ScalarsFile,'(A,I0)') &
-                ScalarsFile(1:j)//'_',ParEnv % PEs 
-          END IF
+      IF(ListGetLogical(Params,'Partition Numbering',GotIt)) THEN
+        i = INDEX( ScalarsFile,'.',.TRUE. )
+        j = LEN_TRIM(ScalarsFile)
+        IF(i > 0) THEN
+          Suffix = ScalarsFile(i:j)
+          WRITE( ScalarsFile,'(A,I0,A)') &
+              ScalarsFile(1:i-1)//'_',ParEnv % PEs,Suffix(1:j-i+1)
+        ELSE
+          WRITE( ScalarsFile,'(A,I0)') &
+              ScalarsFile(1:j)//'_',ParEnv % PEs 
         END IF
       END IF
 
