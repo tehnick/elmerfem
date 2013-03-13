@@ -133,6 +133,15 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         END IF
       END IF
 
+      ! Optionally number files by the number of partitions
+      ! This makes the benchmarking more convenient since each case 
+      ! may use the same command file
+      IF( ParEnv % PEs > 1 ) THEN
+        IF(ListGetLogical(Params,'Partition Numbering',GotIt)) THEN
+          WRITE( ScalarsFile,'(A,I0)') TRIM(ScalarsFile)//'_',ParEnv % PEs 
+        END IF
+      END IF
+
       IF(ListGetLogical(Params,'Filename Numbering',GotIt)) THEN
         ScalarsFile = NextFreeFilename( ScalarsFile ) 
       END IF
