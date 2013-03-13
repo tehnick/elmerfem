@@ -90,7 +90,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaskName
   INTEGER :: i,j,k,l,q,n,ierr,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
-      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd, istat
+      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd, istat, &
+      len
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
 
@@ -123,6 +124,24 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     ScalarsFile = ListGetString(Params,'Filename',SaveToFile )
 
     IF( SaveToFile ) THEN
+
+      ! Optionally number files by the number of partitions
+      ! This makes the benchmarking more convenient since each case 
+      ! may use the same command file
+      IF( ParEnv % PEs > 1 ) THEN
+        IF(ListGetLogical(Params,'Partition Numbering',GotIt)) THEN
+          i = INDEX( ScalarsFile,'.',.TRUE. )
+          j = LEN_TRIM(ScalarsFile)
+          IF(i > 0) THEN
+            WRITE( ScalarsFile,'(A,I0,A)') &
+                ScalarsFile(1:i-1)//'_',ParEnv % PEs, ScalarsFile(i:j) 
+          ELSE
+            WRITE( ScalarsFile,'(A,I0)') &
+                ScalarsFile(1:j)//'_',ParEnv % PEs 
+          END IF
+        END IF
+      END IF
+
       IF ( .NOT. FileNameQualified(ScalarsFile) ) THEN
         OutputDirectory = GetString( Params,'Output Directory',GotIt) 
         IF( GotIt .AND. LEN_TRIM(OutputDirectory) > 0 ) THEN
@@ -130,15 +149,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           CALL MakeDirectory( TRIM(OutputDirectory) // CHAR(0) )
         ELSE IF( LEN_TRIM(OutputPath ) > 0 ) THEN
           ScalarsFile = TRIM(OutputPath)// '/' //TRIM(ScalarsFile)
-        END IF
-      END IF
-
-      ! Optionally number files by the number of partitions
-      ! This makes the benchmarking more convenient since each case 
-      ! may use the same command file
-      IF( ParEnv % PEs > 1 ) THEN
-        IF(ListGetLogical(Params,'Partition Numbering',GotIt)) THEN
-          WRITE( ScalarsFile,'(A,I0)') TRIM(ScalarsFile)//'_',ParEnv % PEs 
         END IF
       END IF
 
