@@ -3256,7 +3256,6 @@ static int GmshToElmerType(int gmshtype)
   case 15:        
     elmertype = 101;
     break;
-
   case 16:
     elmertype = 408;
     break;
@@ -3273,6 +3272,38 @@ static int GmshToElmerType(int gmshtype)
     elmertype = 310;
     break;
 
+  /* These are supported by Gmsh but not by ElmerSolver */
+  case 13:        
+    elmertype = 718;
+    break;
+  case 14:        
+    elmertype = 614;
+    break;
+  case 20:        
+    elmertype = 309;
+    break;
+  case 22:        
+    elmertype = 312;
+    break;
+  case 24:
+    elmertype = 315;
+    break;
+  case 25:
+    elmertype = 320;
+    break;
+  case 26:
+    elmertype = 204;
+    break;
+  case 27:
+    elmertype = 205;
+    break;
+  case 28:
+    elmertype = 206;
+    break;
+  case 29:
+    elmertype = 520;
+    break;
+
   default:
     printf("Gmsh element %d does not have an Elmer counterpart!\n",gmshtype);
   }
@@ -3287,9 +3318,9 @@ static void GmshToElmerIndx(int elemtype,int *topology)
   int reorder, *porder;
 
   int order510[]={0,1,2,3,4,5,6,7,9,8};
-  int order613[]={0,1,2,3,4,5,8,10,6,7,9,11,12};
-  int order715[]={0,1,2,3,4,5,6,9,7,8,10,11,12,14,13};
-  int order820[]={0,1,2,3,4,5,6,7,8,11,12,9,10,12,14,15,16,18,19,17};
+  int order614[]={0,1,2,3,4,5,8,10,6,7,9,11,12,13};
+  int order718[]={0,1,2,3,4,5,6,9,7,8,10,11,12,14,13,15,17,16};
+  int order820[]={0,1,2,3,4,5,6,7,8,11,13,9,10,12,14,15,16,18,19,17};
 
 
   reorder = FALSE;
@@ -3302,13 +3333,15 @@ static void GmshToElmerIndx(int elemtype,int *topology)
     break;
 
   case 613:        
+  case 614:        
     reorder = TRUE;
-    porder = &order613[0];
+    porder = &order614[0];
     break;
 
   case 715:        
+  case 718:
     reorder = TRUE;
-    porder = &order715[0];
+    porder = &order718[0];
     break;
 
   case 820:        

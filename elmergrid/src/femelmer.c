@@ -2041,6 +2041,140 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 }
 
 
+int PartitionSimpleElementsNonRecursive(struct FemType *data,int dimpart[],int dimper[],
+			    int info)
+{
+  int i,j,k,ind,minpart,maxpart;
+  int noknots, noelements,nonodes,elemsinpart,periodic;
+  int partitions1,partitions2,partitions3,partitions;
+  int IndX,IndY,IndZ;
+  int *nopart,*inpart;
+  Real x,y,z,MaxX,MinX,MaxY,MinY,MaxZ,MinZ;
+
+  partitions1 = dimpart[0];
+  partitions2 = dimpart[1];
+  partitions3 = dimpart[2];
+  if(data->dim < 3) partitions3 = 1;
+  partitions = partitions1 * partitions2 * partitions3;
+
+  if(partitions1 < 2 && partitions2 < 2 && partitions3 < 2) {
+    printf("Some of the divisions must be larger than one: %d %d %d\n",
+	   partitions1, partitions2, partitions3 );
+    bigerror("Partitioning not performed");
+  }
+    
+  if(!data->partitionexist) {
+    data->partitionexist = TRUE;
+    data->elempart = Ivector(1,data->noelements);
+    data->nodepart = Ivector(1,data->noknots);
+    data->nopartitions = partitions;
+  }
+  inpart = data->elempart;
+  noelements = data->noelements;
+  noknots = data->noknots;
+
+  periodic = dimper[0] || dimper[1] || dimper[2];
+  if(periodic) {
+    printf("Implement periodicity for this partitioning routine!\n");
+  }
+
+  if(info) {
+    printf("Making a simple partitioning for %d elements in %d-dimensions.\n",
+	   noelements,data->dim);
+    printf("There can be at maximum %d partitions\n",partitions);
+  }
+
+  nopart = Ivector(1,partitions);
+  for(i=1;i<=partitions;i++)
+    nopart[i] = 0;
+
+  z = 0.0;
+  IndZ = 1;
+  for(i=1;i<=noelements;i++) 
+    inpart[i] = 0;
+ 
+  for(i=1;i<=noknots;i++) {
+    x = data->x[i];
+    y = data->y[i];
+    if(data->dim==3) z = data->z[i];
+    
+    if( i == 1 ) {      
+      MaxX = MinX = x;
+      MaxY = MinY = y;
+      MaxZ = MinZ = z;
+    }
+    else {
+      MaxX = MAX( MaxX, x);
+      MinX = MIN( MinX, x);
+      MaxY = MAX( MaxY, y);
+      MinY = MIN( MinY, y);
+      MaxZ = MAX( MaxZ, z);
+      MinZ = MIN( MinZ, z);
+    }
+  }
+  if( info ) {
+    printf("Range in x-direction: %12.5le %12.5le\n",MinX,MaxX);
+    printf("Range in y-direction: %12.5le %12.5le\n",MinY,MaxY);
+    printf("Range in z-direction: %12.5le %12.5le\n",MinZ,MaxZ);
+  }
+   
+  for(j=1;j<=noelements;j++) {
+    nonodes = data->elementtypes[j]%100;
+    x = y = z = 0.0;
+    for(i=0;i<nonodes;i++) {
+      k = data->topology[j][i];
+      x += data->x[k];
+      y += data->y[k];
+      if(data->dim==3) z += data->z[k];
+    }
+    x = x / nonodes;
+    y = y / nonodes;
+    z = z / nonodes;
+
+    IndX = ceil( partitions1 * ( x - MinX ) / ( MaxX - MinX ) );
+    IndY = ceil( partitions2 * ( y - MinY ) / ( MaxY - MinY ) );
+    if( data->dim == 3 ) {
+      IndZ = ceil( partitions3 * ( z - MinZ ) / ( MaxZ - MinZ ) );
+    }
+    k = (IndZ-1) * partitions1 * partitions2 + 
+      (IndY-1) * partitions1 + IndX;
+
+    inpart[j] = k;
+    nopart[k] += 1;
+  } 
+
+  maxpart = 0;
+  minpart = noelements;
+  j = 0;
+  if( info ) printf("Renumbering the partitions (showing only 64):\n");
+  for(i=1;i<=partitions;i++) {
+    k = nopart[i];
+    if( k ) {
+      maxpart = MAX( k, maxpart );
+      minpart = MIN( k, minpart );
+      j += 1;
+      nopart[i] = j;
+      if( info & j<=64) printf("%d -> %d\n",i,j);      
+    }
+  }
+  if(info) printf("There are %d active partitions out of %d possible ones\n",j,partitions);
+
+  data->nopartitions = j;
+
+  for(i=1;i<=noelements;i++) {
+    j = inpart[i];
+    inpart[i] = nopart[j];
+  }
+
+  free_Ivector(nopart,1,partitions);
+
+  PartitionNodesByElements(data,info);
+
+  if(info) printf("Successfully made a partitioning with %d to %d elements.\n",minpart,maxpart);
+
+  return(0);
+}
+
 
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info)

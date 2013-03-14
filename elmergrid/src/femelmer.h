@@ -19,6 +19,8 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
 			 char *prefix,int decimals, int info);
 int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 			    int partorder, Real corder[],int info);
+int PartitionSimpleElementsNonRecursive(struct FemType *data,
+					int dimpart[],int dimper[],int info);
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info);
 #if PARTMETIS
