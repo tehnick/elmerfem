@@ -15,6 +15,7 @@ Mesh:
 
 $(ExeDir)/%.so: $(SrcDir)/%.f90
 	elmerf90 $< -o $@
+	cp $@ $(ExeDir)/USF_Init.dylib
 
 
 clean:

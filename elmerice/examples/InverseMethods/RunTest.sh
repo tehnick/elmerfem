@@ -1,7 +1,7 @@
 #!/bin/bash  
 
 # Define the number of partitions (has to be a parallel run, i.e. np>1 !!)
-export np=8 
+export np=4 
 
 # Test to run 
 

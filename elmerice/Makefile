@@ -52,8 +52,9 @@ UserFunctions/USF_Zs.f90
 solverobjects := $(filter %.o,$(patsubst %.f90,%.o,$(SOLVERSOURCE))) $(filter %.o,$(patsubst %.f,%.o,$(SOLVERSOURCE)))
 usfobjects := $(patsubst %.f90,%.o,$(USFSOURCE))
 
-
 all: compile
+
+include Solvers/MakefileScattered2D.inc
 
 compile:  $(EXECUTABLES)
 
@@ -88,7 +89,7 @@ ElmerIceSolvers.$(PLATFORM): $(solverobjects)
         else \
            if test '$(PLATFORM)' = 'Linux'; then \
 	   	echo "Dynamic linking solvers to $(PLATFORM)"; \
-                elmerf90 $(solverobjects) -o ElmerIceSolvers.so; \
+                elmerf90  $(solverobjects) -o ElmerIceSolvers.so; \
 	   fi \
         fi
 
@@ -136,3 +137,4 @@ purge: clean
 	elmerf90-nosh -c $< -o $@
 
 
+	
