@@ -3059,9 +3059,12 @@ CONTAINS
     INTEGER, INTENT(OUT) :: SavedCount, Timestep
     REAL(dp), INTENT(OUT) :: Time
     INTEGER, INTENT(OUT) :: Stat
-    CHARACTER(:), ALLOCATABLE :: String
-
+#ifdef ALLOC_CHAR
+    CHARACTER(LEN=:), ALLOCATABLE :: String
     ALLOCATE(CHARACTER(32)::String)
+#else
+    CHARACTER(LEN=32) :: String
+#endif
 
     IF ( Binary ) THEN
       CALL BinReadString( RestartUnit, String, Stat )
