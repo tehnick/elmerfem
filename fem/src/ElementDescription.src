@@ -375,7 +375,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 !     Local variables
 !------------------------------------------------------------------------------
+#ifdef ALLOC_CHAR
       CHARACTER(LEN=:), ALLOCATABLE :: str
+#else
+      CHARACTER(LEN=MAX_STRING_LEN) :: str
+#endif
       CHARACTER(LEN=MAX_STRING_LEN) :: tstr,elmer_home
 
       INTEGER :: k, n
@@ -434,7 +438,9 @@ CONTAINS
 
       OPEN( 1,FILE=TRIM(tstr), STATUS='OLD' )
 
+#ifdef ALLOC_CHAR
       ALLOCATE(CHARACTER(MAX_STRING_LEN)::str)
+#endif
       DO WHILE( ReadAndTrim(1,str) )
 
         IF ( str(1:7) == 'element' ) THEN

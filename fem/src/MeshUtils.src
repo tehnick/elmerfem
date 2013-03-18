@@ -1112,13 +1112,19 @@ END SUBROUTINE GetMaxDefs
      TYPE(Mesh_t) :: Mesh
 !------------------------------------------------------------------------------
     INTEGER, PARAMETER :: MAXLEN=1024
+#ifdef ALLOC_CHAR
     CHARACTER(LEN=:), ALLOCATABLE :: str
+#else
+    CHARACTER(LEN=MAX_STRING_LEN) :: str
+#endif
     INTEGER :: i,j,n
     REAL(KIND=dp) :: x
     TYPE(Element_t), POINTER :: Element
     TYPE(ElementData_t), POINTER :: PD,PD1
 
-    ALLOCATE(character(128)::str); str=''
+#ifdef ALLOC_CHAR
+    ALLOCATE(character(MAX_STRING_LEN)::str)
+#endif
 
     OPEN( Unit=10, File=FileName, STATUS='OLD', ERR=10 )
     DO WHILE( ReadAndTrim(10,str) )

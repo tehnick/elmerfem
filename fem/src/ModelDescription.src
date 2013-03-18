@@ -241,7 +241,11 @@ CONTAINS
 
     INTEGER(KIND=AddrInt) :: Proc
 
+#ifdef ALLOC_CHAR
     CHARACTER(LEN=:), ALLOCATABLE :: section, name, str
+#else
+    CHARACTER(LEN=MAX_STRING_LEN) :: section, name, str
+#endif
 
     LOGICAL :: SizeGiven
     LOGICAL :: FreeNames=.FALSE., Echo = .FALSE.
@@ -263,9 +267,11 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
+#ifdef ALLOC_CHAR
     ALLOCATE(CHARACTER(MAX_STRING_LEN)::section)
     ALLOCATE(CHARACTER(MAX_STRING_LEN)::str)
     ALLOCATE(CHARACTER(MAX_STRING_LEN)::name)
+#endif
 
 !------------------------------------------------------------------------------
 !   Read model header first
@@ -869,7 +875,11 @@ CONTAINS
        TYPE(HashTable_t), POINTER, SAVE :: Hash =>NULL()
        TYPE(HashValue_t), POINTER :: VALUE
        LOGICAL :: FirstTime = .TRUE.,lstat
+#ifdef ALLOC_CHAR
        CHARACTER(LEN=:), ALLOCATABLE :: str
+#else
+       CHARACTER(LEN=MAX_STRING_LEN) :: str
+#endif
        CHARACTER(LEN=MAX_STRING_LEN) :: str1
        EXTERNAL ENVIR
 
@@ -877,7 +887,9 @@ CONTAINS
 
        IF ( CheckAbort <= 0 ) RETURN
 
+#ifdef ALLOC_CHAR
        ALLOCATE(CHARACTER(MAX_STRING_LEN) :: str)
+#endif
 
        IF ( FirstTime ) THEN
 !
@@ -1083,16 +1095,22 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE :: Atx(:,:,:), ATt(:)
 
       CHARACTER(LEN=MAX_NAME_LEN) :: TypeString,Keyword
+#ifdef ALLOC_CHAR
       CHARACTER(LEN=:), ALLOCATABLE :: Name,str, Depname
+#else
+      CHARACTER(LEN=MAX_STRING_LEN) :: Name,str, Depname
+#endif
       LOGICAL :: ReturnType, ScanOnly, String_literal,  SizeGiven, Cubic, AllInt
 
       INTEGER(KIND=AddrInt) :: Proc
       INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, TYPE, abuflen=0,maxbuflen=0
 
       ALLOCATE( ATt(1), ATx(1,1,1), IValues(1) )
+#ifdef ALLOC_CHAR
       ALLOCATE(CHARACTER(MAX_STRING_LEN)::Name)
       ALLOCATE(CHARACTER(MAX_STRING_LEN)::str)
       ALLOCATE(CHARACTER(MAX_STRING_LEN)::Depname)
+#endif
 
 
       DO WHILE( ReadAndTrim( InFileUnit,Name,Echo ) )
@@ -2509,7 +2527,11 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var, Comp
     CHARACTER(LEN=MAX_NAME_LEN) :: Name,PosName
+#ifdef ALLOC_CHAR
     CHARACTER(LEN=:), ALLOCATABLE :: Row
+#else
+    CHARACTER(LEN=MAX_STRING_LEN) :: Row
+#endif
     CHARACTER(LEN=MAX_STRING_LEN) :: FName,Trash
     INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
     INTEGER :: nNodes, Stat
@@ -2569,7 +2591,9 @@ CONTAINS
 
     RestartFileOpen = .TRUE.
 
+#ifdef ALLOC_CHAR
     ALLOCATE(CHARACTER(MAX_STRING_LEN)::Row)
+#endif
     READ( RestartUnit, '(A)' ) Row
     IF ( Row(3:8) == 'BINARY' ) THEN
         Binary = .TRUE.
@@ -3142,7 +3166,11 @@ CONTAINS
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Variable_t), POINTER :: Var,Var1,Displacement,MeshUpdate,MaskVar
 
+#ifdef ALLOC_CHAR
     CHARACTER(LEN=:), ALLOCATABLE :: Row
+#else
+    CHARACTER(LEN=MAX_STRING_LEN):: Row
+#endif
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr
 
     LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists
@@ -3617,7 +3645,9 @@ CONTAINS
    END IF
 
 !------------------------------------------------------------------------------
-   ALLOCATE(CHARACTER(512)::Row)
+#ifdef ALLOC_CHAR
+   ALLOCATE(CHARACTER(MAX_STRING_LEN)::Row)
+#endif
    DO WHILE( .TRUE. )
       IF ( AppendFlag ) THEN
          SavedCount = Model % Mesh % SavesDone
@@ -3629,7 +3659,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   ...read one timestep to memory (if not already there)...
 !------------------------------------------------------------------------------
-         Row = ' '
          DO WHILE( ReadAndTrim(OutputUnit,Row) )
             IF ( Row(1:11) == 'total dofs:' ) READ( Row(12:),* ) DOFs
             IF ( Row(1:5)  == 'time:' ) EXIT

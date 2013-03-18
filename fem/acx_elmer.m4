@@ -1464,6 +1464,25 @@ else
 fi
 ])
 
+AC_DEFUN([ACX_FC_CHAR_ALLOC], [
+AC_PREREQ(2.50)
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
+AC_LANG_PUSH(Fortran)
+AC_MSG_CHECKING([if fortran implements allocatable character strings])
+AC_COMPILE_IFELSE(
+[        program test_char_alloc
+          integer :: n
+          character(len=:), allocatable :: x
+          allocate(character(n)::x)
+        end program test_char_alloc ],
+[ acx_cv_fc_alloc_char=yes ], [ acx_cv_fc_alloc_char=no ] )
+AC_MSG_RESULT([$acx_cv_fc_alloc_char])
+AC_LANG_POP(Fortran)
+if test "$acx_cv_fc_alloc_char" ==  yes ; then
+  FCPPFLAGS="$FCPPFLAGS -DALLOC_CHAR=1"
+fi
+])
+
 
 AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG],[
 

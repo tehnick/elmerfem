@@ -740,13 +740,19 @@ CONTAINS
      INTEGER, PARAMETER :: MAXLEN = 16384
 
      INTEGER :: Unit
+#ifdef ALLOC_CHAR
      CHARACTER(LEN=:), ALLOCATABLE :: str
+#else
+     CHARACTER(LEN=*) :: str
+#endif
 
      LOGICAL, OPTIONAL :: Echo, literal
 
      LOGICAL :: l
 
+#ifdef ALLOC_CHAR
      CHARACTER(LEN=:), ALLOCATABLE :: temp
+#endif
      CHARACTER(LEN=12) :: tmpstr
      CHARACTER(LEN=MAXLEN) :: readstr = ' ', copystr = ' ', matcstr=' ' , IncludePath=' '
 
@@ -764,7 +770,9 @@ CONTAINS
      IF ( PRESENT(literal) ) literal=.FALSE.
      l = .TRUE.
 
+#ifdef ALLOC_CHAR
      IF(.NOT.ALLOCATED(str)) ALLOCATE(character(512)::str)
+#endif
      outlen = LEN(str)
 
      IF ( ValueStarts==0 .AND. OpenSection ) THEN
@@ -956,13 +964,16 @@ CONTAINS
           END IF
 
           IF ( k>outlen ) THEN
+#ifdef ALLOC_CHAR
              temp = str
              DEALLOCATE(str)
              outlen=LEN(temp)+512
              ALLOCATE(character(outlen)::str)
              str(1:LEN(temp))=temp; str(LEN(temp)+1:)=''
              DEALLOCATE(temp)
-!            CALL Fatal( 'ReadAndTrim', 'Output length exeeded.' )
+#else
+             CALL Fatal( 'ReadAndTrim', 'Output length exeeded.' )
+#endif
           END IF
 
           j = ICHAR( readstr(i:i) )
