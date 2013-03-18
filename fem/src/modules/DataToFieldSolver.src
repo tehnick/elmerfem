@@ -1,36 +1,46 @@
-!/******************************************************************************
-! * Solvers by Galerkin method the problem where a continuous field is 
-! * fitted to the data. The data may be created in advance or it may be 
-! * given as a property of discrete particles. The data has a contribution
-! * on the r.h.s. of the equation only. 
-! * 
-! * There are two different variations
-! * 1) without normalization it is assumed that the r.h.s is already physically
-! *    relevant sum of the data.
-! * 2) with normalization it is assumed that the r.h.s. scales with the weight
-! *    and division by weight is needed to obtain a statistical average.
-! *    In both cases regularization by a diffusion coefficient may be used but 
-! *    it is essenitial only in the latter.
-! ******************************************************************************
+!/*****************************************************************************/
 ! *
-! *  Authors: Peter Råback & Juha Ruokolainen
-! *  Email:   Peter.Raback@csc.fi & Juha.Ruokolainen@csc.fi
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Authors: Peter Råback, Juha Ruokolainen
+! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
 ! *           Keilaranta 14
 ! *           02101 Espoo, Finland 
 ! *
-! *  Original Date: 16.6.2011
+! *  Original Date: 16.06.2011
 ! *
 ! *****************************************************************************/
 
-
 !------------------------------------------------------------------------------
-!> Solvers by Galerkin method the problem where a continuous field is 
+!> Solves by Galerkin method the problem where a continuous field is 
 !> fitted to data. The data may be created in advance or it may be 
 !> given as a property of discrete particles. The data has a contribution
 !> on the r.h.s. of the equation only. Regularization (i.e. diffusion) may be
-!> added to reduce noise from the fitting of the data.
+!> added to reduce noise from the fitting of the data. Also data may be used
+!> only selectively as defined by some mask variable. 
 !> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
@@ -52,11 +62,11 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------  
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Variable_t), POINTER :: Var 
-  REAL(KIND=dp), POINTER :: WeightVector(:),ForceVector(:),MaskVector(:)
-  INTEGER, POINTER :: WeightPerm(:),ForcePerm(:),MaskPerm(:)
+  REAL(KIND=dp), POINTER :: WeightVector(:),ForceVector(:),MaskVector(:),FieldVector(:)
+  INTEGER, POINTER :: WeightPerm(:),ForcePerm(:),MaskPerm(:),FieldPerm(:)
   REAL(KIND=dp) :: Norm, MinMaskVal, MaxMaskVal
   LOGICAL :: GivenNormalize, NodalNormalize, Found, Found2, Mask, MaskDiffusion, &
-      ConstantWeightSum
+      ConstantWeightSum, UseLogScale, RevertLogScale, ContinueWithBC
   CHARACTER(LEN=MAX_NAME_LEN) :: VarName, FileName
 
 
@@ -64,6 +74,10 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
   CALL Info('DataToFieldSolver','Resolving field from given data',Level=4) 
 
   
+  Var => Solver % Variable
+  FieldVector => Var % Values
+  FieldPerm => Var % Perm 
+
   ! The variable containing the field contributions
   !------------------------------------------------------------------------
   Params => GetSolverParams()
@@ -106,7 +120,9 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
   END IF
   
   NodalNormalize = GetLogical( Params,'Normalize by Nodal Weight',Found)    
-  CALL Info('DataToFieldSolver','Normalizing source using nodal weight',Level=6) 
+  IF( NodalNormalize ) THEN
+    CALL Info('DataToFieldSolver','Normalizing source using nodal weight',Level=6) 
+  END IF
 
   IF( GivenNormalize .AND. NodalNormalize ) THEN
     CALL Fatal('DataToFieldSolver','Normalization cannot be both given and nodal!')
@@ -153,15 +169,29 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
     CALL AsciiPointsToMesh()
   END IF
 
+  UseLogScale = GetLogical( Params,'Logarithmic Fitting',Found)
+  IF( UseLogScale ) THEN
+    CALL Info('DataToFieldSolver','Using logarithmic scale when fitting data!',Level=6)
+  END IF
+
+  ! Make the continue BCs using BC assembly / or the modification of bulk assembly
+  ContinueWithBC = GetLogical( Params,'Continue BC With Boundary Assembly',Found )
+  IF( ContinueWithBC ) THEN
+    CALL Info('DataToFieldSolver','Using boundary assembly to continue the solution at BCs',Level=6)
+  END IF
+
 
   ! Create the matrix equation with r.h.s. data and regularization
   !------------------------------------------------------------------------
   CALL DefaultInitialize()  
 
   CALL BulkAssembly()
+
   CALL DefaultFinishBulkAssembly()
 
-  CALL BoundaryAssembly()
+  IF( ContinueWithBC ) THEN
+    CALL BoundaryAssembly()
+  END IF
 
   CALL DefaultFinishAssembly()
 
@@ -169,7 +199,19 @@ SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
 
   ! Solver the matrix 
   !------------------------------------------------------------------------
-  Norm = DefaultSolve()
+
+  ! If we compute in log scale and revert back then compute the change only 
+  ! after reverting back to real scale.
+  RevertLogScale = GetLogical( Params,'Revert Logarithmic Fitting',Found)
+  IF( RevertLogScale ) THEN
+    CALL Info('DataToFieldSolver','Reverting from logarithmic scale!',Level=6)
+    CALL ListAddLogical( Solver % Values,'Skip Compute Nonlinear Change',.TRUE.)
+    Norm = DefaultSolve()
+    FieldVector = EXP( FieldVector ) 
+    CALL ComputeChange( Solver, .FALSE. )
+  ELSE
+    Norm = DefaultSolve( )
+  END IF
 
   CALL Info('DataToFieldSolver','All done', Level=4 )
   CALL Info('DataToFieldSolver','-----------------------------------------', Level=4 )
@@ -184,7 +226,7 @@ CONTAINS
   SUBROUTINE AsciiPointsToMesh()
     
     INTEGER :: i,j,n,dim,No,NoPoints,ElementIndex=0
-    INTEGER, POINTER :: NodeIndexes(:),FieldPerm(:)
+    INTEGER, POINTER :: NodeIndexes(:)
     REAL(KIND=dp) :: SqrtElementMetric, Weight,u,v,w,LocalCoords(3),val,InputData(4)
     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
     LOGICAL :: AllocationsDone = .FALSE., Stat
@@ -197,7 +239,6 @@ CONTAINS
     SAVE :: AllocationsDone, ElementIndex, Basis, dBasisdx, ElementNodes
     
     Mesh => Solver % Mesh
-    FieldPerm => Solver % Variable % Perm
 
     n = Mesh % MaxElementNodes
     ALLOCATE(ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), &
@@ -234,6 +275,7 @@ CONTAINS
       
       DO i = 1,n
         j = FieldPerm( NodeIndexes(i) )
+          
         IF( j == 0 ) CYCLE
         
         ! As the weight should be proporpotional to the particle amount rather than
@@ -242,8 +284,7 @@ CONTAINS
         !-------------------------------------------------------------------------
         weight = Basis(i)
         
-        WeightVector( j ) = WeightVector( j ) + weight 
- 
+        WeightVector( j ) = WeightVector( j ) + weight  
         ForceVector( j ) = ForceVector( j ) + weight * val
       END DO      
     END DO
@@ -260,54 +301,65 @@ CONTAINS
   SUBROUTINE BulkAssembly()
     
     INTEGER, POINTER :: BoundaryPerm(:), Indexes(:)
-    INTEGER :: i,j,k,t,n,istat,active,BoundaryNodes,dim,MaskActive
+    INTEGER :: i,j,j2,j3,k,t,n,istat,active,BoundaryNodes,dim,MaskActive
     TYPE(Element_t), POINTER :: Element
     TYPE(GaussIntegrationPoints_t) :: IP
     CHARACTER(LEN=MAX_NAME_LEN) :: BoundaryName
     TYPE(Nodes_t) :: Nodes
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), NodalWeight(:)
     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
-    REAL(KIND=dp) :: Coeff, detJ, RealWeightSum, IdealWeightSum, WeightCorr, val
+    REAL(KIND=dp) :: Coeff, detJ, WeightCorr, val, Wrhs, Wmat
+    REAL(KIND=dp), POINTER :: MatValues(:), MatRhs(:)
+    INTEGER, POINTER :: MatDiag(:)
     TYPE(Matrix_t), POINTER :: StiffMatrix 
     LOGICAL :: stat, Visited = .FALSE.
     
     
-    SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx
-    
+    SAVE Visited, Nodes, STIFF, FORCE, Basis, dBasisdx, NodalWeight
+    SAVE BoundaryPerm
 
-    IF(.NOT. Visited) THEN
-      Visited = .TRUE.
-      N = Solver % Mesh % MaxElementNodes 
-      ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), STAT=istat )
-      
-!      N = Solver % Mesh % NumberOfNodes
-!      ALLOCATE( BoundaryPerm(n) )
-!      BoundaryPerm = 0
-!      BoundaryNodes = 0
-!      BoundaryName = 'Data To Field Boundary'
-!      CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,BoundaryName, &
-!          .FALSE., BoundaryPerm, BoundaryNodes )
-!      IF( BoundaryNodes > 0 ) THEN
-!        WRITE( Message,'(A,I0)') 'Nodes at > Data To Field Boundary < : ',BoundaryNodes
-!        CALL Info('DataToFieldSolver',Message,Level=6)
-!      END IF
-
-    END IF
-    
     ! Assembly the diffusion part used for regularization
     !----------------------------------------------------------
     Coeff = GetCReal( Solver % Values,'Diffusion Coefficient')
     active = GetNOFActive()
     StiffMatrix => Solver % Matrix
+    MatValues => StiffMatrix % Values
+    MatRhs => StiffMatrix % Rhs
+    MatDiag => StiffMatrix % Diag
     IF(.NOT. ASSOCIATED( StiffMatrix ) ) THEN
       CALL Fatal('DataToFieldSolver','StiffMatrix not associated!')
     END IF
 
     dim = Solver % Mesh % MeshDim
-    n = StiffMatrix % NumberOfRows
-    ALLOCATE( NodalWeight( n ) )
+
+    IF(.NOT. Visited) THEN
+      Visited = .TRUE.
+      N = Solver % Mesh % MaxElementNodes 
+      ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), STAT=istat )
+      IF( istat /= 0) CALL Fatal('DataToFieldSolver','Allocation error 1 in BulkAssembly!')
+
+      n = StiffMatrix % NumberOfRows
+      ALLOCATE( NodalWeight( n ), STAT=istat )
+      IF( istat /= 0) CALL Fatal('DataToFieldSolver','Allocation error 2 in BulkAssembly!')
+
+      IF( .NOT. ContinueWithBC ) THEN
+        N = Solver % Mesh % NumberOfNodes
+        ALLOCATE( BoundaryPerm(n) )
+        BoundaryPerm = 0
+        BoundaryNodes = 0
+        BoundaryName = ComponentName( Solver % Variable )
+        BoundaryName = TRIM(BoundaryName)//' continue'
+        CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,BoundaryName, &
+            .FALSE., BoundaryPerm, BoundaryNodes )
+        IF( BoundaryNodes > 0 ) THEN
+          WRITE( Message,'(A,I0)') 'Nodes with BC > '// TRIM( BoundaryName ) //' <  true: ',BoundaryNodes
+          CALL Info('DataToFieldSolver',Message,Level=6)
+        END IF
+      END IF
+
+    END IF
+    
     NodalWeight = 0.0_dp
-    IdealWeightSum = 0.0_dp
 
     DO t=1,active
 
@@ -342,7 +394,9 @@ CONTAINS
           ! use it only for outlier data.
           !----------------------------------------------------------------
           IF( MaskDiffusion ) THEN
-            val = MaskVector( MaskPerm( Indexes(i) ) )
+            j2 = Indexes(i)
+            IF( ASSOCIATED( MaskPerm ) ) j2 = MaskPerm(j2)
+            val = MaskVector( j2 )
             IF( .NOT. (val < MinMaskVal .OR. val > MaxMaskVal ) ) CYCLE
           END IF
           
@@ -350,21 +404,23 @@ CONTAINS
           ! try to fix the normal gradient of the field to zero.
           ! Does not seem to work though...
           !--------------------------------------------------------------------
-          ! IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
+          IF( .NOT. ContinueWithBC .AND. BoundaryNodes > 0 ) THEN
+            IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
+          END IF
 
           DO j=1,n
             STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
                 SUM( dBasisdx(i,1:dim) * dBasisdx(j,1:dim) ) 
           END DO
+
         END DO
       END DO
       
       CALL DefaultUpdateEquations( STIFF, FORCE )
     END DO
-    IdealWeightSum = SUM( NodalWeight ) 
 
     MaskActive = 0
-    IF( GivenNormalize ) THEN
+    IF( GivenNormalize .AND. ConstantWeightSum ) THEN
       !-----------------------------------------------------------------------
       ! Set the weight to the diagonal i.e. make the mass matrix contribution  
       ! The data is normalized so that if it would be constant it would yield the 
@@ -372,54 +428,72 @@ CONTAINS
       ! This way diffusion will not depend on the amount of data, whether
       ! that is desirable, or not, I don't know. 
       !-----------------------------------------------------------------------
-      RealWeightSum = SUM( WeightVector ) 
-      IF( ConstantWeightSum ) THEN
-        WeightCorr = IdealWeightSum / RealWeightSum 
-      ELSE
-        WeightCorr = 1.0_dp
-      END IF
-      StiffMatrix % Values( StiffMatrix % Diag ) = &
-          StiffMatrix % Values( StiffMatrix % Diag) + &
-          WeightCorr * WeightVector
-      StiffMatrix % rhs = WeightCorr * ForceVector        
-    ELSE IF( NodalNormalize ) THEN
-      IF( Mask ) THEN
-        DO i=1,SIZE(MaskVector) 
-          val = MaskVector(i)
-          IF( val < MinMaskVal .OR. val > MaxMaskVal ) CYCLE
-
-          MaskActive = MaskActive + 1
-          StiffMatrix % rhs(i) = Forcevector(i) 
-          StiffMatrix % Values( StiffMatrix % Diag(i) ) = NodalWeight(i)
-        END DO
-      ELSE
-        StiffMatrix % rhs = ForceVector
-        StiffMatrix % Values( StiffMatrix % Diag ) = &
-            StiffMatrix % Values( StiffMatrix % Diag) + NodalWeight
-      END IF
+      WeightCorr = SUM( NodalWeight) / SUM( WeightVector )
     ELSE
-      IF( Mask ) THEN
-        DO i=1,SIZE(MaskVector) 
-          val = MaskVector(i)
-          IF( val < MinMaskVal .OR. val > MaxMaskVal ) CYCLE
-
-          MaskActive = MaskActive + 1
-          StiffMatrix % rhs(i) = NodalWeight(i) * Forcevector(i) 
-          StiffMatrix % Values( StiffMatrix % Diag(i) ) = NodalWeight(i)
-        END DO
-      ELSE
-        StiffMatrix % rhs = NodalWeight * ForceVector
-        StiffMatrix % Values( StiffMatrix % Diag ) = &
-            StiffMatrix % Values( StiffMatrix % Diag) + NodalWeight
-      END IF
+      WeightCorr = 1.0_dp
     END IF
+
+    DO i=1,Solver % Mesh % NumberOfNodes
+
+      ! If some values are not to be trusted don't include them in the allocation process
+      !----------------------------------------------------------------------------------
+      IF( Mask ) THEN
+        j = i
+        IF( ASSOCIATED( MaskPerm ) ) j = MaskPerm(i)
+        IF( j > 0 ) THEN
+          val = MaskVector(j)
+          IF( val < MinMaskVal .OR. val > MaxMaskVal ) THEN
+            MaskActive = MaskActive + 1
+            CYCLE
+          END IF
+        END IF
+      END IF
+      
+      ! field to be solved for
+      j = FieldPerm(i)
+      IF( j == 0 ) CYCLE
+
+      ! force vector on the r.h.s.
+      j2 = i
+      IF( ASSOCIATED( ForcePerm ) ) j2 = ForcePerm(j2)     
+      IF( j2 > 0 ) THEN
+        val = ForceVector(j2)
+        IF( UseLogScale ) val = LOG( val )
+      ELSE
+        val = 0.0_dp
+      END IF
+
+      IF( GivenNormalize ) THEN
+        j3 = i
+        IF( ASSOCIATED( WeightPerm ) ) j3 = WeightPerm(j3)        
+        IF( j3 > 0 ) THEN
+          Wmat = WeightCorr * WeightVector(j3)
+        ELSE
+          Wmat = 0.0_dp
+        END IF
+        Wrhs = WeightCorr * val
+
+      ELSE IF( NodalNormalize ) THEN
+        Wmat = NodalWeight(i)        
+        Wrhs = val
+
+      ELSE
+        Wmat = NodalWeight(i)
+        Wrhs = NodalWeight(i) * val
+      END IF
+           
+      k = MatDiag(j) 
+      MatValues( k ) = MatValues( k ) + Wmat
+      MatRhs(j) = MatRhs(j) + Wrhs
+    END DO
+
 
     IF( Mask ) THEN
       WRITE( Message,'(A,I0,A,I0,A)') 'Mask is active for ',MaskActive,&
           ' nodes (out of ',SIZE(MaskVector),')'
       CALL Info('DataToFieldSolver',Message,Level=4)
     END IF
-    
+
   END SUBROUTINE BulkAssembly
   
 !------------------------------------------------------------------------------
