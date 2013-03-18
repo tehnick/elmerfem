@@ -2220,6 +2220,10 @@ CONTAINS
        Solver => CurrentModel % Solver
      END IF
 
+     IF(.NOT. ASSOCIATED( Solver % Matrix ) ) THEN
+       CALL Fatal('DefaultInitialize','No matrix exists, cannot initialize!')
+     END IF
+
      CALL InitializeToZero( Solver % Matrix, Solver % Matrix % RHS )
 
      Params => Solver % Values
