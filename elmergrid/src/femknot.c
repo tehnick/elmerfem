@@ -9574,6 +9574,9 @@ int CreateDualGraph(struct FemType *data,int unconnected,int info)
 	}
 	if(!hit) {
 	  if(l >= dualmaxcon) {
+	    if( l >= MAXCONNECTIONS ) {
+	      bigerror("Maximum of connections in dual graph larger than the static limit!");
+	    }
 	    data->dualgraph[dualmaxcon] = Ivector(1,freeelements);
 	    for(m=1;m<=freeelements;m++)
 	      data->dualgraph[dualmaxcon][m] = 0;
