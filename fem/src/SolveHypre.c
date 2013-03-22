@@ -21,14 +21,14 @@
 ! *
 ! ******************************************************************************
 ! *
-! *  Elmer interface for Hypre - High performance Precondtioners
+! *  Elmer interface for Hypre - High performance Preconditioners
 ! *
 ! *  For more information on Hypre see
 ! *  https://computation.llnl.gov/casc/linear_solvers/sls_hypre.html
 ! *
 ! ******************************************************************************
 ! *
-! *  Authors: Juha Ruokolainen, Thomas Zwinger, Jonas Thies, Peter Råback
+! *  Authors: Juha Ruokolainen, Thomas Zwinger, Jonas Thies, Peter Råback, Mika Malinen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -61,7 +61,7 @@ HYPRE_Solver solver, precond;
 
 } ElmerHypreContainer;
 
-/* for the moment GMRES does not seem to work so it was commented out */
+/* For the moment FlexGMRES and LGMRES solvers are not included so they are commented out */
 #define HAVE_GMRES 0
 
 /* there are two possible procedures of calling HYPRE here, 
@@ -564,7 +564,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
       22 ... CG + BoomerAMG
       30 ... GMRes + ILUn 
       31 ... GMRes + ParaSails 
-      32 ... GMRes + BoomerAMG
+      32 ... GMRes + BoomerAMG    (This choice disabled currently)
    */
    
    /* create preconditioner for Krylov methods */
@@ -711,40 +711,42 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      HYPRE_ParCSRPCGSetup(solver, parcsr_A, par_b, par_x);
    }
 
-#if HAVE_GMRES
-   else if ( hypre_sol == 3) { /* GMRes */
+   else if ( hypre_sol == 3) { /* GMRES */
      /* Create solver */
      HYPRE_ParCSRGMRESCreate(MPI_COMM_WORLD, &solver);
-     
+    
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
-     HYPRE_ParCSRGMRESSetPrintLevel(solver, i);   /* print solve info */
+     HYPRE_GMRESSetPrintLevel(solver, i);   /* print solve info */
 
      i = (verbosity >= 6);
-     HYPRE_ParCSRGMRESSetLogging(solver, i);      /* needed to get run info later */
+     HYPRE_GMRESSetLogging(solver, i);      /* needed to get run info later */
 
-     HYPRE_ParCSRGMRESSetKDim(solver,hypre_intpara[9]);
+     HYPRE_GMRESSetKDim(solver, hypre_intpara[8]);
 
      /* Set the GMRES preconditioner */
+     /* NOTE: AMG preconditioning is not enabled currently as this choice */
+     /* is more feasible in connection with FGMRES, which should be enabled */
+     /* separately (TO DO) */
      if ( hypre_pre  == 0) {
-      HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
-				(HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
-
-
-       HYPRE_ParCSRGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
-			   (HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
-     } else if ( hypre_pre == 1) { 
-       HYPRE_ParCSRGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
-			   (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
-     } else if( hypre_pre == 2){
-       HYPRE_ParCSRGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
-			   (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
+       HYPRE_GMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
+			     (HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
+     } else if (hypre_pre == 1) { 
+       HYPRE_GMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
+			     (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
      }
-     /* compute the preconditioner */
-     if (myid == 0 && verbosity >= 6 ) fprintf(stdout,"create preconditioner...");
-     HYPRE_ParCSRGMRESSetup(solver, parcsr_A, par_b, par_x);
+     /* else if( hypre_pre == 2){
+	HYPRE_GMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
+	(HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
+	} */
+
+     /* Pass the matrix and rhs into the solver */
+     if (myid == 0 && verbosity >= 6 ) fprintf(stdout,"Passing matrix and rhs into GMRES solver...");
+     HYPRE_ParCSRGMRESSetup(solver, parcsr_A, par_b, par_x);   
+     
    }
 
+#if HAVE_GMRES
    else if ( hypre_sol == 4) { /* FlexGMRes */
      /* Create solver */
      HYPRE_ParCSRFlexGMRESCreate(MPI_COMM_WORLD, &solver);
@@ -946,13 +948,13 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
      HYPRE_ParCSRPCGSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 
-#if HAVE_GMRES
    else if ( hypre_sol == 3) {
-     HYPRE_ParCSRGMRESSetMaxIter(solver, *Rounds); /* max iterations */
-     HYPRE_ParCSRGMRESSetTol(solver, *TOL);       /* conv. tolerance */
+     HYPRE_GMRESSetMaxIter(solver, *Rounds); /* max GMRES iterations */
+     HYPRE_GMRESSetTol(solver, *TOL);        /* GMRES conv. tolerance */
      HYPRE_ParCSRGMRESSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 
+#if HAVE_GMRES
    else if ( hypre_sol == 4) {
      HYPRE_ParCSRFlexGMRESSetMaxIter(solver, *Rounds); /* max iterations */
      HYPRE_ParCSRFlexGMRESSetTol(solver, *TOL);       /* conv. tolerance */
@@ -1015,10 +1017,10 @@ void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(int** ContainerPtr) {
      else if ( hypre_sol == 2 ) {
        HYPRE_ParCSRPCGDestroy(Container->solver);
      }
-#if HAVE_GMRES
      else if ( hypre_sol == 3 ) {
        HYPRE_ParCSRGMRESDestroy(Container->solver);
      }
+#if HAVE_GMRES
      else if ( hypre_sol == 4 ) {
        HYPRE_ParCSRFlexGMRESDestroy(Container->solver);
      }
