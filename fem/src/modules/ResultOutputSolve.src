@@ -1549,12 +1549,20 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     WRITE(10,'(A)') '$PhysicalNames'
     WRITE(10,'(I8)') nsize
     DO i=1,Model % NumberOfBodies 
-      Txt = ListGetString( Model % Bodies(i) % Values,'Name')
-      WRITE(10,'(I8,A)') i,'"'//TRIM(Txt)//'"'
+      Txt = ListGetString( Model % Bodies(i) % Values,'Name',Found)
+      IF( Found ) THEN
+        WRITE(10,'(I8,A)') i,'"'//TRIM(Txt)//'"'
+      ELSE
+        WRITE(10,'(I8,A,I0)') i,'"Body ',i,'"'       
+      END IF
     END DO
     DO i=1,Model % NumberOfBCs
-      Txt = ListGetString( Model % BCs(i) % Values,'Name')
-      WRITE(10,'(I8,A)') i+BCOffset,'"'//TRIM(Txt)//'"'
+      Txt = ListGetString( Model % BCs(i) % Values,'Name',Found)
+      IF( Found ) THEN
+        WRITE(10,'(I8,A)') i+BCOffset,'"'//TRIM(Txt)//'"'
+      ELSE
+        WRITE(10,'(I8,A,I0)') i+BCOffset,'"Boundary Condition ',i,'"'               
+      END IF
     END DO
     WRITE(10,'(A)') '$EndPhysicalNames'
   END IF
