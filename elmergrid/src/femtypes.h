@@ -16,7 +16,7 @@
 #define MAXNODESD2 27       /* maximum number of 2D nodes */ 
 #define MAXNODESD1 9        /* maximum number of 1D nodes */
 #define MAXMAPPINGS 20      /* maximum number of geometry mappings */
-#define MAXCONNECTIONS 200  /* maximum number of connections in nodal or dual graph */
+#define MAXCONNECTIONS 500  /* maximum number of connections in nodal or dual graph */
 #define MAXBCS 1000         /* maximum number of BCs in naming */
 #define MAXBODIES 100       /* maximum number of bodies in naming */
 #define MAXPARTITIONS 512   /* maximum number of partitions */
