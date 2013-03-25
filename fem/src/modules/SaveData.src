@@ -91,7 +91,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   INTEGER :: i,j,k,l,q,n,ierr,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
       MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd, istat
-  REAL (KIND=DP) :: CPUTime, RealTime, CPUMemory
+  REAL (KIND=DP) :: CPUTime, RealTime, CPUMemory, CT, RT
 
 
   SAVE SubroutineVisited, NumberOfVars, FileAppend, &
@@ -468,11 +468,11 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
       CASE ('cpu time')
         VALUE = CPUTime()
-        CALL AddToSaveList('value: cpu time from start (s)',VALUE,.FALSE.,ParOper)
+        CALL AddToSaveList('value: cpu time (s)',VALUE,.FALSE.,ParOper)
       
       CASE ('wall time')
         VALUE = RealTime()
-        CALL AddToSaveList('value: real time from start (s)',VALUE,.FALSE.,ParOper)
+        CALL AddToSaveList('value: real time (s)',VALUE,.FALSE.,ParOper)
       
       CASE ('cpu memory') 
         VALUE = CPUMemory()
@@ -863,6 +863,17 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     WRITE (Message,'(A,I0,A)') 'Tabulated points within ',NoElements,' elements'
     CALL Info('SaveScalars',Message)
   END IF
+
+  !------------------------------------------------------------------------------
+  ! Update time elapsaed from start if requested
+  !------------------------------------------------------------------------------
+  IF( ListGetLogical( Model % Simulation,'Simulation Timing',GotIt ) ) THEN
+    CT = CPUTime() - ListGetConstReal( Model % Simulation,'cputime0',GotIt)
+    RT = RealTime() - ListGetConstReal( Model % Simulation,'realtime0',GotIt)
+    CALL AddToSaveList('simulation: cpu time (s)',CT )
+    CALL AddToSaveList('simulation: real time (s)',RT )
+  END IF
+
 
   !------------------------------------------------------------------------------
   ! Read the scalars defined in other modules

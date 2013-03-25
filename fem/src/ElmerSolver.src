@@ -101,7 +101,7 @@
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Solver_t), POINTER :: Solver
 
-     REAL(KIND=dp) :: RealTime,tt
+     REAL(KIND=dp) :: RealTime,CPUTime,CT0,RT0,tt
 
      LOGICAL :: FirstLoad = .TRUE., FirstTime=.TRUE., Found
      LOGICAL :: Silent, Version, GotModelName
@@ -121,7 +121,12 @@ INTERFACE
 END INTERFACE
 #endif
 
-     !
+     ! Start the watches, store later
+     !--------------------------------
+     RT0 = RealTime()
+     CT0 = CPUTime()
+
+
      ! If parallel execution requested, initialize parallel environment:
      !------------------------------------------------------------------
      ParallelEnv => ParallelInit()
@@ -153,7 +158,7 @@ END INTERFACE
        !$ nthreads = omp_get_max_threads()
        IF (nthreads > 1) THEN
          ! Check if OMP_NUM_THREADS environment variable is set
-         CALL envir( 'OMP_NUM_THREADS'//char(0), threads, tlen )
+         CALL envir( 'OMP_NUM_THREADS'//CHAR(0), threads, tlen )
          IF (tlen==0) THEN
            CALL Warn('MAIN','OMP_NUM_THREADS not set. Using only 1 thread.')
            nthreads = 1
@@ -308,6 +313,14 @@ END INTERFACE
 
        CALL ListAddLogical( CurrentModel % Simulation, &
              'Initialization Phase', .TRUE. )
+
+       ! Save the start time to the list so that it may be retrieved when necessary
+       ! This could perhaps also be a global variable etc, but this will do for now.
+       !-------------------------------------------------------------------------
+       IF( ListGetLogical( CurrentModel % Simulation,'Simulation Timing') ) THEN
+         CALL ListAddConstReal( CurrentModel % Simulation,'cputime0',ct0 )
+         CALL ListAddConstReal( CurrentModel % Simulation,'realtime0',rt0 )
+       END IF
 
 !------------------------------------------------------------------------------
 !      Check for transient case
@@ -1349,7 +1362,7 @@ END INTERFACE
 !------------------------------------------------------------------------------
 
          maxtime = ListGetCReal( CurrentModel % Simulation,'Real Time Max',GotIt)
-         IF( GotIt .AND. RealTime() > maxtime ) THEN
+         IF( GotIt .AND. RealTime() - RT0 > maxtime ) THEN
             CALL Info('ElmerSolver','Reached allowed maximum real time, exiting...')
             GOTO 100
          END IF
