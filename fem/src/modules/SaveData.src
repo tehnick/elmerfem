@@ -470,7 +470,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         VALUE = CPUTime()
         CALL AddToSaveList('value: cpu time from start (s)',VALUE,.FALSE.,ParOper)
       
-      CASE ('real time')
+      CASE ('wall time')
         VALUE = RealTime()
         CALL AddToSaveList('value: real time from start (s)',VALUE,.FALSE.,ParOper)
       
@@ -1161,7 +1161,7 @@ CONTAINS
       ParOper = 'min'
 
       ! These operators should already be more of less parallel
-    CASE('partitions','cpu time','real time','cpu memory','norm','nonlin change','steady state change',&
+    CASE('partitions','cpu time','wall time','cpu memory','norm','nonlin change','steady state change',&
 	'nonlin iter','nonlin converged','steady converged')
       ParOper = 'none'
 
