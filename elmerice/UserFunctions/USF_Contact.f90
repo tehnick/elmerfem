@@ -78,7 +78,7 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
     GroundedMask => GroundedMaskVar % Values
     GroundedMaskPerm => GroundedMaskVar % Perm
   ELSE
-    CALL Info( USF_Name, 'need to get GroundedMask', Level=4)
+    CALL FATAL( USF_Name, 'need to get GroundedMask')
   END IF
 
   relchange = Model % Solver % Variable % NonLinChange
