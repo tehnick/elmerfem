@@ -6150,9 +6150,10 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   TYPE(Solver_t), TARGET :: Solver       !< Linear equation solver options.
 !------------------------------------------------------------------------------
   TYPE(Solver_t), POINTER :: SolverPointer
-  TYPE(Matrix_t), POINTER :: CollectionMatrix, RestMatrix, &
+  TYPE(Matrix_t), POINTER :: CollectionMatrix, RestMatrix, AddMatrix, &
        RestMatrixTranspose
-  REAL(KIND=dp), POINTER CONTIG :: CollectionVector(:), RestVector(:), MultiplierValues(:)
+  REAL(KIND=dp), POINTER CONTIG :: CollectionVector(:), RestVector(:),&
+                 MultiplierValues(:),AddVector(:)
   REAL(KIND=dp), ALLOCATABLE :: CollectionSolution(:)
   INTEGER, ALLOCATABLE :: TmpRow(:)
   INTEGER :: NumberOfRows, NumberOfValues, MultiplierDOFs, istat
@@ -6171,12 +6172,12 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   RestVector => RestMatrix % RHS
   IF ( .NOT. ASSOCIATED( RestVector ) ) CALL Fatal( 'AddMassFlow', 'RestVector not associated' )
 
-  ALLOCATE( TmpRow( StiffMatrix % NumberOfRows ), STAT=istat )
-  IF ( istat /= 0 ) CALL Fatal( 'SolveWithLinearRestriction', 'Memory allocation error.' )
-  
-  NumberOfValues = SIZE( RestMatrix % Values )
-  NumberOfRows = StiffMatrix % NumberOfRows
+  AddMatrix => StiffMatrix % EMatrix
+  AddVector => Null()
+  IF(ASSOCIATED(AddMatrix)) &
+    AddVector => AddMatrix % RHS
 
+  NumberOfRows = StiffMatrix % NumberOfRows
 !------------------------------------------------------------------------------
 ! If multiplier should be exported,  allocate memory and export the variable.
 !------------------------------------------------------------------------------
@@ -6202,243 +6203,68 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      END IF
   END IF
 
-!------------------------------------------------------------------------------
-! Set the RestMatrixTranspose to EMatrix-field of the RestMatrix.
-! Allocate matrix if necessary.
-!------------------------------------------------------------------------------
-  RestMatrixTranspose => RestMatrix % EMatrix
-  
-  IF ( .NOT. ASSOCIATED( RestMatrixTranspose ) ) THEN
-     RestMatrix % EMatrix => AllocateMatrix()
-     RestMatrixTranspose => RestMatrix % EMatrix     
-     RestMatrixTranspose % NumberOfRows = NumberOfRows
-     
-     ALLOCATE( RestMatrixTranspose % Rows( NumberOfRows +1 ), &
-          RestMatrixTranspose % Cols( NumberOfValues ), &
-          RestMatrixTranspose % Values( NumberOfValues ), & 
-          RestMatrixTranspose % Diag( NumberOfRows ), &
-          STAT=istat )
-     
-     IF ( istat /= 0 ) THEN
-        CALL Fatal( 'SolveWithLinearRestriction', &
-             'Memory allocation error.' )
-     END IF     
-  END IF
-
-  RestMatrixTranspose % Rows = 0
-  RestMatrixTranspose % Cols = 0
-  RestMatrixTranspose % Diag = 0
-  RestMatrixTranspose % Values = 0.0d0
-  TmpRow = 0
-
-!------------------------------------------------------------------------------
-! Create the RestMatrixTranspose
-!------------------------------------------------------------------------------
-
-! Calculate number of values / row in RestMatrixTranspose:
-!---------------------------------------------------------
-  DO i = 1, NumberOfValues
-     TmpRow( RestMatrix % Cols(i) ) = TmpRow( RestMatrix % Cols(i) ) + 1
-  END DO
-
-! Assign the row numbering to RestMatrixTranspose:
-!-------------------------------------------------
-  RestMatrixTranspose % Rows(1) = 1
-  DO i = 1, NumberOfRows
-     RestMatrixTranspose % Rows(i+1) = &
-          RestMatrixTranspose % Rows(i) + TmpRow(i)
-  END DO
-
-! Save rows begin indexes to TmpRow:
-!-----------------------------------
-  DO i = 1, NumberOfRows
-     TmpRow(i) = RestMatrixTranspose % Rows(i)
-  END DO
-
-! Assign column numbering and values to RestMatrixTranspose:
-!-----------------------------------------------------------
-  DO i = 1, RestMatrix % NumberOfRows
-     DO j = RestMatrix % Rows(i), RestMatrix % Rows(i+1) - 1        
-        k = RestMatrix % Cols(j)
-        
-        IF ( TmpRow(k) < RestMatrixTranspose % Rows(k+1) ) THEN           
-           RestMatrixTranspose % Cols( TmpRow(k) ) = i
-           RestMatrixTranspose % Values( TmpRow(k) ) = &
-                RestMatrix % Values(j)           
-           TmpRow(k) = TmpRow(k) + 1           
-        ELSE           
-           WRITE( Message, * ) 'Trying to access non-existent column', i,k
-           CALL Error( 'SolveWithLinearRestriction', Message )
-           RETURN           
-        END IF        
-     END DO
-  END DO
-  
-  CALL Info( 'SolveWithLinearRestriction', 'RestMatrixTranspose done', Level=5 )
-
-!------------------------------------------------------------------------------
-! Allocate memory for CollectionMatrix i.e. the matrix that is actually solved.
-! Allocate memory for CollectionVector and CollectionSolution too.
-!------------------------------------------------------------------------------
-  
-  NumberOfRows = StiffMatrix % NumberOfRows + RestMatrix % NumberOfRows
-  NumberOfValues = COUNT( StiffMatrix % Values /= 0.0d0 ) &
-       + 2*SIZE( RestMatrix % Values ) + RestMatrix % NumberOfRows
-
   CollectionMatrix => AllocateMatrix()
+  CollectionMatrix % Format = MATRIX_LIST
+
+  NumberOfRows = StiffMatrix % NumberOfRows
+  IF(ASSOCIATED(AddMatrix)) NumberOfRows=MAX(NumberOfRows,AddMatrix % NumberOfRows)
+  NumberOfRows = NumberOFRows + RestMatrix % NumberOfRows
+  
+  ALLOCATE( CollectionMatrix % RHS( NumberOfRows ), &
+       CollectionSolution( NumberOfRows ), STAT = istat )
+  IF ( istat /= 0 ) CALL Fatal( 'SolveWithLinearRestriction', 'Memory allocation error.' )
+
   CollectionMatrix % NumberOfRows = NumberOfRows
   
-  ALLOCATE( CollectionMatrix % Rows( NumberOfRows +1 ), &
-       CollectionMatrix % Cols( NumberOfValues ), &
-       CollectionMatrix % Values( NumberOfValues ), &
-       CollectionMatrix % Diag( NumberOfRows ), &
-       CollectionMatrix % RHS( NumberOfRows ), &
-       CollectionSolution( NumberOfRows ), &
-       STAT = istat )
-  IF ( istat /= 0 ) CALL Fatal( 'SolveWithLinearRestriction', 'Memory allocation error.' )
-  
   CollectionVector => CollectionMatrix % RHS
-    
-  CollectionMatrix % Rows = 0
-  CollectionMatrix % Cols = 0
-  CollectionMatrix % Diag = 0
-  CollectionMatrix % Values = 0.0d0
-
-  CollectionVector = 0.0d0
-  CollectionSolution = 0.0d0
-
-!------------------------------------------------------------------------------
-! Put StiffMatrix and RestMatrixTranspose into CollectionMatrix
-!------------------------------------------------------------------------------
-
-! Calculate number of values / row for upper part of ColectionMatrix:
-!--------------------------------------------------------------------
-  TmpRow = 0
-  DO i = 1, StiffMatrix % NumberOfRows
-     TmpRow(i) = COUNT( StiffMatrix % Values(StiffMatrix % Rows(i):StiffMatrix % Rows(i+1)-1)/=0.0d0 )
-     TmpRow(i) = TmpRow(i) + &
-          RestMatrixTranspose % Rows(i+1) - RestMatrixTranspose % Rows(i)     
-  END DO
-
-! Assign row numbering for upper part of CollectionMatrix:
-!---------------------------------------------------------
-  CollectionMatrix % Rows(1) = 1
-  DO i = 1, StiffMatrix % NumberOfRows     
-     CollectionMatrix % Rows(i+1) = CollectionMatrix % Rows(i) + TmpRow(i)     
-  END DO
-
-! Save rows begin indexes to TmpRow:
-!-----------------------------------
-  DO i = 1, StiffMatrix % NumberOfRows
-     TmpRow(i) = CollectionMatrix % Rows(i)
-  END DO
-
-! Assign column numbering and values for upper part of CollectionMatrix:
-!-----------------------------------------------------------------------  
-  DO i = 1, StiffMatrix % NumberOfRows     
-     DO j = StiffMatrix % Rows(i), StiffMatrix % Rows(i+1) - 1        
-        k = StiffMatrix % Cols(j)
-        
-        IF ( StiffMatrix % Values(j) /= 0.0d0 ) THEN
-           IF ( TmpRow(i) < CollectionMatrix % Rows(i+1) ) THEN           
-             CollectionMatrix % Cols( TmpRow(i) ) = k
-             CollectionMatrix % Values( TmpRow(i) ) = StiffMatrix % Values(j)           
-             TmpRow(i) = TmpRow(i) + 1           
-           ELSE           
-             WRITE( Message, * ) 'Trying to access non-existent column', i,k
-             CALL Error( 'SolveWithLinearRestriction', Message )
-             RETURN           
-          END IF        
-        END IF        
-     END DO
-!------------------------------------------------------------------------------
-     DO j = RestMatrixTranspose % Rows(i), RestMatrixTranspose % Rows(i+1) - 1        
-        k = RestMatrixTranspose % Cols(j) + StiffMatrix % NumberOfRows
-        
-        IF ( TmpRow(i) < CollectionMatrix % Rows(i+1) ) THEN           
-           CollectionMatrix % Cols( TmpRow(i) ) = k
-           CollectionMatrix % Values( TmpRow(i) ) = &
-                RestMatrixTranspose % Values(j)
-           TmpRow(i) = TmpRow(i) + 1           
-        ELSE           
-           WRITE( Message, * ) 'Trying to access non-existent column', i,k
-           CALL Error( 'SolveWithLinearRestriction', Message )
-           RETURN           
-        END IF        
-     END DO     
-IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
-  END DO! <- NumberOfRows in upper part of CollectioMatrix.
-
-! Assign diagonal numbering for upper part of CollectionMatrix:
-!--------------------------------------------------------------
-  DO i = 1, StiffMatrix % NumberOfRows
-!    CollectionMatrix % Diag(i) = StiffMatrix % Diag(i) &
-!         + RestMatrixTranspose % Rows(i) -1     
-       DO j=CollectionMatrix % Rows(i),CollectionMatrix % Rows(i+1)-1
-          IF ( CollectionMatrix % Cols(j) == i ) THEN
-             CollectionMatrix % Diag(i) = j
-             EXIT
-          END IF
-       END DO
-  END DO
-  
-  CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix upper part done', Level=5 ) 
+  CollectionVector = 0.0_dp
+  CollectionSolution = 0.0_dp
 
 !------------------------------------------------------------------------------
 ! Put the RestMatrix to lower part of CollectionMatrix
 !------------------------------------------------------------------------------
+  DO i=RestMatrix % NumberOfRows,1,-1
+    k=StiffMatrix % NumberOfRows
+    IF(ASSOCIATED(AddMatrix)) k=MAX(k,AddMatrix % NumberOfRows)
+    k=k+i
 
-! Assign row numbering for lower part of CollectionMatrix:
-!---------------------------------------------------------
-  NumberOfRows = StiffMatrix % NumberOfRows
-  NumberOfValues = COUNT( StiffMatrix % Values /= 0 ) &
-       + SIZE( RestMatrixTranspose % Values )
-  
-  DO i = 1, RestMatrix % NumberOfRows +1     
-     CollectionMatrix % Rows( i + NumberOfRows ) = &
-          NumberOfValues + RestMatrix % Rows(i) + (i-1)     
+    CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix,k,k,0._dp )
+
+    DO j=RestMatrix % Rows(i+1)-1,RestMatrix % Rows(i),-1
+      CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
+           k, RestMatrix % Cols(j), RestMatrix % Values(j))
+
+      CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
+           RestMatrix % Cols(j), k, RestMatrix % Values(j))
+    END DO
+    CollectionVector(k) = RestVector(i)
   END DO
 
-! Save rows begin indexes to TmpRow:
-!-----------------------------------
-  TmpRow = 0
-  DO i = 1, RestMatrix % NumberOfRows
-     TmpRow(i) = RestMatrix % Rows(i)
-  END DO
+!------------------------------------------------------------------------------
+! Put the AddMatrix to upper part of CollectionMatrix
+!------------------------------------------------------------------------------
+  IF(ASSOCIATED(AddMatrix)) THEN
+    DO i=AddMatrix % NumberOfRows,1,-1
+      DO j=AddMatrix % Rows(i+1)-1,AddMatrix % Rows(i),-1
+        CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
+             i, AddMatrix % Cols(j), AddMatrix % Values(j))
+      END DO
+      CollectionVector(i) = CollectionVector(i) + AddVector(i)
+    END DO
+  END IF
+!------------------------------------------------------------------------------
+! Put the StiffMatrix to upper part of CollectionMatrix
+!------------------------------------------------------------------------------
 
-! Assign column numbering and values to lower part of CollectionMatrix:
-!----------------------------------------------------------------------
-  NumberOfRows = StiffMatrix % NumberOfRows
-  
-  DO i = 1, RestMatrix % NumberOfRows     
-     DO j = RestMatrix % Rows(i), RestMatrix % Rows(i+1) - 1        
-        k = RestMatrix % Cols(j)
-        
-        IF ( TmpRow(i) < CollectionMatrix % Rows( i + NumberOfRows +1 ) ) THEN           
-           l = TmpRow(i) + NumberOfValues + (i-1)           
-           CollectionMatrix % Cols(l) = k
-           CollectionMatrix % Values(l) = RestMatrix % Values(j)           
-           TmpRow(i) = TmpRow(i) + 1           
-        ELSE           
-           WRITE( Message, * ) 'Trying to access non-existent column', i,k
-           CALL Error( 'SolveWithLinearRestriction', Message )
-           RETURN           
-        END IF        
-     END DO
-       
-     IF ( TmpRow(i) < CollectionMatrix % Rows( i + NumberOfRows +1 ) ) THEN        
-        l = TmpRow(i) + NumberOfValues + (i-1)        
-        CollectionMatrix % Cols(l) = i + NumberOfRows
-        CollectionMatrix % Diag( i + NumberOfRows ) = l
-        CollectionMatrix % Values(l) = 0
-        TmpRow(i) = TmpRow(i) + 1        
-     ELSE        
-        WRITE( Message, * ) 'Trying to access non-existent column', i,k
-        CALL Error( 'SolveWithLinearRestriction', Message )
-        RETURN          
-     END IF     
-  END DO! <- NumberOfRows in lower part of CollectionMatrix
-    
+  DO i=StiffMatrix % NumberOfRows,1,-1
+    DO j=StiffMatrix % Rows(i+1)-1,StiffMatrix % Rows(i),-1
+      CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
+        i, StiffMatrix % Cols(j), StiffMatrix % Values(j) )
+    END DO
+    CollectionVector(i) = CollectionVector(i) + ForceVector(i)
+  END DO
+  CALL List_toCRSMatrix(CollectionMatrix)
+
   ! if zero=zero constraint, solve lambda_i=0 instead:
   ! -------------------------------------------------
   DO i=stiffmatrix % numberofrows+1,collectionmatrix % numberofrows
@@ -6468,16 +6294,15 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 !------------------------------------------------------------------------------
 
   j = StiffMatrix % NumberOfRows  
-  CollectionVector( 1:j ) = ForceVector( 1:j )
   CollectionSolution( 1:j ) = Solution( 1:j )
   
   i = StiffMatrix % NumberOfRows +1
   j = CollectionMatrix % NumberOfRows
-  k = RestMatrix % NumberOfRows
-  CollectionSolution( i:j ) = 0
-  CollectionVector( i:j ) = RestVector( 1:k )
+  CollectionSolution(i:j) = 0
+  IF(ASSOCIATED(MultiplierValues)) THEN
+    CollectionSolution(i:j) = MultiplierValues(1:j-i+1)
+  END IF
 
-  
   CALL Info( 'SolveWithLinearRestriction', 'CollectionVector done', Level=5 )
 
 !------------------------------------------------------------------------------
@@ -6491,22 +6316,27 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
     Solution = 0.0d0
     i = 1
     j = StiffMatrix % NumberOfRows
-    Solution( i:j ) = CollectionSolution( i:j )
+    Solution(i:j) = CollectionSolution(i:j)
 
     IF ( ExportMultiplier ) THEN
        i = StiffMatrix % NumberOfRows
        j = RestMatrix % NumberOfRows
+       IF(ASSOCIATED(AddMatrix)) &
+         j=j+MAX(0,AddMatrix % NumberOfRows-StiffMatrix%NumberOFRows)
+
        MultiplierValues = 0.0d0
        MultiplierValues(1:j) = CollectionSolution(i+1:i+j)
     END IF
 !------------------------------------------------------------------------------
-    CALL FreeMatrix( CollectionMatrix )
-    DEALLOCATE( TmpRow, CollectionSolution )
+  ! CALL FreeMatrix( CollectionMatrix )
+    DEALLOCATE( CollectionSolution )
 
     CALL Info( 'SolveWithLinearRestriction', 'All done', Level=5 )
 
   END SUBROUTINE SolveWithLinearRestriction
 !------------------------------------------------------------------------------
+      
+
       
 
 !------------------------------------------------------------------------------
