@@ -1,0 +1,118 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE edf>
+<edf version="1.0" >
+   <PDE Name="MgDyn2D" >
+      <Name>MgDyn2D</Name>
+      <Material>
+        <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
+        <Parameter Widget="Edit" >
+            <Name> Reluctivity </Name>
+            <Type> String </Type>
+            <Whatis> Give the reluctivitity (inverse of permeability). </Whatis>
+         </Parameter>         
+		 <Parameter Widget="Edit" >
+            <Name> Relative Permeability </Name>
+            <Type> String </Type>
+            <Whatis> Give the relative permeability compared to vacuum. </Whatis>
+         </Parameter>    
+         <Parameter Widget="Edit" >
+            <Name> Electric Conductivity </Name>
+            <Type> String </Type>
+            <Whatis> Give the electric conductivity. </Whatis>
+         </Parameter>    
+         <Parameter Widget="Edit" >
+            <Name> Magnetization 1</Name>
+            <Type> String </Type>
+            <Whatis> Give the magnetization in x-direction. </Whatis>
+         </Parameter>    
+         <Parameter Widget="Edit" >
+            <Name> Magnetization 2</Name>
+            <Type> String </Type>
+            <Whatis> Give the magnetization in y-direction. </Whatis>
+         </Parameter> 
+         <Parameter Widget="Edit" >
+            <Name> H-B Curve</Name>
+            <Type> String </Type>
+            <Whatis> Give the H-B Curve as a cubic spline. </Whatis>
+         </Parameter> 
+      </Material>   
+	  
+      <BodyForce>
+      <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
+          <Parameter Widget="Edit" >
+            <Name> Current Density </Name>
+            <Type> String </Type>
+            <Whatis> Give the current density. </Whatis>
+         </Parameter>
+		 <Parameter Widget="CheckBox" >
+            <Name> Calculate Potential </Name>
+            <Type> Logical </Type>
+            <Whatis> Calculate the potential. </Whatis>
+         </Parameter>    
+      </BodyForce>   
+      <InitialCondition>   
+        <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
+          <Parameter Widget="Edit" >
+            <Name> Az </Name>
+            <Type> String </Type>
+            <Whatis> Give the initial condition for the vector potential. </Whatis>
+         </Parameter>    
+      </InitialCondition>   
+      <Solver>
+         <Parameter Widget="Edit" >
+           <Name> Procedure </Name>
+           <DefaultValue> "MagnetoDynamics2D" "MagnetoDynamics2D" </DefaultValue>
+         </Parameter>
+        <Parameter Widget="Edit">
+           <Name> Variable </Name>
+           <DefaultValue> Az </DefaultValue>
+         </Parameter>
+       </Solver>
+
+      <BoundaryCondition>
+         <Parameter Widget="Label" > <Name> Dirichlet conditions </Name> </Parameter>
+         <Parameter  Widget="Edit">
+           <Name> Az </Name>
+           <Whatis> Give vector potential value for this boundary. </Whatis>
+         </Parameter>
+
+         <Parameter  Widget="Edit">
+           <Name> Az Condition </Name>
+           <Whatis> If the given value is less than zero, apply flux condition insted of the Dirichlet Condition. To be generally useful space and/or time varying values may be given. </Whatis>
+         </Parameter>
+
+         <Parameter Widget="Label" > <Name> Neumann conditions </Name> </Parameter>
+
+		 <Parameter Widget="CheckBox" >
+            <Name> Infinity BC </Name>
+            <Type> Logical </Type>
+            <Whatis> Use a farfield condition for the vector potential. </Whatis>
+         </Parameter>
+	  </BoundaryCondition>
+   </PDE>
+   <PDE Name="MgDyn2DPost" >
+      <Name>MgDyn2DPost</Name>
+      <Solver>
+         <Parameter Widget="Edit" >
+           <Name> Procedure </Name>
+           <DefaultValue> "MagnetoDynamics2D" "BSolver" </DefaultValue>
+         </Parameter>
+        <Parameter Widget="CheckBox">
+           <Name> Discontinuous Galerkin </Name>
+           <Type> Logical </Type>
+		   <Whatis> To show discontinuities use DG for computation of electric fields</Whatis>
+         </Parameter>
+        <Parameter Widget="CheckBox">
+           <Name> Average Within Materials </Name>
+           <Type> Logical </Type>
+		   <Whatis> In conjunction with DG apply averaging but only within materials.</Whatis>
+         </Parameter>
+       </Solver>
+   </PDE>
+
+</edf>
+
+
+
+
+
