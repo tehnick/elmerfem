@@ -127,6 +127,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+
+
 !------------------------------------------------------------------------------
   SUBROUTINE LoadIncludeFile( Model,InFileUnit,FileName,MeshDir,MeshName,ScanOnly )
 !------------------------------------------------------------------------------
@@ -215,7 +218,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
 !> Subroutine for loading the fields from the input file. This may be 
 !> used multiple times. On first calling the ScanOnly should be true 
@@ -228,7 +230,7 @@ CONTAINS
 
     CHARACTER(LEN=*) :: FileName
     TYPE(Model_t) :: Model
-    INTEGER :: InFileUnit
+    INTEGER :: InFileUnit, iostat
     LOGICAL :: BaseLoad
     LOGICAL :: ScanOnly
     LOGICAL, OPTIONAL :: runc
@@ -417,7 +419,10 @@ CONTAINS
       ELSE IF ( Section(1:18) == 'boundary condition' ) THEN
 
         IF ( ScanOnly ) THEN
-           READ( Section(19:),* ) Arrayn
+           READ( Section(19:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            Model % NumberOFBCs = MAX( Model % NumberOfBCs, Arrayn )
         ELSE
            IF ( .NOT.ASSOCIATED( Model % BCs ) ) THEN
@@ -426,7 +431,11 @@ CONTAINS
                  NULLIFY( Model % BCs(i) % Values )
               END DO
            ELSE 
-             READ( Section(19:),* ) Arrayn
+             READ( Section(19:),*,iostat=iostat ) Arrayn
+             IF( iostat /= 0 ) THEN
+               CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+             END IF
+
              Model % NumberOfBCs = MAX( Arrayn, Model % NumberOfBCs )
 
              IF ( SIZE( Model % BCs ) < Model % NumberOfBCs ) THEN
@@ -442,7 +451,11 @@ CONTAINS
              END IF
            END IF
 
-           READ( Section(19:),* ) Arrayn
+           READ( Section(19:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
+
            IF ( Arrayn <= 0 .OR. Arrayn > Model % NumberOfBCs ) THEN
               WRITE( Message, * ) 'Boundary Condition section number: ',Arrayn, &
                             ' exeeds header value.'
@@ -468,7 +481,11 @@ CONTAINS
               END DO
            END IF
 
-           READ( Section(9:),* ) Arrayn
+           READ( Section(9:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
+
            BoundaryIndex = BoundaryIndex + 1
            IF ( BoundaryIndex <= 0 .OR. BoundaryIndex >  &
                  Model % NumberOfBoundaries ) THEN
@@ -483,7 +500,10 @@ CONTAINS
       ELSE IF ( Section(1:17) == 'initial condition' ) THEN
 
         IF ( ScanOnly ) THEN
-           READ( Section(18:),* ) Arrayn
+           READ( Section(18:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            Model % NumberOFICs = MAX( Model % NumberOfICs, ArrayN )
         ELSE
            IF ( .NOT.ASSOCIATED( Model % ICs ) ) THEN
@@ -492,7 +512,10 @@ CONTAINS
                  NULLIFY( Model % ICs(i) % Values )
               END DO
            ELSE
-              READ( Section(18:),* ) Arrayn
+              READ( Section(18:),*,iostat=iostat ) Arrayn
+              IF( iostat /= 0 ) THEN
+                CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+              END IF
               Model % NumberOfICs = MAX( Model % NumberOfICs, Arrayn )
               IF ( SIZE( Model % ICs ) < Model % NumberOfICs ) THEN
                 ALLOCATE( AIC(Model % NumberOfICs) )
@@ -507,7 +530,11 @@ CONTAINS
               END IF
            END IF
 
-           READ( Section(18:),* ) Arrayn
+           READ( Section(18:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
+
            IF ( Arrayn <= 0 .OR. Arrayn > Model % NumberOfICs ) THEN
               WRITE( Message, * ) 'Initial Condition section number: ',Arrayn, &
                           ' exeeds header value.'
@@ -522,7 +549,10 @@ CONTAINS
       ELSE IF ( Section(1:8) == 'material' ) THEN
 
         IF ( ScanOnly ) THEN
-           READ( Section(9:),* ) Arrayn
+           READ( Section(9:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            Model % NumberOFMaterials = MAX( Model % NumberOfMaterials, ArrayN )
         ELSE
            IF ( .NOT.ASSOCIATED( Model % Materials ) ) THEN
@@ -531,7 +561,10 @@ CONTAINS
                  NULLIFY( Model % Materials(i) % Values )
               END DO
            ELSE
-              READ( Section(9:),* ) Arrayn
+              READ( Section(9:),*,iostat=iostat ) Arrayn
+              IF( iostat /= 0 ) THEN
+                CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+              END IF              
               Model % NumberOfMaterials = MAX( Arrayn, Model % NumberOFMaterials ) 
               IF ( SIZE( Model % Materials ) < Model % NumberOfMaterials ) THEN
                 ALLOCATE( AMaterial(Model % NumberOfMaterials) )
@@ -546,7 +579,10 @@ CONTAINS
               END IF
            END IF
 
-           READ( Section(9:),* ) Arrayn
+           READ( Section(9:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            IF ( Arrayn <= 0 .OR. Arrayn > Model % NumberOfMaterials ) THEN
               WRITE( Message, * ) 'Material section number: ',Arrayn, &
                              ' exeeds header value.'
@@ -558,7 +594,10 @@ CONTAINS
       ELSE IF ( Section(1:10) == 'body force' ) THEN
 
         IF ( ScanOnly ) THEN
-           READ( Section(12:),* ) Arrayn
+           READ( Section(12:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            Model % NumberOFBodyForces = MAX( Model % NumberOFBodyForces, ArrayN)
         ELSE
            IF ( .NOT.ASSOCIATED( Model % BodyForces ) ) THEN
@@ -567,7 +606,10 @@ CONTAINS
                 NULLIFY( Model % BodyForces(i) % Values )
              END DO
            ELSE
-              READ( Section(12:),* ) Arrayn
+              READ( Section(12:),*,iostat=iostat ) Arrayn
+              IF( iostat /= 0 ) THEN
+                CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+              END IF              
               Model % NumberOFBodyForces = MAX( Arrayn, Model % NumberOfBodyForces )
               IF ( SIZE( Model % BodyForces ) < Model % NumberOfBodyForces ) THEN
                  ALLOCATE( ABF(Model % NumberOfBodyForces) )
@@ -582,7 +624,10 @@ CONTAINS
               END IF
            END IF
 
-           READ( Section(12:),* ) Arrayn
+           READ( Section(12:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            IF ( Arrayn <= 0 .OR. Arrayn > Model % NumberOfBodyForces ) THEN
               WRITE( Message, * ) 'Body Force section number: ',Arrayn, &
                           ' exeeds header value.'
@@ -594,7 +639,10 @@ CONTAINS
       ELSE IF ( Section(1:8) == 'equation' ) THEN
 
         IF ( ScanOnly ) THEN
-           READ( Section(9:),* ) Arrayn
+           READ( Section(9:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            Model % NUmberOfEquations = MAX( Model % NumberOFEquations, ArrayN )
         ELSE
            IF ( .NOT.ASSOCIATED( Model % Equations ) ) THEN
@@ -603,7 +651,10 @@ CONTAINS
                NULLIFY( Model % Equations(i) % Values )
              END DO
            ELSE
-              READ( Section(9:),* ) Arrayn
+              READ( Section(9:),*,iostat=iostat ) Arrayn
+              IF( iostat /= 0 ) THEN
+                CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+              END IF
               Model % NumberOFEquations = MAX( Arrayn, Model % NumberOFEquations )
               IF ( SIZE( Model % Equations ) < Model % NumberOfEquations ) THEN
                 ALLOCATE( AEquation(Model % NumberOfEquations) )
@@ -618,7 +669,10 @@ CONTAINS
               END IF
            END IF
 
-           READ( Section(9:),* ) Arrayn
+           READ( Section(9:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            IF ( Arrayn <= 0 .OR. Arrayn > Model % NumberOfEquations ) THEN
               WRITE( Message, * ) 'Equation section number: ',Arrayn, &
                            ' exeeds header value.'
@@ -632,7 +686,10 @@ CONTAINS
       ELSE IF ( Section(1:4) == 'body' ) THEN
 
         IF ( ScanOnly ) THEN
-           READ( Section(5:),* ) Arrayn
+           READ( Section(5:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            Model % NumberOFBodies = MAX( Model % NumberOFBodies, ArrayN )
         ELSE
            IF ( .NOT.ASSOCIATED( Model % Bodies ) ) THEN
@@ -641,7 +698,10 @@ CONTAINS
                NULLIFY( Model % Bodies(i) % Values )
              END DO
            ELSE
-              READ( Section(5:),* ) Arrayn
+              READ( Section(5:),*,iostat=iostat ) Arrayn
+              IF( iostat /= 0 ) THEN
+                CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+              END IF
               Model % NumberOFBodies = MAX( Arrayn, Model % NumberOFBodies )
               IF ( SIZE( Model % Bodies ) < Model % NumberOfBodies ) THEN
                  ALLOCATE( ABody(Model % NumberOfBodies) )
@@ -656,7 +716,10 @@ CONTAINS
               END IF
            END IF
 
-           READ( Section(5:),* ) Arrayn
+           READ( Section(5:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            IF ( Arrayn <= 0 .OR. Arrayn > Model % NumberOfBodies ) THEN
               WRITE( Message, * ) 'Body section number: ',Arrayn, &
                         ' exeeds header value. Aborting. '
@@ -668,7 +731,10 @@ CONTAINS
       ELSE IF ( Section(1:6) == 'solver' ) THEN
 
         IF ( ScanOnly ) THEN
-           READ( Section(7:),* ) Arrayn
+           READ( Section(7:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            Model % NumberOfSolvers = MAX( Model % NumberOfSolvers, ArrayN )
         ELSE
            IF ( .NOT.ASSOCIATED( Model % Solvers ) ) THEN
@@ -682,7 +748,10 @@ CONTAINS
                 Model % Solvers(i) % NumberOfActiveElements = 0
              END DO
            ELSE
-              READ( Section(7:),* ) Arrayn
+              READ( Section(7:),*,iostat=iostat ) Arrayn
+              IF( iostat /= 0 ) THEN
+                CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+              END IF
               Model % NumberOfSolvers = MAX( Arrayn, Model % NumberOfSolvers )
               IF ( SIZE(Model % Solvers) < Model % NumberOfSolvers ) THEN
                 ALLOCATE( ASolvers(Model % NumberOfSolvers) )
@@ -703,7 +772,10 @@ CONTAINS
               END IF
            END IF
 
-           READ( Section(7:),* ) Arrayn
+           READ( Section(7:),*,iostat=iostat ) Arrayn
+           IF( iostat /= 0 ) THEN
+             CALL Fatal('LoadInputFile','Problem reading: '//TRIM(Section))
+           END IF
            IF ( Arrayn <= 0 .OR. Arrayn > Model % NumberOfSolvers ) THEN
               WRITE( Message, * ) 'Solver section number: ',Arrayn, &
                                ' exeeds header value. Aborting. '
@@ -1103,7 +1175,8 @@ CONTAINS
       LOGICAL :: ReturnType, ScanOnly, String_literal,  SizeGiven, Cubic, AllInt
 
       INTEGER(KIND=AddrInt) :: Proc
-      INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, TYPE, abuflen=0,maxbuflen=0
+      INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, TYPE, &
+          abuflen=0, maxbuflen=0, iostat
 
       ALLOCATE( ATt(1), ATx(1,1,1), IValues(1) )
 #ifdef ALLOC_CHAR
@@ -1225,6 +1298,7 @@ CONTAINS
 
                SELECT CASE( TYPE )
                CASE( LIST_TYPE_CONSTANT_SCALAR )
+
                   k = 0
                   DO i=1,N1
                      DO j=1,N2
@@ -1245,7 +1319,12 @@ CONTAINS
                           slen = LEN_TRIM(str)
                         END IF
 
-                        IF (.NOT.ScanOnly ) READ( str(k:),* ) ATx(i,j,1)
+                        IF (.NOT.ScanOnly ) THEN
+                          READ( str(k:),*,iostat=iostat ) ATx(i,j,1)
+                          IF( iostat /= 0 ) THEN
+                            CALL Fatal('SectionContents','Problem reading real keyword: '//TRIM(Name)//': '//str(k:)) 
+                          END IF
+                        END IF
                      END DO
                   END DO
  
@@ -1259,6 +1338,7 @@ CONTAINS
                   END IF
   
                CASE( LIST_TYPE_VARIABLE_SCALAR )
+
                  IF (ScanOnly) THEN
                    AbufLen=0
                  ELSE
@@ -1276,7 +1356,12 @@ CONTAINS
                    slen = LEN_TRIM(str)
                    IF ( .NOT. ScanOnly ) THEN
                      n = n + 1
-                     READ( str,* ) ATt(n)
+
+                     READ( str,*,iostat=iostat ) ATt(n)
+                     IF( iostat /= 0 ) THEN
+                       CALL Fatal('SectionContents','Problem reading real keyword: '//TRIM(Name)//': '//str) 
+                     END IF
+
                    ELSE
                      AbufLen = AbufLen+1
                    END IF
@@ -1302,7 +1387,13 @@ CONTAINS
                           slen = LEN_TRIM(str)
                        END IF
 
-                       IF ( .NOT. ScanOnly ) READ( str(k:),* ) ATx(i,j,n)
+                       IF ( .NOT. ScanOnly ) THEN
+                         READ( str(k:),*,iostat=iostat ) ATx(i,j,n)
+                         IF( iostat /= 0 ) THEN
+                           CALL Fatal('SectionContents','Problem reading real keyword: '//TRIM(Name)//': '//str(k:)) 
+                         END IF
+                       END IF
+
                      END DO
                    END DO
                  END DO
@@ -1329,8 +1420,11 @@ CONTAINS
                IF ( str(str_beg:str_beg+3) == 'true' .OR. &
                  str(str_beg:str_beg) == '1' ) THEN
                  CALL ListAddLogical( List,Name,.TRUE. )
-               ELSE 
+               ELSE IF ( str(str_beg:str_beg+4) == 'false' .OR. &
+                 str(str_beg:str_beg) == '0' ) THEN
                  CALL ListAddLogical( List,Name,.FALSE. )
+               ELSE 
+                 CALL Fatal('SectionContents','Problem reading logical keyword: '//TRIM(str(str_beg:)))
                END IF
             END IF
             EXIT
@@ -1350,20 +1444,7 @@ CONTAINS
                  END IF
                END IF
              ELSE
-! Two different ways of checking that the string is ok as integer
-! The 2nd one just checks for decimal points, and is currently used.
-#if 0
-               k = VERIFY( str( str_beg:),' 0123456789',.FALSE.)
-               IF( k > 0 ) THEN
-                 CALL Fatal('','Invalidr Integer for > '//TRIM(Name)//' < : '// &
-                     TRIM(str( str_beg:)) )                 
-               END IF
-#else
-               IF( INDEX( str( str_beg:),'.') /= 0 ) THEN
-                 CALL Fatal('','Invalidr Integer for > '//TRIM(Name)//' < : '// &
-                     TRIM(str( str_beg:)) )
-               END IF
-#endif
+
                IF ( SizeGiven ) THEN
                  IF ( .NOT. ScanOnly ) THEN
                    IF (SIZE(IValues)<n1) THEN
@@ -1391,12 +1472,21 @@ CONTAINS
                      k = 1
                      slen = LEN_TRIM(str)
                    END IF
-                   IF ( .NOT. ScanOnly ) READ( str(k:),* ) IValues(i)
+                   IF ( .NOT. ScanOnly ) THEN
+                     READ( str(k:),*,iostat=iostat ) IValues(i)
+                     IF( iostat /= 0 ) THEN
+                       CALL Fatal('SectionContents','Problem reading integer keyword: '//TRIM(Name)//': '//str(k:)) 
+                     END IF
+                   END IF
+
                  END DO
                  IF ( .NOT. ScanOnly ) CALL ListAddIntegerArray( &
                               List,Name,N1,IValues )
                ELSE IF (.NOT.ScanOnly) THEN
-                 READ( str(str_beg:),* ) k 
+                 READ( str(str_beg:),*,iostat=iostat ) k 
+                 IF( iostat /= 0 ) THEN
+                   CALL Fatal('SectionContents','Problem reading integer keyword: '//TRIM(Name)//': '//str(str_beg:)) 
+                 END IF                 
                  CALL ListAddInteger( List,Name,k )
                END IF
              END IF
@@ -1424,6 +1514,7 @@ CONTAINS
             END DO
 
             Depname = str(str_beg:k)
+
             TYPE = LIST_TYPE_VARIABLE_SCALAR
 
           CASE('equals')
