@@ -104,6 +104,11 @@
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
+     IF( CurrentCoordinateSystem() /= Cartesian ) THEN
+       CALL Fatal('PoissonBEMSolver','This solver is implemented only for cartesian coordinates!')
+     END IF
+
+
      Potential   => Solver % Variable % Values
 
      StiffMatrix => Solver % Matrix
@@ -132,10 +137,10 @@
         DO t=1,Solver % NumberOFActiveElements
            CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
 
-           IF ( CurrentElement % Type % ElementCode == 101 ) CYCLE
+           IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
            IF ( .NOT. ASSOCIATED( CurrentElement % BoundaryInfo ) ) CYCLE
 
-           DO j=1,CurrentElement % Type % NumberOfNodes
+           DO j=1,CurrentElement % TYPE % NumberOfNodes
               k = CurrentElement % NodeIndexes(j)
               IF ( PotentialPerm(k) == 0 ) THEN
                  BoundaryNodes = BoundaryNodes + 1
@@ -188,9 +193,9 @@ at = CPUTime()
 
        CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
        IF ( .NOT. ASSOCIATED( CurrentElement % BoundaryInfo ) )  CYCLE
-       IF ( CurrentElement % Type % ElementCode == 101 ) CYCLE
+       IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
 
-       n = CurrentElement % Type % NumberOfNodes
+       n = CurrentElement % TYPE % NumberOfNodes
        NodeIndexes => CurrentElement % NodeIndexes
 
        DO i=1,Model % NumberOfBCs
@@ -228,7 +233,7 @@ at = CPUTime()
         CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(i) )
         IF ( ASSOCIATED( CurrentElement % BoundaryInfo ) ) CYCLE
 
-        n = CurrentElement % Type % NumberOfNodes
+        n = CurrentElement % TYPE % NumberOfNodes
         NodeIndexes => CurrentElement % NodeIndexes
 
         k = ListGetInteger( Model % Bodies( &
@@ -259,9 +264,9 @@ at = CPUTime()
      DO t=1,Solver % NumberOfActiveElements
         CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
         IF ( .NOT. ASSOCIATED( CurrentElement % BoundaryInfo ) ) CYCLE
-        IF ( CurrentElement % Type % ElementCode == 101 ) CYCLE
+        IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
 
-        n = CurrentElement % Type % NumberOfNodes
+        n = CurrentElement % TYPE % NumberOfNodes
         NodeIndexes => CurrentElement % NodeIndexes
  
         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x( NodeIndexes )
@@ -329,7 +334,7 @@ at = CPUTime()
            CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
            IF ( .NOT. ASSOCIATED( CurrentElement % BoundaryInfo ) ) CYCLE
 
-           n = CurrentElement % Type % NumberOfNodes
+           n = CurrentElement % TYPE % NumberOfNodes
            NodeIndexes => CurrentElement % NodeIndexes
 
            ElementNodes % x(1:n) = Solver % Mesh % Nodes % x( NodeIndexes )
@@ -440,7 +445,7 @@ at = CPUTime()
 !------------------------------------------------------------------------------
 !      Numerical integration
 !------------------------------------------------------------------------------
-       SELECT CASE( Element % Type % ElementCode / 100 )
+       SELECT CASE( Element % TYPE % ElementCode / 100 )
        CASE(2)
           IntegStuff = GaussPoints( Element,4 )
        CASE(3)
@@ -545,7 +550,7 @@ at = CPUTime()
 !------------------------------------------------------------------------------
 !      Numerical integration
 !------------------------------------------------------------------------------
-       SELECT CASE( Element % Type % ElementCode / 100 )
+       SELECT CASE( Element % TYPE % ElementCode / 100 )
        CASE(2)
           IntegStuff = GaussPoints( Element,4 )
        CASE(3)
