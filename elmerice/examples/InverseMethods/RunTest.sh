@@ -5,8 +5,9 @@ export np=4
 
 # Test to run 
 
-file=Adjoint_Beta.sif  # Control inverse method
-#file=Robin_Beta.sif   # Robin inverse method
+file=Adjoint_Beta.sif  # Control inverse method; optimisation of the slip coef.
+file=Adjoint_Mu.sif    # Control inverse method; optimisation of the Viscosity
+#file=Robin_Beta.sif   # Robin inverse method; optimisation of the slip coef.
 
 ## make compilation and Mesh
 make clean
