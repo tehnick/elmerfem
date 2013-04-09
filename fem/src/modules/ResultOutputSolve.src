@@ -3834,23 +3834,23 @@ CONTAINS
     DO Rank = 0,1
       DO Vari = 1, 99
         IF( Rank == 0 ) THEN
-          WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+          WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
         ELSE
-          WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
+          WRITE(Txt,'(A,I0)') 'Vector Field Elemental ',Vari
         END IF
-        
         FieldName = GetString( Params, TRIM(Txt), Found )
-	L = .FALSE.
+        L = Found
+
         IF(.NOT. Found) THEN
           IF( Rank == 0 ) THEN
-            WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
+            WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
           ELSE
-            WRITE(Txt,'(A,I0)') 'Vector Field Elemental ',Vari
+            WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
           END IF
           FieldName = GetString( Params, TRIM(Txt), Found )
-          IF(.NOT. Found) EXIT
-	  L = .TRUE.
         END IF
+
+        IF(.NOT. Found) EXIT
         
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
@@ -3860,7 +3860,7 @@ CONTAINS
         IF(.NOT. ASSOCIATED(Solution)) THEN
 	  IF( L ) THEN
             WRITE(Txt, '(A,A)') 'Nonexistent variable 2: ',TRIM(FieldName)
-            CALL Warn('WriteVtuXMLFile', Txt)
+            CALL Fatal('WriteVtuXMLFile', Txt)
           END IF
           CYCLE
         END IF
@@ -4328,9 +4328,10 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Var,Var1
     CHARACTER(LEN=512) :: str
     INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs
-    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName, FullName
+    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, &
+        FieldName, FullName, ShortName
     LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector, &
-               AllActive, ThisActive
+               AllActive, ThisActive, L
     LOGICAL, POINTER :: ActivePartition(:)
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:)
@@ -4437,6 +4438,8 @@ CONTAINS
           END IF
         END IF
 
+        IF( Solution % TYPE == Variable_on_nodes_on_elements ) CYCLE
+
         IF( ASSOCIATED(Solution % EigenVectors)) THEN
            NoModes = SIZE( Solution % EigenValues )
            IF( ComponentVector ) THEN
@@ -4503,45 +4506,154 @@ CONTAINS
     END DO
     WRITE( VtuUnit,'(A)') '    </PPointData>'
 
+
+
     ! Elementwise information
     !-------------------------------------
+    WRITE( VtuUnit,'(A)') '    <PCellData>'
+
+    IF( ScalarsExist .OR. VectorsExist ) THEN
+      DO Rank = 0,2
+        DO Vari = 1, 99
+          IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field Elemental ',Vari
+          FieldName = GetString( Params, TRIM(Txt), Found )
+          L = Found 
+          
+          IF(.NOT. Found) THEN          
+            IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+            IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
+            FieldName = GetString( Params, TRIM(Txt), Found )
+          END IF
+          IF(.NOT. Found ) EXIT
+          
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
+          ComponentVector = .FALSE.
+
+          IF(.NOT. ASSOCIATED(Solution)) THEN
+            Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1')
+            IF( ASSOCIATED(Solution)) THEN 
+              ComponentVector = .TRUE.
+            ELSE IF( L ) THEN
+              WRITE(Txt, '(A,A)') 'Nonexistent variable 3: ',TRIM(FieldName)
+              CALL Fatal('WriteVtuXMLFile', Txt)
+            END IF
+          END IF
+          
+          IF( Solution % TYPE /= Variable_on_nodes_on_elements ) CYCLE
+
+          IF( ASSOCIATED(Solution % EigenVectors)) THEN
+            NoModes = SIZE( Solution % EigenValues )
+            IF( ComponentVector ) THEN
+              CALL Warn('WritePvtuXMLFile','Eigenmodes cannot be given componentwise!')
+              CYCLE
+            ELSE IF( EigenAnalysis ) THEN
+              IF( GotActiveModes ) THEN
+                IndField = ActiveModes( FileIndex ) 
+              ELSE
+                IndField = FileIndex
+              END IF
+              IF( IndField > NoModes ) THEN
+                CALL Warn('WriteVtuXMLFile','Too few eigenmodes!')
+                CYCLE
+              END IF
+              NoModes = 1
+              NoFields = 1
+            ELSE	  
+              IF( MaxModes > 0 ) NoModes = MIN( MaxModes, NoModes )
+              NoFields = NoModes
+            END IF
+          ELSE
+            NoModes = 0 
+            NoFields = 1
+          END IF
+          
+          dofs = Solution % DOFs
+          IF( ComponentVector ) THEN
+            Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2')
+            IF( ASSOCIATED(Solution)) dofs = 2
+            Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3')
+            IF( ASSOCIATED(Solution)) dofs = 3
+          END IF
+          
+          IF( dofs > 1 ) THEN
+            sdofs = MAX(dofs,3)
+          ELSE
+            sdofs = 1
+          END IF
+
+          DO iField = 1, NoFields
+            
+            IF( NoModes == 0 .OR. EigenAnalysis ) THEN
+              FullName = TRIM( FieldName ) 
+            ELSE          
+              IF( GotActiveModes ) THEN
+                IndField = ActiveModes( iField ) 
+              ELSE
+                IndField = iField
+              END IF
+              WRITE( FullName,'(A,I0)') TRIM( FieldName )//' mode',IndField
+            END IF
+            
+            IF( AsciiOutput ) THEN
+              WRITE( VtuUnit,'(A,A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FullName), &
+                  '" NumberOfComponents="',sdofs,'" format="ascii"/>'  
+            ELSE 
+              WRITE( VtuUnit,'(A,I0,A,A,I0,A)') '      <PDataArray type="Float',PrecBits,'" Name="'//TRIM(FullName), &
+                  '" NumberOfComponents="',sdofs,'" format="appended"/>'  
+            END IF
+          END DO
+
+        END DO
+      END DO
+    END IF
 
     ! Body and BC indexes
     IF( WriteIds ) THEN
-      WRITE( VtuUnit,'(A)') '      <PCellData>'
       IF( AsciiOutput ) THEN
-        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="GeometryIds" format="ascii"/>'
+        WRITE( VtuUnit,'(A)') '      <PDataArray type="Int32" Name="GeometryIds" format="ascii"/>'
       ELSE
-        WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="GeometryIds" format="appended"/>'        
+        WRITE( VtuUnit,'(A)') '      <PDataArray type="Int32" Name="GeometryIds" format="appended"/>'        
       END IF
-      WRITE( VtuUnit,'(A)') '      </PCellData>'
     END IF
+
+    WRITE( VtuUnit,'(A)') '    </PCellData>'
 
 
     ! Coordinates of each point
     !-------------------------------------
-    WRITE( VtuUnit,'(A)') '      <PPoints>'
+    WRITE( VtuUnit,'(A)') '    <PPoints>'
     IF( AsciiOutput ) THEN
-      WRITE( VtuUnit,'(A,I0,A)') '        <DataArray type="Float64" NumberOfComponents="',dim,'" format="ascii"/>'    
+      WRITE( VtuUnit,'(A,I0,A)') '      <DataArray type="Float64" NumberOfComponents="',dim,'" format="ascii"/>'    
     ELSE 
-      WRITE( VtuUnit,'(A,I0,A,I0,A)') '        <DataArray type="Float',PrecBits,'" NumberOfComponents="',dim,'" format="appended"/>'    
+      WRITE( VtuUnit,'(A,I0,A,I0,A)') '      <DataArray type="Float',PrecBits,'" NumberOfComponents="',dim,'" format="appended"/>'    
     END IF
-    WRITE( VtuUnit,'(A)') '      </PPoints>' 
+    WRITE( VtuUnit,'(A)') '    </PPoints>' 
 
  
+    ! Write the pieces to the file 
+    !-------------------------------------
+    j = INDEX( FilePrefix,'/') 
+    IF( j == 0 ) THEN
+      ShortName = FilePrefix
+    ELSE
+      ShortName = FilePrefix(j+1:)
+    END IF
+
     DO i=1,Partitions
       IF(.NOT. AllActive ) THEN
         IF( .NOT. ActivePartition(i)) CYCLE
       END IF
+
       IF( NoFileindex ) THEN
         WRITE( VtuUnit,'(A,I4.4,A,A)' ) '    <Piece Source="'//&
-            TRIM(FilePrefix),i,"par",'.vtu"/>'
+            TRIM(ShortName),i,"par",'.vtu"/>'
       ELSE IF( FileIndex < 10000 ) THEN
         WRITE( VtuUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
-            TRIM(FilePrefix),i,"par",FileIndex,'.vtu"/>'        
+            TRIM(ShortName),i,"par",FileIndex,'.vtu"/>'        
       ELSE
         WRITE( VtuUnit,'(A,I4.4,A,I0,A)' ) '    <Piece Source="'//&
-            TRIM(FilePrefix),i,"par",FileIndex,'.vtu"/>'        
+            TRIM(ShortName),i,"par",FileIndex,'.vtu"/>'        
       END IF
     END DO
 
