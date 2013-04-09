@@ -542,40 +542,71 @@ END INTERFACE
    CONTAINS 
      
 
+     ! This is a dirty hack that adds an instance of ResultOutputSolver to the list of Solvers.
+     ! The idea is that it is much easier for the end user to take into use the vtu output this way.
+     ! The solver itself has limited set of parameters needed and is therefore approapriate for this
+     ! kind of hack. It can of course be also added as a regular solver also.
+     !----------------------------------------------------------------------------------------------
      SUBROUTINE AddVtuOutputSolverHack()     
-       TYPE(Solver_t), POINTER :: ABC(:)
+       TYPE(Solver_t), POINTER :: ABC(:), PSolver
        CHARACTER(LEN=MAX_NAME_LEN) :: str
-       INTEGER :: i,j,k,n
+       INTEGER :: i,j,j2,k,n
        TYPE(ValueList_t), POINTER :: Params
-       LOGICAL :: gotIt
+       LOGICAL :: gotIt, VtuFormat
 
        str = ListGetString( CurrentModel % Simulation,'Post File',GotIt) 
        IF(.NOT. GotIt) RETURN
        k = INDEX( str,'.vtu' )
-       IF( k == 0 ) RETURN
+       VtuFormat = ( k /= 0 ) 
+
+       IF(.NOT. VtuFormat ) RETURN
        
-       CALL Info('AddVtuOutputSolverHack','Adding Solver to VTU output to file: '&
+       CALL Info('AddVtuOutputSolverHack','Adding ResultOutputSolver to write VTU output in file: '&
            //TRIM(str(1:k-1)))
      
        CALL ListRemove( CurrentModel % Simulation,'Post File')
        n = CurrentModel % NumberOfSolvers+1
        ALLOCATE( ABC(n) )
        DO i=1,n-1
-         ABC(i) = CurrentModel % Solvers(i) 
+         ! Def_Dofs is the only allocatable structure within Solver_t:
+         IF( ALLOCATED( CurrentModel % Solvers(i) % Def_Dofs ) ) THEN
+           j = SIZE(CurrentModel % Solvers(i) % Def_Dofs,1)
+           j2 = SIZE(CurrentModel % Solvers(i) % Def_Dofs,2)
+           ALLOCATE( ABC(i) % Def_Dofs(j,j2) )
+         END IF
+
+         ! Copy the content of the Solver structure
+         ABC(i) = CurrentModel % Solvers(i)
+
+         ! Nullify the old structure since otherwise bad things may happen at deallocation
+         NULLIFY( CurrentModel % Solvers(i) % ActiveElements )
+         NULLIFY( CurrentModel % Solvers(i) % Values )
+         NULLIFY( CurrentModel % Solvers(i) % Mesh )
+         NULLIFY( CurrentModel % Solvers(i) % BlockMatrix )
+         NULLIFY( CurrentModel % Solvers(i) % Matrix )
+         NULLIFY( CurrentModel % Solvers(i) % Variable )
        END DO
-       CurrentModel % NumberOfSolvers = n
+
+       ! Deallocate the old structure and set the pointer to the new one
        DEALLOCATE( CurrentModel % Solvers )
        CurrentModel % Solvers => ABC
+       CurrentModel % NumberOfSolvers = n
 
+       ! Now create the ResultOutputSolver instance on-the-fly
        NULLIFY( CurrentModel % Solvers(n) % Values )
        CurrentModel % Solvers(n) % PROCEDURE = 0
        NULLIFY( CurrentModel % Solvers(n) % Matrix )
+       NULLIFY( CurrentModel % Solvers(n) % BlockMatrix )
        NULLIFY( CurrentModel % Solvers(n) % Values )
        NULLIFY( CurrentModel % Solvers(n) % Variable )
        NULLIFY( CurrentModel % Solvers(n) % ActiveElements )
        CurrentModel % Solvers(n) % NumberOfActiveElements = 0
-
        NULLIFY( CurrentModel % Solvers(n) % Values )
+       j = CurrentModel % NumberOfBodies
+       ALLOCATE( CurrentModel % Solvers(n) % Def_Dofs(j,6))
+       CurrentModel % Solvers(n) % Def_Dofs(j,6) = -1
+       
+       ! Add some keywords to the list
        CALL ListAddString(CurrentModel % Solvers(n) % Values,&
            'Procedure', 'ResultOutputSolve ResultOutputSolver',.FALSE.)
        CALL ListAddString(CurrentModel % Solvers(n) % Values,'Output Format','vtu')
@@ -903,6 +934,7 @@ END INTERFACE
 
                Var => Mesh % Variables
                DO WHILE( ASSOCIATED(Var) ) 
+
                  IF ( ASSOCIATED( Var % Solver ) ) THEN
                    DOFs = GetElementDOFs( Indexes, USolver=Var % Solver )
                  ELSE
