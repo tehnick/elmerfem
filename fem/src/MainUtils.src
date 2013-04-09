@@ -1195,9 +1195,9 @@ CONTAINS
     REAL(KIND=dp) :: dt
     INTEGER, OPTIONAL :: RealTimestep
     INTEGER :: CoupledMinIter, CoupledMaxIter
-    LOGICAL :: TransientSimulation, SteadyStateReached
+    LOGICAL :: TransientSimulation, SteadyStateReached, TransientSolver
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
+    REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation, SSCond
     INTEGER :: i,j,k,l,n,ierr,istat,Visited=0, RGorder=0, nSolvers
     LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
        NeedSol, CalculateDerivative, TestConvergence
@@ -1464,6 +1464,9 @@ CONTAINS
           !------------------------------------------------------------------------------
           CalculateDerivative = ListGetLogical( Solver % Values, &
                 'Calculate Derivative', Stat )
+          IF( CalculateDerivative .AND. .NOT. Scanning ) THEN
+            CALL Fatal('SolveEquations','> Calculate Derivative < should be active only for scanning!')
+          END IF
 
           NeedSol = CalculateDerivative
           IF(.NOT. NeedSol ) THEN
@@ -1490,7 +1493,21 @@ CONTAINS
             Solver % Variable % SteadyValues(1:n) = Solver % Variable % Values(1:n)
           END IF
 
-          CALL SolverActivate(Model,Solver,dt,TransientSimulation)
+          ! The solver may conditionally be turned into steady state 
+          ! if the > Steady State Condition < is set positive.
+          !------------------------------------------------------------------------
+          TransientSolver = TransientSimulation
+          IF( TransientSolver ) THEN
+            SSCond = ListGetCReal( Solver % Values,'Steady State Condition',Found )
+            IF( Found .AND. SSCond > 0.0_dp ) THEN
+              PRINT *,'sscond',sscond
+              TransientSolver = .FALSE.
+              CALL Info('SolveEquations','Running solver in steady state',Level=6)
+            END IF
+          END IF
+
+
+          CALL SolverActivate(Model,Solver,dt,TransientSolver)
 
           IF ( ASSOCIATED(Solver % Variable) ) THEN
             IF ( ASSOCIATED(Solver % Variable % Values) ) &
@@ -1500,65 +1517,28 @@ CONTAINS
 !         check for coupled system convergence
 !------------------------------------------------------------------------------
 
-           IF ( Scanning ) THEN
-             
+           IF ( Scanning .OR. TransientSimulation ) THEN             
              TestConvergence = ( i >= CoupledMinIter .AND. i /= CoupledMaxIter )
-
-             IF ( TestConvergence .OR. CalculateDerivative ) THEN
-               IF ( ParEnv % PEs>1 ) THEN
-                 IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
-                     CALL ComputeChange(Solver,.TRUE., n)
-               ELSE
-                 CALL ComputeChange(Solver,.TRUE.)
-                 !                 CALL ComputeChange(Solver,.TRUE.,n)
-               END IF
-
-               ! The ComputeChange subroutine sets a flag to zero if not yet
-               ! converged (otherwise -1/1)
-               !------------------------------------------------------------
-               IF( TestConvergence ) THEN
-                 IF( Solver % Variable % SteadyConverged == 0 ) THEN
-                   DoneThis(k) = .FALSE.
-                 ELSE                   
-                   DoneThis(k) = .TRUE.
-                 END IF                   
-               END IF
-             END IF
-             
-           ELSE IF( TransientSimulation ) THEN
-             
-             TestConvergence = ( i >= CoupledMinIter .AND. i /= CoupledMaxIter )
-             IF ( TestConvergence ) THEN
-               IF ( ParEnv % PEs>1 ) THEN
-                 IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
-                     CALL ComputeChange(Solver,.TRUE., n)
-               ELSE
-                 CALL ComputeChange(Solver,.TRUE.)
-                 !                 CALL ComputeChange(Solver,.TRUE.,n)
-               END IF
-               IF( Solver % Variable % SteadyConverged == 0 ) THEN
-                 DoneThis(k) = .FALSE.
-               ELSE                   
-                 DoneThis(k) = .TRUE.
-               END IF
-             END IF
-
            ELSE    ! Steady-state
+             TestConvergence = .TRUE.
+           END IF
+           
+           IF( TestConvergence .OR. CalculateDerivative ) THEN
              IF ( ParEnv % PEs > 1 ) THEN
                IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
                    CALL ComputeChange(Solver,.TRUE., n)
              ELSE
                CALL ComputeChange(Solver,.TRUE.)
-               !                 CALL ComputeChange(Solver,.TRUE.,n)
-             END IF             
-
-             IF( Solver % Variable % SteadyConverged == 0 ) THEN
-               DoneThis(k) = .FALSE.
-             ELSE                   
-               DoneThis(k) = .TRUE.
              END IF
            END IF
            
+           ! The ComputeChange subroutine sets a flag to zero if not yet
+           ! converged (otherwise -1/1)
+           !------------------------------------------------------------
+           IF( TestConvergence ) THEN
+             DoneThis(k) = ( Solver % Variable % SteadyConverged /= 0 ) 
+           END IF
+          
            CALL ParallelAllReduceAnd( DoneThis(k) )
            IF( ALL(DoneThis) ) EXIT
 !------------------------------------------------------------------------------
