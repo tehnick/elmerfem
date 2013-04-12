@@ -161,7 +161,7 @@ INTEGER :: ierr,status(1000)
 
 REAL(kind=dp) :: realtime,st
   !******************************************************************
-!st = realtime()
+st = realtime()
     ALLOCATE( SplittedMatrix )
     SplittedMatrix % InsideMatrix => AllocateMatrix()
 
@@ -604,15 +604,6 @@ REAL(kind=dp) :: realtime,st
      END IF
   END DO
 
-!do k=1,parenv % pes
-! do i=1,splittedmatrix % ifmatrix(k) % NUMBEROFROWS
-!if ( splittedmatrix % ifmatrix(k) % rowowner(i)==parenv % mype ) cycle
-!  if (.not. parenv % isneighbour(splittedmatrix % ifmatrix(k) % rowowner(i)+1)) then
-!print*,parenv % mype, ' needs ', splittedmatrix % ifmatrix(k) % rowowner(i), ' as neighbour, but its not...'; flush(6)
-!end if
-! end do
-!end do
-
   DO i=1,ParEnv % PEs
     IF ( i-1==Parenv % MyPE ) CYCLE
     Currif => SplittedMatrix % IfMatrix(i)
@@ -686,12 +677,12 @@ REAL(kind=dp) :: realtime,st
   ! connections might be known in advance...
   !
   !----------------------------------------------------------------------
+  sz = SIZE(A % Values)
   CALL List_toListMatrix(A)
   DO i=1,Parenv % PEs
     CurrIF => SplittedMatrix % IfMatrix(i)
     DO j = 1, CurrIf % NumberOfRows
       IF ( Currif % RowOwner(j) /= ParEnv % MyPE ) CYCLE
- 
       RowInd = SplittedMatrix % IfORows(i) % IfVec(j)
       DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
         ColInd = SplittedMatrix % IfLCols(i) % IfVec(k)
@@ -700,39 +691,42 @@ REAL(kind=dp) :: realtime,st
     END DO
   END DO
   CALL List_toCRSMatrix(A)
+!if ( parenv % mype==0 ) print*, 'ADD INTERFACE TO INSIDE: ', realtime()-st; st=realtime()
 
   !----------------------------------------------------------------------
   !
-  ! Rebuild the inside part of GlueTable (place in the parallel
+  ! If need be, rebuild the inside part of GlueTable (place in the parallel
   ! 'insidematrix' where the 'partition' matrix entry is to be added).
   !
   !----------------------------------------------------------------------
-  ALLOCATE(Perm(A % NumberOfRows))
-  j = 0;
-  DO i=1,SourceMatrix % NumberOfRows
-    IF (ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE)THEN 
-      j=j+1
-      Perm(j)=i
-    END IF
-  END DO
+  IF(sz /= SIZE(A % Values)) THEN
+    ALLOCATE(Perm(A % NumberOfRows))
+    j = 0;
+    DO i=1,SourceMatrix % NumberOfRows
+      IF (ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE) THEN 
+        j=j+1
+        Perm(j)=i
+      END IF
+    END DO
 
-  DO i=1,A % NumberOfRows
-    RowInd = Perm(i)
-    K = SourceMatrix % Rows(RowInd)
-
-    DO j=A % Rows(i),A % Rows(i+1)-1
-      ColInd = Perm(A % Cols(j)) 
-      DO WHILE(K<SourceMatrix % Rows(RowInd+1))
-        IF(SourceMatrix % Cols(K)>=ColInd) THEN
-          IF(SourceMatrix % Cols(K)==ColInd) &
-            SplittedMatrix % GlueTable % Inds(K)=J
-          EXIT
-        END IF
-        K=K+1
+    DO i=1,A % NumberOfRows
+      RowInd = Perm(i)
+      K = SourceMatrix % Rows(RowInd)
+      DO j=A % Rows(i),A % Rows(i+1)-1
+        ColInd = Perm(A % Cols(j)) 
+        DO WHILE(K<SourceMatrix % Rows(RowInd+1))
+          IF(SourceMatrix % Cols(K)>=ColInd) THEN
+            IF(SourceMatrix % Cols(K)==ColInd) &
+              SplittedMatrix % GlueTable % Inds(K)=J
+            EXIT
+          END IF
+          K=K+1
+        END DO
       END DO
     END DO
-  END DO
-  DEALLOCATE(Perm)
+    DEALLOCATE(Perm)
+  END IF
+!if ( parenv % mype==0 ) print*, 'REBUILD GLUETABLE: ', realtime()-st; st=realtime()
 
   !----------------------------------------------------------------------
   !
@@ -1767,6 +1761,7 @@ integer::inside
    END IF
 #endif
 
+
   NeedPrec = .FALSE.
   DO i=1,ParEnv % PEs
     IF ( SplittedMatrix % IfMatrix(i) % NumberOFRows>0 ) THEN
@@ -2031,7 +2026,7 @@ REAL(kind=dp)::cputime,realtime,tt,rt
     IF (ASSOCIATED(CM)) THEN
       DEALLOCATE(CM % Cols)
       CM % Cols => SCols
-      SplittedMatrix % InsideMatrix % ConstraintMatrix => NULL()
+      SplittedMatrix % InsideMatrix % ConstraintMatrix => Null()
     END IF
   ELSE
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
@@ -2742,7 +2737,7 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
         END IF
 
         IF (.NOT.Found) THEN
-                ! Value to be added to InsideMatrix
+           ! Value to be added to InsideMatrix
            RowInd = SearchIAItem( InsideMatrix % NumberOfRows, &
                InsideMatrix % GRows, RecvdIfMatrix(i) % GRows(j), &
                    InsideMatrix % Gorder )

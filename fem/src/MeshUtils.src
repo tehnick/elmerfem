@@ -1403,6 +1403,7 @@ END SUBROUTINE GetMaxDefs
     n1 = 0
     n2 = 0
     DO i=1, Mesh % NumberOfBoundaryElements
+      IF (Elements(i) % Type % ElementCode<=200) CYCLE
       Constraint = Elements(i) % BoundaryInfo % Constraint
       IF ( Model % BCs(This) % Tag == Constraint ) n1 = n1 + 1
       IF ( Model % BCs(Trgt) % Tag == Constraint ) n2 = n2 + 1

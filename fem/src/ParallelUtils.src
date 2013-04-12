@@ -92,30 +92,37 @@ CONTAINS
        INTEGER :: maxnode, maxedge, maxface, fdofs, maxfdofs, &
                   edofs, maxedofs, maxbdofs, l_beg, g_beg
 
+       LOGICAL :: Interf_dof
        REAL(KIND=dp) :: realtime,tt
 !-------------------------------------------------------------------------------
 
 !tt = realtime()
 #ifdef PARALLEL_FOR_REAL
-       IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Solver % Matrix) ) RETURN
+       IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Matrix) ) RETURN
        Mesh => Solver % Mesh
        DOFs = Solver % Variable % DOFs
        n = SIZE(Solver % Variable % Perm)
 
-       ALLOCATE( Matrix % Perm(DOFs*n), Matrix % InvPerm(DOFs*n)  )
+       k = Matrix % NumberOfRows
+       ALLOCATE( Matrix % Perm(k), Matrix % InvPerm(k))
+
        Matrix % Perm    = 0
        Matrix % INVPerm = 0
 
        DO i=1,n
           IF ( Solver % Variable % Perm(i) /= 0 )  THEN
              DO j=1,DOFs
-                Matrix % Perm( (i-1)*DOFs+j ) = &
+                Matrix % Perm((i-1)*DOFs+j) = &
                    DOFs * (Solver % Variable % Perm(i)-1) + j
              END DO
           END IF
        END DO
 
-       DO i=1,DOFs*n
+       DO i=Matrix % NumberOFRows-Matrix % ExtraDOFs+1,Matrix % NumberOfRows
+         Matrix % Perm(i) = i
+       END DO
+
+       DO i=1,Matrix % NumberOFRows
           IF ( Matrix % Perm(i) /= 0 ) THEN
              Matrix % INVPerm(Matrix % Perm(i)) = i
           END IF
@@ -134,10 +141,12 @@ CONTAINS
            Matrix % ParallelInfo % NeighbourList(i) % Neighbours => NULL()
          END DO
 
+         l = 0
          DO i=1,Solver % Mesh % NumberOfNodes
            DO j=1,DOFs
               k = Matrix % Perm((i-1)*DOFs+j)
               IF(k==0) CYCLE
+              l=l+1
               Matrix % ParallelInfo % GlobalDOFs(k) = &
                 DOFs*(Solver % Mesh % ParallelInfo % GlobalDOFs(i)-1)+j
               Matrix % ParallelInfo % Interface(k) = &
@@ -245,6 +254,28 @@ CONTAINS
            END DO
          END IF
 
+         ! Add extra degrees of freedom to parallel structures. The additional
+         ! variables are assing to task zero, and are assumed to be shared by
+         ! all tasks (TODO: to be optimized if need be...)
+         ! --------------------------------------------------------------------
+         g_beg = NINT(ParallelReduction(1._dp*MAXVAL(Matrix % ParallelInfo % GlobalDOFs),2))
+         j=0
+         DO i=Matrix % NumberOFRows-Matrix % ExtraDOFs+1,Matrix % NumberOfRows
+           j=j+1
+           Interf_dof = j <= Matrix % ParallelDOFs
+           Matrix % Parallelinfo % Interface(i) = Interf_dof
+           IF (Interf_dof) THEN
+             ALLOCATE(Matrix % ParallelInfo % NeighbourList(i) % Neighbours(ParEnv % PEs))
+             DO k=1,ParEnv % PEs
+               Matrix % ParallelInfo % NeighbourList(i) % Neighbours(k)=k-1
+             END DO
+           ELSE
+             ALLOCATE(Matrix % ParallelInfo % NeighbourList(i) % Neighbours(1))
+             Matrix % Parallelinfo % NeighbourList(i) % Neighbours(1) = ParEnv % MyPE
+           END IF
+           Matrix % ParallelInfo % GlobalDofs(i) = g_beg+j
+         END DO
+
 
        ELSE
          MeshPI => Solver % Mesh % ParallelInfo
@@ -315,7 +346,7 @@ CONTAINS
 
        Matrix % ParMatrix => &
           ParInitMatrix( Matrix, Matrix % ParallelInfo )
-!if ( parenv % mype == 0 ) print*,'MATRIX INIT TIME: ', realtime()-tt
+!if(parenv%mype==0) print*,'MATRIX INIT TIME: ', realtime()-tt
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitMatrix

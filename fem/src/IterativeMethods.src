@@ -470,8 +470,11 @@ CONTAINS
       Constrained = nc>0
       IF(Constrained) THEN
         ALLOCATE(x(ndim+nc),b(ndim+nc))
-        x(1:ndim) = xvec; x(ndim+1:)=0._dp
+        IF(.NOT.ASSOCIATED(CM % ExtraVals))THEN
+          ALLOCATE(CM % ExtraVals(nc)); CM % extraVals=0._dp
+        END IF
         b(1:ndim) = rhsvec; b(ndim+1:) = CM % RHS
+        x(1:ndim) = xvec; x(ndim+1:) = CM % extraVals
       END IF
     END IF
 
@@ -487,6 +490,7 @@ CONTAINS
     IF(Constrained) THEN
       xvec=x(1:ndim)
       rhsvec=b(1:ndim)
+      CM % extraVals = x(ndim+1:ndim+nc)
       DEALLOCATE(x,b)
     END IF
 
@@ -683,9 +687,9 @@ CONTAINS
           !----------------------------------------------------------------------
           errorind = rnrm / bnrm
 
-          IF( OutputInterval /= 0) THEN
-            WRITE (*, '(I8, 2E11.4)') 0, rnrm, errorind
-          END IF
+!         IF( OutputInterval /= 0) THEN
+!           WRITE (*, '(I8, 2E11.4)') 0, rnrm, errorind
+!         END IF
 
           Converged = (errorind < Tol) 
           Diverged = (errorind /= errorind)

@@ -4682,7 +4682,6 @@ END FUNCTION SearchNodeL
 
     n = A % NumberOfRows
 
-    
     IF( PRESENT( DiagScaling ) ) THEN
       Diag => DiagScaling 
     ELSE
@@ -4690,17 +4689,25 @@ END FUNCTION SearchNodeL
         ALLOCATE( A % DiagScaling(n) ) 
       END IF
       Diag => A % DiagScaling
+      Diag = 0._dp
     
       ComplexMatrix = Solver % Matrix % COMPLEX
     
       IF ( ComplexMatrix ) THEN
         DO i=1,n,2
           j = A % Diag(i)
-          Diag(i)   = A % Values(j)
-          Diag(i+1) = A % Values(j+1)
+          IF(j>0) THEN
+            Diag(i)   = A % Values(j)
+            Diag(i+1) = A % Values(j+1)
+          ELSE
+            Diag(i)=0._dp;Diag(i+1)=0._dp
+          END IF
         END DO
       ELSE
-        Diag(1:n) = A % Values(A % Diag(1:n))
+        DO i=1,n
+          j=A % Diag(i)
+          IF (j>0) Diag(i) = A % Values(j)
+        END DO
       END IF
       
       IF ( ParEnv % PEs > 1 ) THEN
@@ -5112,6 +5119,14 @@ END FUNCTION SearchNodeL
     END INTERFACE
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!   If parallel execution, check for parallel matrix initializations
+!------------------------------------------------------------------------------
+     IF ( ParEnv % Pes>1.AND..NOT. ASSOCIATED(A % ParMatrix) ) THEN
+      CALL ParallelInitMatrix( Solver, A )
+    END IF
+!------------------------------------------------------------------------------
+
     Params => Solver % Values
     n = A % NumberOfRows
 
@@ -5519,13 +5534,6 @@ END FUNCTION SearchNodeL
                        A, b, x, n, DOFs, Norm )
        IF ( istat /= 0 ) GOTO 10
     END IF
-!------------------------------------------------------------------------------
-!   If parallel execution, check for parallel matrix initializations
-!------------------------------------------------------------------------------
-    IF ( ParEnv % Pes>1.AND..NOT. ASSOCIATED(Solver % Matrix % ParMatrix) ) THEN
-       CALL ParallelInitMatrix( Solver, Solver % Matrix )
-    END IF
-!------------------------------------------------------------------------------
 
     ConstrainedSolve = .FALSE.
     IF ( ASSOCIATED(A % ConstraintMatrix) )  THEN
@@ -5533,52 +5541,59 @@ END FUNCTION SearchNodeL
         ConstrainedSolve = .TRUE.
     END IF
 
+    IF ( ASSOCIATED(A % AddMatrix) )  THEN
+      IF ( A % AddMatrix % NumberOFRows>=1 ) & 
+        ConstrainedSolve = .TRUE.
+    END IF
+
+    ConstrainedSolve=.NOT.ConstrainedSolve
+    CALL ParallelAllReduceAnd(ConstrainedSolve)
+    ConstrainedSolve=.NOT.ConstrainedSolve
+
     IF ( ConstrainedSolve ) THEN
 
       ! if there are several constraint matrices unify:
       ! -----------------------------------------------
       Btmp => NULL()
       Atmp => A % ConstraintMatrix
-      IF ( ASSOCIATED(Atmp % ConstraintMatrix) ) THEN
-        nrows = 0
-        ncols = 0
-        DO WHILE(ASSOCIATED(Atmp))
-          nrows = nrows + Atmp % NumberOfRows
-          ncols = ncols + SIZE(Atmp % Cols)
-          Atmp => Atmp % ConstraintMatrix
-        END DO
-
-        Btmp => AllocateMatrix()
-        ALLOCATE( Btmp % RHS(nrows), Btmp % Rows(nrows+1), &
-            Btmp % Cols(ncols), Btmp % Values(ncols) )
-        Btmp % NumberOFRows = nrows
-
-        Atmp => A % ConstraintMatrix
-        k = 0
-        n = 1
-        Btmp % Rows(n) = 1
-        DO WHILE(ASSOCIATED(Atmp))
-          DO i=1,Atmp % NumberOfRows
-            Btmp % RHS(n)=Atmp % RHS(i)
-            DO j=Atmp % Rows(i),Atmp % Rows(i+1)-1
-              k = k + 1
-              Btmp % Cols(k)   = Atmp % Cols(j)
-              Btmp % Values(k) = Atmp % Values(j)
-            END DO
-            n = n + 1
-            Btmp % Rows(n) = k + 1
+      IF(ASSOCIATED(atmp)) THEN
+        IF ( ASSOCIATED(Atmp % ConstraintMatrix) ) THEN
+          nrows = 0
+          ncols = 0
+          DO WHILE(ASSOCIATED(Atmp))
+            nrows = nrows + Atmp % NumberOfRows
+            ncols = ncols + SIZE(Atmp % Cols)
+            Atmp => Atmp % ConstraintMatrix
           END DO
-          Atmp => Atmp % ConstraintMatrix
-        END DO
-        Atmp => A % ConstraintMatrix
-        A % ConstraintMatrix => Btmp
+
+          Btmp => AllocateMatrix()
+          ALLOCATE( Btmp % RHS(nrows), Btmp % Rows(nrows+1), &
+              Btmp % Cols(ncols), Btmp % Values(ncols) )
+          Btmp % NumberOFRows = nrows
+
+          Atmp => A % ConstraintMatrix
+          k = 0
+          n = 1
+          Btmp % Rows(n) = 1
+          DO WHILE(ASSOCIATED(Atmp))
+            DO i=1,Atmp % NumberOfRows
+              Btmp % RHS(n)=Atmp % RHS(i)
+              DO j=Atmp % Rows(i),Atmp % Rows(i+1)-1
+                k = k + 1
+                Btmp % Cols(k)   = Atmp % Cols(j)
+                Btmp % Values(k) = Atmp % Values(j)
+              END DO
+              n = n + 1
+              Btmp % Rows(n) = k + 1
+            END DO
+            Atmp => Atmp % ConstraintMatrix
+          END DO
+          Atmp => A % ConstraintMatrix
+          A % ConstraintMatrix => Btmp
+        END IF
       END IF
 
-      IF(ListGetLogical(Params,'No Explicit Constrained Matrix',Found)) THEN
-        CALL SolveLinearSystem( A,b,x,Norm,DOFs,Solver )
-      ELSE
-        CALL SolveWithLinearRestriction( A,b,x,Norm,DOFs,Solver )
-      END IF
+      CALL SolveWithLinearRestriction( A,b,x,Norm,DOFs,Solver )
 
       IF ( ASSOCIATED(Btmp) ) THEN
         CALL FreeMatrix(Btmp)
@@ -6143,41 +6158,66 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   IMPLICIT NONE
   TYPE(Matrix_t), POINTER :: StiffMatrix !< Linear equation matrix information. 
                                          !< The restriction matrix is assumed to be in the EMatrix-field
-  REAL(KIND=dp) :: ForceVector(:)        !< The right hand side of the linear equation
-  REAL(KIND=dp) :: Solution(:)           !< Previous solution as input, new solution as output.
+  REAL(KIND=dp),TARGET :: ForceVector(:)        !< The right hand side of the linear equation
+  REAL(KIND=dp),TARGET :: Solution(:)           !< Previous solution as input, new solution as output.
   REAL(KIND=dp) :: Norm                  !< The L2 norm of the solution.
   INTEGER :: DOFs                        !< Number of degrees of freedon of the equation.
   TYPE(Solver_t), TARGET :: Solver       !< Linear equation solver options.
 !------------------------------------------------------------------------------
   TYPE(Solver_t), POINTER :: SolverPointer
-  TYPE(Matrix_t), POINTER :: CollectionMatrix, RestMatrix, AddMatrix, &
+  TYPE(Matrix_t), POINTER :: CollectionMatrix=>Null(), RestMatrix, AddMatrix, &
        RestMatrixTranspose
   REAL(KIND=dp), POINTER CONTIG :: CollectionVector(:), RestVector(:),&
                  MultiplierValues(:),AddVector(:)
-  REAL(KIND=dp), ALLOCATABLE :: CollectionSolution(:)
+  REAL(KIND=dp), ALLOCATABLE, TARGET :: CollectionSolution(:)
   INTEGER, ALLOCATABLE :: TmpRow(:)
   INTEGER :: NumberOfRows, NumberOfValues, MultiplierDOFs, istat
   INTEGER :: i, j, k, l
   REAL(KIND=dp) :: scl
-  LOGICAL :: Found, ExportMultiplier
-  CHARACTER(LEN=MAX_NAME_LEN) :: MultiplierName
+  LOGICAL :: Found, ExportMultiplier, NotExplicit
   SAVE MultiplierValues, SolverPointer
+  CHARACTER(LEN=MAX_NAME_LEN) :: MultiplierName
 !------------------------------------------------------------------------------
-  SolverPointer => Solver
   CALL Info( 'SolveWithLinearRestriction ', ' ', Level=5 )
+  SolverPointer => Solver
 
-  RestMatrix => StiffMatrix % ConstraintMatrix
-  IF ( .NOT. ASSOCIATED( RestMatrix ) ) CALL Fatal( 'AddMassFlow', 'RestMatrix not associated' ) 
+  NotExplicit = ListGetLogical(Solver % Values,'No Explicit Constrained Matrix',Found)
+  IF(.NOT.Found) NotExplicit=.FALSE.
 
-  RestVector => RestMatrix % RHS
-  IF ( .NOT. ASSOCIATED( RestVector ) ) CALL Fatal( 'AddMassFlow', 'RestVector not associated' )
+  RestMatrix => Null()
+  IF(.NOT.NotExplicit) &
+        RestMatrix => StiffMatrix % ConstraintMatrix
+  IF(ASSOCIATED(RestMatrix)) RestVector => RestMatrix % RHS
 
-  AddMatrix => StiffMatrix % EMatrix
+  AddMatrix => StiffMatrix % AddMatrix
   AddVector => Null()
   IF(ASSOCIATED(AddMatrix)) &
     AddVector => AddMatrix % RHS
 
   NumberOfRows = StiffMatrix % NumberOfRows
+
+  CollectionMatrix => StiffMatrix % CollectionMatrix
+  IF(.NOT.ASSOCIATED(CollectionMatrix)) THEN
+    CollectionMatrix => AllocateMatrix()
+    CollectionMatrix % Format = MATRIX_LIST
+  ELSE
+    DEALLOCATE(CollectionMatrix % RHS)
+    CollectionMatrix % Values = 0.0_dp
+  END IF
+  IF(NotExplicit) CollectionMatrix % ConstraintMatrix => StiffMatrix % ConstraintMatrix
+
+  NumberOfRows = StiffMatrix % NumberOfRows
+  IF(ASSOCIATED(AddMatrix)) NumberOfRows = MAX(NumberOfRows,AddMatrix % NumberOfRows)
+  IF(ASSOCIATED(RestMatrix)) NumberOfRows = NumberOFRows + RestMatrix % NumberOfRows
+  
+  ALLOCATE( CollectionMatrix % RHS( NumberOfRows ), &
+       CollectionSolution( NumberOfRows ), STAT = istat )
+  IF ( istat /= 0 ) CALL Fatal( 'SolveWithLinearRestriction', 'Memory allocation error.' )
+
+  CollectionVector => CollectionMatrix % RHS
+  CollectionVector = 0.0_dp
+  CollectionSolution = 0.0_dp
+
 !------------------------------------------------------------------------------
 ! If multiplier should be exported,  allocate memory and export the variable.
 !------------------------------------------------------------------------------
@@ -6188,57 +6228,41 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   IF ( ExportMultiplier ) THEN
      MultiplierName = ListGetString( Solver % Values, 'Lagrange Multiplier Name', Found )
      IF ( .NOT. Found ) THEN
-        CALL Info( 'SolveWithLinearRestriction', 'Lagrange Multiplier Name set to LagrangeMultiplier', Level=5 )
+        CALL Info( 'SolveWithLinearRestriction', &
+              'Lagrange Multiplier Name set to LagrangeMultiplier', Level=5 )
         MultiplierName = "LagrangeMultiplier"
      END IF
 
      IF ( .NOT. ASSOCIATED( MultiplierValues ) ) THEN
-        MultiplierDOFs = RestMatrix % NumberOfRows/Solver % Mesh % NumberOfNodes+1
-        ALLOCATE( MultiplierValues( MultiplierDOFs * Solver % Mesh % NumberOfNodes ), STAT=istat )
-        IF ( istat /= 0 ) CALL Fatal('SolveWithLinearRestriction','Memory allocation error.')
-        MultiplierValues = 0.0d0
-
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, SolverPointer, &
-             MultiplierName, MultiplierDOFs, MultiplierValues, Solver % Variable % Perm )
+       ALLOCATE( MultiplierValues(NumberOfRows-StiffMatrix % NumberOfRows), STAT=istat )
+       IF ( istat /= 0 ) CALL Fatal('SolveWithLinearRestriction','Memory allocation error.')
+       MultiplierValues = 0.0_dp
+       CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, SolverPointer, &
+            MultiplierName, 1, MultiplierValues)
      END IF
   END IF
-
-  CollectionMatrix => AllocateMatrix()
-  CollectionMatrix % Format = MATRIX_LIST
-
-  NumberOfRows = StiffMatrix % NumberOfRows
-  IF(ASSOCIATED(AddMatrix)) NumberOfRows=MAX(NumberOfRows,AddMatrix % NumberOfRows)
-  NumberOfRows = NumberOFRows + RestMatrix % NumberOfRows
-  
-  ALLOCATE( CollectionMatrix % RHS( NumberOfRows ), &
-       CollectionSolution( NumberOfRows ), STAT = istat )
-  IF ( istat /= 0 ) CALL Fatal( 'SolveWithLinearRestriction', 'Memory allocation error.' )
-
-  CollectionMatrix % NumberOfRows = NumberOfRows
-  
-  CollectionVector => CollectionMatrix % RHS
-  CollectionVector = 0.0_dp
-  CollectionSolution = 0.0_dp
 
 !------------------------------------------------------------------------------
 ! Put the RestMatrix to lower part of CollectionMatrix
 !------------------------------------------------------------------------------
-  DO i=RestMatrix % NumberOfRows,1,-1
-    k=StiffMatrix % NumberOfRows
-    IF(ASSOCIATED(AddMatrix)) k=MAX(k,AddMatrix % NumberOfRows)
-    k=k+i
+  IF(ASSOCIATED(RestMatrix)) THEN
+    DO i=RestMatrix % NumberOfRows,1,-1
+      k=StiffMatrix % NumberOfRows
+      IF(ASSOCIATED(AddMatrix)) k=MAX(k,AddMatrix % NumberOfRows)
+      k=k+i
 
-    CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix,k,k,0._dp )
+      CALL AddToMatrixElement( CollectionMatrix,k,k,0._dp )
 
-    DO j=RestMatrix % Rows(i+1)-1,RestMatrix % Rows(i),-1
-      CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
-           k, RestMatrix % Cols(j), RestMatrix % Values(j))
+      DO j=RestMatrix % Rows(i+1)-1,RestMatrix % Rows(i),-1
+        CALL AddToMatrixElement( CollectionMatrix, &
+             k, RestMatrix % Cols(j), RestMatrix % Values(j))
 
-      CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
-           RestMatrix % Cols(j), k, RestMatrix % Values(j))
+        CALL AddToMatrixElement( CollectionMatrix, &
+             RestMatrix % Cols(j), k, RestMatrix % Values(j))
+      END DO
+      CollectionVector(k) = RestVector(i)
     END DO
-    CollectionVector(k) = RestVector(i)
-  END DO
+  END IF
 
 !------------------------------------------------------------------------------
 ! Put the AddMatrix to upper part of CollectionMatrix
@@ -6246,7 +6270,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   IF(ASSOCIATED(AddMatrix)) THEN
     DO i=AddMatrix % NumberOfRows,1,-1
       DO j=AddMatrix % Rows(i+1)-1,AddMatrix % Rows(i),-1
-        CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
+        CALL AddToMatrixElement( CollectionMatrix, &
              i, AddMatrix % Cols(j), AddMatrix % Values(j))
       END DO
       CollectionVector(i) = CollectionVector(i) + AddVector(i)
@@ -6258,20 +6282,22 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 
   DO i=StiffMatrix % NumberOfRows,1,-1
     DO j=StiffMatrix % Rows(i+1)-1,StiffMatrix % Rows(i),-1
-      CALL List_AddToMatrixElement( CollectionMatrix % ListMatrix, &
+      CALL AddToMatrixElement( CollectionMatrix, &
         i, StiffMatrix % Cols(j), StiffMatrix % Values(j) )
     END DO
     CollectionVector(i) = CollectionVector(i) + ForceVector(i)
   END DO
-  CALL List_toCRSMatrix(CollectionMatrix)
+
+  IF(CollectionMatrix % Format==MATRIX_LIST) &
+    CALL List_toCRSMatrix(CollectionMatrix)
 
   ! if zero=zero constraint, solve lambda_i=0 instead:
   ! -------------------------------------------------
-  DO i=stiffmatrix % numberofrows+1,collectionmatrix % numberofrows
-     IF ( ALL(collectionmatrix % values( &
-           collectionmatrix % rows(i):collectionmatrix % rows(i+1)-1)==0) ) &
-       collectionmatrix % values(collectionmatrix % diag(i)) = 1
-  END DO
+! DO i=stiffmatrix % numberofrows+1,collectionmatrix % numberofrows
+!    IF ( ALL(collectionmatrix % values( &
+!          collectionmatrix % rows(i):collectionmatrix % rows(i+1)-1)==0) ) &
+!      collectionmatrix % values(collectionmatrix % diag(i)) = 1
+! END DO
 ! ! try not to interfere with dirichlet conditions:
 ! ! -----------------------------------------------
 ! DO i=1,stiffmatrix % numberofrows
@@ -6294,22 +6320,31 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 !------------------------------------------------------------------------------
 
   j = StiffMatrix % NumberOfRows  
-  CollectionSolution( 1:j ) = Solution( 1:j )
+  CollectionSolution(1:j) = Solution(1:j)
   
-  i = StiffMatrix % NumberOfRows +1
-  j = CollectionMatrix % NumberOfRows
+  i = StiffMatrix % NumberOfRows+1
+  j = SIZE(CollectionSolution)
   CollectionSolution(i:j) = 0
   IF(ASSOCIATED(MultiplierValues)) THEN
     CollectionSolution(i:j) = MultiplierValues(1:j-i+1)
   END IF
+
+  CollectionMatrix % ExtraDOFs = CollectionMatrix % NumberOfRows - &
+                  StiffMatrix % NumberOfRows
+
+  IF(ASSOCIATED(AddMatrix)) &
+    CollectionMatrix % ParallelDOFs = AddMatrix % NumberOfRows - &
+                  StiffMatrix % NumberOfRows
 
   CALL Info( 'SolveWithLinearRestriction', 'CollectionVector done', Level=5 )
 
 !------------------------------------------------------------------------------
 ! Solve the Collection-system 
 !------------------------------------------------------------------------------
+
   CALL SolveLinearSystem( CollectionMatrix, CollectionVector, &
       CollectionSolution, Norm, DOFs, Solver, StiffMatrix )
+
 !------------------------------------------------------------------------------
 ! Separate the solution from CollectionSolution
 !------------------------------------------------------------------------------
@@ -6320,16 +6355,23 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 
     IF ( ExportMultiplier ) THEN
        i = StiffMatrix % NumberOfRows
-       j = RestMatrix % NumberOfRows
+       j=0
+       IF(ASSOCIATED(RestMatrix)) j = RestMatrix % NumberOfRows
        IF(ASSOCIATED(AddMatrix)) &
          j=j+MAX(0,AddMatrix % NumberOfRows-StiffMatrix%NumberOFRows)
 
-       MultiplierValues = 0.0d0
+       MultiplierValues = 0.0_dp
        MultiplierValues(1:j) = CollectionSolution(i+1:i+j)
     END IF
 !------------------------------------------------------------------------------
-    CALL FreeMatrix( CollectionMatrix )
-    DEALLOCATE( CollectionSolution )
+
+    IF(.NOT.NotExplicit) THEN
+      CALL FreeMatrix( CollectionMatrix )
+      StiffMatrix % CollectionMatrix => Null()
+    ELSE
+      StiffMatrix % CollectionMatrix => CollectionMatrix
+    END IF
+    DEALLOCATE(CollectionSolution)
 
     CALL Info( 'SolveWithLinearRestriction', 'All done', Level=5 )
 
