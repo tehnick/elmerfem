@@ -470,7 +470,7 @@ CONTAINS
       Constrained = nc>0
       IF(Constrained) THEN
         ALLOCATE(x(ndim+nc),b(ndim+nc))
-        IF(.NOT.ASSOCIATED(CM % ExtraVals))THEN
+        IF(.NOT.ALLOCATED(CM % ExtraVals))THEN
           ALLOCATE(CM % ExtraVals(nc)); CM % extraVals=0._dp
         END IF
         b(1:ndim) = rhsvec; b(ndim+1:) = CM % RHS
