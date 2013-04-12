@@ -6234,11 +6234,13 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      END IF
 
      IF ( .NOT. ASSOCIATED( MultiplierValues ) ) THEN
-       ALLOCATE( MultiplierValues(NumberOfRows-StiffMatrix % NumberOfRows), STAT=istat )
+       j=NumberOfRows-StiffMatrix % NumberOfRows
+       j=MAX(j,StiffMatrix % NumberOfRows/DOFs)
+       ALLOCATE( MultiplierValues(j), STAT=istat )
        IF ( istat /= 0 ) CALL Fatal('SolveWithLinearRestriction','Memory allocation error.')
        MultiplierValues = 0.0_dp
        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, SolverPointer, &
-            MultiplierName, 1, MultiplierValues)
+                  MultiplierName, 1, MultiplierValues)
      END IF
   END IF
 
