@@ -1236,6 +1236,11 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
       if(strstr(params,"TRUE")) eg->saveboundaries = FALSE;
     }
+    else if(strstr(command,"LAYERED BOUNDARIES")) {
+      for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
+      if(strstr(params,"TRUE")) grid->layeredbc = 1;
+      if(strstr(params,"FALSE")) grid->layeredbc = 0;
+    }
     else if(strstr(command,"EXTRUDED")) {
       grid->dimension = 3;
 
@@ -2585,11 +2590,11 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
       (*grid)[k].noboundaries = i;
     }
     
-    else if(strstr(command,"LAYERED BOUNDARIES")) {
+    /* else if(strstr(command,"LAYERED BOUNDARIES")) {
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
       if(strstr(params,"TRUE")) (*grid)[k].layeredbc = 1;
       if(strstr(params,"FALSE")) (*grid)[k].layeredbc = 0;
-    }
+    } */
     
     else if(strstr(command,"NUMBERING")) {
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
@@ -2690,13 +2695,13 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
       (*grid)[k].autoratio = 0;
     }
     
-    else if(strstr(command,"EXTRUDED STRUCTURE")) {
+    /* else if(strstr(command,"EXTRUDED STRUCTURE")) {
       for(i=1;i<=(*grid)[k].zcells;i++) {
 	if(i>1) Getline(params,in);
 	sscanf(params,"%d %d %d\n",
 	       &(*grid)[k].zfirstmaterial[i],&(*grid)[k].zlastmaterial[i],&(*grid)[k].zmaterial[i]); 
       }
-    }
+    } */
     
     else if(strstr(command,"GEOMETRY MAPPINGS")) {     
       if(k > 0) (*grid)[k].mappings = 0;

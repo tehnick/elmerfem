@@ -34,13 +34,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <limits.h>
 
 #include "nrutil.h"
 #include "common.h"
 #include "femdef.h"
 #include "femtypes.h"
 #include "femmesh.h"
-
 
 #define DEBUG 0
 
@@ -71,7 +71,7 @@ void InitGrid(struct GridType *grid)
   grid->minxelems = grid->minyelems = 1;
   grid->minzelems = 2;
   grid->firstmaterial = 1;
-  grid->lastmaterial = 100;
+  grid->lastmaterial = INT_MAX;
   grid->autoratio = 1;
   grid->xyratio = 1.0;
   grid->xzratio = 1.0;
@@ -118,7 +118,7 @@ void InitGrid(struct GridType *grid)
     grid->zdens[i] = 1.0;
     grid->z[i] = 0.;
     grid->zfirstmaterial[i] = 1;
-    grid->zlastmaterial[i] = 100;
+    grid->zlastmaterial[i] = INT_MAX;
     grid->zmaterial[i] = 0; 
   }
 
