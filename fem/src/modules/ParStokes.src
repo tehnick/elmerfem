@@ -81,7 +81,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
   LOGICAL :: AllocationsDone = .FALSE., Found, Convect, GotForceBC, NormalTangential, &
-       SkipPowerLaw, Newton = .FALSE.
+       SkipPowerLaw=.True., Newton = .FALSE.
   TYPE(Element_t), POINTER :: Element
 
   REAL(KIND=dp) :: Norm, NonlinearTol, NewtonThreshold, NonLinError
@@ -122,7 +122,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   SAVE Snew, R, S, V, Indexes, ALocal, PLocal, B1Local, B2Local, B3Local, Vx, Vy, Vz
   REAL(KIND=dp), ALLOCATABLE :: RowScalingA(:), RowScalingP(:)
   SAVE RowScalingA, RowScalingP
+  SAVE MaxIterations,RestartM
 !------------------------------------------------------------------------------
+  NonLinError=2.0_dp
+  Solver % Variable % NonLinChange = NonLinError
+
   Parallel = ParEnv % Pes > 1
 
   dim = CoordinateSystemDimension()
@@ -251,7 +255,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
        'Nonlinear System Convergence Tolerance', minv=0.0d0 )
 
   IF (BlockPreconditioning) THEN
-     Solver % Variable % Values = 0.0d0
+     !Solver % Variable % Values = 0.0d0 !Fab: No need to reset to 0
      Solver % Matrix % RHS = 0.0d0
      NonlinearIter = NonlinearIter + 1   ! To enable the computation of true nonlinear residual
   END IF
@@ -308,7 +312,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
      ! We always generate the initial guess by adjusting material law
      ! exponent to obtain linear behaviour
      !---------------------------------------------------------------
-     IF (Iter==1) THEN
+     IF ((Iter==1) .AND. (SkipPowerlaw)) THEN !SkipPowerlaw only 1st time
         SkipPowerlaw = .TRUE.
      ELSE
         SkipPowerlaw = .FALSE.
@@ -403,8 +407,9 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         END IF
  
      END DO
-
-
+     
+     CALL DefaultFinishBulkAssembly()
+     
      !------------------------------------------------------------------------------
      ! Surface force and slip boundary conditions
      !------------------------------------------------------------------------------
@@ -711,10 +716,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
              END DO
            END IF
            NonLinError = Mynorm( n, Mr )/Mynorm( n, Mb )
+           Solver % Variable % NonLinChange = NonLinError
 
            WRITE(Message,'(a,I4,ES12.3)') 'Residual for nonlinear iterate', &
               Iter, NonLinError
-           CALL Info('StokesSolver', Message, Level=4)            
+           CALL Info('StokesSolver', Message, Level=3)            
 
            IF ( NonLinError < NonlinearTol .OR. Iter==NonlinearIter ) THEN
              DEALLOCATE( Residual )
@@ -985,6 +991,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         DEALLOCATE( Residual )
         DEALLOCATE( TempRes )        
         DEALLOCATE( TempS )          
+
+        ! Compute Var Loads if needed
+        IF ( ListGetLogical( Solver % Values,'Calculate Loads', Found ) ) &
+                         CALL ComputeVarLoads(Solver)
+
 
         n =  Solver % Matrix % NumberOfRows
         RotatedVarValues(1:n) = Solver % Variable % Values(1:n)
@@ -1841,7 +1852,107 @@ CONTAINS
   END SUBROUTINE OptimalMatrixScaling
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+SUBROUTINE ComputeVarLoads(Solver)
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+    TYPE(Solver_t), TARGET :: Solver
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t), POINTER :: Aaid, Projector
+    TYPE(Variable_t), POINTER ::  NodalLoads
+
+    REAL(KIND=dp), POINTER :: SaveValues(:)
+    REAL(KIND=dp), ALLOCATABLE :: x(:),TempVector(:), TempRHS(:)
+
+    INTEGER :: DOFs
+    INTEGER :: i,ii,j,l,DOF,This
+
+!------------------------------------------------------------------------------
+
+
+    DOFs=Solver % Variable % DOFs
+
+    NodalLoads => VariableGet( Solver % Mesh % Variables, &
+       GetVarName(Solver % Variable) // ' Loads' )
+
+    Aaid => Solver % Matrix
+
+    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(Aaid % BulkValues) ) THEN
+      ALLOCATE(x(SIZE(Solver % Variable % Values)))
+      x(:)=Solver % Variable % Values(:)
+      ALLOCATE( TempVector(Aaid % NumberOfRows) )
+
+      SaveValues => Aaid % Values
+      Aaid % Values => Aaid % BulkValues
+
+      IF ( ParEnv % PEs > 1 ) THEN
+        ALLOCATE(TempRHS(SIZE(AAid % BulkRHS)))
+        TempRHS = Aaid % BulkRHS
+        CALL ParallelInitSolve( Aaid, x, TempRHS, Tempvector )
+        CALL ParallelMatrixVector( Aaid, x, TempVector, .TRUE. )
+      ELSE
+        CALL MatrixVectorMultiply( Aaid, x, TempVector )
+      END IF
+
+
+      Aaid % Values => SaveValues
+      IF ( ParEnv % PEs>1 ) THEN
+        DO i=1,Aaid % NumberOfRows
+          IF ( AAid % ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % Mype ) THEN
+            TempVector(i) = TempVector(i)-TempRHS(i)
+          ELSE
+            TempVector(i) = 0
+          END IF
+        END DO
+        DEALLOCATE(TempRHS)
+        CALL ParallelSumVector( AAid, Tempvector )
+      ELSE
+        TempVector = TempVector - Aaid % BulkRHS
+      END IF
+
+      DO This=1,CurrentModel % NumberOfBCs
+        Projector=>CurrentModel  % BCs(This) % PMatrix
+        IF (ASSOCIATED(Projector))THEN
+          DO DOF=1,DOFs
+            DO i=1,Projector % NumberOfRows
+              ii = Projector % InvPerm(i)
+              k = Solver % Variable % Perm(ii)
+              IF(k<=0) CYCLE
+              k = DOFs * (k-1) + DOF
+              TempVector(k)=0
+
+              DO l = Projector % Rows(i), Projector % Rows(i+1)-1
+                IF ( Projector % Cols(l) <= 0 ) CYCLE
+                m = Solver % Variable % Perm( Projector % Cols(l) )
+                IF ( m > 0 ) THEN
+                  m = DOFs * (m-1) + DOF
+                  TempVector(k) = TempVector(k) + Projector % Values(l)*TempVector(m)
+                 END IF
+              END DO
+            END DO
+          END DO
+        END IF
+      END DO
+
+      DO i=1,SIZE( NodalLoads % Perm )
+        IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
+           DO j=1,DOFs
+             NodalLoads % Values(DOFs*(NodalLoads % Perm(i)-1)+j) =  &
+                TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
+           END DO
+         END IF
+      END DO
+      DEALLOCATE( x,TempVector )
+
+      CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
+
+    END IF
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE ComputeVarLoads
+
+!------------------------------------------------------------------------------
+
 END SUBROUTINE StokesSolver
 !------------------------------------------------------------------------------
