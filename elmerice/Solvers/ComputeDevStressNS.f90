@@ -145,8 +145,8 @@
        FlowPerm    => FlowVariable % Perm
        FlowValues  => FlowVariable % Values
      ELSE
-       CALL Info('ComputeDevStress', &
-                      & 'No variable for velocity associated.', Level=4)
+       CALL FATAL('ComputeDevStress', &
+                      & 'No variable for velocity associated.')
      END IF
 !              
 !------------------------------------------------------------------------------
@@ -165,7 +165,8 @@
       END IF
 
       StressSolverName = GetString( Solver % Values, 'Stress Variable Name', GotIt )    
-      IF (.NOT.Gotit) StressSolverName = 'Stress'
+      IF (.NOT.Gotit) CALL FATAL('ComputeDevStress', & 
+               'Stress Variable Name not defined')
       StressSol => VariableGet( Solver % Mesh % Variables, StressSolverName )
       StressPerm => StressSol % Perm
       StressDOFs = StressSol % DOFs
