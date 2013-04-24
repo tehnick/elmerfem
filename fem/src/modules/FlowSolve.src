@@ -38,6 +38,29 @@
 !> \{
 
 !------------------------------------------------------------------------------
+!> Initialization of the main solver: AdvectionDiffusionSolver
+!------------------------------------------------------------------------------
+   SUBROUTINE FlowSolver_init( Model,Solver,Timestep,TransientSimulation )
+!------------------------------------------------------------------------------
+     USE DefUtils
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+     TYPE(Solver_t) :: Solver          !< Linear & nonlinear equation solver options
+     TYPE(Model_t), TARGET :: Model    !< All model information (mesh, materials, BCs, etc...)
+     REAL(KIND=dp) :: Timestep         !< Timestep size for time dependent simulations
+     LOGICAL :: TransientSimulation    !< Steady state or transient simulation
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: Params
+
+     Params => GetSolverParams()
+     CALL ListAddInteger( Params,'Time Derivative Order',1 )
+
+   END SUBROUTINE FlowSolver_init
+
+
+!------------------------------------------------------------------------------
 !> Solver for the Navier-Stokes equation in various different coordinate systems.
 !------------------------------------------------------------------------------
    SUBROUTINE FlowSolver( Model,Solver,dt,TransientSimulation)

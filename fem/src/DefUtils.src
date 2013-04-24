@@ -1926,7 +1926,7 @@ CONTAINS
    MASS = 0.0_dp
    X = 0.0_dp
 
-   Order = MIN( Solver % DoneTime, Solver % Order )
+   Order = MAX( MIN( Solver % DoneTime, Solver % Order ), 1)   
    HasMass = ASSOCIATED( Solver % Matrix % MassValues )
 
    Method = ListGetString( Solver % Values, 'Timestepping Method', Found )
@@ -3930,6 +3930,10 @@ CONTAINS
     INTEGER :: n
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 
+    LOGICAL :: Transient
+    REAL(KIND=dp) :: SScond
+    INTEGER :: Order
+
     IF( PRESENT( Solver ) ) THEN
       PSolver => Solver
     ELSE
@@ -4051,11 +4055,12 @@ CONTAINS
     TYPE(Solver_t), OPTIONAL, TARGET :: Solver
 
     INTEGER :: order, n
-    LOGICAL :: Found
+    LOGICAL :: Found, Transient
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Matrix_t), POINTER :: A
     CHARACTER(LEN=MAX_NAME_LEN) :: str
+    REAL(KIND=dp) :: sscond
 
     IF( PRESENT( Solver ) ) THEN
       PSolver => Solver
@@ -4076,9 +4081,16 @@ CONTAINS
     END IF
 
     IF(GetLogical(Params,'Use Global Mass Matrix',Found)) THEN
-      IF( ListGetString( CurrentModel % Simulation, 'Simulation Type' ) == 'transient') THEN
-        order=GetInteger(Params,'Time Derivative Order',Found)
-        IF(.NOT.Found) order=1
+
+      Transient = ( ListGetString( CurrentModel % Simulation, 'Simulation Type' ) == 'transient')
+      IF( Transient ) THEN
+        SSCond = ListGetCReal( PSolver % Values,'Steady State Condition',Found )
+        IF( Found .AND. SSCond > 0.0_dp ) Transient = .FALSE.
+      END IF
+
+      IF( Transient ) THEN
+        order = GetInteger(Params,'Time Derivative Order',Found)
+        IF(.NOT.Found) Order = PSolver % TimeOrder
 
         SELECT CASE(order)
           

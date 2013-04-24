@@ -169,9 +169,6 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   HelpSol => VariableGet( Solver % Mesh % Variables, 'timestep')
   TimeStep = HelpSol % Values(1)
 
-  IF( CoupledIter == 1 .AND. Timestep > 1 ) THEN
-  END IF
-  
 !---------------------------------------------------------------------------------
 ! The first time the main axis of the free surface is determined
 ! and some permanent vectors related to the surface are allocated.
@@ -417,7 +414,9 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
       
       CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForceVector )
     END DO
+
     CALL DefaultFinishBulkAssembly()
+    CALL DefaultFinishBoundaryAssembly()
     CALL DefaultFinishAssembly()
 
     ! The Dirichlet conditions here are intended to enable periodic BCs only
@@ -485,7 +484,9 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
       CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForceVector )
     END DO
     
-    CALL FinishAssembly( Solver, ForceVector )    
+    CALL DefaultFinishBulkAssembly()
+    CALL DefaultFinishBoundaryAssembly()
+    CALL DefaultFinishAssembly()
 
     ! The Dirichlet conditions here are intended to enable periodic BCs only
     CALL DefaultDirichletBCs()
