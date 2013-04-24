@@ -72,6 +72,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
    END DO
 
    ! Includes 'Linear System FCT' and global time integration
+   CALL DefaultFinishBulkAssembly()
    CALL DefaultFinishAssembly()
 
    CALL DefaultDirichletBCs()

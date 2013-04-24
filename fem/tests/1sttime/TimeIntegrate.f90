@@ -45,6 +45,8 @@ SUBROUTINE TimeIntTest( Model,Solver,dt,TransientSimulation )
    !---------------------------------------------------------------
    CALL Default1stOrderTime( MASS, STIFF, FORCE )
    CALL DefaultUpdateEquations( STIFF, FORCE )
+   CALL DefaultFinishBulkAssembly()
+   CALL DefaultFinishBoundaryAssembly()
    CALL DefaultFinishAssembly()
 !
 !  Solve the system and we are done:

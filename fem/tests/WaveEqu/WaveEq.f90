@@ -80,7 +80,11 @@ SUBROUTINE WaveSolver( Model,Solver,dt,TransientSimulation )
       END IF
       CALL DefaultUpdateEquations( STIFF, FORCE )
    END DO
+
+   CALL DefaultFinishBulkAssembly()
+   CALL DefaultFinishBoundaryAssembly()
    CALL DefaultFinishAssembly()
+   
    CALL DefaultDirichletBCs()
 
 
