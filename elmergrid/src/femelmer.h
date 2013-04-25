@@ -31,6 +31,7 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
 			int dual,int info);
 int ReorderElementsMetis(struct FemType *data,int info);
 #endif
+int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryType *bound,int info);
 int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,
 			 int partbw,int info);
 int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,

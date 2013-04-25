@@ -9465,8 +9465,7 @@ int CreateInverseTopology(struct FemType *data,int info)
 
   if(data->invtopoexists) {
     printf("The inverse topology already exists!\n");
-    smallerror("The inverse topology not done");
-    return(1);
+    return(0);
   }
 
   maxcon = 0;
@@ -9636,7 +9635,9 @@ int CreateDualGraph(struct FemType *data,int unconnected,int info)
   if(info) printf("There are at maximum %d connections in dual graph.\n",dualmaxcon);
   if(info) printf("There are at all in all %d connections in dual graph.\n",totcon);
   
-  DestroyInverseTopology(data,info);
+  /* Inverse topology is created for partitioning only and then the direct
+     topology is needed elsewhere as well. Do do not destroy it. */ 
+  if(0) DestroyInverseTopology(data,info);
 }
 
 

@@ -176,6 +176,7 @@ static void Instructions()
   printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
   printf("-partoptim           : apply aggressive optimization to node sharing\n");
+  printf("-partbcoptim         : apply optimization to bc ownership sharing\n");
   printf("-partbw              : minimize the bandwidth of partition-partion couplings\n");
   printf("-parthypre           : number the nodes continuously partitionwise\n");
 
@@ -864,9 +865,10 @@ int main(int argc, char *argv[])
 
 
   for(k=0;k<nomeshes;k++) {
-    int noopt = 0, partopt, fail, partdual;
+    int partoptim, partbcoptim, partopt, fail, partdual;
 
-    noopt = eg.partoptim;
+    partoptim = eg.partoptim;
+    partbcoptim = eg.partbcoptim;
     partdual = eg.partdual;
 
     if(eg.partitions || eg.metis) {
@@ -907,7 +909,12 @@ int main(int argc, char *argv[])
 	FindPeriodicParents(&data[k],boundaries[k],info);	
 
       timer_show();
-      OptimizePartitioning(&data[k],boundaries[k],!noopt,eg.partbw,info);
+      /* This is the only routine that affects the ownership of elements */
+      if( partbcoptim ) {
+	OptimizePartitioningAtBoundary(&data[k],boundaries[k],info);
+      }
+
+      OptimizePartitioning(&data[k],boundaries[k],!partoptim,eg.partbw,info);
 
       if(data[k].periodicexist) {
 	free_Ivector(data[k].periodic,1,data[k].noknots);

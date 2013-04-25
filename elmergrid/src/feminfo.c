@@ -2,7 +2,7 @@
    ElmerGrid - A simple mesh generation and manipulation utility  
    Copyright (C) 1995- , CSC - IT Center for Science Ltd.   
 
-   Author:  Peter Rï¿½back
+   Author:  Peter Råback
    Email:   Peter.Raback@csc.fi
    Address: CSC - IT Center for Science Ltd.
             Keilaranta 14
@@ -246,6 +246,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->metis = 0;
   eg->partopt = 0;
   eg->partoptim = FALSE;
+  eg->partbcoptim = FALSE;
   eg->partjoin = 0;
   eg->partitionhalo = FALSE;
   eg->partitionindirect = FALSE;
@@ -629,6 +630,10 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-partoptim") == 0) {
       eg->partoptim = TRUE;
       printf("Aggressive optimization will be applied to node sharing.\n");
+    }
+    if(strcmp(argv[arg],"-partbcoptim") == 0) {
+      eg->partbcoptim = TRUE;
+      printf("Aggressive optimization will be applied to parent element sharing.\n");
     }
     if(strcmp(argv[arg],"-partbw") == 0) {
       eg->partbw = TRUE;

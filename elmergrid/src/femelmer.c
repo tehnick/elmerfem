@@ -2786,7 +2786,6 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
 
   /* Set the partition given by Metis for each node. */
   if( dual ) {
-    printf("dual\n");
     if( data->elemconnectexist ) {
       for(i=1;i<=noelements;i++) {
 	j = data->elemconnect[i];
@@ -2803,7 +2802,6 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
 	data->elempart[i] = npart[i-1]+1;
     }
     PartitionNodesByElements(data,info);
-    printf("done\n");
   }
   else {
     for(i=1;i<=nn;i++) 
@@ -3009,7 +3007,7 @@ static void CheckPartitioning(struct FemType *data,int info)
 }
 
 
-static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryType *bound,int info)
+int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryType *bound,int info)
 {
   int i,j,k,l,n,m,boundaryelems,ind,periodic,hit,hit2;
   int dompart,part1,part2,newmam,mam1,mam2,part,discont,nodesd2;
@@ -3050,7 +3048,11 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	part2 = data->elempart[mam2];
 	if(part1 == part2) continue;
 
-	  
+	hit = bound[j].types[i];
+	if( hit == 5 || hit == 105 ) {
+	  printf("mams: %d %d %d %d %d\n",mam1,mam2,part1,part2,bound[j].types[i]);
+	}
+
 	/* The first iterations check which parents is ruling 
 	   thereafter choose pragmatically the other to overcome
 	   oscillating solutions. */
@@ -3111,7 +3113,8 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
       }
     }
     if(info && boundaryelems) 
-      printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
+      printf("Round %d: %d bulk elements with BCs removed from interface.\n",
+	     k,boundaryelems);
   } while(boundaryelems && k < 10);
 
 
@@ -3418,6 +3421,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   int *elempart,*nodepart,*neededtimes,*indxper,sharings;
   int nodesd2,maxneededtimes,*probnodes,optimize,target;
   int *neededvector;
+  int somethingdone = 0;
   Real *rpart;
 
   if(!data->partitionexist) {
@@ -3433,8 +3437,6 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   periodic = data->periodicexist;
   if(periodic) indxper = data->periodic;
 
-  /* This is the only routine that affects the ownership of elements */
-  OptimizePartitioningAtBoundary(data,bound,info);
 
   /* Create a table showing to which partitions nodes belong to */
   CreatePartitionTable(data,info);
@@ -3472,7 +3474,6 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   if(!noopt) {    
     
     /* Distribute the shared nodes as evenly as possible. */
-
 
     int target, same, nochanges, maxrounds, dtarget;
 
@@ -3524,6 +3525,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
       dshared = CheckSharedDeviation(neededvector,partitions,info);
       
       if(dshared >= dshared0) break;
+      somethingdone = somethingdone + nochanges;
     }
   }
 
@@ -3639,7 +3641,6 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
 				     i1,i2,i,owners,hit);
 	  }
 	  
-	  
 	  /* Count the number of nodes with wrong parents */
 	  for(j=0;j < nodesd2;j++) {
 	    ind = data->topology[i][j];
@@ -3666,6 +3667,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
 	}
       }
       
+      somethingdone += sharings;
       if(info && sharings) printf("Changed the ownership of %d nodes\n",sharings);
       
     } while (sharings > 0 && m < 3);
@@ -3689,11 +3691,17 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
 
   if(!noopt) free_Ivector(probnodes,1,noknots);
  
-  if(info) printf("The partitioning was optimized.\n"); 
-
-
-  printf("Checking partitioning after optimization\n");
-  CheckPartitioning(data,info);
+  
+  if(somethingdone) {    
+    if( info ) {
+      printf("The partitioning was optimized: %d\n",somethingdone); 
+      printf("Checking partitioning after optimization\n");
+    }
+    CheckPartitioning(data,info);
+  }
+  else {
+    if(info) printf("Partitioning was not altered\n");
+  }
 
   return(0);
 }
