@@ -63,6 +63,7 @@ struct GridType {
     xcells,        /* number of subcells in x-direction */
     ycells,
     zcells,
+    layerbcoffset,     /* offset of bcs when doing extrusion */
     noelements,    /* number of elements in the mesh */
     noknots,       /* number of knots in the mesh */
     nonodes,       /* number of nodes in one element */

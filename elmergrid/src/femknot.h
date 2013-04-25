@@ -43,6 +43,7 @@ int SetDiscontinuousPoints(struct FemType *data,struct PointType *point,
 			   int material);
 int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
 		      int bctype,int connecttype,int info);
+int SetConnectedElements(struct FemType *data,int *nodeconnect,int info);
 int FindCorners(struct GridType *grid,struct CellType *cell,
 		struct FemType *data,int info);
 

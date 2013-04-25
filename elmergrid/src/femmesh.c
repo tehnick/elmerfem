@@ -54,6 +54,7 @@ void InitGrid(struct GridType *grid)
 
   grid->layered = FALSE;
   grid->layeredbc = TRUE;
+  grid->layerbcoffset = 0;
   grid->triangles = FALSE;
   grid->triangleangle = 0.0;
   grid->partitions = FALSE;

@@ -1252,6 +1252,9 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       if(strstr(command,"EXTRUDED DIVISIONS")) {
 	sscanf(params,"%d",&grid->zcells);		
       }
+      if(strstr(command,"EXTRUDED BC OFFSET")) {
+	sscanf(params,"%d",&grid->layerbcoffset);		
+      }
       else if(strstr(command,"EXTRUDED LIMITS")) {
 	cp = params;
 	for(i=0;i<=grid->zcells;i++) grid->z[i] = next_real(&cp);

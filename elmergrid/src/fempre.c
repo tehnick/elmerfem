@@ -579,11 +579,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  /* Make a connected boundary (specific to Elmer format) needed in linear constraints */
-  for(k=0;k<nomeshes;k++) 
-    for(i=1;i<=eg.connect;i++) 
-      SetConnectedNodes(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);
-  
 
   /* Divide quadrilateral meshes into triangular meshes */
   for(k=0;k<nomeshes;k++) 
@@ -632,7 +627,6 @@ int main(int argc, char *argv[])
 
 	CreateKnotsExtruded(&(data[k]),boundaries[k],&(grids[k]),
 			    &(data[j]),boundaries[j],info);
-
 
 	if(nogrids) {
 	  elements3d = MAX(eg.elements3d, grids[k].wantedelems3d);
@@ -878,6 +872,10 @@ int main(int argc, char *argv[])
 
       partopt = eg.partopt;
 
+      /* Make a connected boundary needed to enforce nodes to same partitioning */
+      for(i=1;i<=eg.connect;i++) 
+	SetConnectedNodes(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);      
+
       if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
 	FindPeriodicNodes(&data[k],eg.periodicdim,info);
 
@@ -886,6 +884,8 @@ int main(int argc, char *argv[])
 	  PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
 	else if(partopt == 2) 
 	  PartitionSimpleElementsNonRecursive(&data[k],eg.partdim,eg.periodicdim,info);	
+	else if(partopt == 3) 
+	  PartitionSimpleElementsRotational(&data[k],eg.partdim,eg.periodicdim,info);	
 	else
 	  PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
       }

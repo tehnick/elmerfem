@@ -2432,7 +2432,8 @@ int FindPeriodicBoundary(struct FemType *data,struct BoundaryType *bound,
 
 int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
 			 int bctype,int connecttype,int info)
-/* Create connected boundary conditions for a given bctype */
+/* Mark node that are related to a boundary condition of a given bctype.
+   This may be used to create strong connections in the partitioning process. */
 {
   int i,j,k,l,bc,sideelemtype,sidenodes;
   int sideind[MAXNODESD1];
@@ -2445,6 +2446,7 @@ int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
     for(i=1;i<=bound[bc].nosides;i++) {
       if(bound[bc].types[i] != bctype) continue;
  
+      /* If the table pointing the connected nodes does not exist, create it */
       if(!data->nodeconnectexist) {
 	data->nodeconnect = Ivector(1,data->noknots);
 	for(k=1;k<=data->noknots;k++)
@@ -2467,11 +2469,17 @@ int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
 }
 
 
-static int SetConnectedElements(struct FemType *data,int *nodeconnect,int info)
+int SetConnectedElements(struct FemType *data,int *nodeconnect,int info)
 /* Create connected boundary conditions for a given bctype */
 {
   int i,j,k,l,nonodes,hit,nohits;
 
+  if(!data->nodeconnectexist) {
+    printf("Cannot create connected elements without connected nodes!\n");
+    return(1);
+  }
+
+  /* Allocated space for the connected elements */
   if(!data->elemconnectexist) {
     data->elemconnect = Ivector(1,data->noelements);
     for(k=1;k<=data->noelements;k++)
@@ -2479,6 +2487,8 @@ static int SetConnectedElements(struct FemType *data,int *nodeconnect,int info)
     data->elemconnectexist = TRUE;
   }
 
+  /* Go through all the elements and check which of the elements have 
+     nodes that are related to a connected node */
   nohits = 0;
   for(i=1;i<=data->noelements;i++) {
     nonodes = data->elementtypes[i] % 100;
@@ -2494,20 +2504,8 @@ static int SetConnectedElements(struct FemType *data,int *nodeconnect,int info)
     if(hit) nohits++;
   }
   if(info) printf("Number of connected elements is %d\n",nohits);
+  data->elemconnectexist = nohits;
 
-  /* For time being set actually the inverse i.e. number the unconnected nodes */
-  j = 0;
-  for(i=1;i<=data->noelements;i++) {
-    if( data->elemconnect[i] ) {
-      data->elemconnect[i] = 0;
-    }
-    else {
-      j++;
-      data->elemconnect[i] = j;
-    }
-  }
-  data->elemconnectexist = j;
-    
   return(0);
 }
 
@@ -5995,7 +5993,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   int refmaterial1[MAXNEWBC],refmaterial2[MAXNEWBC],refsidetype[MAXNEWBC],indxlength;
   Real z,*newx,*newy,*newz,corder[3];
   Real meanx,meany,absx,absy;
-  int selectmaterials,labelmaterials;
+  int selectmaterials,labelmaterials,layerbcoffset;
 
   if(grid->rotate)
     SetElementDivisionCylinder(grid,info);
@@ -6343,26 +6341,37 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   /* Find the BCs that are created for constant z-levels. 
      Here number all parent combinations so that each pair gets 
      a new BC index. They are numbered by their order of appearance. */
+  layerbcoffset = grid->layerbcoffset;
+
   if(grid->layeredbc) {
 
-    sidetype = maxsidetype;
+    if( layerbcoffset ) {
+      sidetype = layerbcoffset;
+    }
+    else {
+      sidetype = maxsidetype;
+    }
 
     /* Find the BCs between layers. */
     if(grid->dimension == 3 || grid->rotatecartesian) {
       side = 0;
       level = 0;
+      /* The BC set is marked with j */
       j--; 
-      
+
+      /* Go through extruded cells */
       for(cellk=1;cellk <= grid->zcells ;cellk++) {  
 	int swap,redo;
 	redo = FALSE;
 	
       redolayer:
 	
+	/* Go through element layers within cells */
 	for(k=1;k<=grid->zelems[cellk]; k++) {
 	  level++;
 	  if(!(k == 1) && !(cellk == grid->zcells && k==grid->zelems[cellk])) continue;
 	  
+	  /* Last cell in case of last just one element layer gives rise to two BCs */
 	  if(cellk == grid->zcells && k == grid->zelems[cellk]) {
 	    if(grid->zelems[cellk] == 1) 
 	      redo = TRUE;
@@ -6372,51 +6381,59 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	  
 	  if(grid->rotatecartesian && cellk%2 == 1) continue; 
 	  if(grid->rotatecartesian && k != 1) continue; 
-	  
-	  for(i=0;i<MAXNEWBC;i++) {
-	    refmaterial1[i] = 0;
-	    refmaterial2[i] = 0;
-	    refsidetype[i] = 0;
+
+	  /* If layred bc offset is defined then the BCs are numbered deterministically 
+	     otherwise there is a complicated method of defining the BC index so that 
+	     indexes would be used in order. */
+	  if(layerbcoffset) {
+	    minsidetype = layerbcoffset + 1;
 	  }
-	  side = 0;
-	  
-	  minsidetype = sidetype + 1;
+	  else {
+	    for(i=0;i<MAXNEWBC;i++) {
+	      refmaterial1[i] = 0;
+	      refmaterial2[i] = 0;
+	      refsidetype[i] = 0;
+	    }
+	    side = 0;
+	    minsidetype = sidetype + 1;
+	  }
 	  j++;
 	  
 	  for(i=1;i<=dataxy->noelements;i++){
-	    ind1 = (level-2)*dataxy->noelements+i;
+
+	    /* Check the parent elements of the layers. Only create a BC if the parents are 
+	       different. */
+	    ind1 = (level-2)*dataxy->noelements + i;
 	    if(ind1 < 1) 
 	      parent = 0;
 	    else
 	      parent = indx[ind1];
 	    
-	    ind2 = (level-1)*dataxy->noelements+i;
+	    ind2 = (level-1)*dataxy->noelements + i;
 	    if(ind2 > indxlength) 
 	      parent2 = 0;
 	    else
 	      parent2 = indx[ind2];
 	    
+	    /* If only 2nd parent is given swap the order */
 	    if(parent == 0 && parent2 != 0) {
-	      parent  = parent2;
+	      parent = parent2;
 	      parent2 = 0;
 	      swap = 1;
 	    } 
-	    else 
+	    else {
 	      swap = 0;
-	    
+	    }	    
+
 	    if(!parent) continue;
 	    
+	    /* Get the materials related to the parents */
 	    material = data->material[parent];
 	    if(parent2) 
 	      material2 = data->material[parent2];
 	    else 
 	      material2 = 0;
 	    
-#if 0
-	    printf("level=%d ind=[%d %d] parent=[%d %d] material=[%d %d] swap=%d\n",
-		   level,ind1,ind2,parent,parent2,material,material2,swap);
-#endif
-
 	    if(grid->rotatecartesian && !material2) {
 	      if(origtype == 303) GetElementSide(parent,4-swap,1,data,sideind,&sideelemtype);
 	      else GetElementSide(parent,5-swap,1,data,sideind,&sideelemtype);
@@ -6444,15 +6461,10 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 		for(n=0;n<grid->ycells && grid->y[n]+1.0e-12 < meany;n++);
 		material2 = grid->structure[n][m+1];
 	      }	    
-#if 0
-	      printf("cellk=%d meanx=%.3lg  meany=%.3lg  material2=%d m=%d n=%d\n",
-		     cellk,meanx,meany,material2,m,n);
-#endif
 	    }
-	  
 	    
-	    if(material != material2) {	     
-	      
+	    /* Create bc index only if the materials are different */
+	    if(material != material2) {	     	      
 	      side++;
 	      bound[j].nosides = side;
 	      bound[j].parent[side] = parent;
@@ -6468,23 +6480,32 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 		bound[j].side2[side] = 4+swap;
 	      }	      
 
-	      for(m=0;m<MAXNEWBC;m++) {
-		if(refmaterial1[m] == material && refmaterial2[m] == material2) {
-		  break;
-		}
-		else if(refmaterial1[m] == 0 && refmaterial2[m] == 0) {
-		  refmaterial1[m] = material;
-		  refmaterial2[m] = material2;		  
-		  sidetype++;
-		  maxsidetype = MAX( sidetype, maxsidetype );
-		  refsidetype[m] = sidetype;
-		  break;
-		}
-		else if(m==MAXNEWBC-1) {
-		  printf("Layer includes more than %d new BCs!\n",MAXNEWBC);
-		}
+	      /* Simple and deterministic, and complex and continuous numbering */
+	      if(layerbcoffset) {
+		sidetype = level * layerbcoffset + dataxy->material[i];
+		bound[j].types[side] = sidetype;
+		maxsidetype = MAX( sidetype, maxsidetype );
 	      }
-	      bound[j].types[side] = refsidetype[m];
+	      else {
+		for(m=0;m<MAXNEWBC;m++) {
+		  if(refmaterial1[m] == material && refmaterial2[m] == material2) {
+		    break;
+		  }
+		  else if(refmaterial1[m] == 0 && refmaterial2[m] == 0) {
+		    refmaterial1[m] = material;
+		    refmaterial2[m] = material2;		  
+		    sidetype++;
+		    maxsidetype = MAX( sidetype, maxsidetype );
+		    refsidetype[m] = sidetype;
+		    break;
+		  }
+		  else if(m==MAXNEWBC-1) {
+		    printf("Layer includes more than %d new BCs!\n",MAXNEWBC);
+		  }
+		}
+		bound[j].types[side] = refsidetype[m];
+	      }
+
 	    }
 	  }
 
@@ -9560,11 +9581,25 @@ int CreateDualGraph(struct FemType *data,int unconnected,int info)
   noknots = data->noknots;
   invmaxcon = data->maxinvtopo;
   
-  /* If a dual graph only for the unconnected nodes is requested do that */
+  /* If a dual graph only for the unconnected nodes is requested do that.
+     Basically the connected nodes are omitted in the graph. */
   freeelements = noelements;
   if( unconnected ) {
     if( data->nodeconnectexist ) {
       SetConnectedElements(data,data->nodeconnect,info);
+
+      /* In this context use the inverse i.e. number the unconnected nodes */
+      j = 0;
+      for(i=1;i<=data->noelements;i++) {
+	if( data->elemconnect[i] ) {
+	  data->elemconnect[i] = 0;
+	}
+	else {
+	  j++;
+	  data->elemconnect[i] = j;
+	}
+      }
+      data->elemconnectexist = j;
     }
     if( data->elemconnectexist ) {
       elemconnect = data->elemconnect;
