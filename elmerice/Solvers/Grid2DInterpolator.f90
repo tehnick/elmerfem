@@ -65,12 +65,12 @@
         REAL(KIND=dp), POINTER :: Values(:)
         INTEGER, POINTER :: Perm(:)
 
-        REAL(KIND=DP) :: Win,NaNVal
+        REAL(KIND=DP) :: Rmin, Rmax
         REAL(KIND=DP) :: x, y, z, x0, y0, lx, ly
         REAL(KIND=DP), ALLOCATABLE :: xb(:), yb(:), zb(:)
 
         INTEGER,parameter :: io=20
-        INTEGER :: ok, Nx, Ny, Nb
+        INTEGER :: ok, Nx, Ny, Nb, OutNode
         INTEGER :: i, k, kmin, NoVar
 
         CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, DataF
@@ -176,12 +176,30 @@
             END DO
             CLOSE(io)
 
+            OutNode = 0
+            Rmax = 0.0
             DO i=1,Model % Mesh % NumberOfNodes
               x = Model % Mesh % Nodes % x(i)
               y = Model % Mesh % Nodes % y(i)
-              z = InterpolateDEM(x,y,xb,yb,zb,Nx,Ny,x0,y0,lx,ly)
+              Rmin = 0.0
+              CALL InterpolateDEM(x,y,xb,yb,zb,Nx,Ny,x0,y0,lx,ly,Rmin,z)
               Values(Perm(i)) = z
+              IF (Rmin > 0.0) THEN
+                OutNode = OutNode + 1
+                IF (Rmin > Rmax) Rmax = Rmin
+              END IF
            END DO
+          
+           ! Give information on the number of Nodes which are outside of the
+           ! DEM domain
+           IF (OutNode > 0) THEN
+             WRITE( Message, '(I0,A,A)' )OutNode,' nodes where found outside of &
+                 the DEM domain in ',TRIM(DataF)
+             CALL Info( TRIM(SolverName), Message, Level=3 )
+             WRITE( Message, '(A,e14.8)' )'The farthest DEM point used to evaluate & 
+                 the nodal value was: ', Rmax
+             CALL Info( TRIM(SolverName), Message, Level=3 )
+           END IF
             
            DEALLOCATE(xb, yb, zb)
         END DO
@@ -190,12 +208,13 @@
        CALL INFO(Trim(SolverName), &
            '-----ALL DONE----------',Level=5)
 
-CONTAINS
+        END SUBROUTINE Grid2DInterpolator
+
 
 !!!!!!!!!!!!!!!!!!!
-! Function InterpolateDEM
+! Subroutine InterpolateDEM
 !!------------------------------------------------------------------------------!!
-FUNCTION InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby) RESULT(zbed)
+SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin, zbed)
    USE DefUtils
    IMPLICIT NONE
    INTEGER :: imin, Npt, t
@@ -237,7 +256,7 @@ FUNCTION InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby) RESULT(
                  END IF
                END IF
              END DO
-            zbed = zb(imin)
+             zbed = zb(imin)
                         
            ELSE
             ! Mean value over the avalable data
@@ -257,6 +276,5 @@ FUNCTION InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby) RESULT(
         ELSE
           zbed = (zi(1,1)*(x2-x)*(y2-y)+zi(2,1)*(x-x1)*(y2-y)+zi(1,2)*(x2-x)*(y-y1)+zi(2,2)*(x-x1)*(y-y1))/(dbx*dby)      
         END IF
-END FUNCTION InterpolateDEM
+END SUBROUTINE InterpolateDEM
 
-        END SUBROUTINE Grid2DInterpolator
