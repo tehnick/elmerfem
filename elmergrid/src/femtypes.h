@@ -353,6 +353,8 @@ struct ElmergridType {
     discontbounds[MAXBOUNDARIES],
     connect,
     connectbounds[MAXBOUNDARIES],
+    connectboundsset[MAXBOUNDARIES],
+    connectboundsnosets,
     partorder,
     partitionhalo, /* create halo for the partitioning */
     partitionindirect, /* should one create indirect connections between nodes */

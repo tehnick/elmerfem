@@ -2173,7 +2173,7 @@ int PartitionSimpleElementsNonRecursive(struct FemType *data,int dimpart[],int d
 }
 
 
-#define MAXCATEGORY 100
+#define MAXCATEGORY 500
 int PartitionSimpleElementsRotational(struct FemType *data,int dimpart[],int dimper[],
 				      int info) {
   int i,j,k,ind,minpart,maxpart,dim,hit;
@@ -2193,7 +2193,7 @@ int PartitionSimpleElementsRotational(struct FemType *data,int dimpart[],int dim
   /* See if there are connected elements */
   connect = FALSE;
   if(data->nodeconnectexist) {
-    SetConnectedElements(data,data->nodeconnect,info);
+    SetConnectedElements(data,info);
     connect = TRUE;
     elemconnect = data->elemconnect;
     partitions = partitions + partitions3;
@@ -2316,7 +2316,7 @@ int PartitionSimpleElementsRotational(struct FemType *data,int dimpart[],int dim
       }
       cumz[IndZ] += 1;
     }
-    if( connect && elemconnect[j]) continue;
+    if( connect && elemconnect[j] < 0 ) continue;
 
     cumr[IndR] += 1;
     cumf[IndF] += 1;
@@ -2374,7 +2374,7 @@ int PartitionSimpleElementsRotational(struct FemType *data,int dimpart[],int dim
     k = (IndZ-1) * partitions1 * partitions2 + 
       (IndF-1) * partitions1 + IndR;
     if( connect ) {
-      if( elemconnect[j] ) 
+      if( elemconnect[j] < 0 ) 
 	k = IndZ;
       else 
 	k += 1;
@@ -2856,10 +2856,10 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
    elements follow. The dual graph means that the elemenets are partitioned and 
    the ownership of the nodes will follow. The latter is optimal for Elmer. */
 {
-  int i,j,k,l,noelements,noknots;
+  int i,j,k,l,noelements,noknots,consets;
   int nn,con,maxcon,totcon,options[5];
   int *xadj,*adjncy,*vwgt,*adjwgt,wgtflag,*npart;
-  int numflag,nparts,edgecut;
+  int numflag,nparts,edgecut,maxconset;
   int *indxper;
 
   if(info) printf("Making a Metis partitioning for %d nodes in %d-dimensions.\n",
@@ -2880,8 +2880,13 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
     CreateDualGraph(data,TRUE,info);
     maxcon = data->dualmaxconnections;
     if( data->elemconnectexist ) {
-      nn = data->elemconnectexist;
-      nparts -= 1;
+      maxconset = 0;
+      for(i=1;i<=noelements;i++)
+	maxconset = MIN( maxconset, data->elemconnect[i] );
+      maxconset = -maxconset;
+      printf("maxconset = %d\n",maxconset);
+      nn = noelements - data->elemconnectexist;
+      nparts -= maxconset;
     }
     else {
       nn = noelements;
@@ -3055,11 +3060,11 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
     if( data->elemconnectexist ) {
       for(i=1;i<=noelements;i++) {
 	j = data->elemconnect[i];
-	if(!j) {
-	  data->elempart[i] = 1;
+	if(j < 0) {
+	  data->elempart[i] = -j;
 	}
 	else {
-	  data->elempart[i] = npart[j-1]+2;  
+	  data->elempart[i] = npart[j-1]+1+maxconset;  
 	}
       }
     }

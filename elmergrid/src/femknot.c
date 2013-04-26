@@ -2436,9 +2436,9 @@ int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
    This may be used to create strong connections in the partitioning process. */
 {
   int i,j,k,l,bc,sideelemtype,sidenodes;
-  int sideind[MAXNODESD1];
+  int sideind[MAXNODESD1],conflicts;
 
- 
+  conflicts = 0;
   for(bc=0;bc<MAXBOUNDARIES;bc++) {    
     if(bound[bc].created == FALSE) continue;
     if(bound[bc].nosides == 0) continue;
@@ -2460,24 +2460,30 @@ int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
       
       for(j=0;j<sidenodes;j++) {
 	k = sideind[j];
+	if( data->nodeconnect[k] & data->nodeconnect[k] != connecttype ) { 
+	  conflicts += 1;
+	}
 	data->nodeconnect[k] = connecttype;
       }
     }
   }
+  if(conflicts) printf("The were %d conflicts in the connectivity set %d\n");
 
   return(0);
 }
 
 
-int SetConnectedElements(struct FemType *data,int *nodeconnect,int info)
+int SetConnectedElements(struct FemType *data,int info)
 /* Create connected boundary conditions for a given bctype */
 {
-  int i,j,k,l,nonodes,hit,nohits;
+  int i,j,k,l,nonodes,hit,nohits,con;
+  int *nodeconnect;
 
   if(!data->nodeconnectexist) {
     printf("Cannot create connected elements without connected nodes!\n");
     return(1);
   }
+  nodeconnect = data->nodeconnect;
 
   /* Allocated space for the connected elements */
   if(!data->elemconnectexist) {
@@ -2489,22 +2495,37 @@ int SetConnectedElements(struct FemType *data,int *nodeconnect,int info)
 
   /* Go through all the elements and check which of the elements have 
      nodes that are related to a connected node */
-  nohits = 0;
+  nohits = 0;  
   for(i=1;i<=data->noelements;i++) {
     nonodes = data->elementtypes[i] % 100;
     hit = FALSE;
     for(j=0;j<nonodes;j++) {
       k = data->topology[i][j];
-      if( data->nodeconnect[k] ) {
+      con = nodeconnect[k];
+      if( con ) {
+	data->elemconnect[i] = MAX( con, data->elemconnect[i] );
 	hit = TRUE;
-	data->elemconnect[i] = nodeconnect[k];
-	break;
       }
     }
     if(hit) nohits++;
   }
   if(info) printf("Number of connected elements is %d\n",nohits);
   data->elemconnectexist = nohits;
+
+  /* This is a little bit dirty. We set the connections to negative and use the unconnected 
+     as a permutation. */
+  if( nohits ) {
+    j = 0;
+    for(i=1;i<=data->noelements;i++) {
+      if( data->elemconnect[i] ) {
+	data->elemconnect[i] = -data->elemconnect[i];
+      }
+      else {
+	j++;
+	data->elemconnect[i] = j;
+      }
+    }
+  }
 
   return(0);
 }
@@ -9586,24 +9607,11 @@ int CreateDualGraph(struct FemType *data,int unconnected,int info)
   freeelements = noelements;
   if( unconnected ) {
     if( data->nodeconnectexist ) {
-      SetConnectedElements(data,data->nodeconnect,info);
-
-      /* In this context use the inverse i.e. number the unconnected nodes */
-      j = 0;
-      for(i=1;i<=data->noelements;i++) {
-	if( data->elemconnect[i] ) {
-	  data->elemconnect[i] = 0;
-	}
-	else {
-	  j++;
-	  data->elemconnect[i] = j;
-	}
-      }
-      data->elemconnectexist = j;
+      SetConnectedElements(data,info);
     }
     if( data->elemconnectexist ) {
       elemconnect = data->elemconnect;
-      freeelements = data->elemconnectexist;
+      freeelements = noelements - data->elemconnectexist;
     }
     else {
       unconnected = FALSE;
@@ -9632,7 +9640,7 @@ int CreateDualGraph(struct FemType *data,int unconnected,int info)
 	if( unconnected ) {
 	  ci = elemconnect[i];
 	  ci2 = elemconnect[i2];
-	  if( !ci || !ci2 ) continue;
+	  if( ci < 0 || ci2 < 0 ) continue;
 	}
 	else {
 	  ci = i;

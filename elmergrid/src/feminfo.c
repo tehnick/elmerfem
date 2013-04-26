@@ -288,6 +288,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->decimals = 12;
   eg->discont = 0;
   eg->connect = 0;
+  eg->connectboundsnosets = 0;
 
   eg->rotatecurve = FALSE;
   eg->curverad = 0.5;
@@ -707,8 +708,10 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
  	return(10);
       }
       else {
+	eg->connectboundsnosets += 1;
 	for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) { 
 	  eg->connectbounds[eg->connect] = atoi(argv[i]);
+	  eg->connectboundsset[eg->connect] = eg->connectboundsnosets;
 	  eg->connect++;
 	}
       }

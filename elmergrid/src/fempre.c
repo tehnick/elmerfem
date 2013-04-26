@@ -874,7 +874,7 @@ int main(int argc, char *argv[])
 
       /* Make a connected boundary needed to enforce nodes to same partitioning */
       for(i=1;i<=eg.connect;i++) 
-	SetConnectedNodes(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);      
+	SetConnectedNodes(&(data[k]),boundaries[k],eg.connectbounds[i-1],eg.connectboundsset[i-1],info);      
 
       if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
 	FindPeriodicNodes(&data[k],eg.periodicdim,info);
