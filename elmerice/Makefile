@@ -41,6 +41,7 @@ Solvers/DJDBeta_Robin.f90\
 Solvers/DJDmu_Robin.f90\
 Solvers/CostSolver_Robin.f90\
 Solvers/m1qn3.f\
+Solvers/Grid2DInterpolator.f90\
 Solvers/Optimize_m1qn3Parallel.f90
 USFSOURCE := \
 UserFunctions/Buoyancy.f90 \
@@ -137,6 +138,3 @@ purge: clean
 
 %.o: %.f
 	elmerf90-nosh -c $< -o $@
-
-
-	

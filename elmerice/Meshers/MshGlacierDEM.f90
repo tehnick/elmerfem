@@ -92,17 +92,14 @@ INTEGER :: NtN, i, j, Ns, Nsx, Nsy, Nb, Nbx, Nby, n, Npt, ix, iy, imin, is, ib
         READ(10,*)NtN
       CLOSE(10)
       ALLOCATE(xnode(NtN), ynode(NtN), znode(NtN))
-      
 
       OPEN(10,file=TRIM(NameSurf))
         READ(10,*)(xs(i), ys(i), zs(i), i=1,Ns)
       CLOSE(10)
 
-
       OPEN(10,file=TRIM(NameBed))
         READ(10,*)(xb(i), yb(i), zb(i), i=1,Nb)
       CLOSE(10)
-      
       
       OPEN(12,file=TRIM(NameMsh)//"/mesh.nodes")
       READ(12,*)(N, j, xnode(i), ynode(i), znode(i), i=1,NtN)

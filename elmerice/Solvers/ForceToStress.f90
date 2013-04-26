@@ -67,7 +67,7 @@
 !------------------------------------------------------------------------------
      TYPE(Solver_t), POINTER :: PSolver
 
-     TYPE(Matrix_t),POINTER :: StiffMatrix
+     TYPE(Matrix_t), POINTER :: StiffMatrix
 
      INTEGER :: i, j, k, l, n, t, iter, NDeg, STDOFs, LocalNodes, istat
      INTEGER :: dim

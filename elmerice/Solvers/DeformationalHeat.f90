@@ -97,10 +97,10 @@ SUBROUTINE DeformationalHeatSolver( Model,Solver,dt,TransientSimulation )
        FlowPerm     => FlowSol % Perm
        NSDOFs     =  FlowSol % DOFs
        FlowSolution => FlowSol % Values
-       ELSE
-           WRITE(Message,'(a,a,a)') &
+  ELSE
+      WRITE(Message,'(a,a,a)') &
                  ' variable >',FlowSolName,'< not found'
-           CALL FATAL(SolverName,Message)              
+      CALL FATAL(SolverName,Message)              
   END IF
 
   !Allocate some permanent storage, this is done first time only:
@@ -147,6 +147,7 @@ SUBROUTINE DeformationalHeatSolver( Model,Solver,dt,TransientSimulation )
      CALL DefaultUpdateEquations( STIFF, FORCE )
   END DO
   
+
   CALL DefaultFinishAssembly()
 
   Norm = DefaultSolve()

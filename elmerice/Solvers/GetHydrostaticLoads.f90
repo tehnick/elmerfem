@@ -155,10 +155,10 @@ SUBROUTINE GetHydrostaticLoads( Model,Solver,dt,TransientSimulation )
       PwVector(1:DIM) = pwi * Normal(1:DIM)
 
       DO i = 1, n
-	Nn = Permutation(Element % NodeIndexes(i))
-	DO j = 1, DIM
-	  VariableValues(DIM*(Nn-1)+j) = VariableValues(DIM*(Nn-1)+j) + PwVector(j) * s * Basis(i)
-	END DO
+        Nn = Permutation(Element % NodeIndexes(i))
+        DO j = 1, DIM
+          VariableValues(DIM*(Nn-1)+j) = VariableValues(DIM*(Nn-1)+j) + PwVector(j) * s * Basis(i)
+        END DO
       END DO
 
     END DO
