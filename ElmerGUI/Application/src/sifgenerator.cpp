@@ -40,6 +40,7 @@
 
 #include "sifgenerator.h"
 #include <iostream>
+#include <QDebug>
 
 using namespace std;
 
@@ -721,76 +722,124 @@ void SifGenerator::makeInitialConditionBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeBoundaryBlocks()
 {
-  int sifIndex = 0;
-  QMap<int, int> boundaryBC;
-  boundaryBC.clear();
+    int sifIndex = 0;
+    int bcnum = 0;
+    int diff = 0;
+    QMap<int, int> boundaryBC;
+    QMap<QString, int> boundaryList; /*(Boundary condition, edge) value pairs */
+    QList<QString> boundaryConditions; /* List of different boundary conditions */
+    QList<int> boundaryEdges; /* List of edges relating to some specific boundary condition */
+    QString tmp;
 
-  for(int index = 0; index < boundaryMap.count(); index++) {
-    BoundaryPropertyEditor *bEdit = boundaryPropertyEditor[index];
+    boundaryBC.clear();
+    boundaryList.clear();
+    boundaryConditions.clear();
+    boundaryEdges.clear();
+    tmp.clear();
 
-    if(!bEdit)
-      continue;
-
-    if(bEdit->touched)
-      boundaryBC[index] = ++sifIndex;
-  }
-
-  sifIndex = 0;
-  for(int index = 0; index < boundaryMap.count(); index++) {
-    BoundaryPropertyEditor *bEdit = boundaryPropertyEditor[index];
-
-    if(bEdit->touched) {
-      te->append("Boundary Condition " + QString::number(++sifIndex));
-
-      int originalIndex = boundaryMap.key(index);
-
-      te->append("  Target Boundaries(1) = " + QString::number(originalIndex));
-
-      if ( bEdit->bodyProperties ) {
-        te->append("  Body id = " + QString::number(bEdit->bodyID) );
-      }
-
-      int i = bEdit->ui.boundaryConditionCombo->currentIndex();
-      const QString &name = bEdit->ui.boundaryConditionCombo->currentText().trimmed();
-      if(i > -1) 
-	te->append("  Name = \"" +  name + "\"");
-
-      // check which one of the dynamic editors has "name" typed in nameEdit:
-      for(int j = 0; j < boundaryConditionEditor.size(); j++) {
-	DynamicEditor *bc = boundaryConditionEditor[j];
-	if(bc->menuAction != NULL) {
-	  if(bc->nameEdit->text().trimmed() == name) {
-	    
-	    // go through the hash of this dynamic editor:
-	    //--------------------------------------------
-	    for(int i = 0; i < bc->hash.count(); i++) {
-	      hash_entry_t entry = bc->hash.values().at(i); 
-	      
-	      QWidget *widget = entry.widget;
-	      
-	      QDomElement elem;
-	      if ( widget->isEnabled() ) {
-		elem = entry.elem;
-		
-		if(elem.attribute("Widget", "") == "CheckBox") 
-		  handleCheckBox(elem, widget);
-		
-		if(elem.attribute("Widget", "") == "Edit")
-		  handleBCLineEdit(elem, widget, boundaryBC);
-		
-		if(elem.attribute("Widget", "") == "Combo")
-		  handleComboBox(elem, widget);
-
-		if(elem.attribute("Widget", "") == "TextEdit")
-		  handleTextEdit(elem, widget);
-	      }
-	    }
-	  }
-	}
-      }      
-      te->append("End\n");      
+    //Find the available boundary conditions
+    for (int index = 0; index < boundaryConditionEditor.count(); index++) {
+            DynamicEditor *bc = boundaryConditionEditor[index];
+            boundaryConditions.append(bc->nameEdit->text().trimmed());
     }
-  }
+
+    //Find the boundary conditions and edges related to them.
+    for (int index = 0; index < boundaryConditions.count(); index++) {
+        for(int k = 0; k < boundaryMap.count(); k++) {
+            BoundaryPropertyEditor *bEdit = boundaryPropertyEditor[k];
+            if(bEdit->touched) {
+                boundaryBC[index] = ++sifIndex;
+                int originalIndex = boundaryMap.key(k);
+                const QString bcname = bEdit->ui.boundaryConditionCombo->currentText().trimmed();
+                if (boundaryConditions.value(index) == bcname)
+                    boundaryList.insertMulti(bcname, originalIndex);
+            }
+        }
+    }
+    //qDebug() << "boundaryMap: " << boundaryMap;
+    //qDebug() << "boundaryList: " << boundaryList;
+    qDebug() << "boundaryConditions: " << boundaryConditions;
+
+    //Arrange and sort boundary conditions
+    for(int index = 0; index < boundaryConditions.count(); index++) {
+        tmp.clear();
+        boundaryEdges.clear();
+        const QString name = boundaryConditions[index];
+        BoundaryPropertyEditor *bEdit = boundaryPropertyEditor[index];
+        DynamicEditor *bc = boundaryConditionEditor[index];
+
+        if(boundaryList.contains(name)) {
+            bcnum++;
+            te->append("Boundary Condition " + QString::number(bcnum));
+            if(boundaryConditions.count() > 1) {
+                QMap <QString,int>::ConstIterator l = boundaryList.find(boundaryConditions[index]);
+                while (l != boundaryList.end() && l.key()==boundaryConditions[index]){
+                    boundaryEdges.append(l.value());
+                    l++;
+                    }
+                while ((l--) != boundaryList.begin() && l.key()==boundaryConditions[index]){
+                    tmp.append(QString::number(l.value()));
+                    tmp.append(" ");
+                    }
+            }
+            if(boundaryConditions.count() <= 1) {
+                QMap <QString,int>::ConstIterator l = boundaryList.begin();
+                while (l != boundaryList.end()) {
+                    boundaryEdges.append(l.value());
+                    l++;
+                    }
+                while ((l--) != boundaryList.begin()){
+                    tmp.append(QString::number(l.value()));
+                    tmp.append(" ");
+                    }
+                }
+
+            te->append("  Target Boundaries("
+                + QString::number(boundaryEdges.count())
+                + ") = " + tmp);
+
+            if ( bEdit->bodyProperties ) {
+                te->append("  Body id = " + QString::number(bEdit->bodyID) );
+                }
+
+            te->append("  Name = \"" + name + "\"");
+
+            // check which one of the dynamic editors has "name" typed in nameEdit:
+            for(int j = 0; j < boundaryConditionEditor.size(); j++) {
+                DynamicEditor *bc = boundaryConditionEditor[j];
+                if(bc->menuAction != NULL) {
+                    if(bc->nameEdit->text().trimmed() == name && name != NULL) {
+
+                    // go through the hash of this dynamic editor:
+                    //--------------------------------------------
+                    for(int i = 0; i < bc->hash.count(); i++) {
+                        hash_entry_t entry = bc->hash.values().at(i);
+	      
+                        QWidget *widget = entry.widget;
+	      
+                        QDomElement elem;
+                        if ( widget->isEnabled() ) {
+                            elem = entry.elem;
+
+                        if(elem.attribute("Widget", "") == "CheckBox")
+                            handleCheckBox(elem, widget);
+		
+                        if(elem.attribute("Widget", "") == "Edit")
+                            handleBCLineEdit(elem, widget, boundaryBC);
+
+                        if(elem.attribute("Widget", "") == "Combo")
+                            handleComboBox(elem, widget);
+
+                        if(elem.attribute("Widget", "") == "TextEdit")
+                            handleTextEdit(elem, widget);
+                            }
+                        }
+                    }
+                }
+            }
+            te->append("End\n");
+        }
+    }
 }
 
 // Parse "Solver specific tab"

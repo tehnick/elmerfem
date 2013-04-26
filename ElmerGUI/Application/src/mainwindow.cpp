@@ -50,6 +50,8 @@
 #include <iostream>
 #include <fstream>
 
+#include <QDebug>
+
 #include "mainwindow.h"
 
 #ifdef EG_VTK
@@ -3286,16 +3288,20 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
 
   } else if(signal == MAT_DELETE) {
 
+    pe->nameEdit->setText(QString());
+
     for( int i=0; i < boundaryPropertyEditor.size(); i++ ) {
       BoundaryPropertyEditor *bndry = boundaryPropertyEditor[i];
       
       if(!bndry)
 	continue;
 
-       if ( bndry->condition == pe ) bndry->condition=NULL;
+       if ( bndry->condition == pe ) {
+           bndry->condition=NULL;
+       }
     }
 
-    // Bopundary condition is not in menu:
+    // Boundary condition is not in menu:
     if(pe->menuAction == NULL) {
       logMessage("Ready");
       pe->close();
@@ -3308,7 +3314,9 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
     pe->close();
 
     int k = boundaryConditionEditor.indexOf(pe);
-    if(k>=0) boundaryConditionEditor.remove(k);
+    if(k>=0) {
+        boundaryConditionEditor.remove(k);
+    }
 
     logMessage("Boundary condition deleted");
   }
@@ -5534,7 +5542,7 @@ void MainWindow::generateSifSlot()
 }
 
 
-// Boundady selected by double clicking (signaled by glWidget::select):
+// Boundary selected by double clicking (signaled by glWidget::select):
 //-----------------------------------------------------------------------------
 void MainWindow::boundarySelectedSlot(list_t *l)
 {
