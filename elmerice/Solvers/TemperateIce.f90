@@ -143,6 +143,8 @@
           ActiveNode,            &
           AllocationsDone, FirstTime, Hwrk, VariableName, SolverName, NonLinearTol, M, round
 
+     totat = 0.0_dp
+     totst = 0.0_dp
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
