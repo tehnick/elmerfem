@@ -6004,17 +6004,19 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 			 struct GridType *grid,
 			 struct FemType *data,struct BoundaryType *bound,
 			 int info)
+/* Create mesh from 2D mesh either by extrusion or by rotation. 
+   Also create the additional boundaries using automated numbering. */
 {
 #define MAXNEWBC 200
   int i,j,k,l,m,n,knot0,knot1,knot2,elem0,size,kmax,noknots,origtype;
-  int nonodes3d,nonodes2d;
+  int nonodes3d,nonodes2d,bclevel,bcset;
   int cellk,element,level,side,parent,parent2,layers,elemtype;
   int material,material2,ind0,ind1,ind2,*indx,*topo;
-  int sideelemtype,sideind[MAXNODESD1],sidetype,minsidetype,maxsidetype,newbounds;
+  int sideelemtype,sideind[MAXNODESD1],sidetype,minsidetype,maxsidetype,cummaxsidetype,newbounds;
   int refmaterial1[MAXNEWBC],refmaterial2[MAXNEWBC],refsidetype[MAXNEWBC],indxlength;
   Real z,*newx,*newy,*newz,corder[3];
   Real meanx,meany,absx,absy;
-  int selectmaterials,labelmaterials,layerbcoffset;
+  int layerbcoffset;
 
   if(grid->rotate)
     SetElementDivisionCylinder(grid,info);
@@ -6052,6 +6054,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   else 
     layers = 2;
 
+  /* Initialize the 3D mesh structure */
   data->noknots = noknots = dataxy->noknots*(layers*grid->totzelems+1);
   data->noelements = dataxy->noelements * grid->totzelems;
   data->coordsystem = dataxy->coordsystem;
@@ -6082,6 +6085,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       newbounds += grid->rotateblocks;
   }
 
+  /* Initialize the boundaries of the 3D mesh */
   for(j=0;j<data->noboundaries+newbounds;j++) {
     if(boundxy[j].created || j>=data->noboundaries) {
       bound[j] = boundxy[j];
@@ -6111,6 +6115,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       }
     }
   }
+  if(info) printf("Allocated for %d new BC lists\n",j);
 
   knot0 = 0;
   knot1 = layers*dataxy->noknots;
@@ -6118,13 +6123,10 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   elem0 = 0;
   level = 0;
 
-  labelmaterials = FALSE;
-  selectmaterials = FALSE;
-
+  /* Set the element topology of the extruded mesh */
   for(cellk=1;cellk <= grid->zcells ;cellk++) {  
     
     kmax = grid->zelems[cellk];
-    if( grid->zmaterial[cellk] ) labelmaterials = TRUE;
 
     for(k=1;k<=kmax; k++) {
       
@@ -6132,14 +6134,8 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       level++;
       
       for(element=1;element <= dataxy->noelements;element++)  {
-	if(dataxy->material[element] < grid->zfirstmaterial[cellk]) {
-	  selectmaterials = TRUE;
-	  continue;
-	}
-	if(dataxy->material[element] > grid->zlastmaterial[cellk]) {
-	  selectmaterials = TRUE;
-	  continue;
-	}	
+	if(dataxy->material[element] < grid->zfirstmaterial[cellk]) continue;
+	if(dataxy->material[element] > grid->zlastmaterial[cellk]) continue;
 
 	if(grid->rotate) {
 	  meanx = 0.0;
@@ -6197,16 +6193,10 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   }
   data->noelements = elem0;
   printf("Extruded mesh has %d elements in %d levels.\n",elem0,level);
-  printf("Simlple extrusion would have %d elements\n",level*dataxy->noelements);
+  printf("Simple extrusion would have %d elements\n",level*dataxy->noelements);
   
 
-  if ( !(labelmaterials | selectmaterials | grid->rotate ) ) {
-    printf("We seem to have a case of vanilla extrusion!\n");
-  }
-    
-
-
-  /* Set the element coordinates. */
+  /* Set the nodal coordinates of the extruded mesh. */
   knot0 = 0;
   for(cellk=1;cellk <= grid->zcells ;cellk++) {  
 
@@ -6268,13 +6258,12 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     }
   }
 
-
+  /* Perform cylindrical coordinate transformation */
   if(grid->rotate) 
     CylindricalCoordinateTransformation(data,grid->rotateradius1,
 					grid->rotateradius2,grid->rotatecartesian);
 
-  maxsidetype = 0;
-  minsidetype = INT_MAX; 
+  cummaxsidetype = 0;
   sidetype = 0;
 
   /* Extrude the 2D boundary conditions. Initially BCs typically have parents with 
@@ -6282,6 +6271,9 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
      the extruded BC does not have that component. */
   for(j=0;j<data->noboundaries;j++) {
     if(!bound[j].created) continue;
+
+    maxsidetype = 0;
+    minsidetype = INT_MAX; 
     side  = 0;
     level = 0;
 
@@ -6289,10 +6281,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       for(k=1;k<=grid->zelems[cellk]; k++) {
 	level++;
 	
-#if 0
-	printf("level=%d j=%d  side=%d\n",level,j,side);
-#endif
-
 	for(i=1;i<=boundxy[j].nosides;i++){
 
 	  /* Find the parent element indexes and the corresponding material indexes */
@@ -6312,22 +6300,10 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	  if(parent2) material2 = data->material[parent2];
 	  else material2 = 0;
 
-#if 0
-	  printf("ind=[%d %d] parent=[%d %d] material=[%d %d]\n",
-		 ind1,ind2,parent,parent2,material,material2);
-#endif
-	  
 	  if((parent || parent2) && (material != material2)) {
 	    side++;
 
 	    if(!parent) printf("no parent = %d %d %d %d %d\n",parent,parent2,ind1,ind2,level);
-#if 0
-	    if(material == material2) { 
-	      printf("ind=[%d %d] parent=[%d %d] material=[%d %d] %d %d\n",
-		     ind1,ind2,parent,parent2,material,material2,
-		     dataxy->material[boundxy[j].parent[i]],dataxy->material[boundxy[j].parent2[i]]);
-	    }			 
-#endif
 
 	    sidetype = boundxy[j].types[i];
 	    bound[j].types[side] = sidetype;
@@ -6354,31 +6330,28 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       }
     }
     bound[j].nosides = side;
-    if(sidetype > maxsidetype) maxsidetype = sidetype;
-    printf("Extruded BCs from list %d of type [%d,%d] were created with %d sides.\n",
-	   j+1,minsidetype,maxsidetype,side);
+    cummaxsidetype = MAX( maxsidetype, cummaxsidetype );
+    
+    printf("Extruded BCs list %d of types [%d,%d] has %d elements.\n",
+	   j,minsidetype,maxsidetype,side);
   }
+  bcset = dataxy->noboundaries-1;
+
 
   /* Find the BCs that are created for constant z-levels. 
      Here number all parent combinations so that each pair gets 
      a new BC index. They are numbered by their order of appearance. */
   layerbcoffset = grid->layerbcoffset;
-
   if(grid->layeredbc) {
 
-    if( layerbcoffset ) {
-      sidetype = layerbcoffset;
-    }
-    else {
-      sidetype = maxsidetype;
-    }
+    if( !layerbcoffset ) sidetype = maxsidetype;
 
     /* Find the BCs between layers. */
     if(grid->dimension == 3 || grid->rotatecartesian) {
       side = 0;
       level = 0;
-      /* The BC set is marked with j */
-      j--; 
+      bclevel = 0;
+
 
       /* Go through extruded cells */
       for(cellk=1;cellk <= grid->zcells ;cellk++) {  
@@ -6386,7 +6359,9 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	redo = FALSE;
 	
       redolayer:
-	
+	maxsidetype = 0;
+	minsidetype = INT_MAX; 
+
 	/* Go through element layers within cells */
 	for(k=1;k<=grid->zelems[cellk]; k++) {
 	  level++;
@@ -6396,30 +6371,30 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	  if(cellk == grid->zcells && k == grid->zelems[cellk]) {
 	    if(grid->zelems[cellk] == 1) 
 	      redo = TRUE;
-	    else 
+	    else {
 	      level++;
+	    }
 	  }
-	  
-	  if(grid->rotatecartesian && cellk%2 == 1) continue; 
+
+	  if(grid->rotatecartesian && cellk % 2 == 1) continue; 
 	  if(grid->rotatecartesian && k != 1) continue; 
 
 	  /* If layred bc offset is defined then the BCs are numbered deterministically 
 	     otherwise there is a complicated method of defining the BC index so that 
 	     indexes would be used in order. */
-	  if(layerbcoffset) {
-	    minsidetype = layerbcoffset + 1;
-	  }
-	  else {
+	  if(!layerbcoffset) {
 	    for(i=0;i<MAXNEWBC;i++) {
 	      refmaterial1[i] = 0;
 	      refmaterial2[i] = 0;
 	      refsidetype[i] = 0;
 	    }
-	    side = 0;
-	    minsidetype = sidetype + 1;
 	  }
-	  j++;
-	  
+	  side = 0;
+	  bcset++;
+	  bclevel++;
+	  maxsidetype = 0;
+	  minsidetype = INT_MAX;
+
 	  for(i=1;i<=dataxy->noelements;i++){
 
 	    /* Check the parent elements of the layers. Only create a BC if the parents are 
@@ -6487,25 +6462,26 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	    /* Create bc index only if the materials are different */
 	    if(material != material2) {	     	      
 	      side++;
-	      bound[j].nosides = side;
-	      bound[j].parent[side] = parent;
-	      bound[j].parent2[side] = parent2;
-	      bound[j].material[side] = material;
+	      bound[bcset].nosides = side;
+	      bound[bcset].parent[side] = parent;
+	      bound[bcset].parent2[side] = parent2;
+	      bound[bcset].material[side] = material;
 
 	      if(origtype == 303) {
-		bound[j].side[side] = 4-swap;
-		bound[j].side2[side] = 3+swap;
+		bound[bcset].side[side] = 4-swap;
+		bound[bcset].side2[side] = 3+swap;
 	      }
 	      else {
-		bound[j].side[side] = 5-swap;
-		bound[j].side2[side] = 4+swap;
+		bound[bcset].side[side] = 5-swap;
+		bound[bcset].side2[side] = 4+swap;
 	      }	      
 
 	      /* Simple and deterministic, and complex and continuous numbering */
 	      if(layerbcoffset) {
-		sidetype = level * layerbcoffset + dataxy->material[i];
-		bound[j].types[side] = sidetype;
+		sidetype = bclevel * layerbcoffset + dataxy->material[i];
+		bound[bcset].types[side] = sidetype;
 		maxsidetype = MAX( sidetype, maxsidetype );
+		minsidetype = MIN( sidetype, minsidetype );
 	      }
 	      else {
 		for(m=0;m<MAXNEWBC;m++) {
@@ -6517,48 +6493,51 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 		    refmaterial2[m] = material2;		  
 		    sidetype++;
 		    maxsidetype = MAX( sidetype, maxsidetype );
+		    minsidetype = MIN( sidetype, minsidetype );
 		    refsidetype[m] = sidetype;
 		    break;
 		  }
-		  else if(m==MAXNEWBC-1) {
+		  else if(m == MAXNEWBC-1) {
 		    printf("Layer includes more than %d new BCs!\n",MAXNEWBC);
 		  }
 		}
-		bound[j].types[side] = refsidetype[m];
+		bound[bcset].types[side] = refsidetype[m];
 	      }
 
 	    }
 	  }
 
-	  printf("BC list %d on level %d was created with types [%d,%d] and %d sides.\n",j+1,level,minsidetype,maxsidetype,side);    
+	  if(info) printf("Layer BCs list %d of types [%d,%d] has %d elements.\n",
+			  bcset,minsidetype,maxsidetype,side);    
 
-	  if(redo == TRUE) goto redolayer;
+	  if(redo == TRUE) {
+	    goto redolayer;
+	  }
 	}
       }
-      j++;
     } 
   }
-
 
 
   /* Create four additional boundaries that may be used to force
      symmetry constraints. These are only created if the object
      is only partially rotated. */
 
+  bcset++;
   if(grid->rotate && grid->rotateblocks < 4) {
     int o,p;
+    int blocks, maxradi,addtype;
+    Real eps,fii,rad,meanrad,maxrad,xc,yc,dfii,fii0,rads[4],fiis[4];
+
     o = p = 0;
+    eps = 1.0e-3;
+    blocks = grid->rotateblocks;
 
     for(element=1;element<=data->noelements;element++) {
-      int blocks, maxradi,addtype;
-      Real eps,fii,rad,meanrad,maxrad,xc,yc,dfii,fii0,rads[4],fiis[4];
-
-      eps = 1.0e-3;
-      blocks = grid->rotateblocks;
 
       for(side=0;side<6;side++) {
 	GetElementSide(element,side,1,data,&sideind[0],&sideelemtype);
-	
+
 	meanrad = 0.0;
 	maxrad = 0.0;
 
@@ -6607,38 +6586,31 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	  else
 	    addtype = 3;
 	}	  
-	
-	if( addtype >= 0) {
-	  bound[j+addtype].nosides++;
-	  k = bound[j+addtype].nosides;
-	  bound[j+addtype].side[k] = side;
-	  bound[j+addtype].parent[k] = element;
-	  bound[j+addtype].types[k] = sidetype+addtype+1;
+
+	if( addtype >= 0) {	
+	  bound[bcset+addtype].nosides++;
+	  k = bound[bcset+addtype].nosides;
+	  bound[bcset+addtype].side[k] = side;
+	  bound[bcset+addtype].parent[k] = element;
+	  bound[bcset+addtype].types[k] = sidetype+addtype+1;
 	}
       }
     }
     
-    printf("Symmetry BCs [%d %d %d %d] have [%d %d %d %d] sides.\n",
-	   j,j+1,j+2,j+3,bound[j].nosides,bound[j+1].nosides,
-	   bound[j+2].nosides,bound[j+3].nosides); 
-    for(l=0;l<4;l++) {
-      if(bound[j+l].nosides == 0) 
-	bound[j+l].created = FALSE;
-      else
-	bound[j+l].created = TRUE;
+    for(addtype=0;addtype<4;addtype++) {
+      l = bcset+addtype;
+      if(bound[l].nosides == 0) {
+	bound[l].created = FALSE;
+      }
+      else {
+	bound[l].created = TRUE;
+	if(info) printf("Symmetry BCs list %d of type %d has %d elements.\n",
+			l,sidetype+addtype+1,bound[l].nosides);    
+      }
     }
-    j += 4;
+    bcset += 4;
   }
-
-  data->noboundaries = j+1;
-
-#if 0
-  for(i=0;i<j+4;i++) {
-    if(bound[i].nosides) k=bound[i].types[bound[i].nosides];
-    printf("bnd=%d types[1]=%d types[max]=%d nosides=%d type=%d\n",
-	   i,bound[i].types[1],k,bound[i].nosides,bound[i].type); 
-  }
-#endif
+  data->noboundaries = bcset+1;
 
 
   /* Renumber the element nodes so that all integers are used.
@@ -6648,7 +6620,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     indx[i] = 0;
   
   for(element=1;element<=data->noelements;element++) {
-    nonodes3d = data->elementtypes[element]%100;
+    nonodes3d = data->elementtypes[element] % 100;
     for(i=0;i<nonodes3d;i++)
       indx[data->topology[element][i]] = 1;
   }  
@@ -6679,12 +6651,11 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     data->noknots = j;
 
     for(element=1;element<=data->noelements;element++) {
-      nonodes3d = data->elementtypes[element]%100;
+      nonodes3d = data->elementtypes[element] % 100;
       for(i=0;i<nonodes3d;i++)
 	data->topology[element][i] = indx[data->topology[element][i]];
     }
   }
-
 
   if(grid->rotate) {
     ReorderElements(data,bound,FALSE,corder,info);    
