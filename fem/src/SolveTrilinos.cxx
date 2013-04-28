@@ -8,6 +8,10 @@ allow creating an iterative solver (from the Belos library)
 and a preconditioner (ifpack or ML). To use a direct solver,
 set "Ifpack Method" to "Amesos" and "Iterative Solver" to "None".
 
+Older versions (below 10.10) of Trilinos demand a different call 
+of the XML input file. This can be force by -DOLD_TRILINOS in the
+CXXFLAGS 
+
 To activate these linear solvers, set
 'Linear System Use Trilinos' = Logical True
 'Trilinos Input File' = String <xml filename>
@@ -371,9 +375,12 @@ try {
      {
      OUT("reading parameters from '"+filename+"'");
      try {
-// for Trilinos 10.10 and later     
-//       Teuchos::updateParametersFromXmlFile(filename,params.ptr());
+#ifdef OLD_TRILINOS
        Teuchos::updateParametersFromXmlFile(filename,params.get());
+#else
+// for Trilinos 10.10 and later     
+       Teuchos::updateParametersFromXmlFile(filename,params.ptr());
+#endif       
        } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,success);
        if (!success)
          {
