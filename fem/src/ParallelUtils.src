@@ -103,7 +103,7 @@ CONTAINS
        DOFs = Solver % Variable % DOFs
        n = SIZE(Solver % Variable % Perm)
 
-       k = Matrix % NumberOfRows
+       k = n*DOFs+Matrix % ExtraDOFs
        ALLOCATE( Matrix % Perm(k), Matrix % InvPerm(k))
 
        Matrix % Perm    = 0
@@ -118,11 +118,11 @@ CONTAINS
           END IF
        END DO
 
-       DO i=Matrix % NumberOFRows-Matrix % ExtraDOFs+1,Matrix % NumberOfRows
+       DO i=n*DOFs+1,SIZE(Matrix % Perm)
          Matrix % Perm(i) = i
        END DO
 
-       DO i=1,Matrix % NumberOFRows
+       DO i=1,SIZE(Matrix % Perm)
           IF ( Matrix % Perm(i) /= 0 ) THEN
              Matrix % INVPerm(Matrix % Perm(i)) = i
           END IF
@@ -141,12 +141,10 @@ CONTAINS
            Matrix % ParallelInfo % NeighbourList(i) % Neighbours => NULL()
          END DO
 
-         l = 0
          DO i=1,Solver % Mesh % NumberOfNodes
            DO j=1,DOFs
               k = Matrix % Perm((i-1)*DOFs+j)
               IF(k==0) CYCLE
-              l=l+1
               Matrix % ParallelInfo % GlobalDOFs(k) = &
                 DOFs*(Solver % Mesh % ParallelInfo % GlobalDOFs(i)-1)+j
               Matrix % ParallelInfo % Interface(k) = &
@@ -255,7 +253,7 @@ CONTAINS
          END IF
 
          ! Add extra degrees of freedom to parallel structures. The additional
-         ! variables are assing to task zero, and are assumed to be shared by
+         ! variables are assingned to task zero, and are assumed to be shared by
          ! all tasks (TODO: to be optimized if need be...)
          ! --------------------------------------------------------------------
          g_beg = NINT(ParallelReduction(1._dp*MAXVAL(Matrix % ParallelInfo % GlobalDOFs),2))
