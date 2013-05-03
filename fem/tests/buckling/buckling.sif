@@ -4,7 +4,7 @@ Header
 End
 
 Simulation
-  Max Output Level = 3
+  Max Output Level = 5
   Coordinate System = "Cartesian 2D"
   Coordinate Mapping(3) = 1 2 3
   Simulation Type = "Steady State"
@@ -60,6 +60,17 @@ Solver 1
   Optimize Bandwidth = False
 End
 
+Solver 2 
+  Equation = SaveScalars
+  Procedure = "SaveData" "SaveScalars"
+!  Filename = f.dat
+  Show Norm = True
+  Show Norm Index = 10
+
+  Variable 1 = Displacement
+  Save EigenValues = Logical True
+End
+
 
 Material 1
   Density = 1
@@ -79,3 +90,7 @@ Boundary Condition 2
   Target Boundaries(1) = 2
   Force 1 = -20.0
 End
+
+$fprintf( stderr, "TEST CASE 1\n")$
+RUN
+$fprintf( stderr,"END TEST CASE 1: Target NRM=1.098300116301E+000, EPS=1e-4\n");
