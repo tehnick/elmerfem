@@ -29,6 +29,7 @@ Solvers/GolfLaw.f90 \
 Solvers/GroundedSolver.f90 \
 Solvers/IntegratedVelocity.f90 \
 Solvers/PorousSolve.f90 \
+Solvers/pointwise.f90 \
 Solvers/SIASolver.f90 \
 Solvers/SSASolver.f90 \
 Solvers/TemperateIce.f90\
@@ -70,7 +71,7 @@ install: directories
         else \
            if test '$(PLATFORM)' = 'Linux'; then \
                 echo "cp ElmerIceSolvers.so $(ELMERICE_HOME)/lib"; \
-           	echo "cp ElmerIceUSF.so $(ELMERICE_HOME)/lib"; \
+                echo "cp ElmerIceUSF.so $(ELMERICE_HOME)/lib"; \
 	   	cp ElmerIceSolvers.so $(ELMERICE_HOME)/lib; \
                 cp ElmerIceUSF.so $(ELMERICE_HOME)/lib; \
 	   fi \
