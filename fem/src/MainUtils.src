@@ -200,9 +200,15 @@ CONTAINS
 
     SolverParams => Solver % Values
 
-    ! If there is a matrix level Flux Corrected Transport then you need
-    ! to use global matrices for time integration.
+    ! If there is a matrix level Flux Corrected Transport and/or nonlinear timestepping
+    ! then you must use global matrices for time integration.
     IF( ListGetLogical( SolverParams,'Linear System FCT',Found ) ) THEN
+      IF( ParEnv % PEs > 1 ) THEN
+        CALL Fatal('DefaultInitialize','FCT scheme not implemented in parallel yet!')
+      END IF
+      CALL ListAddLogical( SolverParams,'Use Global Mass Matrix',.TRUE.)
+    END IF
+    IF( ListGetLogical( SolverParams,'Nonlinear Timestepping',Found ) ) THEN
       CALL ListAddLogical( SolverParams,'Use Global Mass Matrix',.TRUE.)
     END IF
 

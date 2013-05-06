@@ -2222,7 +2222,6 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(Solver_t), OPTIONAL, TARGET, INTENT(IN) :: USolver
      TYPE(Solver_t), POINTER :: Solver
-     TYPE(ValueList_t), POINTER :: Params
      LOGICAL :: Found
 
      IF ( PRESENT( USolver ) ) THEN
@@ -2237,13 +2236,6 @@ CONTAINS
 
      CALL InitializeToZero( Solver % Matrix, Solver % Matrix % RHS )
 
-     Params => Solver % Values
-     IF( ListGetLogical( Params,'Linear System FCT',Found ) ) THEN
-       IF( ParEnv % PEs > 1 ) THEN
-         CALL Fatal('DefaultInitialize','FCT scheme not implemented in parallel yet!')
-       END IF
-       CALL ListAddLogical( Params,'Use Global Mass Matrix',.TRUE.)
-     END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultInitialize
 !------------------------------------------------------------------------------
