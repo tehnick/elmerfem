@@ -435,7 +435,7 @@ int extrudepartition( char *argv[], char *inputfilename, char *outputfilename, i
     fscanf(infids[1],"%i %i %le %le %le",&nodeinfo[i], &dummyint, &X[i], &Y[i], &B[i]);
     if (interpolationScheme > 0){
       if (interpolatePoint(X[i], Y[i], &B[i], &S[i], bed, surf, thick, pointsInDEM, cutOffValue, wexp, interpolationScheme, argv) == EXIT_FAILURE){
-	fprintf(stderr,"(%s) Failed interpolating values for point %i\n",argv[0],i);
+	fprintf(stderr,"(%s) Failed interpolating values for point %i %e %e\n",argv[0],i,X[i],Y[i]);
 	return EXIT_FAILURE;
       }else{
 	//printf("S,B= %e %e\n", B[i], S[i]);
@@ -806,7 +806,7 @@ int extrudeserial( char *argv[], char *inputfilename, char *outputfilename, int 
     fscanf(infids[1],"%i %i %le %le %le",&nodeinfo[i], &dummyint, &X[i], &Y[i], &B[i]);
     if (interpolationScheme > 0){
       if (interpolatePoint(X[i], Y[i], &B[i], &S[i], bed, surf, thick, pointsInDEM, cutOffValue, wexp, interpolationScheme, argv) == EXIT_FAILURE){
-	fprintf(stderr,"(%s) Failed interpolating values for point %i\n",argv[0],i);
+	fprintf(stderr,"(%s) Failed interpolating values for point %i %e %e\n",argv[0],i,X[i],Y[i]);
 	return EXIT_FAILURE;
       }else{
 	//printf("S,B= %e %e\n", B[i], S[i]);
