@@ -397,6 +397,34 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Create a copy of the linear system (Values,Rhs) to (BulkValues,BulkRhs).
+!------------------------------------------------------------------------------
+   SUBROUTINE CopyBulkMatrix( A )
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t) :: A
+     INTEGER :: n
+     
+     n = SIZE( A % Rhs )
+     IF( ASSOCIATED( A % BulkRhs ) ) THEN
+       IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
+     END IF
+     IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+       ALLOCATE( A % BulkRHS( n ) )
+     END IF
+     A % BulkRHS = A % Rhs
+     
+     n = SIZE( A % Values )
+     IF( ASSOCIATED( A % BulkValues ) ) THEN
+       IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
+     END IF
+     IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+       ALLOCATE( A % BulkValues( n ) )
+     END IF
+     A % BulkValues = A % Values
+
+   END SUBROUTINE CopyBulkMatrix
+!------------------------------------------------------------------------------
+
 
 
 !> Search faces between passive / non-passive domains; add to boundary
@@ -731,9 +759,9 @@ CONTAINS
 
      SELECT CASE( Method )
 
-!     CASE( 'fs' ) 
-!       CALL FractionalStep( n*DOFs, dt, MassMatrix, StiffMatrix, Force, &
-!                   PrevSol(:,1), Solver % Beta, Solver )
+     CASE( 'fs' ) 
+       CALL FractionalStep_CRS( dt, Matrix, Force, PrevSol(:,1), Solver )
+
      CASE('bdf')
        Dts(1) = Dt
        ConstantDt = .TRUE.
@@ -752,7 +780,8 @@ CONTAINS
        END IF
 
      CASE DEFAULT
-       CALL NewmarkBeta_CRS( dt, Matrix, Force, PrevSol(:,1), Solver % Beta )
+       CALL NewmarkBeta_CRS( dt, Matrix, Force, PrevSol(:,1), &
+             Solver % Beta )
 
      END SELECT
 
@@ -3498,7 +3527,8 @@ END FUNCTION SearchNodeL
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
      LOGICAL :: GotIt
      INTEGER :: i, Order,ndofs
-     REAL(KIND=dp), POINTER :: Work(:)
+     REAL(KIND=dp), POINTER :: Work(:), SaveValues(:)
+     TYPE(Matrix_t), POINTER :: A
 
 !------------------------------------------------------------------------------
      Solver % DoneTime = Solver % DoneTime + 1
@@ -3617,6 +3647,27 @@ END FUNCTION SearchNodeL
        Solver % Variable % PrevValues(:,1) = Solver % Variable % Values
      END IF
 
+
+     IF( ListGetLogical( Solver % Values,'Nonlinear Timestepping', GotIt ) ) THEN
+       IF( Solver % DoneTime > 1 ) THEN
+         A => Solver % Matrix
+         CALL Info('InitializeTimestep','Saving previous linear system for timestepping',Level=12)
+         IF( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+           CALL Fatal('InitializeTimestep','BulkValues should be associated!')
+         END IF
+         
+         IF( .NOT. ASSOCIATED( A % BulkResidual ) ) THEN
+           ALLOCATE( A % BulkResidual( SIZE( A % BulkRhs ) ) )
+         END IF
+         
+         SaveValues => A % Values
+         A % Values => A % BulkValues
+         CALL MatrixVectorMultiply( A, &
+             Solver % Variable % Values, A % BulkResidual )
+         A % Values => SaveValues
+         A % BulkResidual = A % BulkResidual - A % BulkRhs
+       END IF
+     END IF
 
 !------------------------------------------------------------------------------
   END SUBROUTINE InitializeTimestep
@@ -6165,7 +6216,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   TYPE(Solver_t), TARGET :: Solver       !< Linear equation solver options.
 !------------------------------------------------------------------------------
   TYPE(Solver_t), POINTER :: SolverPointer
-  TYPE(Matrix_t), POINTER :: CollectionMatrix=>Null(), RestMatrix, AddMatrix, &
+  TYPE(Matrix_t), POINTER :: CollectionMatrix=>NULL(), RestMatrix, AddMatrix, &
        RestMatrixTranspose
   REAL(KIND=dp), POINTER CONTIG :: CollectionVector(:), RestVector(:),&
                  MultiplierValues(:),AddVector(:)
@@ -6185,13 +6236,13 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   NotExplicit = ListGetLogical(Solver % Values,'No Explicit Constrained Matrix',Found)
   IF(.NOT.Found) NotExplicit=.FALSE.
 
-  RestMatrix => Null()
+  RestMatrix => NULL()
   IF(.NOT.NotExplicit) &
         RestMatrix => StiffMatrix % ConstraintMatrix
   IF(ASSOCIATED(RestMatrix)) RestVector => RestMatrix % RHS
 
   AddMatrix => StiffMatrix % AddMatrix
-  AddVector => Null()
+  AddVector => NULL()
   IF(ASSOCIATED(AddMatrix)) &
     AddVector => AddMatrix % RHS
 
@@ -6200,7 +6251,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   CollectionMatrix => StiffMatrix % CollectionMatrix
   IF(.NOT.ASSOCIATED(CollectionMatrix)) THEN
     CollectionMatrix => AllocateMatrix()
-    CollectionMatrix % Format = MATRIX_LIST
+    CollectionMatrix % FORMAT = MATRIX_LIST
   ELSE
     DEALLOCATE(CollectionMatrix % RHS)
     CollectionMatrix % Values = 0.0_dp
@@ -6294,7 +6345,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
     CollectionVector(i) = CollectionVector(i) + ForceVector(i)
   END DO
 
-  IF(CollectionMatrix % Format==MATRIX_LIST) &
+  IF(CollectionMatrix % FORMAT==MATRIX_LIST) &
     CALL List_toCRSMatrix(CollectionMatrix)
 
   ! if zero=zero constraint, solve lambda_i=0 instead:
@@ -6372,11 +6423,11 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 !------------------------------------------------------------------------------
 
     IF(NotExplicit) THEN
-      CollectionMatrix % ConstraintMatrix => Null()
+      CollectionMatrix % ConstraintMatrix => NULL()
       StiffMatrix % CollectionMatrix => CollectionMatrix
     ELSE
       CALL FreeMatrix( CollectionMatrix )
-      StiffMatrix % CollectionMatrix => Null()
+      StiffMatrix % CollectionMatrix => NULL()
     END IF
     DEALLOCATE(CollectionSolution)
 

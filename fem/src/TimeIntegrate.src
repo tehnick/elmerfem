@@ -324,7 +324,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      NB = SIZE( StiffMatrix,1 )
 
-! Selvitet��n mik� FS-steppi on menossa ja otetaan vakiot
+! Check out the coefficients related to each step of the fractional stepping
 
      fsstep   = ListGetConstReal( Solver % Values, 'fsstep')
      fsTheta  = ListGetConstReal( Solver % Values, 'fsTheta')
@@ -426,12 +426,14 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE NewmarkBeta_CRS( dt, Matrix, Force, PrevSolution, Beta )
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Force(:),PrevSolution(:),dt
+    REAL(KIND=dp), TARGET :: Force(:)
+    REAL(KIND=dp) :: PrevSolution(:),dt
     REAL(KIND=dp) :: Beta
     TYPE(Matrix_t), POINTER :: Matrix
 !------------------------------------------------------------------------------
     INTEGER :: i,j,n
     REAL(KIND=dp), POINTER :: Stiff(:),Mass(:),MassL(:)
+    REAL(KIND=dp), POINTER :: PrevResidual(:)
     INTEGER, POINTER :: Cols(:),Rows(:)
     REAL(KIND=dp) :: su,mu,uj,ui
 !------------------------------------------------------------------------------
@@ -441,40 +443,74 @@ CONTAINS
     Cols   => Matrix % Cols
     Stiff => Matrix % Values
     Mass => Matrix % MassValues
+    
+    ! For true 2nd order accuracy of Crank-Nicolsen for nonlinear
+    ! problems the old matrix and rhs need to be considered.
+    !-------------------------------------------------------------
+    IF( ASSOCIATED( Matrix % BulkResidual ) ) THEN
+      ! Ax-f from previous iteration
+      PrevResidual => Matrix % BulkResidual
 
-
-    IF( Matrix % Lumped ) THEN
-      MassL => Matrix % MassValuesLumped
-!$omp parallel do private(j,uj,ui,su)
-      DO i=1,n
-        su = 0.0_dp
-        ! lumped st
-        DO j=Rows(i),Rows(i+1)-1
-          uj = PrevSolution(Cols(j))
-          su = su + Stiff(j) * uj
+      IF( ASSOCIATED( Matrix % MassValuesLumped ) ) THEN
+        MassL => Matrix % MassValuesLumped
+        !$omp parallel do private(j,ui)
+        DO i=1,n
+          j = Matrix % Diag(i)
+          ui = PrevSolution(i)
+          Force(i) = Beta * Force(i) - (1-Beta) * PrevResidual(i) + &
+              (1.0/dt) * MassL(i) * ui
         END DO
-        j = Matrix % Diag(i)
-        ui = PrevSolution(Cols(j))
-
-        Force(i) = Force(i) + (1-Beta)*su + (1._dp/dt)*MassL(i)*ui
-        Stiff(j) = Beta * Stiff(j) + (1.0d0/dt) * MassL(i)
-      END DO
-!$omp end parallel do
+        !$omp end parallel do
+        Stiff = Beta * Stiff
+        Stiff(Matrix % Diag) = Stiff(Matrix % Diag) + (1.0d0/dt) * MassL(i)
+      ELSE
+        !$omp parallel do private(j,uj,mu)     
+        DO i=1,n
+          mu = 0.0_dp
+          DO j=Rows(i),Rows(i+1)-1
+            uj = PrevSolution(Cols(j))
+            mu = mu + Mass(j) * uj
+          END DO
+          Force(i) = Beta * Force(i) - (1-Beta) * PrevResidual(i) + &
+              (1.0/dt)*mu
+        END DO
+        !$omp end parallel do
+        Stiff = Beta * Stiff + (1.0d0/dt) * Mass
+      END IF
     ELSE
-      !$omp parallel do private(j,uj,su,mu)     
-      DO i=1,n
-        su = 0.0_dp
-        mu = 0.0_dp
-        DO j=Rows(i),Rows(i+1)-1
-          uj = PrevSolution(Cols(j))
-          su = su + Stiff(j) * uj
-          mu = mu + Mass(j) * uj
+
+      IF( ASSOCIATED( Matrix % MassValuesLumped ) ) THEN
+        MassL => Matrix % MassValuesLumped
+        !$omp parallel do private(j,uj,mu)
+        DO i=1,n
+          su = 0.0_dp
+          DO j=Rows(i),Rows(i+1)-1
+            uj = PrevSolution(Cols(j))
+            su = su + Stiff(j) * uj
+          END DO
+          mu = MassL(i)*PrevSolution(i)
+          Force(i) = Force(i) - (1-Beta)*su + (1.0/dt)*mu
         END DO
-        Force(i) = Force(i) + (1-Beta)*su + (1.0/dt)*mu
-      END DO
-      !$omp end parallel do
-      Stiff = Beta * Stiff + (1.0d0/dt) * Mass
+        !$omp end parallel do
+        Stiff = Beta * Stiff
+        Stiff(Matrix % Diag) = Stiff(Matrix % Diag) + (1.0/dt) * MassL
+      ELSE
+        !$omp parallel do private(j,uj,su,mu)     
+        DO i=1,n
+          su = 0.0_dp
+          mu = 0.0_dp
+          DO j=Rows(i),Rows(i+1)-1
+            uj = PrevSolution(Cols(j))
+            su = su + Stiff(j) * uj
+            mu = mu + Mass(j) * uj
+          END DO
+          Force(i) = Force(i) - (1-Beta)*su + (1.0/dt)*mu
+        END DO
+        !$omp end parallel do
+        Stiff = Beta * Stiff + (1.0d0/dt) * Mass
+      END IF
     END IF
+
 
 !------------------------------------------------------------------------------
   END SUBROUTINE NewmarkBeta_CRS
@@ -648,6 +684,92 @@ CONTAINS
 !------------------------------------------------------------------------------
    END SUBROUTINE VBDF_CRS
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Apply fractional step integration scheme for a CRS matrix equation.
+!------------------------------------------------------------------------------
+   SUBROUTINE FractionalStep_CRS( dt, Matrix, Force, PrevSolution, Solver )
+!------------------------------------------------------------------------------
+     USE Types
+     USE Lists
+
+     TYPE(Solver_t) :: Solver    
+     TYPE(Matrix_t), POINTER :: Matrix
+     REAL(KIND=dp) :: Force(:),PrevSolution(:),dt
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: fsstep, fsTheta, fsdTheta, &
+                      fsAlpha, fsBeta, MassCoeff, ForceCoeff
+     REAL(KIND=dp),POINTER :: Mass(:),Stiff(:),MassL(:)
+     INTEGER :: n, i,j
+     INTEGER, POINTER :: Rows(:),Cols(:)
+     REAL(KIND=dp) :: uj,ui,su,mu
+!------------------------------------------------------------------------------
+
+! Check out the coefficients related to each step of the fractional stepping
+
+     fsstep   = ListGetConstReal( Solver % Values, 'fsstep')
+     fsTheta  = ListGetConstReal( Solver % Values, 'fsTheta')
+     fsdTheta = ListGetConstReal( Solver % Values, 'fsdTheta')
+     fsAlpha  = ListGetConstReal( Solver % Values, 'fsAlpha')
+     fsBeta   = ListGetConstReal( Solver % Values, 'fsBeta')
+
+     SELECT CASE( INT(fsstep) )     
+       CASE(1)
+        MassCoeff = fsAlpha * fsTheta
+        ForceCoeff = fsBeta * fsTheta 
+       CASE(2)
+        MassCoeff = fsBeta * fsdTheta
+        ForceCoeff = fsAlpha * fsdTheta
+       CASE(3)
+        MassCoeff = fsAlpha * fsTheta
+        ForceCoeff = fsBeta * fsTheta
+     END SELECT
+
+     n = Matrix % NumberOfRows
+     Rows   => Matrix % Rows
+     Cols   => Matrix % Cols
+     Stiff => Matrix % Values
+     Mass => Matrix % MassValues
+ 
+
+     IF( ASSOCIATED( Matrix % MassValuesLumped ) ) THEN
+       MassL => Matrix % MassValuesLumped
+       !$omp parallel do private(j,uj,ui,su)
+       DO i=1,n
+         su = 0.0_dp
+         DO j=Rows(i),Rows(i+1)-1
+           uj = PrevSolution(Cols(j))
+           su = su + Stiff(j) * uj
+         END DO
+         j = Matrix % Diag(i)
+         ui = PrevSolution(Cols(j))
+         
+         Force(i) = Force(i) - ForceCoeff * su + (1._dp/dt)*MassL(i)*ui
+         Stiff(j) = MassCoeff * Stiff(j) + (1.0d0/dt) * MassL(i)
+       END DO
+       !$omp end parallel do
+     ELSE
+       !$omp parallel do private(j,uj,su,mu)     
+       DO i=1,n
+         su = 0.0_dp
+         mu = 0.0_dp
+         DO j=Rows(i),Rows(i+1)-1
+           uj = PrevSolution(Cols(j))
+           su = su + Stiff(j) * uj
+           mu = mu + Mass(j) * uj
+         END DO
+         Force(i) = Force(i) - ForceCoeff * su + (1.0/dt)*mu
+       END DO
+       !$omp end parallel do
+       Stiff = MassCoeff * Stiff + (1.0d0/dt) * Mass
+     END IF
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE FractionalStep_CRS
+!------------------------------------------------------------------------------
+
+
 
 
 !------------------------------------------------------------------------------

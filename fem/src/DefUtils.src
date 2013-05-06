@@ -1910,22 +1910,6 @@ CONTAINS
      Solver => CurrentModel % solver
    END IF
 
-   IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
-     IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,X )
-     n = 0
-     DO i=1,Solver % Matrix % NumberOfRows
-       n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
-     END DO
-     k = SIZE(Solver % Variable % PrevValues,2)
-     ALLOCATE( STIFF(1,n),MASS(1,n),X(n,k) )
-     
-     SaveValues => Solver % Variable % Values
-   END IF
-    
-   STIFF = 0.0_dp
-   MASS = 0.0_dp
-   X = 0.0_dp
-
    Order = MAX( MIN( Solver % DoneTime, Solver % Order ), 1)   
    HasMass = ASSOCIATED( Solver % Matrix % MassValues )
 
@@ -1954,6 +1938,32 @@ CONTAINS
        HasMass = .FALSE.
      END IF
    END IF
+
+   ! This is now the default global time integration routine but the old hack may still be called
+   !---------------------------------------------------------------------------------------------
+   IF( .NOT. ListGetLogical( Solver % Values,'Old Global Time Integration',Found ) ) THEN
+     CALL Add1stOrderTime_CRS( Solver % Matrix, Solver % Matrix % rhs, &
+         Solver % dt, Solver )
+     RETURN
+   END IF
+
+
+   ! The rest of the code in this subroutine is obsolite 
+   IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
+     IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,X )
+     n = 0
+     DO i=1,Solver % Matrix % NumberOfRows
+       n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
+     END DO
+     k = SIZE(Solver % Variable % PrevValues,2)
+     ALLOCATE( STIFF(1,n),MASS(1,n),X(n,k) )     
+     SaveValues => Solver % Variable % Values
+   END IF
+   
+   STIFF = 0.0_dp
+   MASS = 0.0_dp
+   X = 0.0_dp
+
 
    DO i=1,Solver % Matrix % NumberOFRows
      n = 0
@@ -2009,6 +2019,7 @@ CONTAINS
      END DO
      Solver % Matrix % RHS(i) = FORCE(1)
    END DO
+
 !----------------------------------------------------------------------------
   END SUBROUTINE Default1stOrderTimeGlobal
 !----------------------------------------------------------------------------
@@ -2400,37 +2411,6 @@ CONTAINS
      n = GetElementDOFs( Indexes, Element, Solver )
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)), UElement=Element )
 
-#if 0
-     BUpd = .FALSE.
-     IF ( PRESENT(BulkUpdate) ) THEN
-       BUpd=BulkUpdate 
-       IF ( .NOT. BUpd ) RETURN
-     ELSE
-       IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
-     END IF
-     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), &
-                'Calculate Loads', Found )
-
-     IF ( BUpd ) THEN
-       ! TODO: make this thread safe
-       IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
-          ALLOCATE( A % BulkRHS(SIZE(A % RHS)) )
-          A % BulkRHS = 0.0_dp
-       END IF
-
-       ! TODO: make this thread safe
-       IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
-          ALLOCATE( A % BulkValues(SIZE(A % Values)) )
-          A % BulkValues = 0.0_dp
-       END IF
-       ! TODO: make this thread safe
-       SaveValues => A % Values
-       A % Values => A % BulkValues
-       CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
-                x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE., UElement = Element )
-       A % Values => SaveValues
-     END IF
-#endif 
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateEquationsR
 !------------------------------------------------------------------------------
@@ -2514,38 +2494,6 @@ CONTAINS
 
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
 
-#if 0
-     BUpd = .FALSE.
-     IF ( PRESENT(BulkUpdate) ) THEN
-       BUpd=BulkUpdate 
-       IF ( .NOT. BUpd ) THEN
-         DEALLOCATE(G,F)
-         RETURN
-       END IF
-     ELSE IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
-       DEALLOCATE(G,F)
-       RETURN
-     END IF
-     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
-
-     IF (BUpd) THEN
-        IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
-          ALLOCATE( A % BulkRHS(SIZE(A % RHS)) )
-          A % BulkRHS = 0.0_dp
-       END IF
-
-        IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
-          ALLOCATE( A % BulkValues(SIZE(A % Values)) )
-          A % BulkValues = 0.0_dp
-       END IF
-        SaveValues => A % Values
-        A % Values => A % BulkValues
-        CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
-          x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
-        A % Values => SaveValues
-     END IF
-#endif 
-
      DEALLOCATE( G, F)
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateEquationsC
@@ -2602,26 +2550,6 @@ CONTAINS
     CALL UpdateGlobalForce( Solver % Matrix % RHS, &
        F, n, x % DOFs, x % Perm(Indexes(1:n)), UElement=Element)
 
-#if 0
-    BUpd = .FALSE.
-    IF ( PRESENT(BulkUpdate) ) THEN
-      BUpd=BulkUpdate 
-      IF ( .NOT. BUpd ) RETURN
-    ELSE
-      IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
-    END IF
-    BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), &
-              'Calculate Loads', Found )
-
-    IF ( BUpd ) THEN
-      IF ( .NOT. ASSOCIATED( Solver % Matrix % BulkRHS ) ) THEN 
-        ALLOCATE( Solver % Matrix % BulkRHS(SIZE(Solver % Matrix % RHS)) )
-        Solver % Matrix % BulkRHS = 0.0_dp
-      END IF
-      CALL UpdateGlobalForce( Solver % Matrix % BulkRHS, &
-         F, n, x % DOFs, x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
-    END IF
-#endif
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateForceR
 !------------------------------------------------------------------------------
@@ -3705,6 +3633,7 @@ CONTAINS
   END SUBROUTINE DefaultDirichletBCs
 !------------------------------------------------------------------------------
 
+
 ! Solves a small dense linear system using Lapack routines
 !------------------------------------------------------------------------------
   SUBROUTINE SolveLinSys( A, x, n )
@@ -3737,14 +3666,10 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Integrate given function over elementj
 !------------------------------------------------------------------------------
   SUBROUTINE LocalBcIntegral(BC, Element, nd, Parent, np, Name, Integral)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Integral given function over elementj
-!
-!  ARGUMENTS:
+!------------------------------------------------------------------------------
 !
 !    Type(ValueList_t), POINTER :: BC
 !      INOUT: Boundary condition value list
@@ -3761,7 +3686,6 @@ CONTAINS
 !    REAL(Kind=dp) :: Integral
 !      OUTPUT: Integral of the given function
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
     IMPLICIT NONE
 
@@ -3837,16 +3761,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Given boundary condition, element and stiffness matrix and force 
+!> vector, assemble boundary problem local stiffness matrix and 
+!> force vector
 !------------------------------------------------------------------------------
   SUBROUTINE LocalBcBDOFs(BC, Element, nd, Name, STIFF, Force )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Given boundary condition, element and stiffness matrix and force 
-!     vector, assemble boundary problem local stiffness matrix and 
-!     force vector
-!
-!  ARGUMENTS:
+!------------------------------------------------------------------------------
 !
 !    Type(ValueList_t), POINTER :: BC
 !      INOUT: Boundary condition value list
@@ -3863,7 +3783,6 @@ CONTAINS
 !    REAL(Kind=dp) :: STIFF(:,:), Force
 !      OUTPUT: Boundary problem stiffness matrix and force vector
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
     IMPLICIT NONE
 
@@ -3925,7 +3844,6 @@ CONTAINS
 
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(ValueList_t), POINTER :: Params
-    TYPE(Matrix_t), POINTER :: A
     LOGICAL :: Bupd, Found
     INTEGER :: n
     CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -3955,26 +3873,7 @@ CONTAINS
     IF( BUpd ) THEN
       str = GetString( Params,'Equation',Found)
       CALL Info('DefaultFinishBulkAssembly','Saving bulk values for: '//TRIM(str), Level=5 )
-
-      A => PSolver % Matrix
-      
-      n = SIZE( A % Rhs )
-      IF( ASSOCIATED( A % BulkRhs ) ) THEN
-        IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
-      END IF
-      IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
-        ALLOCATE( A % BulkRHS( n ) )
-      END IF
-      A % BulkRHS = A % Rhs
-      
-      n = SIZE( A % Values )
-      IF( ASSOCIATED( A % BulkValues ) ) THEN
-        IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
-      END IF
-      IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
-        ALLOCATE( A % BulkValues( n ) )
-      END IF
-      A % BulkValues = A % Values
+      CALL CopyBulkMatrix( PSolver % Matrix ) 
     END IF
 
     IF( GetLogical( Params,'Bulk System Multiply',Found ) ) THEN	
@@ -3987,8 +3886,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 !> Finished the boundary assembly of the matrix equation.
-!> Optionally save the matrix for later use
-!> This is hardly used.
+!> Optionally save the matrix for later use.
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishBoundaryAssembly( Solver, BulkUpdate )
 !------------------------------------------------------------------------------
@@ -3997,7 +3895,6 @@ CONTAINS
 
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(ValueList_t), POINTER :: Params
-    TYPE(Matrix_t), POINTER :: A
     LOGICAL :: Bupd, Found
     INTEGER :: n
 
@@ -4007,38 +3904,20 @@ CONTAINS
       PSolver => CurrentModel % Solver
     END IF
 
+    Params => GetSolverParams(PSolver)
+
+    ! Save bulk system before setting Dirichlet BCs
     BUpd = .FALSE.
     IF ( PRESENT(BulkUpdate) ) THEN
       BUpd = BulkUpdate 
       IF ( .NOT. BUpd ) RETURN
     END IF
-
-    Params => GetSolverParams( PSolver ) 
-
     BUpd = BUpd .OR. GetLogical( Params,'Constant System', Found )
-    IF(.NOT. BUpd ) RETURN
-
-    CALL Info('DefaultFinishBoundaryAssembly','Saving system values for Solver: '//TRIM(PSolver % Variable % Name) )
-
-    A => PSolver % Matrix
-
-    n = SIZE( A % Rhs )
-    IF( ASSOCIATED( A % BulkRhs ) ) THEN
-      IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
+    IF( BUpd ) THEN
+      CALL Info('DefaultFinishBoundaryAssembly','Saving system values for Solver: '&
+          //TRIM(PSolver % Variable % Name), Level=8)
+      CALL CopyBulkMatrix( PSolver % Matrix ) 
     END IF
-    IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
-      ALLOCATE( A % BulkRHS( n ) )
-    END IF
-    A % BulkRHS = A % Rhs
-    
-    n = SIZE( A % Values )
-    IF( ASSOCIATED( A % BulkValues ) ) THEN
-      IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
-    END IF
-    IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
-      ALLOCATE( A % BulkValues( n ) )
-    END IF
-    A % BulkValues = A % Values
 
   END SUBROUTINE DefaultFinishBoundaryAssembly
 
@@ -4069,6 +3948,14 @@ CONTAINS
     END IF
 
     Params => GetSolverParams(PSolver)
+
+    ! Nonlinear timestepping needs a copy of the linear system from previous
+    ! timestep. Hence the saving of the linear system is enforced. 
+    IF( ListGetLogical( Params,'Nonlinear Timestepping', Found ) ) THEN
+      CALL Info('DefaultFinishAssembly','Saving system values for Solver: '&
+          //TRIM(PSolver % Variable % Name), Level=8)
+      CALL CopyBulkMatrix( PSolver % Matrix ) 
+    END IF
 
     ! Makes a low order matrix of the initial one saving original values
     ! to BulkValues. Also created a lumped mass matrix.
@@ -4247,8 +4134,6 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE getBoundaryIndexes( Mesh, Element, Parent, Indexes, indSize )
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
 !
 !    Type(Mesh_t) :: Mesh
 !      INPUT: Finite element mesh containing edges and faces of elements

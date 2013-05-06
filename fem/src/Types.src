@@ -125,7 +125,7 @@ MODULE Types
 
   TYPE Matrix_t
     TYPE(Matrix_t), POINTER :: Child, Parent, &
-        ConstraintMatrix, EMatrix, AddMatrix=>Null(), CollectionMatrix=>Null()
+        ConstraintMatrix, EMatrix, AddMatrix=>NULL(), CollectionMatrix=>NULL()
 
     INTEGER :: NumberOfRows, ExtraDOFs=0, ParallelDOFs=0
 
@@ -141,9 +141,10 @@ MODULE Types
     INTEGER, POINTER CONTIG :: Rows(:),Cols(:), Diag(:)
 
     REAL(KIND=dp), POINTER CONTIG :: RHS(:),BulkRHS(:),RHS_im(:),Force(:,:)
+    REAL(KIND=dp), POINTER CONTIG :: BulkResidual(:)
 
     REAL(KIND=dp),  POINTER CONTIG :: Values(:), ILUValues(:), &
-               DiagScaling(:) => Null()
+               DiagScaling(:) => NULL()
 
     REAL(KIND=dp), ALLOCATABLE :: extraVals(:)
     REAL(KIND=dp) :: RhsScaling
@@ -188,8 +189,8 @@ MODULE Types
     REAL(KIND=dp), POINTER :: FCT_D(:) => NULL()
     REAL(KIND=dp), POINTER :: MassValuesLumped(:) => NULL()
 
-    TYPE(ParallelInfo_t), POINTER :: ParallelInfo=>Null()
-    TYPE(SParIterSolverGlobalD_t), POINTER :: ParMatrix=>Null()
+    TYPE(ParallelInfo_t), POINTER :: ParallelInfo=>NULL()
+    TYPE(SParIterSolverGlobalD_t), POINTER :: ParMatrix=>NULL()
   END TYPE Matrix_t
 !------------------------------------------------------------------------------
 
@@ -211,29 +212,29 @@ MODULE Types
 
 
   TYPE GlueTableT
-     INTEGER, DIMENSION(:), POINTER :: Rows=>Null(), &
-                Cols=>Null(), Inds=>Null(), RowOwner=>Null()
+     INTEGER, DIMENSION(:), POINTER :: Rows=>NULL(), &
+                Cols=>NULL(), Inds=>NULL(), RowOwner=>NULL()
   END TYPE GlueTableT
 
 
   TYPE VecIndicesT
-     INTEGER, DIMENSION(:), POINTER :: RevInd=>Null()
+     INTEGER, DIMENSION(:), POINTER :: RevInd=>NULL()
   END TYPE VecIndicesT
 
 
   TYPE IfVecT
-     REAL(KIND=dp), DIMENSION(:), POINTER :: IfVec=>Null()
+     REAL(KIND=dp), DIMENSION(:), POINTER :: IfVec=>NULL()
   END TYPE IfVecT
 
 
   TYPE RHST
-     REAL(KIND=dp), DIMENSION(:), POINTER :: RHSvec=>Null()
-     INTEGER, DIMENSION(:), POINTER :: RHSind=>Null()
+     REAL(KIND=dp), DIMENSION(:), POINTER :: RHSvec=>NULL()
+     INTEGER, DIMENSION(:), POINTER :: RHSind=>NULL()
   END TYPE RHST
 
 
   TYPE DPBufferT
-     REAL(KIND=dp), DIMENSION(:), POINTER :: DPBuf=>Null()
+     REAL(KIND=dp), DIMENSION(:), POINTER :: DPBuf=>NULL()
   END TYPE DPBufferT
 
 
@@ -244,31 +245,31 @@ MODULE Types
 
 
   TYPE IfLColsT
-     INTEGER, DIMENSION(:), POINTER :: IfVec=>Null()
+     INTEGER, DIMENSION(:), POINTER :: IfVec=>NULL()
   END TYPE IfLColsT
 
 
   TYPE SplittedMatrixT
-     TYPE (BasicMatrix_t), DIMENSION(:), POINTER :: IfMatrix=>Null()
-     TYPE (Matrix_t), POINTER :: InsideMatrix=>Null()
-     TYPE (BasicMatrix_t), DIMENSION(:), POINTER :: NbsIfMatrix=>Null()
+     TYPE (BasicMatrix_t), DIMENSION(:), POINTER :: IfMatrix=>NULL()
+     TYPE (Matrix_t), POINTER :: InsideMatrix=>NULL()
+     TYPE (BasicMatrix_t), DIMENSION(:), POINTER :: NbsIfMatrix=>NULL()
 
-     TYPE (VecIndicesT), DIMENSION(:), POINTER :: VecIndices=>Null()
-     TYPE (IfVecT), DIMENSION(:), POINTER :: IfVecs=>Null()
-     TYPE (IfLColsT), DIMENSION(:), POINTER :: IfORows=>Null()
-     TYPE (IfLColsT), DIMENSION(:), POINTER :: IfLCols=>Null()
-     TYPE (GlueTableT), POINTER :: GlueTable=>Null()
-     TYPE (RHST), DIMENSION(:), POINTER :: RHS=>Null()
-     TYPE (ResBufferT), DIMENSION(:), POINTER :: ResBuf=>Null()
+     TYPE (VecIndicesT), DIMENSION(:), POINTER :: VecIndices=>NULL()
+     TYPE (IfVecT), DIMENSION(:), POINTER :: IfVecs=>NULL()
+     TYPE (IfLColsT), DIMENSION(:), POINTER :: IfORows=>NULL()
+     TYPE (IfLColsT), DIMENSION(:), POINTER :: IfLCols=>NULL()
+     TYPE (GlueTableT), POINTER :: GlueTable=>NULL()
+     TYPE (RHST), DIMENSION(:), POINTER :: RHS=>NULL()
+     TYPE (ResBufferT), DIMENSION(:), POINTER :: ResBuf=>NULL()
      REAL(KIND=dp), POINTER CONTIG :: &
-           Work(:,:)=>Null(),TmpXVec(:)=>Null(),TmpRVec(:)=>Null()
+           Work(:,:)=>NULL(),TmpXVec(:)=>NULL(),TmpRVec(:)=>NULL()
   END TYPE SplittedMatrixT
 
 
   TYPE SParIterSolverGlobalD_t
-     TYPE (SplittedMatrixT), POINTER :: SplittedMatrix=>Null()
-     TYPE (Matrix_t), POINTER :: Matrix=>Null()
-     TYPE (ParallelInfo_t), POINTER :: ParallelInfo=>Null()
+     TYPE (SplittedMatrixT), POINTER :: SplittedMatrix=>NULL()
+     TYPE (Matrix_t), POINTER :: Matrix=>NULL()
+     TYPE (ParallelInfo_t), POINTER :: ParallelInfo=>NULL()
      TYPE(ParEnv_t) :: ParEnv
      INTEGER :: DOFs, RelaxIters
   END TYPE SParIterSolverGlobalD_t
