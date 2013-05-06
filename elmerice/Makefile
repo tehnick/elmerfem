@@ -43,7 +43,8 @@ Solvers/DJDmu_Robin.f90\
 Solvers/CostSolver_Robin.f90\
 Solvers/m1qn3.f\
 Solvers/Grid2DInterpolator.f90\
-Solvers/Optimize_m1qn3Parallel.f90
+Solvers/Optimize_m1qn3Parallel.f90\
+Solvers/OutputStrainHeating.f90
 USFSOURCE := \
 UserFunctions/Buoyancy.f90 \
 UserFunctions/USF_Contact.f90 \
@@ -51,7 +52,8 @@ UserFunctions/CaffeFlow.f90 \
 UserFunctions/USF_LateralFriction.f90 \
 UserFunctions/USF_ShapeFactor.f90 \
 UserFunctions/USF_Sliding.f90 \
-UserFunctions/USF_Zs.f90
+UserFunctions/USF_Zs.f90\
+UserFunctions/USF_GetFrictionHeating.f90
 
 solverobjects := $(filter %.o,$(patsubst %.f90,%.o,$(SOLVERSOURCE))) $(filter %.o,$(patsubst %.f,%.o,$(SOLVERSOURCE)))
 usfobjects := $(patsubst %.f90,%.o,$(USFSOURCE))
