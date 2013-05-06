@@ -39,10 +39,8 @@
 ! *
 ! *****************************************************************************/
 
-! contains subroutine for exporting strain heating (if strain heat is taken into account as
-! by setting "Friction Heat = Logical True" in the Body Force Section and independent from running this Solver).
-! Do not use this subroutine for calculation (not precise enough) of strain heat, it's only meant for output
-! of Elmer's "Friction Heat".
+! contains subroutine for exporting strain heating (if strain heat is taken into account by setting "Friction Heat = Logical True" in the Body Force Section and independent from running this Solver).
+! Do not use this subroutine for calculation (not precise enough) of strain heat, it's only meant for output of Elmer's "Friction Heat".
 ! In case of convergence problems it is recommended to use the DeformationalHeatSolver instead of "Friction Heat = Logical True".
 
 ! usage:
@@ -50,7 +48,7 @@
 !   Equation = "StrainHeating"
 !   Variable = String "StrainHeat"
 !   Variable DOFs = 1
-!   Procedure = File "USF_GetStrainHeating" "getStrainHeating"
+!   Procedure = File "OutputStrainHeating" "getStrainHeating"
 !   Nonlinear System Max Iterations = 1
 ! End
 
