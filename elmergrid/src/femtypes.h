@@ -69,7 +69,8 @@ struct GridType {
     nonodes,       /* number of nodes in one element */
     numbering,     /* numbering scheme */
     maxwidth,      /* maxwidth of the band matrix */
-    noboundaries;  /* number of boundaries for BCs */
+    noboundaries,  /* number of boundaries for BCs */
+    maxmaterial;   /* maximum material index */
   int xlinear[MAXCELLS+1],    /* linearity flag within the subcells */
     ylinear[MAXCELLS+1],
     zlinear[MAXCELLS+1],
@@ -83,6 +84,7 @@ struct GridType {
     boundext[MAXBOUNDARIES],  /* external material for boundary */
     boundsolid[MAXBOUNDARIES],/* which of these is the solid? */
     boundtype[MAXBOUNDARIES]; /* type of the boundary */
+  int **zmaterialmap,zmaterialmapexists;
   int structure[MAXCELLS+2][MAXCELLS+2], /* material structure of subcells */
     numbered[MAXCELLS+2][MAXCELLS+2];    /* numbering order of the subcells */
   Real dx0,    /* global mesh scale in x-direction */

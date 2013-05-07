@@ -1282,6 +1282,16 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 		 &grid->zfirstmaterial[i],&grid->zlastmaterial[i],&grid->zmaterial[i]); 
 	}
       }
+      else if(strstr(command,"EXTRUDED MATERIAL MAPPINGS")) {
+	grid->zmaterialmap = Imatrix(1,grid->zcells,1,grid->maxmaterial);
+	for(i=1;i<=grid->zcells;i++) {
+	  if(i>1) Getline(params,in); 
+	  cp = params;
+	  for(j=1;j<=grid->maxmaterial;j++)
+	    grid->zmaterialmap[i][j] = next_int(&cp);
+	}
+	grid->zmaterialmapexists = TRUE;
+      }
 
     }
   }
@@ -2544,6 +2554,7 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
 	}      
       if(minmat < 0) 
 	printf("LoadElmergrid: please use positive material indices.\n");
+      grid[k]->maxmaterial = maxmat;
     }
     else if(strstr(command,"MATERIALS INTERVAL")) {
       sscanf(params,"%d %d",&(*grid)[k].firstmaterial,&(*grid)[k].lastmaterial);      

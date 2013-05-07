@@ -6134,8 +6134,20 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       level++;
       
       for(element=1;element <= dataxy->noelements;element++)  {
-	if(dataxy->material[element] < grid->zfirstmaterial[cellk]) continue;
-	if(dataxy->material[element] > grid->zlastmaterial[cellk]) continue;
+	if( grid->zmaterialmapexists ) {
+	  material = dataxy->material[element];
+	  material = grid->zmaterialmap[cellk][material]; 
+	  if(material <= 0 ) continue;
+	}
+	else {
+	  if(dataxy->material[element] < grid->zfirstmaterial[cellk]) continue;
+	  if(dataxy->material[element] > grid->zlastmaterial[cellk]) continue;
+
+	  if(grid->zmaterial[cellk]) 
+	    material = grid->zmaterial[cellk];
+	  else 
+	    material = dataxy->material[element];
+	}
 
 	if(grid->rotate) {
 	  meanx = 0.0;
@@ -6148,14 +6160,9 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	
 	elem0++;
 	/* Vector telling the new element order. */
-	indx[(level-1)*dataxy->noelements+element] = elem0;
-	
-	data->elementtypes[elem0] = elemtype;
-
-	if(grid->zmaterial[cellk]) 
-	  data->material[elem0] = grid->zmaterial[cellk];
-	else 
-	  data->material[elem0] = dataxy->material[element];
+	indx[(level-1)*dataxy->noelements+element] = elem0;	
+	data->elementtypes[elem0] = elemtype;     
+	data->material[elem0] = material;
 
 	if(elemtype == 706) {
 	  for(i=0;i<3;i++) {
@@ -6303,7 +6310,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	  if((parent || parent2) && (material != material2)) {
 	    side++;
 
-	    if(!parent) printf("no parent = %d %d %d %d %d\n",parent,parent2,ind1,ind2,level);
+	    if(!parent & !parent2) printf("no parent = %d %d %d %d %d\n",parent,parent2,ind1,ind2,level);
 
 	    sidetype = boundxy[j].types[i];
 	    bound[j].types[side] = sidetype;
@@ -6332,8 +6339,14 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     bound[j].nosides = side;
     cummaxsidetype = MAX( maxsidetype, cummaxsidetype );
     
-    printf("Extruded BCs list %d of types [%d,%d] has %d elements.\n",
-	   j,minsidetype,maxsidetype,side);
+    if(info) {
+      if(side) 
+	printf("Extruded BCs list %d of types [%d,%d] has %d elements.\n",
+	       j,minsidetype,maxsidetype,side);
+      else
+	printf("Extruded BCs list %d has no elements!\n",j);
+    }
+
   }
   bcset = dataxy->noboundaries-1;
 
@@ -6507,8 +6520,13 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	    }
 	  }
 
-	  if(info) printf("Layer BCs list %d of types [%d,%d] has %d elements.\n",
-			  bcset,minsidetype,maxsidetype,side);    
+	  if(info) {
+	    if(side) 
+	      printf("Layer BCs list %d of types [%d,%d] has %d elements.\n",
+		     bcset,minsidetype,maxsidetype,side);    
+	    else	      
+	      printf("Layer BCs list %d has no elements!\n",bcset);
+	  }
 
 	  if(redo == TRUE) {
 	    goto redolayer;
@@ -6604,8 +6622,13 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       }
       else {
 	bound[l].created = TRUE;
-	if(info) printf("Symmetry BCs list %d of type %d has %d elements.\n",
-			l,sidetype+addtype+1,bound[l].nosides);    
+	if(info) {
+	  if(bound[l].nosides) 
+	    printf("Symmetry BCs list %d of type %d has %d elements.\n",
+		   l,sidetype+addtype+1,bound[l].nosides);    
+	  else
+	    printf("Symmetry BCs list %d has no elements!\n",l);
+	}	    
       }
     }
     bcset += 4;

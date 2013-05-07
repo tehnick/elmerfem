@@ -123,6 +123,8 @@ void InitGrid(struct GridType *grid)
     grid->zmaterial[i] = 0; 
   }
 
+  grid->zmaterialmapexists = FALSE;
+
   /* Initilizes the numbering of the cells. */
   for(j=0;j<=MAXCELLS+1;j++)
     for(i=0;i<=MAXCELLS+1;i++) 
