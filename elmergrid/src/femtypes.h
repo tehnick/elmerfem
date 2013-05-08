@@ -85,6 +85,8 @@ struct GridType {
     boundsolid[MAXBOUNDARIES],/* which of these is the solid? */
     boundtype[MAXBOUNDARIES]; /* type of the boundary */
   int **zmaterialmap,zmaterialmapexists;
+  Real zhelicity;
+  int zhelicityexists;
   int structure[MAXCELLS+2][MAXCELLS+2], /* material structure of subcells */
     numbered[MAXCELLS+2][MAXCELLS+2];    /* numbering order of the subcells */
   Real dx0,    /* global mesh scale in x-direction */

@@ -6701,6 +6701,31 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	   data->noelements,data->noknots);
 
   free_Ivector(indx,0,indxlength);
+
+
+  /* Enforce constant helicity for the mesh if requested */
+  if( grid->zhelicityexists ) {
+    Real helicity,fii,x,y,z,minz,maxz;
+
+    helicity = (M_PI/180.0)*grid->zhelicity;
+
+    minz = maxz = data->z[1];
+    for(i=1;i<=data->noknots;i++) {
+      minz = MIN(minz,data->z[i]);
+      maxz = MAX(maxz,data->z[i]);
+    }
+    for(i=1;i<=data->noknots;i++) {
+      x = data->x[i];
+      y = data->y[i];
+      z = data->z[i];
+      fii = helicity*(z-minz)/(maxz-minz);
+
+      data->x[i] = cos(fii)*x - sin(fii)*y;
+      data->y[i] = sin(fii)*x + cos(fii)*y;
+    }
+    if(info) printf("Applied helicity of %12.5le degrees\n",grid->zhelicity);
+  }
+
 }
 
 

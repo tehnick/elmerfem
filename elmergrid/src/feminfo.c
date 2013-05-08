@@ -1292,6 +1292,10 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	}
 	grid->zmaterialmapexists = TRUE;
       }
+      else if(strstr(command,"EXTRUDED HELICITY")) {
+	sscanf(params,"%le",&grid->zhelicity);			
+	grid->zhelicityexists = TRUE;
+      }
 
     }
   }
