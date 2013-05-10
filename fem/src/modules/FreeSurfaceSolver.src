@@ -105,7 +105,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   !    Get variables for the solution
   !------------------------------------------------------------------------------
   FreeSurf     => Solver % Variable % Values     ! Nodal values for free surface displacement
-  IF (.NOT.ASSOCIATED(FreeSurf)) CALL FATAL(SolverName,'Variable values not associated')
+  IF (.NOT.ASSOCIATED(FreeSurf)) CALL Fatal(SolverName,'Variable values not associated')
   FreeSurfPerm => Solver % Variable % Perm       ! Permutations for free surface displacement
   PreFreeSurf  => Solver % Variable % PrevValues ! Nodal values for free surface displacement
 
@@ -120,11 +120,11 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   IF ( COUNT(FreeSurfPerm/=0)==0) THEN
      IF (ParEnv % PEs > 1) THEN
-        WRITE(Message,'(A,I6,A)'), 'Partition ', ParEnv % myPE, 'has no free surface'
-        CALL WARN(SolverName,Message)
-        CALL WARN(SolverName,'This is not good for load balance!')
+        WRITE(Message,'(A,I0,A)'), 'Partition ', ParEnv % myPE, ' has no free surface'
+        CALL Warn(SolverName,Message)
+        CALL Warn(SolverName,'This is not good for load balance!')
      ELSE
-        CALL WARN(SolverName,'A serial run without a free surface, but the solver switched in - weird!')
+        CALL Warn(SolverName,'A serial run without a free surface, but the solver switched in - weird!')
      END IF
      RETURN
   END IF
@@ -141,12 +141,12 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   cv = GetConstReal( SolverParams, 'Velocity Implicity', Found)
   IF(.NOT. Found) cv = 1.0_dp 
   WRITE(Message,'(a,F8.2)') 'Velocity implicity (1=fully implicit)=', cv
-  CALL INFO(SolverName, Message, Level=4)
+  CALL Info(SolverName, Message, Level=6 )
 
   LinearTol = GetConstReal( SolverParams, &
        'Linear System Convergence Tolerance',    Found )
   IF ( .NOT.Found ) THEN
-     CALL FATAL(SolverName, 'No >Linear System Convergence Tolerance< found')
+     CALL Fatal(SolverName, 'No >Linear System Convergence Tolerance< found')
   END IF
   NonlinearTol  = GetConstReal( SolverParams, &
        'Nonlinear System Convergence Tolerance',    Found )
@@ -164,15 +164,15 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
        'Apply Dirichlet', Found)
   IF ( .NOT.Found ) THEN
      ApplyDirichlet = .FALSE.
-     CALL INFO(SolverName, 'No keyword >Apply Dirichlet< found. No limitation of solution',Level=1)
+     CALL Info(SolverName, 'No keyword > Apply Dirichlet < found. No limitation of solution',Level=6 )
   ELSE
      IF (ApplyDirichlet) THEN
-        CALL INFO(SolverName, 'Using Dirichlet method for limitation',Level=1)
+        CALL Info(SolverName, 'Using Dirichlet method for limitation',Level=6 )
         IF (NonlinearIter < 2) THEN
-           CALL WARN(SolverName, 'Keyword >Apply Dirichlet< set, but >Nonlinear System Max Iterations< set to lower than 2')
+           CALL Warn(SolverName, 'Keyword > Apply Dirichlet < set, but > Nonlinear System Max Iterations < set to lower than 2')
         END IF
      ELSE
-        CALL INFO(SolverName, 'No limitation of solution',Level=1)
+        CALL Info(SolverName, 'No limitation of solution',Level=6 )
      END IF
   END IF
 
@@ -182,9 +182,9 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
      ALEFormulation = .FALSE.
   END IF
   IF (ALEFormulation) THEN 
-     CALL INFO(SolverName, 'Using horizontal ALE Formulation',Level=1)
+     CALL Info(SolverName, 'Using horizontal ALE Formulation',Level=6 )
   ELSE
-     CALL INFO(SolverName, 'Using horizontal Eulerian Formulation',Level=1)     
+     CALL Info(SolverName, 'Using horizontal Eulerian Formulation',Level=6 )
   END IF
 
   StabilizeFlag = GetString( SolverParams, &
@@ -192,17 +192,16 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   SELECT CASE(StabilizeFlag)
   CASE('stabilized')
      Bubbles = .FALSE.
-     CALL INFO(SolverName, &
-          'Using residual squared-stabilized formulation.', Level=4)
+     CALL Info(SolverName, &
+          'Using residual squared-stabilized formulation.',Level=6 )
   CASE('bubbles')
      Bubbles = .TRUE.
-     CALL INFO(SolverName, 'Using residual free bubble stabilization', Level=4)
+     CALL Info(SolverName, 'Using residual free bubble stabilization',Level=6 )
   END SELECT
 
 
-
-  WRITE(Message,'(a,i1,a,i1)') 'DIM=', DIM
-  CALL INFO( SolverName, Message, level=4) 
+  WRITE(Message,'(A,I0)') 'Mesh dimension: ', DIM
+  CALL Info( SolverName, Message, Level=8 )
 
   !------------------------------------------------------------------------------
   !    Allocate some permanent storage, this is done first time only
@@ -235,6 +234,8 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
              StiffVector,  &
              OldValues, &
              OldRHS)
+
+        IF( NeedOldValues ) DEALLOCATE( OldFreeSurf ) 
      END IF
 
 
@@ -266,26 +267,25 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
           OldRHS( L ), &
           STAT=istat )
      IF ( istat /= 0 ) THEN
-        CALL Fatal(SolverName,'Memory allocation error, Aborting.')
+        CALL Fatal(SolverName,'Memory allocation error 1, Aborting.')
      END IF
 
      IF(NeedOldValues) THEN
         ALLOCATE(OldFreeSurf(SIZE(FreeSurf)), STAT=istat)
 
         IF ( istat /= 0 ) THEN
-           CALL Fatal(SolverName,'Memory allocation error, Aborting.')
+           CALL Fatal(SolverName,'Memory allocation error 2, Aborting.')
         END IF
      END IF
 
-     CALL INFO(SolverName,'Memory allocations done', Level=4)
+     CALL Info(SolverName,'Memory allocations done' )
      AllocationsDone = .TRUE.
      ActiveNode = .FALSE.
      ResidualVector = 0.0_dp
   END IF
 
 
-
-  !                     from previous timestep
+  !   from previous timestep
   IF( NeedOldValues) THEN
      OldFreeSurf = FreeSurf
   END IF
@@ -295,8 +295,8 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   VarSurfResidual => VariableGet( Model % Mesh % Variables, TRIM(VariableName) // ' Residual' )
   IF (.NOT.ASSOCIATED(VarSurfResidual)) THEN
-     WRITE(Message,'(A)') '>' // TRIM(VariableName) // ' Residual< not associated'
-     CALL FATAL( SolverName, Message)
+     WRITE(Message,'(A)') '>' // TRIM(VariableName) // ' Residual < not associated'
+     CALL Fatal( SolverName, Message)
   END IF
   PointerToResidualVector => VarSurfResidual % Values
 
@@ -309,15 +309,15 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
      !------------------------------------------------------------------------------
      LocalNodes = Model % NumberOfNodes
      !Norm = Solver % Variable % Norm     
-     WRITE(Message,'(a,I4,a,I4)') 'Non-linear Iteration ', iter,' out of max. ',NonlinearIter
-     CALL INFO( SolverName, Message, Level=4)
+     WRITE(Message,'(a,I0,a,I0)') 'Non-linear Iteration ', iter,' out of max. ',NonlinearIter
+     CALL Info( SolverName, Message, Level=4)
      !------------------------------------------------------------------------------
      !    Do some additional initialization, and go for it
      !------------------------------------------------------------------------------
      totat = 0.0_dp
      totst = 0.0_dp
      at = CPUTime()
-     CALL INFO( SolverName, 'start assembly', Level=4 )
+     CALL Info( SolverName, 'start assembly',Level=6 )
      CALL DefaultInitialize()
      !------------------------------------------------------------------------------
      !    Do the assembly
@@ -326,7 +326,6 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         CurrentElement => GetActiveElement(t)
         n = GetElementNOFNodes()
         NodeIndexes => CurrentElement % NodeIndexes
-
 
         ! set coords of highest occuring dimension to zero (to get correct path element)
         !-------------------------------------------------------------------------------
@@ -338,7 +337,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
            ElementNodes % z(1:n) = 0.0_dp
         ELSE
-           WRITE(Message,'(a,i1,a)')&
+           WRITE(Message,'(a,i0,a)')&
                 'It is not possible to compute free-surface problems in DIM=',&
                 DIM, ' dimensions. Aborting'
            CALL Fatal( SolverName, Message) 
@@ -368,7 +367,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         !----------------------------------------------
         ConvectionFlag = GetString( Equation, 'Convection', Found )
         IF (.NOT. Found) &
-             CALL FATAL(SolverName, 'No string for keyword >Convection< found in Equation')
+             CALL Fatal(SolverName, 'No string for keyword > Convection < found in Equation')
         Velo = 0.0_dp
         ! constant (i.e., in section Material given) velocity
         !----------------------------------------------------
@@ -389,9 +388,8 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         ELSE IF (ConvectionFlag == 'computed' ) THEN
            FlowSolName =  GetString( Equation,'Flow Solution Name', Found)
            IF(.NOT.Found) THEN        
-              CALL WARN(SolverName,'Keyword >Flow Solution Name< not found in section >Equation<')
-              CALL WARN(SolverName,'Taking default value >Flow Solution<')
-              WRITE(FlowSolName,'(A)') 'Flow Solution'
+              CALL Warn(SolverName,'Keyword > Flow Solution Name < not found in section >Equation<')
+              CALL Warn(SolverName,'Taking default value > Flow Solution <')
            END IF
            FlowSol => VariableGet( Solver % Mesh % Variables, FlowSolName )
            IF ( ASSOCIATED( FlowSol ) ) THEN
@@ -401,8 +399,8 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
               PrevFlowSol => FlowSol % PrevValues
            ELSE
               WRITE(Message,'(A,A,A)') &
-                   'Convection flag set to >computed<, but no variable >',FlowSolName,'< found'
-              CALL FATAL(SolverName,Message)              
+                   'Convection flag set to > computed <, but no variable >',FlowSolName,'< found'
+              CALL Fatal(SolverName,Message)              
            END IF
            ! get velocity profile
            IF ( ASSOCIATED( FlowSol ) ) THEN
@@ -424,7 +422,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
                        Velo(2,i) = cv * FlowSolution( j-2 ) + (1-cv) * PrevFlowSol(j-2,1)
                        Velo(3,i) = cv * FlowSolution( j-1 ) + (1-cv) * PrevFlowSol(j-1,1)
                     ELSE
-                       WRITE(Message,'(a,i3,a,i3,a)')&
+                       WRITE(Message,'(a,i0,a,i0,a)')&
                             'DIM=', DIM, ' NSDOFs=', NSDOFs, ' does not combine. Aborting'
                        CALL Fatal( SolverName, Message)               
                     END IF
@@ -443,7 +441,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
                        Velo(2,i) = FlowSolution( j-2 ) 
                        Velo(3,i) = FlowSolution( j-1 ) 
                     ELSE
-                       WRITE(Message,'(a,i3,a,i3,a)')&
+                       WRITE(Message,'(a,i0,a,i0,a)')&
                             'DIM=', DIM, ' NSDOFs=', NSDOFs, ' does not combine. Aborting'
                        CALL Fatal( SolverName, Message)
                     END IF
@@ -571,7 +569,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         END DO
      END IF
 
-        CALL INFO( SolverName, 'Assembly done', Level=4 )
+        CALL Info( SolverName, 'Assembly done', Level=6 )
         !------------------------------------------------------------------------------
         !    Solve System  and check for convergence
         !------------------------------------------------------------------------------
@@ -589,9 +587,9 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         END IF
 
         WRITE( Message, * ) 'Result Norm   : ',Norm
-        CALL INFO( SolverName, Message, Level=4 )
+        CALL Info( SolverName, Message, Level=4 )
         WRITE( Message, * ) 'Relative Change : ',RelativeChange
-        CALL INFO( SolverName, Message, Level=4 )
+        CALL Info( SolverName, Message, Level=4 )
 
         !------------------------------------------------------------------------------
         ! compute residual
@@ -659,10 +657,10 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
                  Relax = Relax * MaxDisp/maxdh
               END IF
               WRITE(Message,'(a,E8.2)') 'Maximum displacement ',maxdh
-              CALL INFO( SolverName, Message, Level=4 )
+              CALL Info( SolverName, Message, Level=4 )
            END IF
            WRITE(Message,'(a,F8.2)') 'pp Relaxation factor',Relax
-           CALL INFO( SolverName, Message, Level=4 )
+           CALL Info( SolverName, Message, Level=4 )
            DO i=1, Model % NumberOfNodes
               j = FreeSurfPerm(i)
               IF(j > 0) THEN
@@ -676,31 +674,31 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         totst = totst + st
 
         WRITE(Message,'(a,F8.2,F8.2)') 'Assembly: (s)', at, totat
-        CALL INFO( SolverName, Message, Level=4 )
+        CALL Info( SolverName, Message, Level=4 )
         WRITE(Message,'(a,F8.2,F8.2)') ' Solve:    (s)', st, totst
-        CALL INFO( SolverName, Message, Level=4 )
+        CALL Info( SolverName, Message, Level=4 )
         !------------------------------------------------------------------------------
         ! write some info on max/min values
         !------------------------------------------------------------------------------
         WRITE(Message,'(a,e13.6,a,e13.6)') &
              'Max/min values surface:', MAXVAL(FreeSurf(:)),'/',MINVAL( FreeSurf(:))
-        CALL INFO(SolverName,Message,Level=4)
+        CALL Info(SolverName,Message,Level=4)
         IF (ApplyDirichlet) THEN
            !           WRITE(Message,'(a,i10)') 'Deactivated Periodic BC nodes:', k
-           !          CALL INFO(SolverName,Message,Level=1)
-           WRITE(Message,'(a,i10)') 'Number of surface nodes: ', numberofsurfacenodes
-           CALL INFO(SolverName,Message,Level=1)
-           WRITE(Message,'(a,i10)') 'Number of constrained points (lower limit):', COUNT(ActiveNode(:,1))
-           CALL INFO(SolverName,Message,Level=1)
-           WRITE(Message,'(a,i10)') 'Number of constrained points (upper limit):', COUNT(ActiveNode(:,2))
-           CALL INFO(SolverName,Message,Level=1)
+           !          CALL Info(SolverName,Message,Level=1)
+           WRITE(Message,'(a,i0)') 'Number of surface nodes: ', numberofsurfacenodes
+           CALL Info(SolverName,Message,Level=4)
+           WRITE(Message,'(a,i0)') 'Number of constrained points (lower limit): ', COUNT(ActiveNode(:,1))
+           CALL Info(SolverName,Message,Level=4)
+           WRITE(Message,'(a,i0)') 'Number of constrained points (upper limit): ', COUNT(ActiveNode(:,2))
+           CALL Info(SolverName,Message,Level=4)
         END IF
         !----------------------
         ! check for convergence
         !----------------------
         IF ( RelativeChange < NonlinearTol ) THEN
-           WRITE(Message,'(a,i10,a)') 'Converged after', iter, ' iterations'
-           CALL INFO(SolverName,Message,Level=1)
+           WRITE(Message,'(a,i0,a)') 'Converged after', iter, ' iterations'
+           CALL Info(SolverName,Message,Level=4)
            EXIT
         ELSE
 
