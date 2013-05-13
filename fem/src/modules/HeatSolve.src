@@ -109,12 +109,12 @@
             PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave, Normal(3), &
 	    dist, mindist, ControlPoint(3)
 
-     REAL(KIND=dp), POINTER :: Temperature(:),FlowSolution(:), &
+     REAL(KIND=dp), POINTER :: Temperature(:),PrevTemperature(:),FlowSolution(:), &
        ElectricCurrent(:), PhaseChangeIntervals(:,:),ForceVector(:), &
        PrevSolution(:), HC(:), Hwrk(:,:,:),MeshVelocity(:), XX(:), YY(:),ForceHeater(:),&
        RealWork(:,:)
 
-     REAL(KIND=dp), ALLOCATABLE :: TSolution(:),TSolution1(:), vals(:)
+     REAL(KIND=dp), ALLOCATABLE :: vals(:)
      REAL(KIND=dp) :: Jx,Jy,Jz,JAbs, Power, MeltPoint, IntHeatSource
 
      INTEGER, ALLOCATABLE, SAVE :: Indexes(:), SaveIndexes(:)
@@ -562,9 +562,7 @@
 !------------------------------------------------------------------------------
      PrevSolution = Temperature(1:LocalNodes)
      IF ( TransientSimulation ) THEN
-       IF ( .NOT. ALLOCATED(TSolution) ) &
-         ALLOCATE( TSolution(LocalNodes), TSolution1(LocalNodes) )
-       TSolution = Solver % Variable % PrevValues(:,1)
+       PrevTemperature => Solver % Variable % PrevValues(:,1)
      END IF
 !------------------------------------------------------------------------------
 
@@ -1563,6 +1561,8 @@ PRINT *,'a1'
 !------------------------------------------------------------------------------
     SUBROUTINE EffectiveHeatCapacity()
       LOGICAL :: Found, Specific
+      REAL(KIND=dp), ALLOCATABLE :: dT(:)
+
 !------------------------------------------------------------------------------
 !     See if temperature gradient indside the element is large enough 
 !     to use  the c_p = SQRT( (dH/dx)^2 / (dT/dx)^2 ), otherwise
@@ -1593,11 +1593,12 @@ PRINT *,'a1'
 ! Note that here HeatCapacity is miused for saving dT.
 !------------------------------------------------------------------------------
         CASE('temporal')
-          IF ( TransientSimulation .AND. ALLOCATED(TSolution) )  THEN
-            HeatCapacity(1:n) = Temperature(TempPerm(Element % NodeIndexes)) - &
-                     TSolution(TempPerm(Element % NodeIndexes))
+          IF ( TransientSimulation )  THEN
+            ALLOCATE( dT(n) )
+            dT(1:n) = Temperature(TempPerm(Element % NodeIndexes)) - &
+                     PrevTemperature(TempPerm(Element % NodeIndexes))
 
-            IF ( ANY(ABS(HeatCapacity(1:n)) < AEPS) ) THEN
+            IF ( ANY(ABS(dT(1:n)) < AEPS) ) THEN
               PhaseChangeModel = PHASE_SPATIAL_1
             ELSE
               PhaseChangeModel = PHASE_TEMPORAL
@@ -1651,29 +1652,35 @@ PRINT *,'a1'
           
 !------------------------------------------------------------------------------
       CASE( PHASE_TEMPORAL )
-        TSolution1 = Temperature(1:LocalNodes)
-
         ! When retrieving the value of enthalphy on the previous timestep 
         ! the relevant entries of the Temperature solution in the global vector
         ! are tampered in order to make the ListGetReal command work as wanted. 
+        ! 1) Values at current temperature     
         !------------------------------------------------------------------------
         IF( Specific ) THEN
           Work(1:n) = ListGetReal( Material,'Specific Enthalpy',n,Element % NodeIndexes )
-          Temperature(1:LocalNodes) = TSolution
-          Work(1:n) = Work(1:n) - ListGetReal( Material,'Specific Enthalpy', &
-              n,Element % NodeIndexes )          
         ELSE
           Work(1:n) = ListGetReal( Material,'Enthalpy',n,Element % NodeIndexes )
-          Temperature(1:LocalNodes) = TSolution
-          Work(1:n) = Work(1:n) - ListGetReal( Material,'Enthalpy', &
-              n,Element % NodeIndexes )
         END IF
-        Temperature(1:LocalNodes) = TSolution1
-        HeatCapacity(1:n) = Work(1:n) / HeatCapacity(1:n)
+
+        ! 2) Values at previous temperature
+        Temperature(TempPerm(Element % NodeIndexes)) = & 
+            PrevTemperature(TempPerm(Element % NodeIndexes)) 
 
         IF( Specific ) THEN
-          HeatCapacity(1:n) = Density(1:n) * HeatCapacity(1:n)          
+          Work(1:n) = Work(1:n) - ListGetReal( Material,'Specific Enthalpy', &
+              n,Element % NodeIndexes )          
+          HeatCapacity(1:n) = Density(1:n) * Work(1:n) / dT(1:n)
+       ELSE
+          Work(1:n) = Work(1:n) - ListGetReal( Material,'Enthalpy', &
+              n,Element % NodeIndexes )
+          HeatCapacity(1:n) = Work(1:n) / dT(1:n)
         END IF
+
+        ! Revert to current temperature
+        Temperature(TempPerm(Element % NodeIndexes)) = & 
+            PrevTemperature(TempPerm(Element % NodeIndexes)) + dT(1:n)
+
 !------------------------------------------------------------------------------
       END SELECT
 !------------------------------------------------------------------------------
