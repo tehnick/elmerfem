@@ -1123,7 +1123,7 @@ END SUBROUTINE GetMaxDefs
     TYPE(ElementData_t), POINTER :: PD,PD1
 
 #ifdef ALLOC_CHAR
-    ALLOCATE(character(MAX_STRING_LEN)::str)
+    ALLOCATE(CHARACTER(MAX_STRING_LEN)::str)
 #endif
 
     OPEN( Unit=10, File=FileName, STATUS='OLD', ERR=10 )
@@ -1403,7 +1403,7 @@ END SUBROUTINE GetMaxDefs
     n1 = 0
     n2 = 0
     DO i=1, Mesh % NumberOfBoundaryElements
-      IF (Elements(i) % Type % ElementCode<=200) CYCLE
+      IF (Elements(i) % TYPE % ElementCode<=200) CYCLE
       Constraint = Elements(i) % BoundaryInfo % Constraint
       IF ( Model % BCs(This) % Tag == Constraint ) n1 = n1 + 1
       IF ( Model % BCs(Trgt) % Tag == Constraint ) n2 = n2 + 1
@@ -3458,9 +3458,9 @@ END SUBROUTINE GetMaxDefs
         Mesh_out % Elements(cnt) % ElementIndex = cnt
         ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l_n)) 
         Mesh_out % Elements(cnt) % NodeIndexes = ind(1:l_n)
-        Mesh_out % Elements(cnt) % EdgeIndexes => Null()
-        Mesh_out % Elements(cnt) % FaceIndexes => Null()
-        Mesh_out % Elements(cnt) % BubbleIndexes => Null()
+        Mesh_out % Elements(cnt) % EdgeIndexes => NULL()
+        Mesh_out % Elements(cnt) % FaceIndexes => NULL()
+        Mesh_out % Elements(cnt) % BubbleIndexes => NULL()
         IF(ASSOCIATED(Mesh_in % Elements(j) % PDefs)) THEN
           NeedEdges=.TRUE.
           ALLOCATE(Mesh_out % Elements(cnt) % PDefs)
@@ -3499,7 +3499,7 @@ END SUBROUTINE GetMaxDefs
              Mesh_out % Elements(Mesh_in % NumberOfBulkElements*i+l)
         END IF
 
-        IF(Mesh_in % Elements(k) % Type % ElementCode>=200) THEN
+        IF(Mesh_in % Elements(k) % TYPE % ElementCode>=200) THEN
           Mesh_out % Elements(cnt) % NDOFs = 4
           ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(4)) 
 
@@ -3515,15 +3515,15 @@ END SUBROUTINE GetMaxDefs
           ALLOCATE(Mesh_out % Elements(cnt) % NodeIndexes(l))
           Mesh_out % Elements(cnt) % NodeIndexes = &
             Mesh_in % Elements(k) % NodeIndexes+i*n
-          Mesh_out % Elements(cnt) % Type => &
-             Mesh_in % Elements(k) % Type
+          Mesh_out % Elements(cnt) % TYPE => &
+             Mesh_in % Elements(k) % TYPE
         END IF 
         Mesh_out % Elements(cnt) % ElementIndex = cnt + &
                 Mesh_out % NumberOfBulkElements
-        Mesh_out % Elements(cnt) % PDefs => Null()
-        Mesh_out % Elements(cnt) % EdgeIndexes => Null()
-        Mesh_out % Elements(cnt) % FaceIndexes => Null()
-        Mesh_out % Elements(cnt) % BubbleIndexes => Null()
+        Mesh_out % Elements(cnt) % PDefs => NULL()
+        Mesh_out % Elements(cnt) % EdgeIndexes => NULL()
+        Mesh_out % Elements(cnt) % FaceIndexes => NULL()
+        Mesh_out % Elements(cnt) % BubbleIndexes => NULL()
       END DO
     END DO
     
@@ -3575,10 +3575,10 @@ END SUBROUTINE GetMaxDefs
       Mesh_out % Elements(cnt) % ElementIndex = cnt
       Mesh_out % Elements(cnt) % TYPE => &
         Mesh_in % Elements(i) % TYPE
-      Mesh_out % Elements(cnt) % PDefs => Null()
-      Mesh_out % Elements(cnt) % EdgeIndexes => Null()
-      Mesh_out % Elements(cnt) % FaceIndexes => Null()
-      Mesh_out % Elements(cnt) % BubbleIndexes => Null()
+      Mesh_out % Elements(cnt) % PDefs => NULL()
+      Mesh_out % Elements(cnt) % EdgeIndexes => NULL()
+      Mesh_out % Elements(cnt) % FaceIndexes => NULL()
+      Mesh_out % Elements(cnt) % BubbleIndexes => NULL()
     END DO
 
     ! Add top boundary:
@@ -3610,10 +3610,10 @@ END SUBROUTINE GetMaxDefs
       Mesh_out % Elements(cnt) % ElementIndex = cnt
       Mesh_out % Elements(cnt) % TYPE => &
         Mesh_in % Elements(i) % TYPE
-      Mesh_out % Elements(cnt) % PDefs => Null()
-      Mesh_out % Elements(cnt) % EdgeIndexes => Null()
-      Mesh_out % Elements(cnt) % FaceIndexes => Null()
-      Mesh_out % Elements(cnt) % BubbleIndexes => Null()
+      Mesh_out % Elements(cnt) % PDefs => NULL()
+      Mesh_out % Elements(cnt) % EdgeIndexes => NULL()
+      Mesh_out % Elements(cnt) % FaceIndexes => NULL()
+      Mesh_out % Elements(cnt) % BubbleIndexes => NULL()
     END DO
 
     Mesh_out % NumberOfBoundaryElements=cnt-Mesh_out % NumberOfBulkElements
@@ -8297,6 +8297,8 @@ CONTAINS
       Var => VariableGet( CurrentModel % Variables,'Coordinate 3')
       Var % Values => Mesh % Nodes % z
     END IF
+
+    CALL Info('CoordinateTransformation','All done',Level=8)
 
   END SUBROUTINE CoordinateTransformation
 !---------------------------------------------------------------
