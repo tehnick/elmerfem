@@ -1,3 +1,7 @@
+! test case for complex valued solvers
+! some solvers that were used for real value Poisson case are
+! dropped out because they do not reach convergence. 
+
 $ r =  1.224
 $ c = 340
 $ w = 15000
@@ -9,11 +13,10 @@ Header
 End
 
 Simulation
-  Max Output Level = 3
+  Max Output Level = 5
   Angular Frequency = $w
 
-  Coordinate System = "Cartesian 2D"
-
+  Coordinate System = "Cartesian"
   Simulation Type = "Steady State"
   Output Intervals = 1
   Steady State Max Iterations = 1
@@ -41,7 +44,7 @@ Solver 1
   Linear System Convergence Tolerance = 1.0e-08
   Linear System Abort Not Converged = True
   Linear System Preconditioning = "ILU2"
-  Linear System Residual Output = 1
+  Linear System Residual Output = 20
   Linear System Precondition Recompute = 1
 
   Steady State Convergence Tolerance = 1.0e-05
@@ -87,95 +90,75 @@ RUN
 $ fprintf( stderr, "END TEST CASE 2: Target NRM=0.256636386851E-01\n" );
 
 
-## fprintf( stderr, "\n\nTEST CASE 3 (Jacobi)\n");
-#Solver 1 :: Linear System Solver = Iterative
-#Solver 1 :: Linear System Iterative Method = Jacobi
-#
-#Boundary Condition 1 :: Temperature = 3
-#RUN
-## fprintf( stderr, "END TEST CASE 3: Target NRM=3\n ");
-
-
-## fprintf( stderr, "\n\nTEST CASE 4 (SGS)\n");
-#Solver 1 :: Linear System Solver = Iterative
-#Solver 1 :: Linear System Iterative Method = SGS
-#
-#Boundary Condition 1 :: Temperature = 4
-#RUN
-## fprintf( stderr, "END TEST CASE 4: Target NRM=4\n ");
-
-
-$ fprintf( stderr, "\n\nTEST CASE 5 (CG)\n");
+$ fprintf( stderr, "\n\nTEST CASE 3 (CG)\n");
 Solver 1 :: Linear System Solver = Iterative
 Solver 1 :: Linear System Iterative Method = CG
 
 Boundary Condition 1 :: Wave Flux 1 = 5
 RUN
-$ fprintf( stderr, "END TEST CASE 5: Target NRM=0.641590967148E-01\n" );
+$ fprintf( stderr, "END TEST CASE 3: Target NRM=0.641590967148E-01\n" );
 
 
-$ fprintf( stderr, "\n\nTEST CASE 6 (CGS)\n");
+$ fprintf( stderr, "\n\nTEST CASE 4 (CGS)\n");
 Solver 1 :: Linear System Solver = Iterative
 Solver 1 :: Linear System Iterative Method = CGS
 
 Boundary Condition 1 :: Wave Flux 1 = 6
 RUN
-$ fprintf( stderr, "END TEST CASE 6: Target NRM=0.769909160662E-01\n" );
+$ fprintf( stderr, "END TEST CASE 4: Target NRM=0.769909160662E-01\n" );
 
 
-$ fprintf( stderr, "\n\nTEST CASE 7 (QMR)\n");
+$ fprintf( stderr, "\n\nTEST CASE 5 (QMR)\n");
 Solver 1 :: Linear System Solver = Iterative
 Solver 1 :: Linear System Iterative Method = QMR
 
 Boundary Condition 1 :: Wave Flux 1 = 7
 RUN
-$ fprintf( stderr, "END TEST CASE 7: Target NRM=0.898227353788E-01\n" );
+$ fprintf( stderr, "END TEST CASE 5: Target NRM=0.898227353788E-01\n" );
 
 
-$ fprintf( stderr, "\n\nTEST CASE 8 (TFQMR)\n");
+$ fprintf( stderr, "\n\nTEST CASE 6 (TFQMR)\n");
 Solver 1 :: Linear System Solver = Iterative
 Solver 1 :: Linear System Iterative Method = TFQMR
 
 Boundary Condition 1 :: Wave Flux 1 = 8
 RUN
-$ fprintf( stderr, "END TEST CASE 8: Target NRM=0.102654554732\n" );
+$ fprintf( stderr, "END TEST CASE 6: Target NRM=0.102654554732\n" );
 
 
-$ fprintf( stderr, "\n\nTEST CASE 9 (GMRES)\n");
+$ fprintf( stderr, "\n\nTEST CASE 7 (GMRES)\n");
 Solver 1 :: Linear System Solver = Iterative
 Solver 1 :: Linear System Iterative Method = GMRES
 
 Boundary Condition 1 :: Wave Flux 1 = 9
 RUN
-$ fprintf( stderr, "END TEST CASE 9: Target NRM=0.115486374077\n" );
+$ fprintf( stderr, "END TEST CASE 7: Target NRM=0.115486374077\n" );
 
 
-$ fprintf( stderr, "\n\nTEST CASE 10 (BiCStab)\n");
+$ fprintf( stderr, "\n\nTEST CASE 8 (BiCStab)\n");
 Solver 1 :: Linear System Solver = Iterative
 Solver 1 :: Linear System Iterative Method = BiCGStab
 
 Boundary Condition 1 :: Wave Flux 1 = 10
 RUN
-$ fprintf( stderr, "END TEST CASE 10: Target NRM=0.128318193405\n" );
+$ fprintf( stderr, "END TEST CASE 8: Target NRM=0.128318193405\n" );
 
 
-$ fprintf( stderr, "\n\nTEST CASE 11 (BiCStab2)\n");
+$ fprintf( stderr, "\n\nTEST CASE 9 (BiCStab2)\n");
 Solver 1 :: Linear System Solver = Iterative
 Solver 1 :: Linear System Iterative Method = BiCGStab2
 
 Boundary Condition 1 :: Wave Flux 1 = 11
 RUN
-$ fprintf( stderr, "END TEST CASE 11: Target NRM=0.141150012766\n" );
+$ fprintf( stderr, "END TEST CASE 9: Target NRM=0.141150012766\n" );
 
 
-
-## fprintf( stderr, "\n\nTEST CASE 12 (BiCGStabL)\n");
-#Solver 1 :: Linear System Solver = Iterative
-#Solver 1 :: Linear System Iterative Method = BiCGStabL
-#
-#Boundary Condition 1 :: Wave Flux 1 = 12
-#RUN
-## fprintf( stderr, "END TEST CASE 12: Target NRM=12\n ");
+$ fprintf( stderr, "\n\nTEST CASE 10 (BiCGStabL)\n");
+Solver 1 :: Linear System Solver = Iterative
+Solver 1 :: Linear System Iterative Method = BiCGStabL
+Boundary Condition 1 :: Wave Flux 1 = 12
+RUN
+$fprintf( stderr, "END TEST CASE 10: Target NRM=0.15398183\n");
 
 
 !End Of File
