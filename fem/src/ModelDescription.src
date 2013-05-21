@@ -128,8 +128,6 @@ CONTAINS
 
 
 
-
-
 !------------------------------------------------------------------------------
   SUBROUTINE LoadIncludeFile( Model,InFileUnit,FileName,MeshDir,MeshName,ScanOnly )
 !------------------------------------------------------------------------------
@@ -265,7 +263,7 @@ CONTAINS
     LOGICAL :: FirstTime = .TRUE.
 
     INTEGER :: nlen
-    REAL(KIND=dp) :: VALUE
+    REAL(KIND=dp) :: Val
 
 !------------------------------------------------------------------------------
 
@@ -945,7 +943,7 @@ CONTAINS
 
        INTEGER :: i,j, k,n, istat
        TYPE(HashTable_t), POINTER, SAVE :: Hash =>NULL()
-       TYPE(HashValue_t), POINTER :: VALUE
+       TYPE(HashValue_t), POINTER :: Val
        LOGICAL :: FirstTime = .TRUE.,lstat
 #ifdef ALLOC_CHAR
        CHARACTER(LEN=:), ALLOCATABLE :: str
@@ -1018,7 +1016,7 @@ CONTAINS
              IF ( i <= 0 .OR. j<= 0 ) CYCLE
              str1 = str(1:i-1) // ':' //  str(j+1:LEN_TRIM(str)-1)
 
-             ALLOCATE( VALUE, STAT=istat )
+             ALLOCATE( Val, STAT=istat )
 
              IF ( istat /= 0 ) THEN
                 IF ( CheckAbort <= 2 ) THEN
@@ -1031,9 +1029,9 @@ CONTAINS
                 END IF
              END IF
 
-             VALUE % TYPE = str(i+1:j-3)
+             Val % TYPE = str(i+1:j-3)
 
-             lstat = HashAdd( hash, str1, VALUE )
+             lstat = HashAdd( hash, str1, Val )
              IF ( .NOT. lstat ) THEN
                 IF ( CheckAbort <= 2 ) THEN
                    CALL Warn( 'Model Input', 'Hash table build error. Keyword checking disabled.' )
@@ -1086,18 +1084,18 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
-       VALUE => HashValue( Hash, str )
-       IF ( ASSOCIATED( VALUE ) ) THEN
+       Val => HashValue( Hash, str )
+       IF ( ASSOCIATED( Val ) ) THEN
           IF ( PRESENT( ReturnType ) ) THEN
              ReturnType = .TRUE.
-             TYPE = VALUE % TYPE
+             TYPE = Val % TYPE
           END IF
-          IF  ( HashEqualKeys( VALUE % TYPE, TYPE ) ) RETURN
+          IF  ( HashEqualKeys( Val % TYPE, TYPE ) ) RETURN
        END IF
 
        IF ( PRESENT( ReturnType ) ) ReturnType = .FALSE.
 
-       IF ( .NOT.ASSOCIATED(VALUE) .AND. (CheckAbort <= 2 .OR. FreeNames) ) THEN
+       IF ( .NOT.ASSOCIATED(Val) .AND. (CheckAbort <= 2 .OR. FreeNames) ) THEN
           IF ( .NOT. ( ScanOnly .OR. CheckAbort == 2) ) THEN
             WRITE( Message, * ) 'Unlisted keyword: [', TRIM(name), &
                       '] in section: [', TRIM(Section), ']'
@@ -1117,17 +1115,17 @@ CONTAINS
               CLOSE(10 )
             END IF
           END IF
-       ELSE IF ( ASSOCIATED( VALUE ) ) THEN
+       ELSE IF ( ASSOCIATED( Val ) ) THEN
          ! Difference between types 'string' and 'file' is just that 
          ! file is case sensitive while string is not. Hence both are ok. 
          !----------------------------------------------------------------
-         IF( TRIM(VALUE % TYPE) == 'string' .AND. TRIM(TYPE) == 'file') THEN
+         IF( TRIM(Val % TYPE) == 'string' .AND. TRIM(TYPE) == 'file') THEN
            RETURN
          ELSE
            WRITE( Message, * ) 'Keyword: [', TRIM(name), &
                '] in section: [', TRIM(Section), ']',  &
                ' is given wrong type: [', TRIM(TYPE),  &
-               '], should be of type: [', TRIM(VALUE % TYPE),']'
+               '], should be of type: [', TRIM(Val % TYPE),']'
           CALL Fatal( 'Model Input', Message )
         END IF
        ELSE
@@ -1253,7 +1251,7 @@ CONTAINS
                       CALL ListAddConstRealArray( List,Name,N1,N2, &
                              ATx(1:N1,1:N2,1),Proc )
                     ELSE
-                      CALL ListAddConstReal( List,Name,VALUE,Proc )
+                      CALL ListAddConstReal( List,Name,Val,Proc )
                     END IF
    
                   CASE( LIST_TYPE_VARIABLE_SCALAR )
@@ -1278,7 +1276,7 @@ CONTAINS
                        CALL ListAddConstRealArray( List,Name,N1,N2, &
                          ATx(1:N1,1:N2,1), Proc, str(str_beg+5:) )
                     ELSE
-                      CALL ListAddConstReal( List,Name,VALUE,Proc, &
+                      CALL ListAddConstReal( List,Name,Val,Proc, &
                                   str(str_beg+5:) )
                     END IF
    
@@ -2275,102 +2273,159 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     TYPE(Element_t), POINTER :: CurrentElement
-    INTEGER :: i,j,k,DOFs, dates(8), n
+    INTEGER :: i,j,k,k2,DOFs, dates(8), n, PermSize,IsVector
     TYPE(Variable_t), POINTER :: Var
-    CHARACTER(LEN=MAX_NAME_LEN) :: FName, PosName, DateStr
-    LOGICAL :: FreeSurfaceFlag, MoveBoundary, GotIt
+    CHARACTER(LEN=MAX_NAME_LEN) :: FName, PosName, DateStr, EqName, VarName
+    LOGICAL :: SaveCoordinates, MoveBoundary, GotIt, SaveThis, &
+        SaveGlobal, OutputVariableList
     INTEGER, POINTER :: PrevPerm(:) 
     INTEGER(IntOff_k) :: PrevPermPos, Pos
     INTEGER(IntOff_k), SAVE :: VarPos(MAX_OUTPUT_VARS) = 0
+    LOGICAL :: Found
     CHARACTER(1) :: E
+
+    SAVE SaveCoordinates
 
 !------------------------------------------------------------------------------
 !   If first time here, count number of variables
 !------------------------------------------------------------------------------
+
     FName = FileName
     IF ( .NOT. FileNameQualified(FileName) ) THEN
       IF ( LEN_TRIM(OutputPath) > 0 ) THEN
         FName = TRIM(OutputPath) // '/' // TRIM(FileName)
       END IF
     END IF
+    CALL Info('SaveResult','-----------------------------------------',Level=4)
+    CALL Info('SaveResult','Saving results to file: '//TRIM(FName), Level=4 )
+
     PosName = TRIM(FName) // ".pos"
 
-    IF ( PRESENT( FreeSurface ) ) THEN
-      FreeSurfaceFlag = FreeSurface
-    ELSE
-       FreeSurfaceFlag = .FALSE.
-       MoveBoundary    = .FALSE.
-       DO i=1,CurrentModel % NumberOfBCs
-         FreeSurfaceFlag = FreeSurfaceFlag .OR. ListGetLogical( &
-            CurrentModel % BCs(i) % Values,'Free Surface', GotIt )
-         IF ( FreeSurfaceFlag ) THEN
-            MoveBoundary =  ListGetLogical( &
-                CurrentModel % BCs(i) % Values,'Internal Move Boundary', GotIt )
-         
-            IF ( .NOT. GotIt ) MoveBoundary = .TRUE.
-
-            FreeSurfaceFlag = FreeSurfaceFlag .AND. MoveBoundary
-         END IF
-
-         IF ( FreeSurfaceFlag ) EXIT
-       END DO
-    END IF
+    SaveGlobal = ListGetLogical( CurrentModel % Simulation,'Output Global Variables',&
+        Found ) 
+    
+    OutputVariableList = ListCheckPresent( CurrentModel % Simulation,&
+        'Output Variable 1')
 
     ! The first time we start by writing the header.
     IF ( Mesh % SavesDone == 0 ) THEN
+
+      ! Check whether the coordinates should be saved also 
+      IF ( PRESENT( FreeSurface ) ) THEN
+        SaveCoordinates = FreeSurface
+      ELSE
+        SaveCoordinates = .FALSE.
+        MoveBoundary    = .FALSE.
+        DO i=1,CurrentModel % NumberOfBCs
+          SaveCoordinates = ListGetLogical( &
+              CurrentModel % BCs(i) % Values,'Free Surface', GotIt )
+          IF ( SaveCoordinates ) THEN
+            MoveBoundary =  ListGetLogical( &
+                CurrentModel % BCs(i) % Values,'Internal Move Boundary', GotIt )         
+            IF ( GotIt ) SaveCoordinates = MoveBoundary
+          END IF          
+          IF ( SaveCoordinates ) EXIT
+        END DO
+      END IF      
+      IF( ListGetLogical( CurrentModel % Simulation,'Output Coordinates',&
+          Found ) ) SaveCoordinates = .TRUE.      
+      IF( SaveCoordinates ) THEN
+        CALL Info('SaveResult','Saving also coordinates',Level=12)
+      END IF
+      
+      ! Write the header to file
+      CALL Info('SaveResult','Writing the header part',Level=12)
       CALL InitializeFile( OutputUnit, FName, PosUnit, PosName )
 
       DateStr = FormatDate()
       WRITE( OutputUnit, '("!File started at: ",A)' ) TRIM(DateStr)
       DOFs = 0
-      Var => Mesh % Variables
       WRITE( OutputUnit,* ) 'Degrees of freedom: '
 
+      ! Vectors
+      DO IsVector = 1,0,-1
 
-      DO WHILE( ASSOCIATED(Var) )
-        IF ( Var % Output ) THEN
-           IF ( Var % DOFs > 1 .AND. SIZE(Var % Values)>1 ) THEN
-             k = LEN_TRIM(Var % Name)
-             IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
-               WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
-                  ' :', 'fs' ! TRIM(ListGetString( Var % Solver % Values, 'Equation' ))
-             ELSE 
-!              WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
-!              ':eq'
-             END IF
-           END IF
-        END IF
+        i = 1
+        Var => Mesh % Variables
+        DO WHILE( ASSOCIATED(Var) )
+          IF ( Var % Output ) THEN
 
-        Var => Var % Next
-      END DO 
+            SaveThis = .FALSE.
+            IF( SIZE(Var % Values) == Var % Dofs ) THEN
+              SaveThis = SaveGlobal
+            ELSE
+              IF ( Var % Name(1:10) /= 'coordinate' .OR. SaveCoordinates ) THEN
+                SaveThis = .TRUE.
+              END IF
+            END IF
+            
+            IF( IsVector == 1 .AND. Var % Dofs == 1 ) SaveThis = .FALSE.
+            IF( IsVector == 0 .AND. Var % Dofs > 1 ) SaveThis = .FALSE.
 
-      i = 1
-      Var => Mesh % Variables
-      DO WHILE( ASSOCIATED(Var) )
-        IF ( Var % Output ) THEN
+            k = LEN_TRIM(Var % Name)
+            IF( OutputVariableList .AND. SaveThis ) THEN
+              SaveThis = .FALSE.
+              DO j=1,1000
+                VarName = ListGetString(CurrentModel % Simulation,&
+                    'Output Variable '//I2S(j), Found )
+                IF( .NOT. Found ) EXIT
+                k2 = LEN_TRIM(VarName)
+                IF( VarName(1:k2) == Var % Name(1:k2) ) THEN
+                  IF( k2 == k ) THEN
+                    SaveThis = .TRUE.
+                    EXIT
+                  ELSE IF( k > k2 ) THEN
+                    ! This makes it possible to request saving of vectors
+                    ! so that also all the corresponding scalars are saved. 
+                    IF( VERIFY( Var % Name(k2+1:k),' 0123456789') == 0 ) THEN 
+                      SaveThis = .TRUE.
+                      EXIT
+                    END IF
+                  END IF
+                END IF
+              END DO
+            END IF
 
-           IF ( Var % DOFs == 1 .AND. SIZE(Var % Values)>1 ) THEN
-             k = LEN_TRIM(Var % Name)
-             IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
-               WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
-                ' :', 'fs' ! TRIM(ListGetString( Var % Solver % Values, 'Equation' ))
-               IF ( Var % DOFs == 1 ) DOFs = DOFs + 1
+            IF( SaveThis ) THEN
+              Found = .FALSE.
+              IF( ASSOCIATED( Var % Solver ) ) THEN
+                IF( ASSOCIATED( Var % Solver % Values ) ) THEN
+                  EqName = ListGetString(Var % Solver % Values,'Equation',Found)
+                END IF
+              END IF
+              IF(.NOT. Found ) EqName = 'no equation'
+              
+              IF( ASSOCIATED( Var % Perm ) ) THEN
+                PermSize = SIZE( Var % Perm ) 
+              ELSE
+                PermSize = 0
+              END IF
+              
+              IF( k <= 25 ) THEN
+                WRITE( OutputUnit,'(A,T25,A,I8,I8,I4,A)') Var % Name(1:k),' : ',&
+                    SIZE(Var % Values), PermSize, Var % DOFs,' : '//TRIM( EqName )
+              ELSE
+                WRITE( OutputUnit,'(A,A,I8,I8,I4,A)') Var % Name(1:k),' : ',&
+                    SIZE(Var % Values), PermSize, Var % DOFs,' : '//TRIM( EqName )
+              END IF
 
-               IF ( Binary ) THEN
+              IF( IsVector == 0 ) THEN
+                Dofs = Dofs + 1
+                IF ( Binary ) THEN
                   CALL BinWriteString( PosUnit, Var % Name(1:k) )
                   i = i + 1
-               END IF
-             ELSE
-!              IF ( Var % DOFs == 1 ) DOFs = DOFs + 1
-!              WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
-!               ':eq'
-             END IF
-           END IF
-        END IF
-        Var => Var % Next
-      END DO 
+                END IF
+              END IF
+            END IF
+                        
+          END IF
+          Var => Var % Next
+        END DO
+      END DO
+
       WRITE(OutputUnit,*) 'Total DOFs: ', DOFs
       WRITE(OutputUnit,*) 'Number Of Nodes: ', Mesh % NumberOfNodes
+
 
       IF ( Binary ) THEN
          ! Jump to the beginning (remembering the initial L|B!) in the positions
@@ -2386,6 +2441,7 @@ CONTAINS
       CALL AppendOpen( OutputUnit,FName,PosUnit,PosName )
     END IF
 
+    CALL Info('SaveResult','Writing data for the current timestep',Level=12)
     CALL WriteTime( OutputUnit,PosUnit,Mesh % SavesDone+1, Time, SimulationTime )
 
 !------------------------------------------------------------------------------
@@ -2395,37 +2451,60 @@ CONTAINS
     Var => Mesh % Variables
     j = 1
     DO WHILE( ASSOCIATED(Var) )
-      IF ( Var % Output .AND. Var % DOFs==1 .AND. SIZE(Var % Values)>1 ) THEN
-
-         k = LEN_TRIM(Var % Name)
-         IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
-            IF ( SaveAll .OR. Var % ValuesChanged ) THEN
-               CALL WriteVarName( OutputUnit,PosUnit,Var % Name(1:k),VarPos(j) )
-               CALL WritePerm( OutputUnit, Var % Perm, PrevPerm )
-   
-               IF ( ASSOCIATED(Var % Perm) ) THEN
-                  n = SIZE(Var % Perm)
-               ELSE
-                  n = Mesh % NumberOfNodes
-               END IF
-
-               DO i=1, n
-                  k = 1
-                  IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(i)
-                  IF ( k > 0 ) THEN
-                     CALL WriteReal( OutputUnit,Var % Values(k) )
-                  END IF
-               END DO
-               Var % ValuesChanged = .FALSE.
-            ELSE
-               IF ( Binary ) CALL BinWriteInt8( PosUnit,INT(VarPos(j),Int8_k) )
-            END IF
-            j = j + 1
-         END IF
+      SaveThis = .FALSE.
+      IF ( Var % Output .AND. Var % DOFs==1 ) THEN
+        k = LEN_TRIM(Var % Name)
+        IF( Var % DOFs == SIZE(Var % Values) ) THEN
+          SaveThis = SaveGlobal
+        ELSE
+          IF ( Var % Name(1:10) /= 'coordinate' .OR. SaveCoordinates ) THEN
+            SaveThis = .TRUE.
+          END IF
+        END IF
       END IF
-      Var => Var % Next
-    END DO 
 
+
+      IF( OutputVariableList .AND. SaveThis ) THEN
+        SaveThis = .FALSE.
+        DO j=1,1000
+          VarName = ListGetString(CurrentModel % Simulation,&
+              'Output Variable '//I2S(j), Found )
+          IF( .NOT. Found ) EXIT
+          IF( TRIM( VarName ) == TRIM( Var % Name(1:k) ) ) THEN
+            SaveThis = .TRUE.
+            EXIT
+          END IF
+        END DO
+      END IF
+      
+      IF( SaveThis ) THEN
+        IF( SaveAll .OR. Var % ValuesChanged ) THEN
+          CALL WriteVarName( OutputUnit,PosUnit,Var % Name(1:k),VarPos(j) )
+          CALL WritePerm( OutputUnit, Var % Perm, PrevPerm )
+          
+          IF ( ASSOCIATED(Var % Perm) ) THEN
+            n = SIZE(Var % Perm)
+          ELSE
+            n = SIZE( Var % Values )
+          END IF
+          
+          DO i=1, n
+            k = i
+            IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(i)
+            IF ( k > 0 ) THEN
+              CALL WriteReal( OutputUnit,Var % Values(k) )
+            END IF
+          END DO
+          Var % ValuesChanged = .FALSE.
+        ELSE
+          IF ( Binary ) CALL BinWriteInt8( PosUnit,INT(VarPos(j),Int8_k) )
+        END IF
+        j = j + 1
+      END IF
+      
+      Var => Var % Next
+    END DO
+  
     IF ( Binary ) THEN
       CALL BinClose( OutputUnit )
       CALL BinClose( PosUnit )
@@ -2435,6 +2514,10 @@ CONTAINS
 
     Mesh % SavesDone = Mesh % SavesDone + 1
     SaveCount = Mesh % SavesDone 
+
+    CALL Info('SaveResult','Done writing results file',Level=12)
+    CALL Info('SaveResult','-----------------------------------------',Level=4)
+
 
   CONTAINS
 
@@ -2588,7 +2671,7 @@ CONTAINS
          IF ( Binary ) THEN
             CALL BinEndianess( E )
             OPEN( OutputUnit,File=FName,STATUS='UNKNOWN' )
-            WRITE( OutputUnit, * ) 'BINARY 2.', E
+            WRITE( OutputUnit, * ) 'BINARY 3.', E
 
             CALL BinOpen( PosUnit,PosName,'WRITE' )
             CALL BinWriteChar( PosUnit,E )
@@ -2596,7 +2679,7 @@ CONTAINS
             CALL BinWriteInt4( PosUnit, 0 )
          ELSE
             OPEN( OutputUnit,File=FName,STATUS='UNKNOWN' )
-            WRITE( OutputUnit, * ) 'ASCII 1'
+            WRITE( OutputUnit, * ) 'ASCII 3'
          END IF
       END SUBROUTINE InitializeFile
 
@@ -2616,7 +2699,7 @@ CONTAINS
     LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var, Comp
-    CHARACTER(LEN=MAX_NAME_LEN) :: Name,PosName
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name,VarName,PosName
 #ifdef ALLOC_CHAR
     CHARACTER(LEN=:), ALLOCATABLE :: Row
 #else
@@ -2624,7 +2707,7 @@ CONTAINS
 #endif
     CHARACTER(LEN=MAX_STRING_LEN) :: FName,Trash
     INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
-    INTEGER :: nNodes, Stat
+    INTEGER :: nNodes, Stat, FieldSize, PermSize
     INTEGER, SAVE :: FmtVersion
     INTEGER, POINTER, SAVE :: Perm(:)
 
@@ -2633,12 +2716,13 @@ CONTAINS
 
     LOGICAL :: RestartFileOpen = .FALSE., Cont
     LOGICAL, SAVE :: PosFile = .FALSE.
-    LOGICAL, SAVE :: Binary
+    LOGICAL, SAVE :: Binary, Found
 
-    REAL(KIND=dp) :: Dummy,VALUE,Time
+    REAL(KIND=dp) :: Dummy,Val,Time
     REAL(KIND=dp), POINTER :: Component(:), Temp(:)
     REAL(KIND=dp), POINTER :: Velocity1(:),Velocity2(:),Velocity3(:),Pressure(:)
     INTEGER(KIND=IntOff_k) :: Pos
+    INTEGER :: iostat
     CHARACTER(1) :: E
     REAL(dp) :: tstart, tstop, CPUTime
     SAVE DOFs
@@ -2674,8 +2758,13 @@ CONTAINS
     CALL Error( 'LoadRestartFile','Could not open file "'//TRIM(FName)//'"' )
     CALL Error( 'LoadRestartFile','No restart possible!' )
     CALL Error( 'LoadRestartFile','' )
-    CALL Error( 'LoadRestartFile','=======================================' )
-    RETURN
+    IF( ListGetLogical( CurrentModel % Simulation,&
+        'Restart Error Continue',Found ) ) THEN
+      CALL Error( 'LoadRestartFile','=======================================' )
+      RETURN
+    ELSE
+      CALL Fatal( 'LoadRestartFile','=======================================' )
+    END IF
 
 20  CONTINUE
 
@@ -2684,7 +2773,11 @@ CONTAINS
 #ifdef ALLOC_CHAR
     ALLOCATE(CHARACTER(MAX_STRING_LEN)::Row)
 #endif
-    READ( RestartUnit, '(A)' ) Row
+    READ( RestartUnit, '(A)', IOSTAT=iostat ) Row
+    IF( iostat /= 0 ) THEN
+      CALL Fatal('LoadRestartFile','Error reading header line!')
+    END IF
+
     IF ( Row(3:8) == 'BINARY' ) THEN
         Binary = .TRUE.
         FmtVersion = 1
@@ -2693,18 +2786,26 @@ CONTAINS
     ELSE IF ( Row(2:7) == 'BINARY' ) THEN
         Binary = .TRUE.
         FmtVersion = 2
+        READ( Row(9:9),'(I1)',IOSTAT=iostat) FmtVersion
+        IF( iostat /= 0 ) THEN
+          CALL Fatal('LoadRestartFile','Error reading version: '//TRIM(Row))
+        END IF
         i = INDEX( Row, "." )
         E = Row(i+1:i+1)
         CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level = 4 )
-    ELSE IF ( Row(2:7) == 'ASCII' ) THEN
+    ELSE IF ( Row(2:6) == 'ASCII' ) THEN
         Binary = .FALSE.
-        FmtVersion = 1
+        READ( Row(8:8),'(I1)',IOSTAT=iostat) FmtVersion
+        IF( iostat /= 0 ) THEN
+          CALL Fatal('LoadRestartFile','Error reading version: '//TRIM(Row))
+        END IF
         CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level = 4 )
     ELSE 
         Binary = .FALSE.
         FmtVersion = 0
         CALL Info( 'LoadRestartFile', 'ASCII 0', Level = 4 )
     END IF
+    
     CALL Info( 'LoadRestartFile',' ', Level = 4)
 
     DO WHILE( ReadAndTrim(RestartUnit,Row) )
@@ -2720,40 +2821,99 @@ CONTAINS
         EXIT
       END IF
 
-      k = INDEX(Row,']')+1
-      k = k+INDEX(Row(k:),':')-1
+      IF( FmtVersion < 3 ) THEN
+        ! Figure out what is the solver to which the variable is associated to
+        ! this requires that the 'Equation' keyword is unique.
+        ! I wonder if this is used at all?
+        k = INDEX(Row,']')+1
+        
+        ! The last colon in the line
+        k = k+INDEX(Row(k:),':',.TRUE.)-1
+        NULLIFY(Solver)
+        DO i = 1,CurrentModel % NumberOfSolvers
+          Solver => CurrentModel % Solvers(i)
+          IF ( Row(k+1:nlen) == ListGetString(Solver % Values, 'Equation')) EXIT
+        END DO
+        
+        ! Figure out the slot where the number of dofs are given and read them
+        ! The rule is to start from ':' and go throug empty space and occupied space
+        DO j=k-1,1,-1
+          IF ( Row(j:j) /= ' ' ) EXIT
+        END DO
+        DO k=j,1,-1
+          IF ( Row(k:k) == ' ' ) EXIT
+        END DO
+        READ(Row(k+1:),*,IOSTAT=iostat) DOFs
+        IF( iostat /= 0 ) THEN
+          CALL Fatal('LoadRestartFile','Error reading DOFs: '//TRIM(Row(k+1:)))
+        END IF
 
-      NULLIFY(Solver)
-      DO i = 1,CurrentModel % NumberOfSolvers
-        Solver => CurrentModel % Solvers(i)
-        IF ( Row(k+1:nlen)==ListGetString(Solver % Values, 'Equation')) EXIT
-      END DO
+        IF( Dofs < 1 ) CALL Fatal('LoadRestartFile','The Dofs should be positive: '//i2s(DOFs))
+        
+        ! Figure out the name of the variable
+        j = INDEX(Row,'[')
+        IF( j > 0 ) THEN
+          VarName = TRIM(Row(1:j-1))
+        ELSE
+          VarName = TRIM(Row(1:k-1))
+        END IF
+        FieldSize = 0
+      ELSE IF( FmtVersion == 3 ) THEN
 
-      DO j=k-1,1,-1
-        IF ( Row(j:j) /= ' ' ) EXIT
-      END DO
+        ! read the field name
+        j = INDEX( Row,'[')
+        IF( j == 0 ) j = INDEX( Row,':')
+        VarName = TRIM(Row(1:j-1))
 
-      DO k=j,1,-1
-        IF ( Row(k:k) == ' ' ) EXIT
-      END DO
+        ! read the size of field, size or perm and number of dofs per node
+        j = MAX(INDEX(Row,']'),1)
+        k = INDEX( Row(j:),':')
+        j = j+k
+        READ(Row(j+1:),*,IOSTAT=iostat) FieldSize,PermSize,DOFs
+        IF( iostat /= 0 ) THEN
+          CALL Fatal('LoadRestartFile','Error reading size information: '//TRIM(Row(j+1:)))
+        END IF
 
-      j = INDEX(Row,'[')
-      IF ( j>0 ) THEN
-        Var => VariableGet( Mesh % Variables, TRIM(Row(1:j-1)),.TRUE. )
+        ! read the name of the solver and associate it to existing solver
+        k = INDEX( Row(j+1:),':')
+        j = j+k
+        DO k=j+1,nlen
+          IF( Row(k:k) /= ' ') EXIT
+        END DO
+        NULLIFY(Solver)
+        Found = .FALSE.
+        DO i = 1,CurrentModel % NumberOfSolvers
+          Solver => CurrentModel % Solvers(i)
+          IF ( Row(k:nlen) == TRIM( ListGetString(Solver % Values, 'Equation') ) ) THEN
+            Found = .TRUE. 
+            EXIT            
+          END IF
+        END DO
+        IF( .NOT. Found .AND. PermSize > 0 ) THEN
+          CALL Warn('LoadRestartFile','Could not associate variable to solver: '//TRIM(VarName))
+        END IF
       ELSE
-        Var => VariableGet( Mesh % Variables, TRIM(Row(1:k-1)),.TRUE. )
+        CALL Fatal('LoaRestartFile','Unknown file version: '//I2S(FmtVersion))
       END IF
 
-      IF ( .NOT.ASSOCIATED(Var) ) THEN
 
-        READ(Row(k+1:),*) DOFs
+      Var => VariableGet( Mesh % Variables, VarName,.TRUE. )      
+      IF ( .NOT.ASSOCIATED(Var) ) THEN
+        CALL Info('LoadRestartFile','Creating variable: '//TRIM(VarName),Level=6)
 
         ALLOCATE( Var )
-        ALLOCATE( Var % Values(Mesh % NumberOfNodes*DOFs) )
-        Var % Values = 0
+        IF( FieldSize == 0 ) THEN
+          FieldSize = Mesh % NumberOfNodes*DOFs
+          PermSize = Mesh % NumberOfNodes
+        END IF
 
-        ALLOCATE( Var % Perm(Mesh % NumberOfNodes) )
-        Var % Perm = -1
+        ALLOCATE( Var % Values(FieldSize) )
+        Var % Values = 0          
+
+        IF( PermSize > 0 ) THEN
+          ALLOCATE( Var % Perm(PermSize) )
+          Var % Perm = -1
+        END IF
 
         IF ( row(1:14) == 'flow solution ' ) THEN
 !------------------------------------------------------------------------------
@@ -2789,17 +2949,28 @@ CONTAINS
 !------------------------------------------------------------------------------
          CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                 'Flow Solution',NSDOFs,Var % Values,Var % Perm )
+        ELSE IF( PermSize == 0 ) THEN
+          IF ( DOFs > 1 ) THEN
+            DO i=1,DOFs
+              Component => Var % Values(i:FieldSize:DOFs)
+              name = ComponentName( VarName, i )
+              CALL VariableAdd( Mesh % Variables,  Mesh, Solver, name, &
+                  1, Component )
+            END DO
+          END IF
+          CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+              VarName,DOFs,Var % Values) 
         ELSE
           IF ( DOFs > 1 ) THEN
             DO i=1,DOFs
-              Component => Var % Values(i:DOFs*Mesh % NumberOfNodes:DOFs)
-              name = ComponentName( TRIM(row(1:k-1)), i )
+              Component => Var % Values(i:FieldSize:DOFs)
+              name = ComponentName( VarName, i )
               CALL VariableAdd( Mesh % Variables,  Mesh, Solver, name, &
                            1, Component, Var % Perm )
             END DO
           END IF
           CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-              Row(1:k-1),DOFs,Var % Values,Var % Perm )
+              VarName,DOFs,Var % Values,Var % Perm )
         END IF
       END IF
     END DO
@@ -2825,9 +2996,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   ...read one timestep to memory...
 !------------------------------------------------------------------------------
-    TimeVar  => VariableGet( Mesh % Variables, 'Time' )
-    tStepVar => VariableGet( Mesh % Variables, 'Timestep' )
-
     IF ( Cont ) THEN
        nt = TimeCount
     ELSE
@@ -2855,14 +3023,20 @@ CONTAINS
          EXIT
       END IF
 
+      TimeVar  => VariableGet( Mesh % Variables, 'Time' )
+      tStepVar => VariableGet( Mesh % Variables, 'Timestep' )
+
       IF ( ASSOCIATED( TimeVar ) )  TimeVar % Values(1)  = Time
       IF ( ASSOCIATED( tStepVar ) ) tStepVar % Values(1) = Timestep
 
       WRITE( Message,'(A,ES12.3)') 'Reading time sequence: ',Time
       CALL Info( 'LoadRestartFile',Message, Level=4)
 
+      WRITE( Message,'(A,I0)') 'Reading timestep: ',Timestep
+      CALL Info( 'LoadRestartFile',Message, Level=4)
 
       DO i=1,DOFs
+
          IF ( PosFile ) THEN
             Pos = GetPosition( PosUnit,TimeCount,i )
             CALL BinFSeek( RestartUnit,Pos,BIN_SEEK_SET )
@@ -2878,6 +3052,7 @@ CONTAINS
          END IF
 
          Var => VariableGet( Mesh % Variables,Row, ThisOnly=.TRUE. )
+         CALL Info('LoadRestartFile','Reading Variable: '//TRIM(Row),Level=12)
 
          IF ( FmtVersion > 0 ) THEN
             CALL ReadPerm( RestartUnit, Var % Perm, Perm )
@@ -2888,23 +3063,24 @@ CONTAINS
             IF ( ASSOCIATED(Var % Perm) .AND. FmtVersion > 0 ) THEN
                n = SIZE(Var % Perm)
             ELSE
-               n = Mesh % NumberOfNodes
+               n = SIZE(Var % Values)
             END IF
 
             DO j=1, n
-               IF ( FmtVersion > 0 ) THEN
-                  CALL GetValue( RestartUnit, Perm, j, k, VALUE )
-               ELSE
-                  READ( RestartUnit,* ) Node, k, VALUE
-               END IF
 
+               IF ( FmtVersion > 0 ) THEN
+                  CALL GetValue( RestartUnit, Perm, j, k, Val )
+               ELSE
+                  READ( RestartUnit,* ) Node, k, Val
+               END IF
+  
                IF ( .NOT. ASSOCIATED( Var % Perm ) ) THEN
-                  IF ( k > 0 ) Var % Values(k) = VALUE
+                  IF ( k > 0 ) Var % Values(k) = Val
+               ELSE IF ( Var % Perm(j) > 0 ) THEN
+                  IF ( k > 0 ) Var % Values(Var % Perm(j)) = Val
                ELSE IF ( Var % Perm(j) <= 0 ) THEN
                   Var % Perm(j) = k
-                  IF ( k > 0 ) Var % Values(k) = VALUE
-               ELSE IF ( Var % Perm(j) > 0 ) THEN
-                  IF ( k > 0 ) Var % Values(Var % Perm(j)) = VALUE
+                  IF ( k > 0 ) Var % Values(k) = Val
                END IF
             END DO
 
@@ -2915,6 +3091,7 @@ CONTAINS
       nt = nt + 1
     END DO
 !------------------------------------------------------------------------------
+
     IF ( .NOT. Cont ) THEN
       IF ( Binary ) THEN
          CALL BinClose( RestartUnit )
@@ -2925,51 +3102,53 @@ CONTAINS
        RestartFileOpen = .FALSE.
     END IF
 
-    ! Change variable allocations to correct sizes,
-    ! first for vectors...
-    ! ---------------------------------------------
-    Var => Mesh % Variables
-    DO WHILE(ASSOCIATED(Var))
-      IF ( ASSOCIATED(Var % Perm) .AND. Var % DOFs>1 ) THEN
-        n = Var % DOFs*COUNT(Var % Perm>0)
-        IF ( SIZE(Var % Values) /= n) THEN
-          ALLOCATE(Temp(n))
-          Temp = Var % Values(1:n)
-          DEALLOCATE(Var % Values)
-          Var % Values => Temp
-          DO i=1,Var % DOFs
-            Comp => VariableGet(Mesh % Variables, &
+    ! This is now obsolite for the new format 
+    IF( FmtVersion < 3 ) THEN
+      ! Change variable allocations to correct sizes,
+      ! first for vectors...
+      ! ---------------------------------------------
+      Var => Mesh % Variables
+      DO WHILE(ASSOCIATED(Var))
+        IF ( ASSOCIATED(Var % Perm) .AND. Var % DOFs>1 ) THEN
+          n = Var % DOFs*COUNT(Var % Perm>0)
+          IF ( SIZE(Var % Values) /= n) THEN
+            ALLOCATE(Temp(n))
+            Temp = Var % Values(1:n)
+            DEALLOCATE(Var % Values)
+            Var % Values => Temp
+            DO i=1,Var % DOFs
+              Comp => VariableGet(Mesh % Variables, &
                   ComponentName(Var,i),ThisOnly=.TRUE.)
-            Comp % Values => Var % Values(i::Var % DOFs)
-          END DO
+              Comp % Values => Var % Values(i::Var % DOFs)
+            END DO
+          END IF
         END IF
-      END IF
-      Var => Var % Next
-    END DO
-
-    !... and then for scalars
-    ! -----------------------
-    Var => Mesh % Variables
-    DO WHILE(ASSOCIATED(Var))
-      IF ( ASSOCIATED(Var % Perm) .AND. Var % DOFs==1 ) THEN
-        n = COUNT(Var % Perm>0)
-        IF ( SIZE(Var % Values) /= n) THEN
-          ALLOCATE(Temp(n))
-          Temp = Var % Values(1:n)
-          DEALLOCATE(Var % Values)
-          Var % Values => Temp
+        Var => Var % Next
+      END DO
+      
+      !... and then for scalars
+      ! -----------------------
+      Var => Mesh % Variables
+      DO WHILE(ASSOCIATED(Var))
+        IF ( ASSOCIATED(Var % Perm) .AND. Var % DOFs==1 ) THEN
+          n = COUNT(Var % Perm>0)
+          IF ( SIZE(Var % Values) /= n) THEN
+            ALLOCATE(Temp(n))
+            Temp = Var % Values(1:n)
+            DEALLOCATE(Var % Values)
+            Var % Values => Temp
+          END IF
         END IF
-      END IF
-      Var => Var % Next
-    END DO
+        Var => Var % Next
+      END DO
+    END IF
 
     tstop = CPUTime()
     
-    WRITE( Message,'(A,F8.2)') 'Time spent for restart (s): ', tstop - tstart
+    WRITE( Message,'(A,ES15.4)') 'Time spent for restart (s): ', tstop - tstart
     CALL Info( 'LoadRestartFile',Message, Level = 4)
     CALL Info( 'LoadRestartFile', 'All done', Level = 4 )
     CALL Info( 'LoadRestartFile','--------------------------------------------', Level = 4 )
-    CALL Info( 'LoadRestartFile', ' ', Level = 4 )
 
 
 CONTAINS
@@ -3049,7 +3228,7 @@ CONTAINS
    END FUNCTION GetPosition
       
 
-   SUBROUTINE GetValue( RestartUnit, Perm, iNode, iPerm, VALUE )
+   SUBROUTINE GetValue( RestartUnit, Perm, iNode, iPerm, Val )
    !
    ! Get iPerm = Perm(iNode) and Value from input
    !
@@ -3057,7 +3236,7 @@ CONTAINS
       INTEGER, POINTER :: Perm(:)
       INTEGER, INTENT(IN) :: iNode
       INTEGER, INTENT(OUT) :: iPerm
-      REAL(dp), INTENT(OUT) :: VALUE
+      REAL(dp), INTENT(OUT) :: Val
 
       IF ( ASSOCIATED( Perm ) ) THEN
          iPerm = Perm(iNode)
@@ -3067,9 +3246,12 @@ CONTAINS
 
       IF ( iPerm > 0 ) THEN
          IF ( Binary ) THEN
-            CALL BinReadDouble( RestartUnit, VALUE )
+            CALL BinReadDouble( RestartUnit, Val )
          ELSE
-            READ( RestartUnit, * ) VALUE
+            READ( RestartUnit, * , IOSTAT=iostat ) Val
+            IF( iostat /= 0 ) THEN
+              CALL Fatal('LoadRestartFile','Error in GetValue')
+            END IF
          END IF
       END IF
    END SUBROUTINE GetValue
@@ -3092,7 +3274,10 @@ CONTAINS
          ELSE IF ( Row(7:18) == "use previous" ) THEN
             nPerm = -1
          ELSE
-            READ( Row(7:),* ) nPerm, nPositive
+            READ( Row(7:),*,IOSTAT=iostat) nPerm, nPositive
+            IF( iostat /= 0 ) THEN
+              CALL Fatal('LoadRestartFile','Error in ReadPerm')
+            END IF
          END IF
       END IF
 
@@ -3122,8 +3307,14 @@ CONTAINS
          ELSE
             ! The format string for j has better mach the corresponding format
             ! in WritePerm().
-            READ( RestartUnit, '(i11)', ADVANCE='no' ) j
-            READ( RestartUnit, * ) Perm(j)
+            READ( RestartUnit, '(i11)', ADVANCE='no', IOSTAT=iostat) j
+            IF( iostat /= 0 ) THEN
+              CALL Fatal('LoadRestartFile','Error reading j in ReadPerm')
+            END IF
+            READ( RestartUnit, * , IOSTAT=iostat) Perm(j)
+            IF( iostat /= 0 ) THEN
+              CALL Fatal('LoadRestartFile','Error reading Perm(j) in ReadPerm')
+            END IF            
          END IF
       END DO
    END SUBROUTINE ReadPerm
@@ -3165,7 +3356,10 @@ CONTAINS
     ELSE
       DO WHILE( ReadAndTrim(RestartUnit,String) )
         IF ( String(1:5) == 'time:' ) THEN
-          READ( String(7:),* ) SavedCount,Timestep,Time
+          READ( String(7:),*,IOSTAT=iostat) SavedCount,Timestep,Time
+          IF( iostat /= 0 ) THEN
+            CALL Fatal('LoadRestartFile','Error in ReadTime!')
+          END IF
           Stat = 0
           RETURN
         END IF
@@ -3266,7 +3460,7 @@ CONTAINS
 #endif
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr
 
-    LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists
+    LOGICAL :: gotIt, SaveCoordinates, MoveBoundary, MeshMoved, MaskExists
 
     REAL(KIND=dp) :: Time,Dummy, MeshScale, Coord(3)
     INTEGER :: ii,i,j,k,l,n,m,q,Node,idummy,DOFs,SavedCount,TimeStep, &
@@ -3315,21 +3509,18 @@ CONTAINS
       END IF
     END IF
 
-    FreeSurfaceFlag = .FALSE.
+    SaveCoordinates = .FALSE.
     MoveBoundary    = .FALSE.
     DO i=1,CurrentModel % NumberOfBCs
-      FreeSurfaceFlag = FreeSurfaceFlag .OR. ListGetLogical( &
+      SaveCoordinates = ListGetLogical( &
          CurrentModel % BCs(i) % Values,'Free Surface', GotIt )
-      IF ( FreeSurfaceFlag ) THEN
+      IF ( SaveCoordinates ) THEN
          MoveBoundary =  ListGetLogical( &
-             CurrentModel % BCs(i) % Values,'Internal Move Boundary', GotIt )
-         
-         IF ( .NOT. GotIt ) MoveBoundary = .TRUE.
-
-         FreeSurfaceFlag = FreeSurfaceFlag .AND. MoveBoundary
+             CurrentModel % BCs(i) % Values,'Internal Move Boundary', GotIt )         
+         IF ( GotIt ) SaveCoordinates = MoveBoundary
       END IF
 
-      IF ( FreeSurfaceFlag ) EXIT
+      IF ( SaveCoordinates ) EXIT
     END DO
 
 !------------------------------------------------------------------------------
@@ -3448,7 +3639,7 @@ CONTAINS
       Var => Var % Next
     END DO
 
-    IF ( .NOT.FreeSurfaceFlag ) DOFs = DOFs-3
+    IF ( .NOT.SaveCoordinates ) DOFs = DOFs-3
 
 !------------------------------------------------------------------------------
 ! Write header to output
@@ -3569,7 +3760,7 @@ CONTAINS
         Var => Var % Next
       END DO
 
-      IF ( FreeSurfaceFlag ) THEN
+      IF ( SaveCoordinates ) THEN
         WRITE(PostFileUnit,'(a)',ADVANCE='NO' ) ' vector: Coordinates'
       END IF
 
@@ -3996,7 +4187,7 @@ CONTAINS
            Var => Var % Next
         END DO
 
-        IF ( FreeSurfaceFlag ) THEN
+        IF ( SaveCoordinates ) THEN
            Var => VariableGet( Model % Variables,'Coordinate 1' )
            WRITE(PostFileUnit,'(ES17.8E3)',ADVANCE='NO') Var % Values(i)
            
