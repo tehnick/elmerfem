@@ -2371,17 +2371,11 @@ CONTAINS
                 IF( .NOT. Found ) EXIT
                 k2 = LEN_TRIM(VarName)
                 IF( VarName(1:k2) == Var % Name(1:k2) ) THEN
-                  IF( k2 == k ) THEN
-                    SaveThis = .TRUE.
-                    EXIT
-                  ELSE IF( k > k2 ) THEN
-                    ! This makes it possible to request saving of vectors
-                    ! so that also all the corresponding scalars are saved. 
-                    IF( VERIFY( Var % Name(k2+1:k),' 0123456789') == 0 ) THEN 
-                      SaveThis = .TRUE.
-                      EXIT
-                    END IF
-                  END IF
+                  SaveThis = .TRUE.
+                  ! This makes it possible to request saving of vectors
+                  ! so that also all the corresponding scalar components (1,2,3,...) are saved. 
+                  IF( k > k2 ) SaveThis = ( VERIFY( Var % Name(k2+1:k),' 0123456789') == 0 ) 
+                  IF( SaveThis ) EXIT
                 END IF
               END DO
             END IF
@@ -2699,24 +2693,25 @@ CONTAINS
     LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var, Comp
-    CHARACTER(LEN=MAX_NAME_LEN) :: Name,VarName,PosName
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name,VarName,VarName2,PosName
 #ifdef ALLOC_CHAR
     CHARACTER(LEN=:), ALLOCATABLE :: Row
 #else
     CHARACTER(LEN=MAX_STRING_LEN) :: Row
 #endif
     CHARACTER(LEN=MAX_STRING_LEN) :: FName,Trash
-    INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
+    INTEGER ::i,j,k,k2,n,nt,Node,DOFs,TotalDofs,DofCount,SavedCount,Timestep,NSDOFs,nlen
     INTEGER :: nNodes, Stat, FieldSize, PermSize
     INTEGER, SAVE :: FmtVersion
-    INTEGER, POINTER, SAVE :: Perm(:)
+    INTEGER, ALLOCATABLE :: Perm(:)
 
     TYPE(Solver_t),   POINTER :: Solver
     TYPE(Variable_t), POINTER :: TimeVar, tStepVar
 
-    LOGICAL :: RestartFileOpen = .FALSE., Cont
+    LOGICAL :: RestartFileOpen = .FALSE., Cont, Found, LoadThis
     LOGICAL, SAVE :: PosFile = .FALSE.
-    LOGICAL, SAVE :: Binary, Found
+    LOGICAL, SAVE :: Binary, RestartVariableList, GotPerm
+    INTEGER, SAVE, ALLOCATABLE :: RestartVariableSizes(:)
 
     REAL(KIND=dp) :: Dummy,Val,Time
     REAL(KIND=dp), POINTER :: Component(:), Temp(:)
@@ -2725,16 +2720,18 @@ CONTAINS
     INTEGER :: iostat
     CHARACTER(1) :: E
     REAL(dp) :: tstart, tstop, CPUTime
-    SAVE DOFs
+    SAVE TotalDOFs
 
     tstart = CPUTime()
-    Perm => NULL()
 !------------------------------------------------------------------------------
 !   Open restart file and search for the right position
 !------------------------------------------------------------------------------
     CALL Info( 'LoadRestartFile',' ', Level = 4)
     CALL Info( 'LoadRestartFile','--------------------------------------------', Level= 4 )
     CALL Info( 'LoadRestartFile','Reading data from file: '//TRIM(RestartFile), Level = 4 )
+
+    RestartVariableList = ListCheckPresent( CurrentModel % Simulation,&
+        'Restart Variable 1')
 
     Cont = .FALSE.
     IF ( PRESENT( Continuous ) ) Cont = Continuous
@@ -2747,27 +2744,22 @@ CONTAINS
     ELSE
       FName = RestartFile
     END IF
-    OPEN( RestartUnit,File=TRIM(FName),STATUS='OLD',ERR=10 )
+    OPEN( RestartUnit,File=TRIM(FName),STATUS='OLD',IOSTAT=iostat )
 
-    GOTO 20
-
-10 CONTINUE
-
-    CALL Error( 'LoadRestartFile','=======================================' )
-    CALL Error( 'LoadRestartFile','' )
-    CALL Error( 'LoadRestartFile','Could not open file "'//TRIM(FName)//'"' )
-    CALL Error( 'LoadRestartFile','No restart possible!' )
-    CALL Error( 'LoadRestartFile','' )
-    IF( ListGetLogical( CurrentModel % Simulation,&
-        'Restart Error Continue',Found ) ) THEN
+    IF( iostat > 0 ) THEN
       CALL Error( 'LoadRestartFile','=======================================' )
-      RETURN
-    ELSE
-      CALL Fatal( 'LoadRestartFile','=======================================' )
+      CALL Error( 'LoadRestartFile','' )
+      CALL Error( 'LoadRestartFile','Could not open file "'//TRIM(FName)//'"' )
+      CALL Error( 'LoadRestartFile','No restart possible!' )
+      CALL Error( 'LoadRestartFile','' )
+      IF( ListGetLogical( CurrentModel % Simulation,&
+          'Restart Error Continue',Found ) ) THEN
+        CALL Error( 'LoadRestartFile','=======================================' )
+        RETURN
+      ELSE
+        CALL Fatal( 'LoadRestartFile','=======================================' )
+      END IF
     END IF
-
-20  CONTINUE
-
     RestartFileOpen = .TRUE.
 
 #ifdef ALLOC_CHAR
@@ -2808,16 +2800,50 @@ CONTAINS
     
     CALL Info( 'LoadRestartFile',' ', Level = 4)
 
+    ! If we want to skip some of the variables we need to have a list 
+    ! of their sizes still. This is particularly true with variables that 
+    ! do not have permutation since they could be a field (like coordinate)
+    ! or a global variable (like time).
+    !----------------------------------------------------------------------
+    IF( RestartVariableList ) THEN
+      DO WHILE( ReadAndTrim(RestartUnit,Row) )
+        nlen = LEN_TRIM(Row)        
+        k = INDEX( Row(1:nlen),'total dofs:',.TRUE.) 
+        IF( k /= 0 ) THEN
+          READ( Row(k+11:nlen),*,IOSTAT=iostat ) TotalDofs
+          IF( iostat /= 0 ) THEN
+            CALL Fatal('LoadRestartFile','Unable to load total dofs!')
+          END IF
+          EXIT
+        END IF
+      END DO
+      ALLOCATE( RestartVariableSizes(TotalDofs) )
+      RestartVariableSizes = 0
+      REWIND( RestartUnit )
+    END IF
+
+    ! Find the start of dof definition part
+    ! Here we use the INDEX so that there could be some empty space
+    ! also before the keyword. 
+    !----------------------------------------------------------------
     DO WHILE( ReadAndTrim(RestartUnit,Row) )
-      IF ( Row(1:18) == 'degrees of freedom' ) EXIT
+      IF( INDEX( Row(1:20),'degrees of freedom' ) /= 0 ) EXIT
     END DO
 
 !------------------------------------------------------------------------------
+    DofCount = 0
+
     DO WHILE( ReadAndTrim(RestartUnit,Row) )
 
       nlen = LEN_TRIM(Row)
-      IF ( Row(1:11) == 'total dofs:' ) THEN
-        READ( Row(12:),* ) DOFs
+
+      k = INDEX( Row(1:nlen),'total dofs:',.TRUE.) 
+      IF( k /= 0 ) THEN
+        READ( Row(k+11:nlen),*,IOSTAT=iostat ) TotalDofs
+        IF( iostat /= 0 ) THEN
+          CALL Fatal('LoadRestartFile','Unable to load total dofs!')
+        END IF
+        CALL Info('LoadRestartFile','Total number of dofs to load: '//I2S(TotalDofs) )
         EXIT
       END IF
 
@@ -2866,6 +2892,7 @@ CONTAINS
         VarName = TRIM(Row(1:j-1))
 
         ! read the size of field, size or perm and number of dofs per node
+        !-----------------------------------------------------------------
         j = MAX(INDEX(Row,']'),1)
         k = INDEX( Row(j:),':')
         j = j+k
@@ -2875,6 +2902,7 @@ CONTAINS
         END IF
 
         ! read the name of the solver and associate it to existing solver
+        !----------------------------------------------------------------
         k = INDEX( Row(j+1:),':')
         j = j+k
         DO k=j+1,nlen
@@ -2896,23 +2924,61 @@ CONTAINS
         CALL Fatal('LoaRestartFile','Unknown file version: '//I2S(FmtVersion))
       END IF
 
+      ! The user may optionally give a list of the fields to be loaded from the 
+      ! result file. All fields that will be loaded will also be allocated for and
+      ! hence this feature could save some resources.
+      !---------------------------------------------------------------------------
+      LoadThis = .TRUE.
+      IF( RestartVariableList ) THEN
+        IF( Dofs == 1 ) DofCount = DofCount + 1
+        LoadThis = .FALSE.
+        k = LEN_TRIM( VarName )
+        DO j=1,1000
+          VarName2 = ListGetString(CurrentModel % Simulation,&
+              'Restart Variable '//I2S(j), Found )
+          IF( .NOT. Found ) EXIT
+          k2 = LEN_TRIM(VarName2)
 
+          IF( VarName2(1:k2) == VarName(1:k2) ) THEN
+            LoadThis = .TRUE.
+            ! This makes it possible to request loading of vectors
+            ! so that also all the corresponding scalar components (1,2,3,...) are saved. 
+            IF( k > k2 ) LoadThis = ( VERIFY( VarName(k2+1:k),' 0123456789') == 0 ) 
+            IF( LoadThis ) EXIT
+          END IF
+        END DO        
+        IF(.NOT. LoadThis ) THEN
+          IF( FieldSize == 0 ) THEN
+            CALL Fatal('LoadRestartFile','Cannot pick variables with old format!')
+          END IF
+          IF( Dofs == 1 ) RestartVariableSizes(DofCount) = FieldSize
+        END IF
+      END IF
+      IF(.NOT. LoadThis) CYCLE
+
+      ! Check whether a variable exists or not. If it does not exist then 
+      ! create the variable so that it can be filled with the data.
+      !------------------------------------------------------------------
       Var => VariableGet( Mesh % Variables, VarName,.TRUE. )      
       IF ( .NOT.ASSOCIATED(Var) ) THEN
         CALL Info('LoadRestartFile','Creating variable: '//TRIM(VarName),Level=6)
 
         ALLOCATE( Var )
+
+        ! The old format (ver. < 3) does not include information on vector sizes prior to loading
+        ! thus make an educated guess.
+        !----------------------------------------------------------------------------------------
         IF( FieldSize == 0 ) THEN
-          FieldSize = Mesh % NumberOfNodes*DOFs
+          FieldSize = Mesh % NumberOfNodes * DOFs
           PermSize = Mesh % NumberOfNodes
         END IF
 
         ALLOCATE( Var % Values(FieldSize) )
-        Var % Values = 0          
+        Var % Values = 0.0          
 
         IF( PermSize > 0 ) THEN
           ALLOCATE( Var % Perm(PermSize) )
-          Var % Perm = -1
+          Var % Perm = 0
         END IF
 
         IF ( row(1:14) == 'flow solution ' ) THEN
@@ -2973,6 +3039,7 @@ CONTAINS
               VarName,DOFs,Var % Values,Var % Perm )
         END IF
       END IF
+
     END DO
 
     IF ( Binary ) THEN
@@ -3035,7 +3102,13 @@ CONTAINS
       WRITE( Message,'(A,I0)') 'Reading timestep: ',Timestep
       CALL Info( 'LoadRestartFile',Message, Level=4)
 
-      DO i=1,DOFs
+      DO i=1,TotalDOFs
+
+        LoadThis = .TRUE.
+        IF( RestartVariableList ) THEN
+          n = RestartVariableSizes(i)
+          LoadThis = ( n == 0 ) 
+        END IF
 
          IF ( PosFile ) THEN
             Pos = GetPosition( PosUnit,TimeCount,i )
@@ -3043,48 +3116,68 @@ CONTAINS
          END IF
 
          CALL ReadVariableName( RestartUnit,Row,Stat )
+
          ! If not all varibales were saved for this time step, and we're not
-         ! using a .pos file, we may have reached the end even though i < DOFs.
+         ! using a .pos file, we may have reached the end even though i < TotalDOFs.
          IF ( Stat /= 0 ) EXIT
          IF ( Row(1:5) == "Time:" ) THEN
             CALL UnReadLine( RestartUnit, Row )
             EXIT
          END IF
 
-         Var => VariableGet( Mesh % Variables,Row, ThisOnly=.TRUE. )
-         CALL Info('LoadRestartFile','Reading Variable: '//TRIM(Row),Level=12)
-
-         IF ( FmtVersion > 0 ) THEN
-            CALL ReadPerm( RestartUnit, Var % Perm, Perm )
+         IF( LoadThis ) THEN
+           CALL Info('LoadRestartFile','Reading Variable: '//TRIM(Row),Level=12)
+         ELSE
+           CALL Info('LoadRestartFile','Skipping Variable: '//TRIM(Row),Level=12)          
          END IF
 
-         IF ( ASSOCIATED(Var) ) THEN
-   
-            IF ( ASSOCIATED(Var % Perm) .AND. FmtVersion > 0 ) THEN
-               n = SIZE(Var % Perm)
-            ELSE
-               n = SIZE(Var % Values)
-            END IF
+         ! Note that Var % Perm is the permutation associated with the current field
+         ! while Perm will be the permutation associated with the saved field. 
+         ! They could be different, even though the usually are not!
+         IF ( FmtVersion > 0 ) THEN
+           CALL ReadPerm( RestartUnit, Perm, GotPerm )
+         END IF
 
-            DO j=1, n
+         IF( LoadThis ) THEN
+           Var => VariableGet( Mesh % Variables,Row, ThisOnly=.TRUE. )
+           IF ( .NOT. ASSOCIATED(Var) ) THEN
+             CALL Warn('LoadRestartFile','Variable is not present for reading: '//TRIM(Row))
+           END IF
+           IF( GotPerm .NEQV. ASSOCIATED( Var % Perm ) ) THEN
+             CALL Fatal('LoadRestartFile','Permutation should either exist or not!')
+           END IF
 
-               IF ( FmtVersion > 0 ) THEN
-                  CALL GetValue( RestartUnit, Perm, j, k, Val )
-               ELSE
-                  READ( RestartUnit,* ) Node, k, Val
-               END IF
-  
-               IF ( .NOT. ASSOCIATED( Var % Perm ) ) THEN
-                  IF ( k > 0 ) Var % Values(k) = Val
-               ELSE IF ( Var % Perm(j) > 0 ) THEN
-                  IF ( k > 0 ) Var % Values(Var % Perm(j)) = Val
-               ELSE IF ( Var % Perm(j) <= 0 ) THEN
-                  Var % Perm(j) = k
-                  IF ( k > 0 ) Var % Values(k) = Val
-               END IF
-            END DO
+           IF ( ASSOCIATED(Var % Perm) .AND. FmtVersion > 0 ) THEN
+             n = SIZE(Var % Perm)
+           ELSE
+             n = SIZE(Var % Values)
+           END IF
+           ! in case of (.NOT. LoadThis) n has already been set
+         END IF
 
-            CALL InvalidateVariable( CurrentModel % Meshes, Mesh, Row )
+         DO j=1, n
+           IF ( FmtVersion > 0 ) THEN
+             CALL GetValue( RestartUnit, Perm, GotPerm, j, k, Val )
+           ELSE
+             READ( RestartUnit,* ) Node, k, Val
+           END IF
+           
+           ! One can not really omit reading the lines since otherwise at least the 
+           ! ascii format would loose it, but now we can cycle the rest. 
+           IF(.NOT. LoadThis ) CYCLE
+           
+           IF ( .NOT. GotPerm ) THEN
+             Var % Values(k) = Val
+           ELSE IF ( Var % Perm(j) > 0 ) THEN
+             IF ( k > 0 ) Var % Values(Var % Perm(j)) = Val
+           ELSE 
+             Var % Perm(j) = k
+             IF ( k > 0 ) Var % Values(k) = Val
+           END IF
+         END DO
+
+         IF( LoadThis ) THEN
+           CALL InvalidateVariable( CurrentModel % Meshes, Mesh, Row )
          END IF
 
       END DO
@@ -3228,17 +3321,18 @@ CONTAINS
    END FUNCTION GetPosition
       
 
-   SUBROUTINE GetValue( RestartUnit, Perm, iNode, iPerm, Val )
+   SUBROUTINE GetValue( RestartUnit, Perm, UsePerm, iNode, iPerm, Val )
    !
    ! Get iPerm = Perm(iNode) and Value from input
    !
       INTEGER, INTENT(IN) :: RestartUnit
-      INTEGER, POINTER :: Perm(:)
+      INTEGER, ALLOCATABLE :: Perm(:)
+      LOGICAL :: UsePerm
       INTEGER, INTENT(IN) :: iNode
       INTEGER, INTENT(OUT) :: iPerm
       REAL(dp), INTENT(OUT) :: Val
 
-      IF ( ASSOCIATED( Perm ) ) THEN
+      IF ( UsePerm ) THEN
          iPerm = Perm(iNode)
       ELSE
          iPerm = iNode
@@ -3257,14 +3351,15 @@ CONTAINS
    END SUBROUTINE GetValue
     
 
-   SUBROUTINE ReadPerm( RestartUnit, VarPerm, Perm )
+   SUBROUTINE ReadPerm( RestartUnit, Perm, GotPerm )
       INTEGER, INTENT(IN) :: RestartUnit
-      INTEGER, POINTER :: VarPerm(:)
-      INTEGER, POINTER :: Perm(:)
-      INTEGER :: nPerm, nPositive, i, j
+      INTEGER, ALLOCATABLE :: Perm(:)
+      LOGICAL :: GotPerm
+      INTEGER :: nPerm, nPositive, i, j, k
       CHARACTER(MAX_NAME_LEN) :: Row
       INTEGER(Int8_k) :: Pos
 
+      GotPerm = .FALSE.
       IF ( Binary ) THEN
          CALL BinReadInt4( RestartUnit, nPerm )
       ELSE
@@ -3289,34 +3384,38 @@ CONTAINS
          ! asked to read only some variables, in which case the previous Perm
          ! table might be yet unread so we need to jump back to 'Pos' and read
          ! it from there.
+         GotPerm = .TRUE.
          RETURN
       ELSE IF ( nPerm == 0 ) THEN
-         IF ( ASSOCIATED(Perm) ) DEALLOCATE( Perm )
+!         IF ( ASSOCIATED(Perm) ) DEALLOCATE( Perm )
          RETURN
       ELSE 
          IF ( Binary ) CALL BinReadInt4( RestartUnit, nPositive )
       END IF
 
-      ALLOCATE( Perm(nPerm) )
-      Perm = 0.0d0
+      IF( ALLOCATED( Perm ) ) THEN
+        IF( SIZE( Perm ) < nPerm ) DEALLOCATE( Perm ) 
+      END IF
+      IF( .NOT. ALLOCATED( Perm ) ) THEN
+        ALLOCATE( Perm(nPerm) )
+      END IF
+      Perm = 0
 
       DO i = 1, nPositive
          IF ( Binary ) THEN
             CALL BinReadInt4( RestartUnit, j )
-            CALL BinReadInt4( RestartUnit, Perm(j) )
+            CALL BinReadInt4( RestartUnit, k )
          ELSE
-            ! The format string for j has better mach the corresponding format
-            ! in WritePerm().
-            READ( RestartUnit, '(i11)', ADVANCE='no', IOSTAT=iostat) j
+            READ( RestartUnit, * , IOSTAT=iostat) j,k
             IF( iostat /= 0 ) THEN
-              CALL Fatal('LoadRestartFile','Error reading j in ReadPerm')
+              CALL Fatal('LoadRestartFile','Error reading in ReadPerm')
             END IF
-            READ( RestartUnit, * , IOSTAT=iostat) Perm(j)
-            IF( iostat /= 0 ) THEN
-              CALL Fatal('LoadRestartFile','Error reading Perm(j) in ReadPerm')
-            END IF            
          END IF
+         Perm(j) = k
       END DO
+
+      GotPerm = .TRUE.
+
    END SUBROUTINE ReadPerm
 
 
