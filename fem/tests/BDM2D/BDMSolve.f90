@@ -232,9 +232,9 @@ CONTAINS
              vq = IP % v(i)
              wq = IP % w(i)            
              sq = IP % s(i)
-             IP % u(i) = -1.0d0 + 2.0d0*uq + vq
-             IP % v(i) = SQRT(3.0d0)*vq + 1.0d0/SQRT(3.0d0)
-             IP % w(i) = SQRT(8.0d0)/SQRT(3.0d0)
+             IP % u(i) = -1.0d0 + 2.0d0*uq + vq + wq
+             IP % v(i) = SQRT(3.0d0)*vq + 1.0d0/SQRT(3.0d0)*wq
+             IP % w(i) = SQRT(8.0d0)/SQRT(3.0d0)*wq
              IP % s(i) = SQRT(8.0d0)*2.0d0*sq
           END DO
 
