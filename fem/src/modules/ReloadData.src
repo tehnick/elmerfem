@@ -35,7 +35,7 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
-!>  Module for repeated reading of an existing solution file.
+!> Module for repeated reading of an existing solution file.
 !> The intended use for this is in postprocessing if the user needs to perform some 
 !> additional step that was not done initially.
 !> \ingroup Solvers
@@ -47,7 +47,6 @@ SUBROUTINE ReloadSolution( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
-
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
@@ -83,7 +82,7 @@ SUBROUTINE ReloadSolution( Model,Solver,dt,TransientSimulation )
     IF ( ContReading ) THEN
       IF ( StartingStep /= 1 .OR. FirstStep /= 1 ) THEN
         ContReading = .FALSE.
-        CALL Info( 'ReloadSolution', 'Continuous reading disabled', LEVEL=8 )
+        CALL Info( 'ReloadSolution', 'Continuous reading disabled', Level=8 )
       END IF
     END IF
 
@@ -99,7 +98,7 @@ SUBROUTINE ReloadSolution( Model,Solver,dt,TransientSimulation )
 
       IF ( Visit == 0 ) THEN
         WRITE( Message, * ) 'Reading old solution from file ', TRIM(RestartFile)
-        CALL Info( 'ReloadSolution', Message, LEVEL=4 )
+        CALL Info( 'ReloadSolution', Message, Level=4 )
       END IF
 
       Round = Round + 1
@@ -119,10 +118,10 @@ SUBROUTINE ReloadSolution( Model,Solver,dt,TransientSimulation )
         OutputName = TRIM(RestartFile)
         WRITE( Message, *) 'Opening file: ', TRIM(OutputName)
       END IF
-      CALL Info( 'ReloadSolution', Message, LEVEL=4 )
+      CALL Info( 'ReloadSolution', Message, Level=4 )
 
       WRITE( Message, *) 'Loading Timestep: ', k
-      CALL Info( 'ReloadSolution', Message, LEVEL=4 )
+      CALL Info( 'ReloadSolution', Message, Level=4 )
       IF ( ContReading ) THEN
         CALL LoadRestartFile( OutputName, k, Mesh, .TRUE. )
       ELSE
@@ -130,8 +129,6 @@ SUBROUTINE ReloadSolution( Model,Solver,dt,TransientSimulation )
       END IF
 
     END IF
-
-!    CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Flow Solution')
 
   END IF
 

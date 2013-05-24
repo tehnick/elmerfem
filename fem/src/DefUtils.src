@@ -633,12 +633,31 @@ CONTAINS
   END SUBROUTINE GetVectorLocalEigenmode
     
 
+  FUNCTION DefaultVariableGet( Name, ThisOnly, USolver ) RESULT ( Var )
+
+    CHARACTER(LEN=*) :: Name
+    LOGICAL, OPTIONAL :: ThisOnly
+    TYPE(Solver_t), POINTER, OPTIONAL :: USolver    
+    TYPE(Variable_t), POINTER :: Var
+!------------------------------------------------------------------------------
+    TYPE(Variable_t), POINTER :: Variables
+
+    IF( PRESENT( USolver ) ) THEN
+      Variables => USolver % Mesh % Variables
+    ELSE
+      Variables => CurrentModel % Solver % Mesh % Variables
+    END IF
+    
+    Var => VariableGet( Variables, Name, ThisOnly )
+    
+  END FUNCTION DefaultVariableGet
+
 
 !------------------------------------------------------------------------------
 !> Add variable to the default variable list.
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultVariableAdd( Name, DOFs, Perm, Values,&
-      Output,Secondary,Global,InitValue,USolver )
+      Output,Secondary,Global,InitValue,USolver,Var )
     
     CHARACTER(LEN=*) :: Name
     INTEGER, OPTIONAL :: DOFs
@@ -649,6 +668,7 @@ CONTAINS
     LOGICAL, OPTIONAL :: Global
     REAL(KIND=dp), OPTIONAL :: InitValue   
     TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+    TYPE(Variable_t), OPTIONAL, POINTER :: Var
     !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Variables
     TYPE(Mesh_t), POINTER :: Mesh
@@ -664,6 +684,10 @@ CONTAINS
 
     CALL VariableAddVector( Variables,Mesh,Solver,Name,DOFs,Values,&
         Perm,Output,Secondary,Global,InitValue )
+
+    IF( PRESENT( Var ) ) THEN
+      Var => VariableGet( Variables, Name )
+    END IF
 
   END SUBROUTINE DefaultVariableAdd
 !------------------------------------------------------------------------------

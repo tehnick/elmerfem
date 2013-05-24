@@ -2710,7 +2710,7 @@ CONTAINS
 
     LOGICAL :: RestartFileOpen = .FALSE., Cont, Found, LoadThis
     LOGICAL, SAVE :: PosFile = .FALSE.
-    LOGICAL, SAVE :: Binary, RestartVariableList, GotPerm
+    LOGICAL, SAVE :: Binary, RestartVariableList, GotPerm, GotIt
     INTEGER, SAVE, ALLOCATABLE :: RestartVariableSizes(:)
 
     REAL(KIND=dp) :: Dummy,Val,Time
@@ -2858,7 +2858,7 @@ CONTAINS
         NULLIFY(Solver)
         DO i = 1,CurrentModel % NumberOfSolvers
           Solver => CurrentModel % Solvers(i)
-          IF ( Row(k+1:nlen) == ListGetString(Solver % Values, 'Equation')) EXIT
+          IF ( Row(k+1:nlen) == ListGetString(Solver % Values, 'Equation',Found)) EXIT
         END DO
         
         ! Figure out the slot where the number of dofs are given and read them
@@ -2912,7 +2912,7 @@ CONTAINS
         Found = .FALSE.
         DO i = 1,CurrentModel % NumberOfSolvers
           Solver => CurrentModel % Solvers(i)
-          IF ( Row(k:nlen) == TRIM( ListGetString(Solver % Values, 'Equation') ) ) THEN
+          IF ( Row(k:nlen) == TRIM( ListGetString(Solver % Values, 'Equation',GotIt) ) ) THEN
             Found = .TRUE. 
             EXIT            
           END IF

@@ -2818,16 +2818,34 @@ CONTAINS
 
 
     DO WHILE( ASSOCIATED( Var ) )
-      
+
+      ! Skip if variable is not active for saving       
       IF ( .NOT. Var % Output ) THEN
         Var => Var % Next
         CYCLE
       END IF
       
+      ! Skip if variable is global one
       IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
         Var => Var % Next
         CYCLE
       END IF
+
+      ! Skip if variable is otherwise strange in size
+      IF(.NOT. ASSOCIATED( Var % Perm ) ) THEN
+        IF( Var % TYPE == Variable_on_nodes_on_elements ) THEN
+          IF( SIZE( Var % Values ) / Var % Dofs /= Model % Mesh % NumberOfNodes ) THEN
+            Var => Var % Next
+            CYCLE
+          END IF
+        ELSE
+          IF( SIZE( Var % Values ) / Var % Dofs /= Model % Mesh % NumberOfBulkElements ) THEN
+            Var => Var % Next
+            CYCLE
+          END IF         
+        END IF
+      END IF
+
 
       VarDim = Var % Dofs
       IsVector = (VarDim > 1)

@@ -6288,7 +6288,11 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      MultVar => VariableGet(Solver % Mesh % Variables, MultiplierName)
      IF ( .NOT. ASSOCIATED(MultVar) ) THEN
        j=NumberOfRows-StiffMatrix % NumberOfRows
-       j=MAX(j,StiffMatrix % NumberOfRows/DOFs)
+
+! This old hack was to allow restart with the old restart format
+! now it is no longer needed.
+!       j=MAX(j,StiffMatrix % NumberOfRows/DOFs)
+
        ALLOCATE( MultiplierValues(j), STAT=istat )
        IF ( istat /= 0 ) CALL Fatal('SolveWithLinearRestriction','Memory allocation error.')
        MultiplierValues = 0.0_dp
