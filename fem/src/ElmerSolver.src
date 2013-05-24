@@ -911,126 +911,166 @@ END INTERFACE
      TYPE(Element_t), POINTER :: Edge
      INTEGER :: DOFs,i,j,k,l
      CHARACTER(LEN=MAX_NAME_LEN) :: str
-     LOGICAL :: Found
+     LOGICAL :: Found, ThingsToDO
      TYPE(Solver_t), POINTER :: Solver
      INTEGER, ALLOCATABLE :: Indexes(:)
+     REAL(KIND=dp) :: Val
      REAL(KIND=dp),ALLOCATABLE :: Work(:)
+     TYPE(ValueList_t), POINTER :: IC
 !------------------------------------------------------------------------------
-     DO i=1,CurrentModel % NumberOfBodies
-       Mesh => CurrentModel % Meshes
-       DO WHILE( ASSOCIATED( Mesh ) )
-         ALLOCATE( Indexes(Mesh % MaxElementDOFs), Work(Mesh % MaxElementDOFs) )
-         CALL SetCurrentMesh( CurrentModel, Mesh )
 
-         DO t=1, Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
-           CurrentElement =>  Mesh % Elements(t)
-           CurrentModel % CurrentElement => CurrentElement
+     Mesh => CurrentModel % Meshes
+     DO WHILE( ASSOCIATED( Mesh ) )
+       ALLOCATE( Indexes(Mesh % MaxElementDOFs), Work(Mesh % MaxElementDOFs) )
+       CALL SetCurrentMesh( CurrentModel, Mesh )
 
-           IF ( CurrentElement % BodyId == i ) THEN
-             j = ListGetInteger(CurrentModel % Bodies(i) % Values, &
-                'Initial Condition',GotIt, 1, CurrentModel % NumberOfICs )
+       ! First set the global variables and check whether there is anything left to do
+       ThingsToDo = .FALSE.
+       DO j=1,CurrentModel % NumberOfICs
 
-             IF ( GotIt ) THEN
-               n    = GetElementNOFNodes()
-
-               Var => Mesh % Variables
-               DO WHILE( ASSOCIATED(Var) ) 
-
-                 IF ( ASSOCIATED( Var % Solver ) ) THEN
-                   DOFs = GetElementDOFs( Indexes, USolver=Var % Solver )
-                 ELSE
-                   DOFs = GetElementDOFs( Indexes )
-                 END IF
-
-                 Solver => Var % Solver
-                 IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
-
-                 str = ListGetString( Solver % Values, 'Namespace', Found )
-                 IF (Found) CALL ListSetNamespace(TRIM(str))
-
-
-! Note: this is for global variables but it is not fully generic yet 
-                 IF( SIZE( Var % Values ) == Var % DOFs ) THEN
-
-                    Var % Values = ListGetCReal( CurrentModel % ICs(j) % Values, &
-                             Var % Name, GotIt )
-
-
-                 ELSE IF ( Var % DOFs <= 1 ) THEN
-                    Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                           Var % Name, GotIt )
-                    IF ( GotIt ) THEN
-                      DO k=1,n
-                        k1 = Indexes(k)
-                        IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                        IF ( k1>0 ) Var % Values(k1) = Work(k)
-                      END DO
-                    END IF
-
-                    IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
-                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                             TRIM(Var % Name) // ' Velocity', GotIt )
-                      IF ( GotIt ) THEN
-                        DO k=1,n
-                          k1 = Indexes(k)
-                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                          IF ( k1>0 ) Var % PrevValues(k1,1) = Work(k)
-                        END DO
-                      END IF
-                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                             TRIM(Var % Name) // ' Acceleration', GotIt )
-                      IF ( GotIt ) THEN
-                        DO k=1,n
-                          k1 = Indexes(k)
-                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                          IF ( k1>0 ) Var % PrevValues(k1,2) = Work(k)
-                        END DO
-                      END IF
-                    END IF
-
-                    IF(ASSOCIATED(Mesh % Edges)) THEN
-                      IF ( i<=Mesh % NumberOfBulkElements) THEN
-                        Gotit = ListCheckPresent( CurrentModel % ICs(j) % Values, &
-                                  TRIM(Var % Name)//' {e}' )
-                        IF ( Gotit ) THEN
-                          DO k=1,CurrentElement % TYPE % NumberOfedges
-                            Edge => Mesh % Edges(CurrentElement % EdgeIndexes(k))
-                            l = Var % Perm(CurrentElement % EdgeIndexes(k)+Mesh % NumberOfNodes)
-                            IF ( l>0 ) THEN
-                              CALL LocalBcIntegral( CurrentModel % ICs(j) % Values, &
-                                  Edge, Edge % TYPE % NumberOfNodes, CurrentElement, n, &
-                                      TRIM(Var % Name)//' {e}', Work(1) )
-                              Var % Values(l) = Work(1)
-                            END IF
-                          END DO
-                        END IF
-                      END IF
-                    END IF
-
-                 ELSE
-                    CALL ListGetRealArray( CurrentModel % ICs(j) % Values, &
-                      Var % Name, WorkA, n, CurrentElement % NodeIndexes, gotIt )
-
-                    IF ( GotIt ) THEN
-                      DO k=1,n
-                        k1 = Indexes(k)
-                        DO l=1,MIN(SIZE(WorkA,1),Var % DOFs)
-                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                          IF ( k1>0 ) Var % Values(Var % DOFs*(k1-1)+l) = WorkA(l,1,k)
-                        END DO
-                      END DO
-                    END IF
-                 END IF
-                 CALL ListSetNamespace('')
-                 Var => Var % Next
-               END DO
+         IC => CurrentModel % ICs(j) % Values
+         
+         Var => Mesh % Variables
+         DO WHILE( ASSOCIATED(Var) ) 
+           
+           Solver => Var % Solver
+           IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+           
+           str = ListGetString( Solver % Values, 'Namespace', Found )
+           IF (Found) CALL ListSetNamespace(TRIM(str))
+           
+           ! global variable
+           IF( SIZE( Var % Values ) == Var % DOFs ) THEN
+             Val = ListGetCReal( IC, Var % Name, GotIt )
+             IF( GotIt ) THEN
+               WRITE( Message,'(A,ES12.3)') 'Initializing global variable: > '&
+                   //TRIM(Var % Name)//' < to :',Val
+               CALL Info('InitCond', Message,Level=8)
+               Var % Values = Val
              END IF
+           ELSE
+             ThingsToDo = ThingsToDo .OR. &
+                 ListCheckPresent( IC, TRIM(Var % Name) )
+             ThingsToDo = ThingsToDo .OR. &
+                 ListCheckPresent( IC, TRIM(Var % Name)//' Velocity' )
+             ThingsToDo = ThingsToDo .OR. &
+                 ListCheckPresent( IC, TRIM(Var % Name)//' Acceleration' )
+             ThingsToDo = ThingsToDo .OR. &
+                  ListCheckPresent( IC, TRIM(Var % Name)//' {e}' )
            END IF
+           Var => Var % Next
          END DO
-         DEALLOCATE( Indexes, Work )
-         Mesh => Mesh % Next
        END DO
+
+       ! And now do the ordinary fields
+       !--------------------------------
+       IF( ThingsToDo ) THEN
+         DO t=1, Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
+           
+           CurrentElement =>  Mesh % Elements(t)
+           
+           i = CurrentElement % BodyId 
+           IF( i == 0 ) CYCLE
+           
+           j = ListGetInteger(CurrentModel % Bodies(i) % Values, &
+               'Initial Condition',GotIt, 1, CurrentModel % NumberOfICs )           
+           IF ( .NOT. GotIt ) CYCLE
+           
+           IC => CurrentModel % ICs(j) % Values
+           CurrentModel % CurrentElement => CurrentElement
+           n = GetElementNOFNodes()
+           
+           Var => Mesh % Variables
+           DO WHILE( ASSOCIATED(Var) ) 
+             
+             IF ( ASSOCIATED( Var % Solver ) ) THEN
+               DOFs = GetElementDOFs( Indexes, USolver=Var % Solver )
+             ELSE
+               DOFs = GetElementDOFs( Indexes )
+             END IF
+             
+             Solver => Var % Solver
+             IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+             
+             str = ListGetString( Solver % Values, 'Namespace', Found )
+             IF (Found) CALL ListSetNamespace(TRIM(str))
+             
+             ! global variables were already set
+             IF( SIZE( Var % Values ) == Var % DOFs ) THEN
+               CONTINUE
+               
+             ELSE IF ( Var % DOFs <= 1 ) THEN
+               
+               Work(1:n) = GetReal( IC, Var % Name, GotIt )
+               IF ( GotIt ) THEN
+                 DO k=1,n
+                   k1 = Indexes(k)
+                   IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                   IF ( k1>0 ) Var % Values(k1) = Work(k)
+                 END DO
+               END IF
+               
+               IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
+                 Work(1:n) = GetReal( IC, TRIM(Var % Name) // ' Velocity', GotIt )
+                 IF ( GotIt ) THEN
+                   DO k=1,n
+                     k1 = Indexes(k)
+                     IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                     IF ( k1>0 ) Var % PrevValues(k1,1) = Work(k)
+                   END DO
+                 END IF
+                 Work(1:n) = GetReal( IC, TRIM(Var % Name) // ' Acceleration', GotIt )
+                 IF ( GotIt ) THEN
+                   DO k=1,n
+                     k1 = Indexes(k)
+                     IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                     IF ( k1>0 ) Var % PrevValues(k1,2) = Work(k)
+                   END DO
+                 END IF
+               END IF
+               
+               IF(ASSOCIATED(Mesh % Edges)) THEN
+                 IF ( i<=Mesh % NumberOfBulkElements) THEN
+                   Gotit = ListCheckPresent( IC, TRIM(Var % Name)//' {e}' )
+                   IF ( Gotit ) THEN
+                     DO k=1,CurrentElement % TYPE % NumberOfedges
+                       Edge => Mesh % Edges(CurrentElement % EdgeIndexes(k))
+                       l = Var % Perm(CurrentElement % EdgeIndexes(k)+Mesh % NumberOfNodes)
+                       IF ( l>0 ) THEN
+                         CALL LocalBcIntegral( IC, &
+                             Edge, Edge % TYPE % NumberOfNodes, CurrentElement, n, &
+                             TRIM(Var % Name)//' {e}', Work(1) )
+                         Var % Values(l) = Work(1)
+                       END IF
+                     END DO
+                   END IF
+                 END IF
+               END IF
+               
+             ELSE
+               CALL ListGetRealArray( IC, &
+                   Var % Name, WorkA, n, CurrentElement % NodeIndexes, gotIt )
+               
+               IF ( GotIt ) THEN
+                 DO k=1,n
+                   k1 = Indexes(k)
+                   DO l=1,MIN(SIZE(WorkA,1),Var % DOFs)
+                     IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                     IF ( k1>0 ) Var % Values(Var % DOFs*(k1-1)+l) = WorkA(l,1,k)
+                   END DO
+                 END DO
+               END IF
+             END IF
+             CALL ListSetNamespace('')
+             Var => Var % Next
+           END DO
+         END DO
+       END IF
+
+       DEALLOCATE( Indexes, Work )
+       Mesh => Mesh % Next
      END DO
+
 !------------------------------------------------------------------------------
    END SUBROUTINE InitCond
 !------------------------------------------------------------------------------
