@@ -401,19 +401,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     VariableName = ListGetString( Params, TRIM(Name), GotVar )
 
     IF(TRIM(VariableName) == 'cpu time' .OR. TRIM(VariableName) == 'cpu memory') THEN
-      CALL Warn('SaveScalars','This variable should now be invoked as an operator:'//TRIM(VariableName))
+      CALL Warn('SaveScalars','This variable should now be invoked as an operator: '//TRIM(VariableName))
       CYCLE
     END IF
     
     IF(GotVar) THEN
       Var => VariableGet( Model % Variables, TRIM(VariableName) )
       IF ( .NOT. ASSOCIATED( Var ) )  THEN
-        Var => OldVar
-        IF ( .NOT. ASSOCIATED( Var ) ) THEN
-          CALL Warn('SaveData','Variable does not exist: '//TRIM(VariableName))
-          GotVar = .FALSE.
-          CYCLE
-        END IF
+        CALL Fatal('SaveData','Requested variable does not exist: '//TRIM(VariableName))
       END IF    
       OldVar => Var
       OldVariableName = VariableName
@@ -422,6 +417,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       !-------------------------------------------------------------------
       IF(SIZE(Var % Values) == Var % Dofs) THEN
         IsInteger = .FALSE.
+        IF( VariableName == 'timestep' ) IsInteger = .TRUE.
         IF( VariableName == 'nonlin iter' ) IsInteger = .TRUE.
         IF( VariableName == 'coupled iter' ) IsInteger = .TRUE.
 
