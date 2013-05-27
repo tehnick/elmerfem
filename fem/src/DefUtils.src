@@ -2282,7 +2282,7 @@ CONTAINS
 
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Solver_t), POINTER :: Solver
-    CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond, dumpfile
+    CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond, dumpfile, dumpprefix
 
     Solver => CurrentModel % Solver
 
@@ -2308,6 +2308,36 @@ CONTAINS
       CALL CRS_PrintRHS(A)
       CLOSE(1)
     END IF
+
+    IF ( ListGetLogical( Params,'Linear System Save',Found )) THEN
+
+      dumpprefix = GetString( Params, 'Linear System Save Prefix', Found)
+      IF(.NOT. Found ) dumpprefix = 'linsys'
+
+      dumpfile = TRIM(dumpprefix)//'_a.dat'
+      CALL Info('DefaultSolve','Saving stiffness matrix to: '//TRIM(dumpfile),Level=3)     
+      OPEN(1,FILE=dumpfile, STATUS='Unknown')
+      CALL CRS_PrintMatrix(A)
+      CLOSE(1)
+
+      dumpfile = TRIM(dumpprefix)//'_b.dat'
+      CALL Info('DefaultSolve','Saving matrix rhs to: '//TRIM(dumpfile),Level=3)     
+      OPEN(1,FILE=dumpfile, STATUS='Unknown')
+      CALL CRS_PrintRHS(A)
+      CLOSE(1)
+
+      dumpfile = TRIM(dumpprefix)//'_sizes.dat'
+      CALL Info('DefaultSolve','Saving matrix sizes to: '//TRIM(dumpfile),Level=3)     
+      OPEN(1,FILE=dumpfile, STATUS='Unknown')
+      WRITE(1,*) Solver % Matrix % NumberOfRows
+      WRITE(1,*) SIZE(Solver % Matrix % Values)
+
+      IF( GetLogical( Params,'Linear System Save and Stop',Found ) ) THEN
+        CALL Info('DefaultSolve','Just saved matrix and stopped!',Level=3)
+        STOP
+      END IF
+    END IF
+    
 
     IF (PRESENT(BackRotNT)) THEN
       BackRot=GetLogical(Params,'Back Rotate N-T Solution',Found)
