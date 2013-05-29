@@ -81,7 +81,7 @@
 
      TYPE(Matrix_t),POINTER :: StiffMatrix
 
-     INTEGER :: i, j, k, l, n, t, iter, NDeg, STDOFs, LocalNodes, istat
+     INTEGER :: i, j, k, l, m, n, t, iter, NDeg, STDOFs, LocalNodes, istat
      INTEGER :: dim, comp, nd, nb 
 
      TYPE(ValueList_t),POINTER :: Material, BC, BodyForce, Constants
@@ -92,7 +92,7 @@
          Normal(3), NonlinearTol, s, Wn(2), MinSRInvariant
          
 
-     REAL(KIND=dp)  :: NodalStresses(3,3), &
+     REAL(KIND=dp)  :: NodalStresses(3,3), Stress(3,3), &
        NodalStrainRate(3,3),  NodalSpin(3,3) 
 
      REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
@@ -111,9 +111,9 @@
      REAL(KIND=dp), POINTER :: SpinValues(:)
      INTEGER, POINTER :: SpinPerm(:)
 
-     TYPE(Variable_t), POINTER :: DevStressVar 
-     REAL(KIND=dp), POINTER :: DSValues(:)
-     INTEGER, POINTER :: DSPerm(:)
+     TYPE(Variable_t), POINTER :: DevStressVar, DefHeatVar 
+     REAL(KIND=dp), POINTER :: DSValues(:), DefHeatValues(:)
+     INTEGER, POINTER :: DSPerm(:), DefHeatPerm(:)
 
      TYPE(Variable_t), POINTER :: StrainRateVar 
      REAL(KIND=dp), POINTER :: SRValues(:)
@@ -214,6 +214,13 @@
       DSValues => DevStressVar % Values  
       END IF
 
+      DefHeatVar => &
+               VariableGet(Solver % Mesh % Variables,'Porous Deformational Heat')
+      IF ( ASSOCIATED( DefHeatVar ) ) THEN
+         DefHeatPerm => DefHeatVar % Perm    
+         DefHeatValues => DefHeatVar % Values  
+      END IF
+
       StiffMatrix => Solver % Matrix
       ForceVector => StiffMatrix % RHS
       UNorm = Solver % Variable % Norm
@@ -311,6 +318,7 @@
          CALL AdvanceOutput(t,GetNOFActive())
 
          CurrentElement => GetActiveElement(t)
+
          n = GetElementNOFNodes()
          nd = GetElementNOFDOFs()
          nb = GetElementNOFBDOFs()
@@ -355,8 +363,11 @@
 !------------------------------------------------------------------------------
 !        Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
-         CALL GetScalarLocalSolution(LocalDensity,DensityName)
-
+         ! The Density can be a DG variable and it is then safe to call it 
+         ! using the permutation vector
+         LocalDensity(1:n) =  &
+              DensityValues(DensityPerm(CurrentElement % NodeIndexes(1:n))) 
+         
          CALL GetVectorLocalSolution(LocalVelo)
           
 
@@ -506,14 +517,14 @@
 !   Nodal values      
 !------------------------------------------------------------------------------
 
-     IF ((ASSOCIATED( StrainRateVar)).OR.(ASSOCIATED(DevStressVar))&
-      .OR.(ASSOCIATED(SpinVar))) THEN
-       RefD=0.
-       RefS=0.
-       RefSpin=0.
-       IF (ASSOCIATED(StrainRateVar)) SRValues = 0.
-       IF (ASSOCIATED(devStressVar)) DSValues = 0.
-       IF (ASSOCIATED(SPinVar)) SpinValues = 0.
+     IF (ASSOCIATED( StrainRateVar).OR.ASSOCIATED(DevStressVar)&
+      .OR.ASSOCIATED(SpinVar).OR.ASSOCIATED(DefHeatVar)) THEN
+       RefD=0.0_dp
+       RefS=0.0_dp
+       RefSpin=0.0_dp
+       IF (ASSOCIATED(StrainRateVar)) SRValues = 0.0_dp
+       IF (ASSOCIATED(devStressVar)) DSValues = 0.0_dp
+       IF (ASSOCIATED(SPinVar)) SpinValues = 0.0_dp
 
       DO t=1,Solver % NumberOFActiveElements
 
@@ -566,35 +577,21 @@
                 Basis, dBasisdx )
         END IF
 
-           CALL LocalSD(NodalStresses, NodalStrainRate, NodalSpin, & 
+        CALL LocalSD(NodalStresses, NodalStrainRate, NodalSpin, & 
                  LocalVelo, LocalFluidity,  &
                 LocalDensity, CSymmetry, Basis, dBasisdx, &
                 CurrentElement, n, ElementNodes, dim, Wn, &
                 MinSRInvariant)
                 
 
-        IF (Requal0) NodalSpin = 0. 
-
-           IF (ASSOCIATED(StrainRateVar)) &
-             RefD(2*dim*(SRPerm(NodeIndexes(i))-1)+1 : &
-                                      2*dim*SRPerm(NodeIndexes(i))) &
-             =RefD(2*dim*(SRPerm(NodeIndexes(i))-1)+1 : &
-                                      2*dim*SRPerm(NodeIndexes(i))) + 1.
-
-          IF (ASSOCIATED(DevStressVar)) &
-            RefS(2*dim*(DSPerm(NodeIndexes(i))-1)+1 : &
-                                      2*dim*DSPerm(NodeIndexes(i))) &
-            =RefS(2*dim*(DSPerm(NodeIndexes(i))-1)+1 :  &
-                                      2*dim*DSPerm(NodeIndexes(i))) + 1.
-
-          IF (ASSOCIATED(SpinVar)) &
-            RefSpin((2*dim-3)*(SpinPerm(NodeIndexes(i))-1)+1 :  &
-                                (2*dim-3)*SpinPerm(NodeIndexes(i))) &
-            =RefSpin((2*dim-3)*(SpinPerm(NodeIndexes(i))-1)+1 :  &
-                                (2*dim-3)*SpinPerm(NodeIndexes(i))) + 1.
+        IF (Requal0) NodalSpin = 0.0_dp 
 
 
            IF (ASSOCIATED(StrainRateVar)) THEN
+             RefD(2*dim*(SRPerm(NodeIndexes(i))-1)+1 : &
+                                      2*dim*SRPerm(NodeIndexes(i))) &
+                 =RefD(2*dim*(SRPerm(NodeIndexes(i))-1)+1 : &
+                                      2*dim*SRPerm(NodeIndexes(i))) + 1.
              comp=0
              DO j=1,2*dim
                comp=comp+1
@@ -605,6 +602,10 @@
            END IF
 
            IF (ASSOCIATED(DevStressVar)) THEN
+             RefS(2*dim*(DSPerm(NodeIndexes(i))-1)+1 : &
+                                      2*dim*DSPerm(NodeIndexes(i))) &
+                  =RefS(2*dim*(DSPerm(NodeIndexes(i))-1)+1 :  &
+                                      2*dim*DSPerm(NodeIndexes(i))) + 1.
              comp=0
              DO j=1,2*dim
                comp=comp+1
@@ -615,6 +616,10 @@
            END IF
 
            IF (ASSOCIATED(SpinVar)) THEN
+            RefSpin((2*dim-3)*(SpinPerm(NodeIndexes(i))-1)+1 :  &
+                                (2*dim-3)*SpinPerm(NodeIndexes(i))) &
+                =RefSpin((2*dim-3)*(SpinPerm(NodeIndexes(i))-1)+1 :  &
+                                (2*dim-3)*SpinPerm(NodeIndexes(i))) + 1.
              comp=0
              DO j=1,(2*dim-3)
              comp=comp+1
@@ -622,6 +627,20 @@
              SPinValues((2*dim-3)*(SpinPerm(NodeIndexes(i))-1)+comp) + &
              NodalSpin(INDi(j+3),INDj(j+3))
              END DO
+           END IF
+
+           IF (ASSOCIATED(defHeatVar)) THEN
+              k = DefHeatPerm(NodeIndexes(i))
+              defHeatValues(k) = 0.0_dp
+              Stress = NodalStresses
+              DO l=1,DIM
+                 Stress(l,l) = Stress(l,l) - LocalVelo(DIM+1,i)  
+                 DO m=1,DIM
+                    defHeatValues(k) = defHeatValues(k) +  &
+                            Stress(l,m)*NodalStrainRate(l,m)
+                 END DO
+              END DO
+              defHeatValues(k) = Max(defHeatValues(k),0.0)
            END IF
 
           END DO
