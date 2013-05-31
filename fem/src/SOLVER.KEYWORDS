@@ -1,3 +1,4 @@
+$ function i2str(i) { _i2str = sprintf("%g",i); }
 BC:Integer:         'Normal Target Body'
 BC:Integer:         'Radiation Target Body'
 BC:Integer:         'Target Boundaries'
@@ -311,6 +312,11 @@ Simulation:Integer: 'Extruded Mesh Levels'
 Simulation:File:    'Mesh'
 Simulation:File:    'Control Procedure'
 Simulation:File:    'Output File'
+Simulation:Logical: 'Output Global Variables'
+Simulation:Logical: 'Output Coordinates'
+$ nout=10
+$ for(i=1:nout) "Simulation:String:  'Output Variable " i2str(i) "'"
+$ for(i=1:nout) "Simulation:String:  'Restart Variable " i2str(i) "'"
 Simulation:File:    'Restart File'
 Simulation:File:    'Post File'
 Simulation:File:    'Solver Input File'
@@ -542,8 +548,7 @@ Solver:String:      'MG Lowest Linear Solver'
 !
 ! Exported variable stuff
 !
-$ function i2str(i) { _i2str = sprintf("%g",i); }
-$ nexp=32
+$ nexp=10
 $ for(i=1:nexp) "Solver:String:  'Exported Variable " i2str(i) "'"
 $ for(i=1:nexp) "Solver:Integer: 'Exported Variable " i2str(i) " DOFs'"
 $ for(i=1:nexp) "Solver:Logical: 'Exported Variable " i2str(i) " Output'"
