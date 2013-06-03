@@ -1198,6 +1198,9 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   TYPE(Variable_t), POINTER :: FluxSol, AzSol
   LOGICAL ::  FoundMortar
   TYPE(Matrix_t),POINTER::A,B,CM,S
+
+  LOGICAL :: LossEstimation
+  REAL(KIND=dp) :: Omega
   
   SAVE Visited
 
@@ -1306,7 +1309,19 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   
   WRITE( Message, * ) 'Result Norm: ',TotNorm
   CALL Info( 'BSolver', Message, Level=4 )
-  
+
+!------------------------------------------------------------------------------
+! In the case of time-harmonic analysis losses may be estimated in terms of B
+!------------------------------------------------------------------------------ 
+  IF ( GetLogical(SolverParams,'Loss Estimation',GotIt) ) THEN
+     IF (Dofs /= 4) THEN
+        CALL Info( 'BSolver', 'Real solution, loss estimation omitted', Level=5 )
+     ELSE
+        Omega = GetAngularFrequency()
+        CALL LossBulkAssembly(Omega)
+     END IF
+  END IF
+
 CONTAINS
 
 
@@ -1508,6 +1523,150 @@ CONTAINS
 !------------------------------------------------------------------------------
     END SUBROUTINE LocalJumps
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE LossBulkAssembly(Omega)
+!------------------------------------------------------------------------------
+      REAL(KIND=dp) :: Omega
+!------------------------------------------------------------------------------
+      INTEGER :: elem,t,i,j,k,p,q,n,nd,BodyId
+      REAL(KIND=dp) :: weight,coeff,detJ,BAtIp(4), TotalLoss, &
+           Freq, FreqPower, FieldPower, ComponentLoss(2), LossCoeff, ValAtIP
+      LOGICAL :: Found
+
+      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+      TYPE(Nodes_t) :: Nodes
+
+      TYPE(Element_t), POINTER :: Element
+      TYPE(ValueList_t), POINTER :: Material
+
+      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:)
+      REAL(KIND=dp), ALLOCATABLE :: POT(:,:)
+      REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
+      REAL(KIND=dp), ALLOCATABLE :: BodyLoss(:)
+
+      SAVE Nodes
+      !--------------------------------------------------------------------------------
+      n = 2*MAX(Solver % Mesh % MaxElementDOFs,Solver % Mesh % MaxElementNodes)
+      ALLOCATE( STIFF(n,n), FORCE(dofs,n) )
+      ALLOCATE( POT(2,n), Basis(n), dBasisdx(n,3) )
+      ALLOCATE( BodyLoss(Model % NumberOfBodies) )
+
+      Freq = Omega / (2*PI)
+
+      FreqPower = GetCReal( SolverParams,'Fourier Loss Frequency Exponent',Found )
+      IF( .NOT. Found ) FreqPower = 2.0_dp
+
+      FieldPower = GetCReal( SolverParams,'Fourier Loss Field Exponent',Found ) 
+      IF( .NOT. Found ) FieldPower = 2.0_dp
+      FieldPower = FieldPower / 2.0_dp
+
+      ComponentLoss = 0.0_dp
+      BodyLoss = 0.0_dp
+      print *, 'PROCEEDING TO LOSS LOOP'
+      CALL GetLocalSolution( POT, VarName )
+      DO elem = 1,GetNOFActive()
+         !---------------------
+         ! Element information
+         ! ---------------------
+         Element => GetActiveElement(elem)
+         CALL GetElementNodes( Nodes )
+         nd = GetElementNOFDOFs()
+         n  = GetElementNOFNodes()
+
+         BodyId = GetBody()
+         Material => GetMaterial()
+         IF(.NOT. ListCheckPresent( Material,'Fourier Loss Coefficient') ) THEN
+            CALL Fatal('FourierLosses','Material must have > Fourier Loss Coefficient < ')
+         END IF
+
+         ! Integrate the loss estimate elementwise
+         ! -----------------------------------------
+         IntegStuff = GaussPoints( Element )
+         STIFF  = 0.0_dp
+         FORCE  = 0.0_dp
+
+         DO t=1,IntegStuff % n
+            Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
+                 IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
+
+            Weight = IntegStuff % s(t) * detJ
+
+            ! /* the following stiff matrix computation is omitted as we don't solve loss distribution */ 
+            !        IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+            !          DO p=1,nd
+            !            DO q=1,nd
+            !              STIFF(p,q) = STIFF(p,q) + Weight * Basis(q) * Basis(p)
+            !            END DO
+            !          END DO
+            !        END IF
+
+            LossCoeff = ListGetFun( Material,'Fourier Loss Coefficient',Freq ) 
+
+            BAtIp(1) =  SUM( POT(1,1:nd) * dBasisdx(1:nd,2) )
+            BAtIp(2) = -SUM( POT(1,1:nd) * dBasisdx(1:nd,1) )
+            BAtIp(3) =  SUM( POT(2,1:nd) * dBasisdx(1:nd,2) )
+            BAtIp(4) = -SUM( POT(2,1:nd) * dBasisdx(1:nd,1) )
+
+            DO i=1,2
+               ValAtIP = SUM( BAtIP(2*i-1:2*i) ** 2 )
+               Coeff = Weight * LossCoeff * ( Freq ** FreqPower ) * ( ValAtIp ** FieldPower )
+               ComponentLoss(i) = ComponentLoss(i) + Coeff
+               BodyLoss(BodyId) = BodyLoss(BodyId) + Coeff
+            END DO
+         END DO
+
+         !------------------------------------------------------------------------------
+         !      Update global matrices from local matrices 
+         !------------------------------------------------------------------------------
+         !      IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+         !        Solver % Matrix % Rhs => SaveRhs
+         !        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
+         !            BulkUpdate=ConstantBulkMatrix )
+         !      END IF
+
+         !      DO i=1,Dofs
+         !        Solver % Matrix % RHS => ForceVector(:,i)
+         !        CALL DefaultUpdateForce( FORCE(i,1:nd) )
+         !      END DO
+      END DO
+
+      DO j=1,2
+         ComponentLoss(j) = ParallelReduction(ComponentLoss(j)) 
+      END DO
+
+      DO j=1,Model % NumberOfBodies
+         BodyLoss(j) = ParallelReduction(BodyLoss(j))
+      END DO
+
+      TotalLoss = SUM( ComponentLoss )
+      CALL ListAddConstReal( Model % Simulation,'res: fourier loss',TotalLoss )
+      !CALL ListAddConstReal( Model % Simulation,'res: cos mode fourier loss', ComponentLoss(1)) 
+      !CALL ListAddConstReal( Model % Simulation,'res: sin mode fourier loss', ComponentLoss(2))       
+    
+      !---------------------------------------------------------------------------------
+      ! Screen ouput for componentwise and bodywise losses 
+      !--------------------------------------------------------------------------------
+      WRITE( Message,'(A,ES12.3)') 'Loss for cos mode: ', ComponentLoss(1)
+      CALL Info('BSolver', Message, Level=6 )
+      WRITE( Message,'(A,ES12.3)') 'Loss for sin mode: ', ComponentLoss(2)
+      CALL Info('BSolver', Message, Level=6 )
+      WRITE( Message,'(A,ES12.3)') 'Total loss: ',TotalLoss
+      CALL Info('BSolver',Message, Level=5 )
+
+      CALL Info('FourierLosses','Losses by bodies',Level=6)
+      DO j=1,Model % NumberOfBodies
+         IF( BodyLoss(j) < TINY( TotalLoss ) ) CYCLE
+         WRITE( Message,'(A,I0,A,ES12.3)') 'Body ',j,' : ',BodyLoss(j)
+         CALL Info('FourierLosses', Message, Level=6 )
+      END DO
+
+      DEALLOCATE( BodyLoss, POT, STIFF, FORCE, Basis, dBasisdx )
+!------------------------------------------------------------------------------
+    END SUBROUTINE LossBulkAssembly
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
 END SUBROUTINE BSolver
