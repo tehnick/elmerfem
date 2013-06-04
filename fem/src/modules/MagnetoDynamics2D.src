@@ -1564,7 +1564,7 @@ CONTAINS
 
       ComponentLoss = 0.0_dp
       BodyLoss = 0.0_dp
-      print *, 'PROCEEDING TO LOSS LOOP'
+
       CALL GetLocalSolution( POT, VarName )
       DO elem = 1,GetNOFActive()
          !---------------------
@@ -1577,9 +1577,6 @@ CONTAINS
 
          BodyId = GetBody()
          Material => GetMaterial()
-         IF(.NOT. ListCheckPresent( Material,'Fourier Loss Coefficient') ) THEN
-            CALL Fatal('FourierLosses','Material must have > Fourier Loss Coefficient < ')
-         END IF
 
          ! Integrate the loss estimate elementwise
          ! -----------------------------------------
@@ -1602,7 +1599,7 @@ CONTAINS
             !          END DO
             !        END IF
 
-            LossCoeff = ListGetFun( Material,'Fourier Loss Coefficient',Freq ) 
+            LossCoeff = ListGetFun( Material,'Fourier Loss Coefficient',Freq,Found ) 
 
             BAtIp(1) =  SUM( POT(1,1:nd) * dBasisdx(1:nd,2) )
             BAtIp(2) = -SUM( POT(1,1:nd) * dBasisdx(1:nd,1) )

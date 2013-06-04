@@ -3333,6 +3333,8 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    REAL(KIND=dp) :: s,u,v,w,WBasis(32,3), SOL(2,32), PSOL(32), R(32), C(32), Norm
    REAL(KIND=dp) :: RotWBasis(32,3), Basis(32), dBasisdx(32,3), B(2,3), E(2,3),VP_ip(2,3)
    REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
+   REAL(KIND=dp) :: Freq, FreqPower, FieldPower, ComponentLoss(2), LossCoeff, ValAtIP
+   REAL(KIND=dp) :: Coeff, TotalLoss
    COMPLEX(KIND=dp) ::  Magnetization(3,32), MG_ip(3)
 
    COMPLEX(KIND=dp) :: CST(3,3)
@@ -3343,12 +3345,12 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH, VP
    TYPE(Variable_t), POINTER :: EL_MFD, EL_MFS, EL_CD, EL_EF, EL_MST, EL_JH, EL_VP
 
-   INTEGER :: Active,i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs,dim
+   INTEGER :: Active,i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs,dim,BodyId
 
    TYPE(Solver_t), POINTER :: pSolver
    CHARACTER(LEN=MAX_NAME_LEN) :: Pname
 
-   LOGICAL :: Found, stat, Cubic
+   LOGICAL :: Found, stat, Cubic, LossEstimation
    TYPE(ValueList_t), POINTER :: Material
 
    TYPE(GaussIntegrationPoints_t) :: IP
@@ -3360,6 +3362,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    REAL(KIND=dp) :: Babs
    TYPE(Mesh_t), POINTER :: Mesh
    REAL(KIND=dp), ALLOCATABLE, TARGET :: Gforce(:,:), MASS(:,:), FORCE(:,:)
+   REAL(KIND=dp), ALLOCATABLE :: BodyLoss(:)
 
    Mesh => GetMesh()
 
@@ -3412,6 +3415,23 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
    Omega = GetAngularFrequency(Found=Found)
 
+   LossEstimation = GetLogical(GetSolverParams(),'Loss Estimation',Found)
+   IF (LossEstimation) THEN
+      Freq = Omega / (2*PI)
+
+      FreqPower = GetCReal( GetSolverParams(),'Fourier Loss Frequency Exponent',Found )
+      IF( .NOT. Found ) FreqPower = 2.0_dp
+
+      FieldPower = GetCReal( GetSolverParams(),'Fourier Loss Field Exponent',Found ) 
+      IF( .NOT. Found ) FieldPower = 2.0_dp
+      FieldPower = FieldPower / 2.0_dp
+
+      ComponentLoss = 0.0_dp
+      ALLOCATE( BodyLoss(Model % NumberOfBodies) )
+      BodyLoss = 0.0_dp
+   END IF
+
+
    C = 0._dp; R=0._dp; PR=0._dp
    Magnetization = 0._dp
 
@@ -3431,6 +3451,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        PSOL(1:nd)=(SOL(1,1:nd)-PSOL(1:nd))/dt
      END IF
 
+     BodyId = GetBody()
      Material => GetMaterial()
      IF ( ASSOCIATED(MFS) ) THEN
        Magnetization(1,1:n) = GetReal( Material,'Magnetization 1', Found )
@@ -3653,6 +3674,20 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
        s = IP % s(j) * detJ
 
+       !-------------------------------------------------
+       ! Compute a loss estimate for cos and sin modes:
+       !-------------------------------------------------
+       IF (LossEstimation) THEN
+          LossCoeff = ListGetFun( Material,'Fourier Loss Coefficient',Freq,Found ) 
+          DO k=1,2
+             ValAtIP = SUM( B(k,1:3) ** 2 )
+             Coeff = s * LossCoeff * ( Freq ** FreqPower ) * ( ValAtIp ** FieldPower )
+             ComponentLoss(k) = ComponentLoss(k) + Coeff
+             BodyLoss(BodyId) = BodyLoss(BodyId) + Coeff
+          END DO
+       END IF
+       !------------------------------------------------
+
        Power = Power + SUM(E**2)*C_ip*s
        Energy = Energy + s*(PR_ip*SUM(E**2) + R_ip*SUM(B**2))/2
        DO p=1,n
@@ -3743,6 +3778,17 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    Power  = ParallelReduction(Power)
    Energy = ParallelReduction(Energy)
 
+   IF (LossEstimation) THEN
+      DO i=1,2
+         ComponentLoss(i) = ParallelReduction(ComponentLoss(i)) 
+      END DO
+
+      DO i=1,Model % NumberOfBodies
+         BodyLoss(i) = ParallelReduction(BodyLoss(i))
+      END DO
+
+      TotalLoss = SUM( ComponentLoss )      
+   END IF
 
     ! Assembly of the face terms:
     !----------------------------
@@ -3835,6 +3881,26 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
         'res: Magnetic Field Energy', Energy )
    DEALLOCATE( Gforce,MASS,FORCE )
 
+   IF (LossEstimation) THEN
+      CALL ListAddConstReal( Model % Simulation,'res: fourier loss',TotalLoss )
+
+      WRITE( Message,'(A,ES12.3)') 'Loss for cos mode: ', ComponentLoss(1)
+      CALL Info('MagnetoDynamics', Message, Level=6 )
+      WRITE( Message,'(A,ES12.3)') 'Loss for sin mode: ', ComponentLoss(2)
+      CALL Info('MagnetoDynamics', Message, Level=6 )
+      WRITE( Message,'(A,ES12.3)') 'Total loss: ',TotalLoss
+      CALL Info('MagnetoDynamics',Message, Level=5 )
+
+      CALL Info('FourierLosses','Losses by bodies',Level=6)
+      DO j=1,Model % NumberOfBodies
+         IF( BodyLoss(j) < TINY( TotalLoss ) ) CYCLE
+         WRITE( Message,'(A,I0,A,ES12.3)') 'Body ',j,' : ',BodyLoss(j)
+         CALL Info('MagnetoDynamics', Message, Level=6 )
+      END DO
+ 
+      DEALLOCATE( BodyLoss )      
+   END IF
+      
 CONTAINS
 
 !------------------------------------------------------------------------------
