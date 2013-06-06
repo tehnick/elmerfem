@@ -2200,6 +2200,7 @@ tstart = realtime()
      !
      ! Receive the removal requests and update the neighbour lists (CASE 1):
      !----------------------------------------------------------------------
+     Gorder=>Null()
      DO i = 1, ParEnv % PEs
         IF( i-1 == ParEnv % MyPE ) CYCLE
         IF( .NOT. IsNeighbour(i) ) CYCLE
@@ -2236,14 +2237,14 @@ tstart = realtime()
                  DEALLOCATE( Mesh % ParallelInfo % NeighbourList(j) % Neighbours )
                  ALLOCATE( IntCnts( SIZE(gorder) ) )
                  IntCnts = gorder
-                 DEALLOCATE( gorder )
+                 IF (ASSOCIATED(gorder)) DEALLOCATE( gorder )
                  Mesh % ParallelInfo % NeighbourList(j) % Neighbours => IntCnts
                  !PRINT *,'Updated neighbours:', Mesh % ParallelInfo % NeighbourList(j) % Neighbours+1
                  EXIT
               END IF
            END DO
         END DO
-        DEALLOCATE( IntArray )
+        IF(ASSOCIATED(Intarray)) DEALLOCATE( IntArray )
      END DO     
      !
      ! Make sure that all nodes have a global number:

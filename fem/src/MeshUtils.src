@@ -4939,7 +4939,7 @@ END SUBROUTINE FindNeighbourNodes
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: u(:),v(:),w(:),x(:),y(:),z(:),xh(:)
     INTEGER :: i, j, k, n, NewElCnt, NodeCnt, EdgeCnt, Node, ParentId, Diag
-    LOGICAL :: Found
+    LOGICAL :: Found, EdgesPresent
     TYPE(Element_t), POINTER :: Enew,Eold,Edge,Eptr,Eparent,Face,Faces(:)
     INTEGER, POINTER :: Child(:,:)
     INTEGER :: n1,n2,n3,EoldNodes(4),FaceNodes(4),EdgeNodes(2) ! Only linears so far
@@ -4951,7 +4951,8 @@ END SUBROUTINE FindNeighbourNodes
 
     NewMesh => AllocateMesh()
 
-    CALL FindMeshEdges( Mesh )
+    EdgesPresent = ASSOCIATED(Mesh % Edges)
+    IF(.NOT.EdgesPresent) CALL FindMeshEdges( Mesh )
 
     CALL ResetTimer('SplitMeshEqual')
 
@@ -6310,8 +6311,10 @@ END SUBROUTINE FindNeighbourNodes
 !   Finalize:
 !   ---------
     DEALLOCATE( Child )
-    CALL ReleaseMeshEdgeTables( Mesh )
-    CALL ReleaseMeshFaceTables( Mesh )
+    IF(.NOT.EdgesPresent) THEN
+      CALL ReleaseMeshEdgeTables( Mesh )
+      CALL ReleaseMeshFaceTables( Mesh )
+    END IF
 
 !call writemeshtodisk( NewMesh, "." )
 !stop
