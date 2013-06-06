@@ -134,6 +134,10 @@ END SUBROUTINE StatCurrentSolver_Init
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
+print*,parenv%mype,'enter:',associated(solver%matrix)
+     IF(.NOT.ASSOCIATED(Solver % Matrix)) RETURN
+
+
      Potential     => Solver % Variable % Values
      PotentialPerm => Solver % Variable % Perm
      Params => Solver % Values
@@ -396,11 +400,13 @@ END SUBROUTINE StatCurrentSolver_Init
       END DO   ! Neumann BCs
 !------------------------------------------------------------------------------
 
+print*,parenv%mype,'reduc:';flush(6)
      ! parallel reduction needed
      IF ( ParEnv % PEs > 1) THEN
        MinPotential = ParallelReduction(MinPotential,1)
        MaxPotential = ParallelReduction(MaxPotential,2)
      END IF
+print*,parenv%mype,'reduc done:';flush(6)
 
 !------------------------------------------------------------------------------
 !    FinishAssembly must be called after all other assembly steps, but before

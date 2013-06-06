@@ -1640,6 +1640,10 @@ CONTAINS
     COMPLEX(KIND=dp) :: L_C(3)
     COMPLEX(KIND=dp), ALLOCATABLE :: Load_C(:,:)
 
+    TYPE(Matrix_t), POINTER :: gm
+    INTEGER, ALLOCATABLE :: narr(:)
+    INTEGER :: l,m,ncols,ierr,status(MPI_STATUS_SIZE)
+
     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
     
     SAVE Nodes
@@ -1732,6 +1736,11 @@ CONTAINS
     Jfluxeps = GetCReal(GetSolverParams(), 'J normal eps', Found)
     IF (.NOT. Found) Jfluxeps = 1.0d-2
 
+    IF (ParEnv%Pes>1) THEN
+      gm => AllocateMatrix()
+      gm % Format = MATRIX_LIST
+    END IF
+
     ! At outer boundaries, if J has component normal to the
     ! surface, set Fix_pot=0:
     ! ------------------------------------------------------
@@ -1803,20 +1812,71 @@ CONTAINS
          p = Element % NodeIndexes(k) 
          p = dofs*(Solver % Variable % Perm(p)-1)+j
 
-         ! In parallel apply forcing to zero out the potential as
-         ! there might be single nodes on boundaries in some other
-         ! partitions.
+        ! In parallel collect shared constrained dofs and send to
+         ! other owners...
          ! -------------------------------------------------------
          IF (Parenv % PEs>1) THEN
-           A % RHS(p)=0._dp
-           A % Values(A % Diag(p)) = SUM(ABS(A % Values( &
-                 A % Rows(p):A % Rows(p+1)-1)))*1d10
+           IF(A % ParallelInfo % Interface(p)) THEN
+             DO l=1,SIZE(A % ParallelInfo % Neighbourlist(p) % Neighbours)
+               m=A % ParallelInfo % NeighbourList(p) % Neighbours(l)
+               IF(m/=ParEnv % MyPE) THEN
+                 CALL List_AddToMatrixElement( gm % ListMatrix, m+1, &
+                    A % ParallelInfo % GlobalDOFs(p), 1._dp)
+               ELSE
+                 CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
+               END IF
+             END DO
+           ELSE
+             CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
+           END IF
          ELSE
            CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
          END IF
        END DO
      END DO
     END DO
+
+
+   ! In parallel apply constraints spotted by other partitions
+    ! ---------------------------------------------------------
+    IF(ParEnv % PEs>1) THEN
+      IF(ASSOCIATED(gm % ListMatrix)) CALL List_toCRSMatrix(gm)
+
+      DO i=1,ParEnv % PEs
+        IF(i-1==Parenv % myPE.OR..NOT.ParEnv % Active(i)) CYCLE
+
+        IF(i<=gm % NumberOfRows) THEN
+          ncols=gm % Rows(i+1)-gm % Rows(i)
+          CALL MPI_BSEND(ncols,1,MPI_INTEGER,i-1,2120,MPI_COMM_WORLD,ierr)
+          IF(ncols>0) THEN
+            CALL MPI_BSEND(gm%cols(gm%rows(i):gm%rows(i+1)-1),ncols, &
+                 MPI_INTEGER,i-1,2121,MPI_COMM_WORLD,ierr)
+          END IF
+        ELSE
+           ncols=0
+          CALL MPI_BSEND(ncols,1,MPI_INTEGER,i-1,2120,MPI_COMM_WORLD,ierr)
+        END IF
+      END DO
+
+      CALL FreeMatrix(gm)
+
+      DO i=1,ParEnv % PEs
+        IF(i-1==Parenv % myPE.OR..NOT.ParEnv % Active(i)) CYCLE
+
+        CALL MPI_RECV(ncols,1,MPI_INTEGER,i-1,2120,MPI_COMM_WORLD,status,ierr)
+        IF(ncols>0) THEN
+          ALLOCATE(narr(ncols))
+          CALL MPI_RECV(narr,ncols,MPI_INTEGER,i-1,2121,MPI_COMM_WORLD,status,ierr)
+          DO j=1,ncols
+            k = SearchIAItem(A % NumberOfRows,A % ParallelInfo % GlobalDOFs, narr(j))
+            IF(k>0) THEN
+              CALL CRS_SetSymmDirichlet(A,A % RHS,k,1._dp)
+            END IF
+          END DO
+          DEALLOCATE(narr)
+        END IF
+      END DO
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE BulkAssembly
 !------------------------------------------------------------------------------

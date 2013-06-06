@@ -5170,6 +5170,7 @@ END FUNCTION SearchNodeL
     END INTERFACE
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
 !   If parallel execution, check for parallel matrix initializations
 !------------------------------------------------------------------------------
@@ -5519,8 +5520,8 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
-    LOGICAL :: Relax, Found, ConstrainedSolve, NeedPrevSol, Timing
-    INTEGER :: n,i,j,k,l,istat,nrows,ncols
+    LOGICAL :: Relax, Found, NeedPrevSol, Timing
+    INTEGER :: n,i,j,k,l,istat,nrows,ncols,ConstrainedSolve
     TYPE(Matrix_t), POINTER :: SaveMatrix, Atmp, Btmp
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
     INTEGER(KIND=AddrInt) :: Proc
@@ -5586,22 +5587,20 @@ END FUNCTION SearchNodeL
        IF ( istat /= 0 ) GOTO 10
     END IF
 
-    ConstrainedSolve = .FALSE.
+    ConstrainedSolve = 0
     IF ( ASSOCIATED(A % ConstraintMatrix) )  THEN
       IF ( A % ConstraintMatrix % NumberOFRows>=1 ) & 
-        ConstrainedSolve = .TRUE.
+        ConstrainedSolve = 1
     END IF
 
     IF ( ASSOCIATED(A % AddMatrix) )  THEN
       IF ( A % AddMatrix % NumberOFRows>=1 ) & 
-        ConstrainedSolve = .TRUE.
+        ConstrainedSolve = 1
     END IF
 
-    ConstrainedSolve=.NOT.ConstrainedSolve
-    CALL ParallelAllReduceAnd(ConstrainedSolve)
-    ConstrainedSolve=.NOT.ConstrainedSolve
+    ConstrainedSolve = ParallelReduction(ConstrainedSolve*1._dp)
 
-    IF ( ConstrainedSolve ) THEN
+    IF ( ConstrainedSolve>0 ) THEN
 
       ! if there are several constraint matrices unify:
       ! -----------------------------------------------

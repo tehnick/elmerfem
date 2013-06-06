@@ -1527,8 +1527,11 @@ CONTAINS
            
            IF( TestConvergence .OR. CalculateDerivative ) THEN
              IF ( ParEnv % PEs > 1 ) THEN
-               IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
-                   CALL ComputeChange(Solver,.TRUE., n)
+               IF ( ParEnv % Active(ParEnv % MyPE+1) ) THEN
+                 CALL ComputeChange(Solver,.TRUE., n)
+               ELSE
+                 Solver % Variable % SteadyConverged = 1
+               END IF
              ELSE
                CALL ComputeChange(Solver,.TRUE.)
              END IF
