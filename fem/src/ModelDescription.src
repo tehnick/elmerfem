@@ -1813,6 +1813,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: Name,ElementDef
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir,MeshName
     TYPE(valuelist_t), POINTER :: lst
+    INTEGER, ALLOCATABLE :: EdgeDOFs(:),FaceDOFs(:)
 !------------------------------------------------------------------------------
 
     ALLOCATE( Model )
@@ -2007,6 +2008,20 @@ CONTAINS
           NewMesh => SplitMeshEqual(OldMesh)
         END IF
 
+        IF(ASSOCIATED(OldMesh % Faces)) THEN
+          CALL FindMeshEdges(NewMesh)
+
+          ALLOCATE( EdgeDOFs(NewMesh % NumberOfBulkElements))
+          ALLOCATE( FaceDOFs(NewMesh % NumberOfBulkElements))
+          EdgeDOFs = MAX(0,Def_Dofs(2))
+          FaceDOFs = MAX(0,Def_Dofs(3))
+          CALL SetMeshEdgeFaceDofs(NewMesh,EdgeDOFs,FaceDOFs)
+          DEALLOCATE(EdgeDOFs,FaceDOFs)
+
+          CALL SetMeshMaxDofs(NewMesh)
+          IF(ParEnv % PEs>1) CALL SParEdgeNumbering(NewMesh)
+          IF(ParEnv % PEs>1) CALL SParFAceNumbering(NewMesh)
+        END IF
 
         IF ( i>MeshLevels-MeshKeep+1 ) THEN
           NewMesh % Next => OldMesh
@@ -2154,6 +2169,21 @@ CONTAINS
             DEALLOCATE(h)
           ELSE
             NewMesh => SplitMeshEqual(OldMesh)
+          END IF
+
+          IF(ASSOCIATED(OldMesh % Faces)) THEN
+            CALL FindMeshEdges(NewMesh)
+
+            ALLOCATE( EdgeDOFs(NewMesh % NumberOfBulkElements))
+            ALLOCATE( FaceDOFs(NewMesh % NumberOfBulkElements))
+            EdgeDOFs = MAX(0,Def_Dofs(2))
+            FaceDOFs = MAX(0,Def_Dofs(3))
+            CALL SetMeshEdgeFaceDofs(NewMesh,EdgeDOFs,FaceDOFs)
+            DEALLOCATE(EdgeDOFs,FaceDOFs)
+
+            CALL SetMeshMaxDofs(NewMesh)
+            IF(ParEnv % PEs>1) CALL SParEdgeNumbering(NewMesh)
+            IF(ParEnv % PEs>1) CALL SParFAceNumbering(NewMesh)
           END IF
 
           IF ( i>MeshLevels-MeshKeep+1 ) THEN

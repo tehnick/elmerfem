@@ -5152,14 +5152,9 @@ END SUBROUTINE FindNeighbourNodes
        CASE(8)
           NewElCnt = NewElCnt + 8 ! hexas
        END SELECT
-
     END DO
+
     CALL AllocateVector( NewMesh % Elements, NewElCnt )
-    DO i=1,NewELCnt
-      NewMesh % Elements(i) % EdgeIndexes => NULL()
-      NewMesh % Elements(i) % FaceIndexes => NULL()
-    END DO
-
     CALL AllocateArray( Child, Mesh % NumberOfBulkElements, 8 )
     NewElCnt = 0
     NodeCnt = Mesh % NumberOfNodes
@@ -6249,9 +6244,21 @@ END SUBROUTINE FindNeighbourNodes
     NewMesh % MaxElementDOFs  = Mesh % MaxElementDOFs
     NewMesh % MaxElementNodes = Mesh % MaxElementNodes
 
+    j = 0
     DO i=1,NewMesh % NumberOfBulkElements+NewMesh % NumberOfBoundaryElements
-      NULLIFY( NewMesh % Elements(i) % EdgeIndexes )
-      NULLIFY( NewMesh % Elements(i) % FaceIndexes )
+      IF ( NewMesh % Elements(i) % DGDOFs>0 ) THEN
+        ALLOCATE(NewMesh % Elements(i) % DGIndexes(NewMesh % Elements(i) % DGDOFs))
+        DO k=1,NewMesh % Elements(i) % DGDOFs
+          j = j + 1
+          NewMesh % Elements(i) % DGIndexes(k)=j
+        END DO
+      ELSE
+        NewMesh % Elements(i) % DGIndexes=>Null()
+      END IF
+      NewMesh % Elements(i) % PDefs => Null()
+      NewMesh % Elements(i) % EdgeIndexes => Null()
+      NewMesh % Elements(i) % FaceIndexes => Null()
+      NewMesh % Elements(i) % BubbleIndexes => Null()
     END DO
 
     CALL Info( 'SplitMeshEqual', '******** New mesh ********', Level=6 )
