@@ -246,7 +246,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->metis = 0;
   eg->partopt = 0;
   eg->partoptim = FALSE;
-  eg->partbcoptim = FALSE;
+  eg->partbcoptim = TRUE;
   eg->partjoin = 0;
   eg->partitionhalo = FALSE;
   eg->partitionindirect = FALSE;
@@ -255,6 +255,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->translate = FALSE;
   eg->isoparam = FALSE;
   eg->removelowdim = FALSE;
+  eg->removeintbcs = FALSE;
   eg->removeunused = FALSE;
   eg->dim = 3;
   eg->center = FALSE;
@@ -541,6 +542,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       printf("Lower dimensional boundaries will be removed\n");
     }   
 
+    if(strcmp(argv[arg],"-removeintbcs") == 0) {
+      eg->removeintbcs = TRUE;
+      printf("Lower dimensional boundaries will be removed\n");
+    }   
+
     if(strcmp(argv[arg],"-removeunused") == 0) {
       eg->removeunused = TRUE;
       printf("Nodes that do not appear in any element will be removed\n");
@@ -632,9 +638,9 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       eg->partoptim = TRUE;
       printf("Aggressive optimization will be applied to node sharing.\n");
     }
-    if(strcmp(argv[arg],"-partbcoptim") == 0) {
-      eg->partbcoptim = TRUE;
-      printf("Aggressive optimization will be applied to parent element sharing.\n");
+    if(strcmp(argv[arg],"-partnobcoptim") == 0) {
+      eg->partbcoptim = FALSE;
+      printf("Aggressive optimization will not be applied to parent element sharing.\n");
     }
     if(strcmp(argv[arg],"-partbw") == 0) {
       eg->partbw = TRUE;
@@ -1220,6 +1226,10 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     else if(strstr(command,"REMOVE LOWER DIMENSIONAL BOUNDARIES")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
       if(strstr(params,"TRUE")) eg->removelowdim = TRUE; 
+    }
+    else if(strstr(command,"REMOVE INTERNAL BOUNDARIES")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->removeintbcs = TRUE; 
     }
     else if(strstr(command,"REMOVE UNUSED NODES")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);

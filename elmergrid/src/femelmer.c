@@ -2884,7 +2884,6 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
       for(i=1;i<=noelements;i++)
 	maxconset = MIN( maxconset, data->elemconnect[i] );
       maxconset = -maxconset;
-      printf("maxconset = %d\n",maxconset);
       nn = noelements - data->elemconnectexist;
       nparts -= maxconset;
     }
@@ -3280,17 +3279,17 @@ static void CheckPartitioning(struct FemType *data,int info)
 
 int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryType *bound,int info)
 {
-  int i,j,k,l,n,m,boundaryelems,ind,periodic,hit,hit2;
+  int i,j,k,l,n,m,boundaryelems,ind,periodic,hit1,hit2,fix1,fix2;
   int dompart,part1,part2,newmam,mam1,mam2,part,discont,nodesd2;
   int *alteredparent;
 
 
   if(!data->partitionexist) {
-    printf("OptimizePartitioningAtDap: this should be called only after partitioning\n");
+    printf("OptimizePartitioningAtBoundary: this should be called only after partitioning\n");
     bigerror("Optimization not performed!");
   }
 
-  if(1) printf("Optimizing the partitioning at boundaries.\n");
+  if(info) printf("Optimizing the partitioning at boundaries.\n");
 
   /* Memorize the original parent */
   alteredparent = Ivector(1,data->noelements);
@@ -3315,40 +3314,50 @@ int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryType *bou
 	mam1 = bound[j].parent[i];
 	mam2 = abs(bound[j].parent2[i]);
 	if(!mam1 || !mam2) continue;
+
 	part1 = data->elempart[mam1];
 	part2 = data->elempart[mam2];
 	if(part1 == part2) continue;
-
-	hit = bound[j].types[i];
-	if( hit == 5 || hit == 105 ) {
-	  printf("mams: %d %d %d %d %d\n",mam1,mam2,part1,part2,bound[j].types[i]);
+	       
+	/* Check if both nodes are enforced to be fixed */
+	if( data->elemconnectexist ) {
+	  fix1 = ( data->elemconnect[mam1] < 0 );
+	  fix2 = ( data->elemconnect[mam2] < 0 );
+	  if( fix1 && fix2 ) continue;
+	}
+	else {
+	  fix1 = fix2 = 0;
 	}
 
 	/* The first iterations check which parents is ruling 
 	   thereafter choose pragmatically the other to overcome
 	   oscillating solutions. */
+	if(fix1 || fix2 ) {
+	}
 	if(k < 5) {
-	  hit = hit2 = 0;
+	  hit1 = hit2 = 0;
 	  nodesd2 = data->elementtypes[mam1] % 100;
 	  for(l=0;l < nodesd2;l++) {
 	    ind = data->topology[mam1][l];
-	    if(data->nodepart[ind] == part1) hit++;
+	    if(data->nodepart[ind] == part1) hit1++;
 	    if(data->nodepart[ind] == part2) hit2++;
 	  }
 	  nodesd2 = data->elementtypes[mam2] % 100;    
 	  for(l=0;l < nodesd2;l++) {
 	    ind = data->topology[mam2][l];
-	    if(data->nodepart[ind] == part1) hit++;
+	    if(data->nodepart[ind] == part1) hit1++;
 	    if(data->nodepart[ind] == part2) hit2++;
 	  }	  
+	  fix1 = ( hit1 >= hit2 );
+	  fix2 = !fix1;
 	} 
 	else {
-	  hit2 = 0;
-	  hit = 1;
+	  fix1 = TRUE;
+	  fix2 = FALSE;
 	}   
 
 	/* Make the more ruling parent dominate the whole boundary */
-	if(hit > hit2) {
+	if(fix1) {
 	  dompart = part1;
 	  newmam = mam2;
 	}

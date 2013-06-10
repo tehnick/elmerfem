@@ -344,6 +344,7 @@ struct ElmergridType {
     reduce,
     removelowdim,
     removeunused,
+    removeintbcs,
     increase,
     reducemat1,
     reducemat2,

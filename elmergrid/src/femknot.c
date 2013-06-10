@@ -4344,7 +4344,46 @@ int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *b
   return(0);
 }  
   
+int RemoveInternalBoundaries(struct FemType *data,struct BoundaryType *bound,int info)
+{
+  int i,j,k,l;
+  int parent,parent2;
+  int nosides,oldnosides,newnosides;
+    
+  if(info) printf("Removing internal boundaries\n");
+  
+  if( data->noelements < 1 ) return(1);
 
+  oldnosides = 0;
+  newnosides = 0;
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    nosides = 0;
+    if(!bound[j].created) continue;
+    for(i=1;i<=bound[j].nosides;i++) {
+
+      oldnosides++;
+      parent =  bound[j].parent[i];
+      parent2 = bound[j].parent2[i];
+
+      if( parent > 0 && parent2 > 0 ) continue;
+      
+      nosides++;      
+      if(nosides == i) continue;
+
+      bound[j].parent[nosides] = bound[j].parent[i];
+      bound[j].parent2[nosides] = bound[j].parent2[i];
+      bound[j].side[nosides] = bound[j].side[i];
+      bound[j].side2[nosides] = bound[j].side2[i];
+      bound[j].types[nosides] = bound[j].types[i];
+    }
+    bound[j].nosides = nosides;
+    newnosides += nosides;
+  }
+
+  if(info) printf("Removed %d (out of %d) internal boundary elements\n",
+		  oldnosides-newnosides,oldnosides);
+  return(0);
+}  
 
 
 static void FindEdges(struct FemType *data,struct BoundaryType *bound,
@@ -9694,9 +9733,11 @@ int CreateDualGraph(struct FemType *data,int unconnected,int info)
   data->dualmaxconnections = dualmaxcon;
   data->dualexists = TRUE;
   
-  if(info) printf("There are at maximum %d connections in dual graph.\n",dualmaxcon);
-  if(info) printf("There are at all in all %d connections in dual graph.\n",totcon);
-  
+  if(info) {
+    printf("There are at maximum %d connections in dual graph.\n",dualmaxcon);
+    printf("There are at all in all %d connections in dual graph.\n",totcon);
+  }  
+
   /* Inverse topology is created for partitioning only and then the direct
      topology is needed elsewhere as well. Do do not destroy it. */ 
   if(0) DestroyInverseTopology(data,info);

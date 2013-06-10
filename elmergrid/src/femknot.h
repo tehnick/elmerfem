@@ -103,6 +103,7 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 			      Real *layerratios, Real *layerthickness, int *layerparents,int info);
 int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info);
 int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
+int RemoveInternalBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
 int CreateNodalGraph(struct FemType *data,int full,int info);
 int DestroyNodalGraph(struct FemType *data,int info);
 int CreateDualGraph(struct FemType *data,int unconnected,int info);

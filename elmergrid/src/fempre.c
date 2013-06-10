@@ -143,6 +143,7 @@ static void Instructions()
   printf("-bcoffset int        : add an offset to the boundary conditions\n");
   printf("-discont int         : make the boundary to have secondary nodes\n");
   printf("-connect int         : make the boundary to have internal connection among its elements\n");
+  printf("-removeintbcs        : remove internal boundaries if they are not needed\n");
   printf("-removelowdim        : remove boundaries that are two ranks lower than highest dim\n");
   printf("-removeunused        : remove nodes that are not used in any element\n");
   printf("-bulkorder           : renumber materials types from 1 so that every number is used\n");
@@ -784,6 +785,10 @@ int main(int argc, char *argv[])
   if(eg.removelowdim) 
     for(k=0;k<nomeshes;k++)
       RemoveLowerDimensionalBoundaries(&data[k],boundaries[k],info);
+
+  if(eg.removeintbcs) 
+    for(k=0;k<nomeshes;k++)
+      RemoveInternalBoundaries(&data[k],boundaries[k],info);
 
   if(eg.removeunused) 
     for(k=0;k<nomeshes;k++)
