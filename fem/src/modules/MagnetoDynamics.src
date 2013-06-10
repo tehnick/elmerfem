@@ -287,21 +287,10 @@ SUBROUTINE WhitneyAVSolver_Init0(Model,Solver,dt,Transient)
     IF ( Transient ) THEN
       CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
     ELSE
-      FixJ=GetLogical( SolverParams,'Fix input Current Density',Found)
-      IF (.NOT.Found.AND..NOT.Transient) FixJ=.TRUE.
-      IF(FixJ) CALL ListAddString( SolverParams, &
-              "Exported Variable 1", "-nooutput Jfix" )
-
-      IF (Transient.OR.FixJ) THEN
-        CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
-      ELSE
-        CALL ListAddString( SolverParams, "Element", "n:0 e:1" )
-      END IF
-    ENDIF
+      CALL ListAddString( SolverParams, "Element", "n:0 e:1" )
+    END IF
   END IF
-
   CALL ListAddLogical( SolverParams,'Use Global Mass Matrix',.TRUE.) 
-
 !------------------------------------------------------------------------------
 END SUBROUTINE WhitneyAVSolver_Init0
 !------------------------------------------------------------------------------
@@ -350,7 +339,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   LOGICAL :: Stat, EigenAnalysis, TG, DoneAssembly=.FALSE., &
          SkipAssembly, ConstantSystem, ConstantBulk, FixJ
 
-  TYPE(Variable_t), POINTER :: Var
+  TYPE(Variable_t), POINTER :: Var, FixJVar
   TYPE(Matrix_t), POINTER :: A
   TYPE(ListMatrix_t), POINTER :: BasicCycles(:)
 
@@ -384,7 +373,10 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 
   FixJ=GetLogical(GetSolverParams(),'Fix input Current Density', Found)
   IF (.NOT. Found.AND..NOT.Transient ) FixJ=.TRUE.
-  IF (FixJ) CALL JfixPotentialSolver(Model,Solver,dt,Transient)
+  IF (FixJ) THEN
+    CALL JfixPotentialSolver(Model,Solver,dt,Transient)
+    FixJVar => VariableGet(Mesh % Variables, 'Jfix')
+  END IF
 
   ! 
   ! Use vec.pot. dofs only for convergence:
@@ -397,6 +389,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   NoIterations = GetInteger( GetSolverParams(), &
               'Nonlinear System Max Iterations',Found)
   IF(.NOT. Found) NoIterations = 1
+
 
   DO i=1,NoIterations
     IF( DoSolve() ) EXIT
@@ -527,9 +520,11 @@ CONTAINS
     IF (.NOT. Found ) THEN
       DO i=1,Mesh % NumberOfNodes
         J = Solver % Variable % Perm(i)
-        CALL ZeroRow(A,j)
-        CALL SetMatrixElement(A,j,j,1._dp)
-        A % RHS(j)=0._dp
+        IF(J>0) THEN
+          CALL ZeroRow(A,j)
+          CALL SetMatrixElement(A,j,j,1._dp)
+          A % RHS(j)=0._dp
+        END IF
       END DO
     END IF
   END IF
@@ -539,6 +534,7 @@ CONTAINS
   ! ---------------------------------------------
   CALL DefaultDirichletBCs()
 
+call mpi_barrier(MPI_COMM_WORLD,i)
   !
   ! Dirichlet BCs in terms of magnetic flux density B:
   ! --------------------------------------------------
@@ -571,7 +567,7 @@ CONTAINS
         'Linear System Refactorize', .TRUE. )
   END IF
 
-    Norm = DefaultSolve()
+  Norm = DefaultSolve()
 
   IF ( Found .AND. dt /= PrevDT ) THEN
     CALL ListAddLogical( GetSolverParams(), &
@@ -681,6 +677,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: NodeList(:)
     TYPE(Element_t), POINTER :: Edge, Boundary
 !------------------------------------------------------------------------------
+
     IF ( .NOT. ALLOCATED(TreeEdges) ) THEN
       ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges = .FALSE.
     END IF
@@ -966,7 +963,9 @@ CONTAINS
     Newton = .FALSE.
 
     FixJpot = 0._dp
-    IF (FixJ) CALL GetScalarLocalSolution(FixJPot,'Jfix')
+    IF (FixJ) THEN
+      FixJPot(1:n) = FixJVar % Values(FixJVar % Perm(Element % NodeIndexes))
+    END IF
 
     CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
     IF ( ASSOCIATED(HB) ) THEN
@@ -1293,6 +1292,7 @@ CONTAINS
     ! Make gauge tree for the boundary:
     ! ---------------------------------
     CALL GaugeTreeFluxBC()
+
     WRITE(Message,*) 'Boundary tree edges: ', &
       TRIM(i2s(COUNT(TreeEdges(FluxMap)))),   &
              ' of total: ',TRIM(i2s(FluxCount))
@@ -1576,33 +1576,60 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
 !    Local variables
 !------------------------------------------------------------------------------
   TYPE(ValueList_t),POINTER :: SolverParams
-  INTEGER :: i,j,dim,dofs
+  INTEGER :: i,j,n,m,dim,dofs
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Matrix_t), POINTER :: A
+  TYPE(Matrix_t), POINTER :: A,B
   REAL(KIND=dp) :: Norm
   LOGICAL:: Found
+  INTEGER, ALLOCATABLE :: Def_Dofs(:,:)
+  CHARACTER(LEN=MAX_NAME_LEN):: Equation
+  INTEGER, POINTER :: Perm(:)
   REAL(KIND=dp), POINTER :: fixpot(:)
   TYPE(Variable_t), POINTER :: fixJpot, svar
   
   dim = CoordinateSystemDimension()
   Mesh => GetMesh()
-  A => GetMatrix()
+  B => GetMatrix()
   SolverParams => GetSolverParams()
 
+  ALLOCATE(Perm(SIZE(Solver % Variable % Perm)))
+  Perm = 0
   dofs = Solver % Variable % DOFs
+
+  Equation=GetString(SolverParams,'Equation',Found)
+
+  n=SIZE(Solver % Def_Dofs,1)
+  m=SIZE(Solver % Def_Dofs,2)
+  ALLOCATE(Def_Dofs(n,m))
+  Def_Dofs=Solver % Def_Dofs
+  Solver % Def_Dofs=0
+  Solver % Def_Dofs(:,1)=1
+
+  A => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
+     Perm, dofs, MATRIX_CRS, .TRUE., Equation, .FALSE., .FALSE.)
+  n = A % NumberOfRows
+  IF (dofs>1) A % Complex = .TRUE.
 
   fixJpot => VariableGet( Mesh % Variables, 'Jfix')
   IF (.NOT.ASSOCIATED(fixJPot)) THEN
-    ALLOCATE(fixpot(SIZE(Solver % Variable % Values)))
+    ALLOCATE(fixpot(n)); fixpot=0._dp
+
     CALL VariableAddVector( Mesh % Variables, Mesh, &
-          Solver,'Jfix',dofs,fixpot,Solver % Variable % Perm,Output=.FALSE. )
+          Solver,'Jfix',dofs,fixpot,Perm,Output=.FALSE. )
+
     fixJpot => VariableGet(Mesh % Variables, 'Jfix')
   END IF
 
   svar => Solver % Variable
   Solver % Variable => fixJpot
 
+  Solver % Matrix => A
+  ALLOCATE(A % RHS(n))
+  IF(ParEnv % PEs>1) CALL ParallelInitMatrix(Solver,A)
+
   CALL ListSetNameSpace('jfix:')
+  CALL ListAddLogical(SolverParams,'Jfix: Linear System Use HYPRE', .FALSE.)
+
   IF (.NOT.ListCheckPresent(SolverParams,'Jfix: Linear System Preconditioning')) &
     CALL ListAddString(SolverParams,'Jfix: Linear System Preconditioning', 'Ilu')
 
@@ -1616,8 +1643,13 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
   CALL DefaultDirichletBCs()
 
   Norm = DefaultSolve()
+
+  Solver % Matrix => B
   Solver % Variable => svar
   CALL ListSetNameSpace('')
+
+  CALL FreeMatrix(A)
+  Solver % Def_Dofs=Def_Dofs
   
 CONTAINS
 
@@ -1661,8 +1693,9 @@ CONTAINS
       ! ---------------------
       Element => GetActiveElement(elem)
       CALL GetElementNodes( Nodes )
-      nd = GetElementNOFDOFs()
       n  = GetElementNOFNodes()
+      nd = n
+
 
       IF (A % COMPLEX ) THEN
         Load_C =0._dp
@@ -1753,8 +1786,8 @@ CONTAINS
      P1 => Element % BoundaryInfo % Left
      P2 => Element % BoundaryInfo % Right
      IF(ASSOCIATED(P1).AND.ASSOCIATED(P2)) THEN
-       IF (ALL(Solver % Variable % Perm(P1 % NodeIndexes)>0).AND.&
-           ALL(Solver % Variable % Perm(P2 % NodeIndexes)>0)) CYCLE
+       IF (ALL(Perm(P1 % NodeIndexes)>0).AND.&
+           ALL(Perm(P2 % NodeIndexes)>0)) CYCLE
      ELSE IF (.NOT.ASSOCIATED(P1).AND..NOT.ASSOCIATED(P2)) THEN
        CYCLE
      END IF
@@ -1810,7 +1843,7 @@ CONTAINS
      DO j=1,dofs
        DO k=1,n
          p = Element % NodeIndexes(k) 
-         p = dofs*(Solver % Variable % Perm(p)-1)+j
+         p = dofs*(Perm(p)-1)+j
 
         ! In parallel collect shared constrained dofs and send to
          ! other owners...
@@ -1835,7 +1868,6 @@ CONTAINS
        END DO
      END DO
     END DO
-
 
    ! In parallel apply constraints spotted by other partitions
     ! ---------------------------------------------------------
@@ -1906,8 +1938,8 @@ SUBROUTINE WhitneyAVHarmonicSolver_Init0(Model,Solver,dt,Transient)
   IF ( .NOT.ListCheckPresent(SolverParams, "Element") ) THEN
     CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
   END IF
-  CALL ListAddString( SolverParams, "Exported Variable 1", &
-               "-dofs 2 -nooutput Jfix" )
+! CALL ListAddString( SolverParams, "Exported Variable 1", &
+!              "-dofs 2 -nooutput Jfix" )
 !------------------------------------------------------------------------------
 END SUBROUTINE WhitneyAVHarmonicSolver_Init0
 !------------------------------------------------------------------------------
@@ -3522,8 +3554,8 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        Magnetization(2,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
               GetReal( Material,'Magnetization 2 im', Found ), KIND=dp )
 
-       Magnetization(3,1:n) = GetReal( Material,'Magnetization 3', Found )
-       Magnetization(3,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+       Magnetization(3,3:n) = GetReal( Material,'Magnetization 3', Found )
+       Magnetization(3,3:n) = CMPLX( REAL(Magnetization(1,1:n)), &
               GetReal( Material,'Magnetization 3 im', Found ), KIND=dp )
      END IF
 
