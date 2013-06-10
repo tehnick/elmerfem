@@ -1139,9 +1139,10 @@ END SUBROUTINE ZeroSplittedMatrix
 !----------------------------------------------------------------------
 !> Create continuous numbering for the dofs expected by some linear solvers.
 !----------------------------------------------------------------------
-  SUBROUTINE ContinuousNumbering(ParallelInfo, Mperm, Aperm, Owner )
+  SUBROUTINE ContinuousNumbering(ParallelInfo, Mperm, Aperm, Owner, nin )
 !--------------------------------------------------------------------
      INTEGER :: Mperm(:), Aperm(:), Owner(:)
+     INTEGER, OPTIONAL :: nin
      TYPE(ParallelInfo_t) :: ParallelInfo
 
      INTEGER, ALLOCATABLE :: neigh(:), sz(:),buf_a(:,:),buf_g(:,:), &
@@ -1152,7 +1153,11 @@ END SUBROUTINE ZeroSplittedMatrix
      INTEGER :: i,j,k,src,n,nob,gind,ssz,status(MPI_STATUS_SIZE),ierr
 
      Owner = 0; Aperm = 0;
-     n = SIZE(ParallelInfo % GlobalDOFs)
+     IF(PRESENT(nin)) THEN
+       n=nin
+     ELSE
+       n = SIZE(ParallelInfo % GlobalDOFs)
+     END IF
  
      DO min_id=0,Parenv % PEs-1
        IF ( ParEnv % Active(min_id+1) ) EXIT
@@ -1325,7 +1330,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
   INTEGER, ALLOCATABLE :: Owner(:), Aperm(:)
 
-  INTEGER, POINTER :: nb(:)
+  REAL(KIND=dp), POINTER :: Vals(:)
+  INTEGER, POINTER :: nb(:), Rows(:), Cols(:)
 
   LOGICAL :: NeedMass, NeedDamp, NeedPrec,Found
   LOGICAL :: NewSetup
@@ -1337,6 +1343,11 @@ integer,allocatable::revdoflist(:)
 integer::inside
 
 #ifdef HAVE_HYPRE
+    TYPE(Matrix_t), POINTER :: GM
+    INTEGER:: nnd,ind(2)
+    REAL(KIND=dp), ALLOCATABLE :: xx_d(:),yy_d(:),zz_d(:)
+    INTEGER, ALLOCATABLE :: nodeowner(:),nodeperm(:),bperm(:)
+
     INTERFACE
       !! original C function, does everything
       SUBROUTINE SolveHYPRE( n, Rows, Cols, Vals, Perm, INVPerm, GDOFs, &
@@ -1382,6 +1393,20 @@ integer::inside
         USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=C_INTPTR_T) :: hypreContainer
       END SUBROUTINE SolveHYPRE4
+
+
+      SUBROUTINE SolveHypreAMS(nrows,rows,cols,vals,n,grows,gcols,gvals, &
+         perm, invperm, globaldofs, owner, Bperm,nodeowner,xvec, rhsvec, pe, ILUn, rounds, &
+            TOL, xx_d, yy_d, zz_d, hypremethod, hypre_intpara, hypre_dppara,verbosity,hyprecontainer )
+
+        USE, INTRINSIC :: iso_c_binding
+        INTEGER(KIND=c_int) :: nrows, n, Rows(*), Cols(*), Perm(*), INVPerm(*), &
+                   Grows(*), gcols(*), PE, Owner(*), Rounds, ILUn, hypremethod, &
+                   symmetry, maxlevel, hypre_intpara(10),bperm(*),nodeOwner(*),globaldofs(*),verbosity
+        REAL(KIND=c_double) :: Vals(*),Xvec(*),RHSvec(*),TOL,threshold,filter, &
+                            hypre_dppara(5), Gvals(*), xx_d(*), yy_d(*), zz_d(*)
+        INTEGER(KIND=C_INTPTR_T) :: hypreContainer
+      END SUBROUTINE SolveHYPREAMS
 
     END INTERFACE
 #endif
@@ -1440,9 +1465,13 @@ integer::inside
   ParEnv % ActiveComm = SourceMatrix % Comm
   SplittedMatrix => SParMatrixDesc % SplittedMatrix
 
+  Rows => SourceMatrix % Rows
+  Cols => SourceMatrix % Cols
+  Vals => SourceMatrix % Values
+
   !******************************************************************
 
-  Params => CurrentModel % Solver % Values
+  Params => Solver % Values
 
 #ifdef HAVE_HYPRE
     IF (ListGetLogical(Params,'Linear System Use HYPRE', Found )) THEN
@@ -1487,6 +1516,9 @@ integer::inside
          ELSE IF( Prec(1:9) == 'boomeramg' ) THEN
            CALL Info("SParIterSolver", "Preconditioner: boomerAMG",Level=3)
            hypre_pre = 2
+         ELSE IF( Prec(1:3) == 'ams' ) THEN
+           CALL Info("SParIterSolver", "Preconditioner: AMS",Level=3)
+           hypre_pre = 3
          ELSE IF( Prec(1:4) == 'none' ) THEN
            hypre_pre = 9
          END IF
@@ -1533,7 +1565,7 @@ integer::inside
              'ParaSails Maxlevel', Found )
          IF ( .NOT. Found ) hypre_intpara(2) = 1;
 
-      ELSE IF ( (hypre_pre == 2) .OR. (hypre_sol == 1) ) THEN
+      ELSE IF ( hypre_pre == 2 .OR. hypre_pre==3 .OR. hypre_sol == 1 ) THEN
          hypre_intpara(1) = ListGetInteger( Params, &
              'BoomerAMG Relax Type', Found )
          IF (.NOT.Found) hypre_intpara(1) = 3
@@ -1590,6 +1622,7 @@ integer::inside
       n = SIZE(ParallelInfo % GlobalDOFs)
       ALLOCATE( Owner(n), Aperm(n) )
       CALL ContinuousNumbering(ParallelInfo,SourceMatrix % Perm,APerm,Owner)
+
       ! ------------------------------------------------------------
       verbosity = ListGetInteger( CurrentModel % Simulation,'Max Output Level',Found )
       IF( .NOT. Found ) verbosity = 10
@@ -1601,26 +1634,69 @@ integer::inside
         bilu = 1
       END IF
 
-      IF (NewSetup) THEN
-        IF (SourceMatrix % Hypre /= 0) THEN
-          CALL SolveHYPRE4(SourceMatrix % Hypre)
+      IF(hypre_pre/=3) THEN
+        IF (NewSetup) THEN
+          IF (SourceMatrix % Hypre /= 0) THEN
+            CALL SolveHYPRE4(SourceMatrix % Hypre)
+          END IF
         END IF
-      END IF
-      ! setup solver/preconditioner
-      IF (SourceMatrix % Hypre == 0) THEN
-        CALL SolveHYPRE1( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
-            SourceMatrix % Cols, SourceMatrix % Values, Aperm, Owner, &
-            ILUn, BILU, hypremethod,hypre_intpara, hypre_dppara,&
-            verbosity, SourceMatrix % Hypre)        
-      END IF
+        ! setup solver/preconditioner
+        IF (SourceMatrix % Hypre == 0) THEN
+          CALL SolveHYPRE1( SourceMatrix % NumberOfRows, Rows, Cols, Vals, &
+              Aperm, Owner,  ILUn, BILU, hypremethod,hypre_intpara, hypre_dppara,&
+              verbosity, SourceMatrix % Hypre)        
+        END IF
 
-      ! solve using previously computed HYPRE data structures.
-      ! NOTE: this is only correct if the matrix has not changed,
-      ! otherwise we should use the SolveHYPRE3 function, which is
-      ! not implemented, yet. This function will not update the matrix
-      ! in the solver and thus solve an old system if A has changed. 
-      CALL SolveHYPRE2( SourceMatrix % NumberOfRows, Aperm, Owner, Xvec, RHSvec, &
-          Rounds, TOL, verbosity, SourceMatrix % Hypre )
+        ! solve using previously computed HYPRE data structures.
+        ! NOTE: this is only correct if the matrix has not changed,
+        ! otherwise we should use the SolveHYPRE3 function, which is
+        ! not implemented, yet. This function will not update the matrix
+        ! in the solver and thus solve an old system if A has changed. 
+        CALL SolveHYPRE2( SourceMatrix % NumberOfRows, Aperm, Owner, Xvec, RHSvec, &
+                     Rounds, TOL, verbosity, SourceMatrix % Hypre )
+      ELSE
+        nnd = Solver % Mesh % NumberOfNodes
+        ALLOCATE( NodeOwner(nnd), NodePerm(nnd), Bperm(nnd))
+        DO i=1,nnd
+          NodePerm(i)=i
+        END DO
+
+        CALL ContinuousNumbering( Solver % Mesh % ParallelInfo, &
+                    NodePerm, BPerm, NodeOwner, nnd)
+
+        GM => AllocateMatrix()
+        GM % Format = MATRIX_LIST
+
+        DO i=Solver % Mesh % NumberofEdges,1,-1
+          ind=Solver % Mesh % Edges(i) % NodeIndexes
+          IF (Solver % Mesh % ParallelInfo % GlobalDOFs(ind(1))> &
+              Solver % Mesh % ParallelInfo % GlobalDOFs(ind(2))) THEN
+            k=ind(1); ind(1)=ind(2);ind(2)=k
+          END IF
+          CALL List_AddToMatrixElement(gm%listmatrix,i,ind(1),-1._dp)
+          CALL List_AddToMatrixElement(gm%listmatrix,i,ind(2), 1._dp)
+        end do
+        CALL List_tocrsMatrix(gm)
+
+        nnd = Solver % Mesh % NumberOfEdges
+        ALLOCATE(xx_d(nnd),yy_d(nnd),zz_d(nnd) )
+        CALL CRS_MatrixVectorMultiply(gm,Solver % Mesh % Nodes % x,xx_d)
+        CALL CRS_MatrixVectorMultiply(gm,Solver % Mesh % Nodes % y,yy_d)
+        CALL CRS_MatrixVectorMultiply(gm,Solver % Mesh % Nodes % z,zz_d)
+
+        nnd = Solver % Mesh % NumberOfNodes
+        CALL SolveHYPREAMS( SourceMatrix % NumberOfRows, Rows, Cols, Vals, &
+              nnd,GM % Rows,GM % Cols,GM % Values,Aperm,Aperm,Aperm,Owner, &
+              Bperm,NodeOwner,Xvec,RHSvec,ParEnv % myPE, ILUn,Rounds,TOL,  &
+              xx_d,yy_d,zz_d,hypremethod,hypre_intpara, hypre_dppara,verbosity, &
+              SourceMatrix % Hypre)
+
+        DEALLOCATE(GM % Rows) 
+        DEALLOCATE(GM % Cols) 
+        DEALLOCATE(GM % Diag) 
+        DEALLOCATE(GM % Values) 
+        DEALLOCATE(GM)
+      END IF
       
       DEALLOCATE( Owner, Aperm )
 
@@ -2015,7 +2091,7 @@ REAL(kind=dp)::cputime,realtime,tt,rt
       SCols => CM % Cols
       ALLOCATE(CM % Cols(SIZE(SCols)))
       CM % Cols = SPerm(SCols)
-      DEALLOCATE(SPerm)
+      SplittedMatrix % InsideMatrix % Perm => SPerm
       SplittedMatrix % InsideMatrix % ConstraintMatrix => CM
      END IF
 
@@ -2026,6 +2102,8 @@ REAL(kind=dp)::cputime,realtime,tt,rt
     IF (ASSOCIATED(CM)) THEN
       DEALLOCATE(CM % Cols)
       CM % Cols => SCols
+      DEALLOCATE(SPerm)
+      SplittedMatrix % InsideMatrix % Perm => Null()
       SplittedMatrix % InsideMatrix % ConstraintMatrix => Null()
     END IF
   ELSE

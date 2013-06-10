@@ -1045,4 +1045,265 @@ void STDCALLBULL FC_FUNC(solvehypre4,SOLVEHYPRE4)(int** ContainerPtr) {
    *ContainerPtr = NULL;
 }
 
+void STDCALLBULL FC_FUNC(solvehypreams,SOLVEHYPREAMS)
+ (
+  int *nrows,int *rows, int *cols, double *vals, int *nnodes,
+  int *grows, int *gcols, double *gvals, int *perm,
+  int *invperm, int *globaldofs, int *owner,  int *globalnodes, 
+  int *nodeowner, double *xvec,
+  double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL,
+  double *xx_d, double *yy_d, double *zz_d, 
+  int *hypre_method, int *hypre_intpara, double *hypre_dppara,
+  int *verbosityPtr, int** ContainerPtr
+ )
+{
+   int i, j, k, *rcols;
+   int myid, num_procs;
+   int N, n;
+
+   int ilower, iupper, nlower, nupper;
+   int local_size, local_nodes, extra;
+
+   int solver_id;
+   int print_solution, print_system;
+
+   double  *txvec, st, realtime_();
+
+   HYPRE_ParCSRMatrix parcsr_A,parcsr_G;
+   HYPRE_IJMatrix A,G;
+   HYPRE_IJVector b;
+   HYPRE_ParVector par_b;
+   HYPRE_IJVector x;
+   HYPRE_ParVector par_x;
+   HYPRE_IJVector xx,yy,zz;
+   HYPRE_ParVector par_xx,par_yy,par_zz;
+
+   HYPRE_Solver solver, precond;
+   int verbosity = 10;
+   
+   st  = realtime_();
+   /* How many rows do I have? */
+   local_size = *nrows;
+   local_nodes = *nnodes;
+
+   ilower=1000000000;
+   iupper=0;
+   for( i=0; i<local_size; i++ )
+   {
+      if ( owner[i] ) {
+        if ( iupper < globaldofs[i] ) iupper=globaldofs[i];
+        if ( ilower > globaldofs[i] ) ilower=globaldofs[i];
+      }
+   }
+
+
+   nlower=1000000000;
+   nupper=0;
+   for( i=0; i<local_nodes; i++ )
+   {
+      if ( nodeowner[i] ) {
+        if ( nupper < globalnodes[i] ) nupper=globalnodes[i];
+        if ( nlower > globalnodes[i] ) nlower=globalnodes[i];
+      }
+   }
+
+  /* which process number am I? */
+   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+   /* Create the matrix.
+      Note that this is a square matrix, so we indicate the row partition
+      size twice (since number of rows = number of cols) */
+   HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, ilower, iupper, &A);
+   HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, nlower, nupper, &G);
+
+   /* Choose a parallel csr format storage (see the User's Manual) */
+   HYPRE_IJMatrixSetObjectType(A, HYPRE_PARCSR);
+   HYPRE_IJMatrixSetObjectType(G, HYPRE_PARCSR);
+
+   /* Initialize before setting coefficients */
+   HYPRE_IJMatrixInitialize(A);
+   HYPRE_IJMatrixInitialize(G);
+
+   /* Now go through my local rows and set the matrix entries.
+      Note that here we are setting one row at a time, though
+      one could set all the rows together (see the User's Manual).
+   */
+   {
+      int nnz,irow,i,j,k,*rcols,csize=32;
+
+      rcols = (int *)malloc( csize*sizeof(int) );
+      for (i = 0; i < local_size; i++)
+      {
+         nnz = rows[i+1]-rows[i];
+         if ( nnz>csize ) {
+           rcols = (int *)realloc( rcols, nnz*sizeof(int) );
+           csize = nnz;
+         }
+         irow=globaldofs[i];
+         for( k=0,j=rows[i]; j<rows[i+1]; j++,k++)
+         {
+           rcols[k] = globaldofs[cols[j-1]-1];
+         }
+         HYPRE_IJMatrixAddToValues(A, 1, &nnz, &irow, rcols, &vals[rows[i]-1]);
+      }
+        free( rcols );
+   }
+
+   {
+      int nnz,irow,i,j,k,*rcols,csize=32;
+
+      rcols = (int *)malloc( csize*sizeof(int) );
+      for (i = 0; i < local_size; i++)
+      {
+         nnz = grows[i+1]-grows[i];
+         if ( nnz>csize ) {
+           rcols = (int *)realloc( rcols, nnz*sizeof(int) );
+           csize = nnz;
+         }
+         irow=globaldofs[i];
+         for( k=0,j=grows[i]; j<grows[i+1]; j++,k++)
+         {
+           rcols[k] = globalnodes[gcols[j-1]-1];
+         }
+         HYPRE_IJMatrixAddToValues(G, 1, &nnz, &irow, rcols, &gvals[grows[i]-1]);
+      }
+      free( rcols );
+   }
+
+   /* Assemble after setting the coefficients */
+   HYPRE_IJMatrixAssemble(A);
+   HYPRE_IJMatrixAssemble(G);
+
+   /* Get the parcsr matrix object to use */
+   HYPRE_IJMatrixGetObject(A, (void**) &parcsr_A);
+   HYPRE_IJMatrixGetObject(G, (void**) &parcsr_G);
+
+   /* Create the rhs and solution */
+   rcols = (int *)malloc( local_size*sizeof(int) );
+   txvec = (double *)malloc( local_size*sizeof(double) );
+   for( k=0,i=0; i<local_size; i++ ) rcols[k++] = globaldofs[i];
+
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
+   HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(b);
+   HYPRE_IJVectorAddToValues(b, local_size, rcols, rhsvec);
+   HYPRE_IJVectorAssemble(b);
+   HYPRE_IJVectorGetObject(b, (void **) &par_b);
+
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
+   HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(x);
+   HYPRE_IJVectorSetValues(x, local_size, rcols, xvec);
+   HYPRE_IJVectorAssemble(x);
+   HYPRE_IJVectorGetObject(x, (void **) &par_x);
+
+#if 0
+   for( k=0,i=0; i<local_nodes; i++ ) rcols[k++] = globalnodes[i];
+
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, nlower, nupper,&xx);
+   HYPRE_IJVectorSetObjectType(xx, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(xx);
+   HYPRE_IJVectorSetValues(xx, local_nodes, rcols,xx_d);
+   HYPRE_IJVectorAssemble(xx);
+   HYPRE_IJVectorGetObject(xx, (void **) &par_xx);
+
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, nlower, nupper,&yy);
+   HYPRE_IJVectorSetObjectType(yy, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(yy);
+   HYPRE_IJVectorSetValues(yy, local_nodes, rcols, yy_d);
+   HYPRE_IJVectorAssemble(yy);
+   HYPRE_IJVectorGetObject(yy, (void **) &par_yy);
+
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, nlower, nupper,&zz);
+   HYPRE_IJVectorSetObjectType(zz, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(zz);
+   HYPRE_IJVectorSetValues(zz, local_nodes, rcols, zz_d);
+   HYPRE_IJVectorAssemble(zz);
+   HYPRE_IJVectorGetObject(zz, (void **) &par_zz);
+#else
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&xx);
+   HYPRE_IJVectorSetObjectType(xx, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(xx);
+   HYPRE_IJVectorSetValues(xx, local_size, rcols, xx_d);
+   HYPRE_IJVectorAssemble(xx);
+   HYPRE_IJVectorGetObject(xx, (void **) &par_xx);
+
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&yy);
+   HYPRE_IJVectorSetObjectType(yy, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(yy);
+   HYPRE_IJVectorSetValues(yy, local_size, rcols, yy_d);
+   HYPRE_IJVectorAssemble(yy);
+   HYPRE_IJVectorGetObject(yy, (void **) &par_yy);
+
+   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&zz);
+   HYPRE_IJVectorSetObjectType(zz, HYPRE_PARCSR);
+   HYPRE_IJVectorInitialize(zz);
+   HYPRE_IJVectorSetValues(zz, local_size, rcols, zz_d);
+   HYPRE_IJVectorAssemble(zz);
+   HYPRE_IJVectorGetObject(zz, (void **) &par_zz);
+#endif
+
+   if( verbosity >= 12 ) fprintf( stderr, "ID no. %i: setup time: %g\n", myid, realtime_()-st );
+   st = realtime_();
+
+   if (myid == 0 ) 
+      if ( verbosity >= 5 )
+        fprintf( stderr,"SolveHypre: using BiCGStab + AMS\n");
+
+   HYPRE_AMSCreate(&precond); 
+   HYPRE_AMSSetMaxIter(precond,1);
+   HYPRE_AMSSetDiscreteGradient(precond,parcsr_G);
+// HYPRE_AMSSetCoordinateVectors(precond,par_xx,par_yy,par_zz);
+   HYPRE_AMSSetEdgeConstantVectors(precond,par_xx,par_yy,par_zz);
+
+   HYPRE_AMSSetCycleType(precond, hypre_intpara[6]);// 1-8
+   HYPRE_AMSSetSmoothingOptions(precond, hypre_intpara[5], hypre_intpara[2], 1.0, 1.0);
+// HYPRE_AMSSetAlphaAMGOptions(precond, 10, 1, 3, 0.25);
+
+// HYPRE_AMSSetBetaAMGOptions(precond, 10, 1, 3, 0.25);
+// HYPRE_AMSSetBetaPoissonMatrix(precond,NULL);
+
+    /* Create solver */
+     HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver);
+
+     /* Set some parameters (See Reference Manual for more parameters) */
+     HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
+     HYPRE_ParCSRBiCGSTABSetTol(solver, *TOL);       /* conv. tolerance */
+     HYPRE_ParCSRBiCGSTABSetStopCrit(solver, 0);     /* use the two norm as the stopping criteria */
+     HYPRE_ParCSRBiCGSTABSetPrintLevel(solver, 2);   /* print solve info */
+     HYPRE_ParCSRBiCGSTABSetLogging(solver, 1);      /* needed to get run info later */
+
+   /* Set the BiCGSTAB preconditioner */
+   HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_AMSSolve,
+               (HYPRE_PtrToSolverFcn) HYPRE_AMSSetup, precond);
+
+   /* Now setup and solve! */
+   HYPRE_ParCSRBiCGSTABSetup(solver, parcsr_A, par_b, par_x);
+   HYPRE_ParCSRBiCGSTABSolve(solver, parcsr_A, par_b, par_x);
+
+   /* Destroy solver and preconditioner */
+   HYPRE_AMSDestroy(precond);
+   HYPRE_ParCSRBiCGSTABDestroy(solver);
+
+   for( k=0,i=0; i<local_size; i++ )
+     if ( owner[i] ) rcols[k++] = globaldofs[i];
+   
+   HYPRE_IJVectorGetValues(x, k, rcols, txvec );
+   
+   for( i=0,k=0; i<local_size; i++ )
+     if ( owner[i] ) xvec[i] = txvec[k++];
+   
+   if( myid == 0 && verbosity >= 5 ) {
+     fprintf( stderr, "Hypre solve time: %g\n", realtime_()-st );
+   }
+   free( txvec );
+   free( rcols );
+
+   /* Clean up */
+   HYPRE_IJMatrixDestroy(A);
+   HYPRE_IJMatrixDestroy(G);
+   HYPRE_IJVectorDestroy(b);
+   HYPRE_IJVectorDestroy(x);
+}
+
+
 #endif
