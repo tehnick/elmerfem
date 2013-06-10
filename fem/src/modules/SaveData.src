@@ -75,7 +75,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
       Mean, Variance, Dist, MinDist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
-      IntSquare, LocalCoords(3), TempCoordinates(3), VALUE, Value2, &
+      IntSquare, LocalCoords(3), TempCoordinates(3), Val, Val2, &
       Change, Norm = 0.0_dp, PrevNorm, EpsAbs, ParallelHits, ParallelCands
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
@@ -459,90 +459,90 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       SELECT CASE(Oper)
 
       CASE ('partitions')
-        VALUE = 1.0_dp * ParEnv % PEs 
-        CALL AddToSaveList('value: number of partitions',VALUE,.TRUE.,ParOper)
+        Val = 1.0_dp * ParEnv % PEs 
+        CALL AddToSaveList('value: number of partitions',Val,.TRUE.,ParOper)
 
       CASE ('cpu time')
-        VALUE = CPUTime()
-        CALL AddToSaveList('value: cpu time (s)',VALUE,.FALSE.,ParOper)
+        Val = CPUTime()
+        CALL AddToSaveList('value: cpu time (s)',Val,.FALSE.,ParOper)
       
       CASE ('wall time')
-        VALUE = RealTime()
-        CALL AddToSaveList('value: real time (s)',VALUE,.FALSE.,ParOper)
+        Val = RealTime()
+        CALL AddToSaveList('value: real time (s)',Val,.FALSE.,ParOper)
       
       CASE ('cpu memory') 
-        VALUE = CPUMemory()
-        CALL AddToSaveList('value: maximum memory usage (kb)',VALUE,.FALSE.,ParOper)
+        Val = CPUMemory()
+        CALL AddToSaveList('value: maximum memory usage (kb)',Val,.FALSE.,ParOper)
 
       CASE ('norm')
-        VALUE = Var % Norm
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.FALSE.,ParOper)
+        Val = Var % Norm
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
 
       CASE ('nonlin change')
-        VALUE = Var % NonlinChange
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.FALSE.,ParOper)
+        Val = Var % NonlinChange
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
 
       CASE ('steady state change')
-        VALUE = Var % SteadyChange
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.FALSE.,ParOper)
+        Val = Var % SteadyChange
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
 
       CASE ('nonlin iter')
-        VALUE = Var % NonlinIter
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.TRUE.,ParOper)
+        Val = Var % NonlinIter
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
 
       CASE ('nonlin converged')
-        VALUE = 1.0_dp * Var % NonlinConverged
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.TRUE.,ParOper)
+        Val = 1.0_dp * Var % NonlinConverged
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
 
       CASE ('steady converged')
-        VALUE = 1.0_dp * Var % SteadyConverged
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.TRUE.,ParOper)
+        Val = 1.0_dp * Var % SteadyConverged
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
 
       CASE ('nodes')
-        VALUE = 1.0_dp * Solver % Mesh % NumberOfNodes
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.TRUE.,ParOper)
+        Val = 1.0_dp * Solver % Mesh % NumberOfNodes
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
 
       CASE ('elements')
-        VALUE = 1.0_dp * Solver % Mesh % NumberOfBulkElements
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.TRUE.,ParOper)
+        Val = 1.0_dp * Solver % Mesh % NumberOfBulkElements
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
 
      CASE ('bounding box')
-        VALUE = MINVAL( Solver % Mesh % Nodes % x ) 
-        CALL AddToSaveList(TRIM(Oper)//' min x',VALUE,ParallelOperator=MinOper)
-        VALUE = MAXVAL( Solver % Mesh % Nodes % x ) 
-        CALL AddToSaveList(TRIM(Oper)//' max x',VALUE,ParallelOperator=MaxOper)
-        VALUE = MINVAL( Solver % Mesh % Nodes % y ) 
-        CALL AddToSaveList(TRIM(Oper)//' min y',VALUE,ParallelOperator=MinOper)
-        VALUE = MAXVAL( Solver % Mesh % Nodes % y ) 
-        CALL AddToSaveList(TRIM(Oper)//' max y',VALUE,ParallelOperator=MaxOper)
+        Val = MINVAL( Solver % Mesh % Nodes % x ) 
+        CALL AddToSaveList(TRIM(Oper)//' min x',Val,ParallelOperator=MinOper)
+        Val = MAXVAL( Solver % Mesh % Nodes % x ) 
+        CALL AddToSaveList(TRIM(Oper)//' max x',Val,ParallelOperator=MaxOper)
+        Val = MINVAL( Solver % Mesh % Nodes % y ) 
+        CALL AddToSaveList(TRIM(Oper)//' min y',Val,ParallelOperator=MinOper)
+        Val = MAXVAL( Solver % Mesh % Nodes % y ) 
+        CALL AddToSaveList(TRIM(Oper)//' max y',Val,ParallelOperator=MaxOper)
         IF( Solver % Mesh % MeshDim > 2 ) THEN
-          VALUE = MINVAL( Solver % Mesh % Nodes % z ) 
-          CALL AddToSaveList(TRIM(Oper)//' min z',VALUE,ParallelOperator=MinOper)
-          VALUE = MAXVAL( Solver % Mesh % Nodes % z )
-          CALL AddToSaveList(TRIM(Oper)//' max z',VALUE,ParallelOperator=MaxOper)
+          Val = MINVAL( Solver % Mesh % Nodes % z ) 
+          CALL AddToSaveList(TRIM(Oper)//' min z',Val,ParallelOperator=MinOper)
+          Val = MAXVAL( Solver % Mesh % Nodes % z )
+          CALL AddToSaveList(TRIM(Oper)//' max z',Val,ParallelOperator=MaxOper)
         END IF
 
       CASE ('dofs')
-        VALUE = 1.0_dp * SIZE(Var % Values)
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.TRUE.,ParOper)
+        Val = 1.0_dp * SIZE(Var % Values)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
 
       CASE ('sum','sum abs','mean abs','max','max abs','min','min abs','mean','variance','range')
-        VALUE = VectorStatistics(Var,Oper)
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),VALUE,.FALSE.,ParOper)
+        Val = VectorStatistics(Var,Oper)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
 
       CASE ('deviation')
-        VALUE = VectorMeanDeviation(Var,Oper)
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), VALUE,.FALSE.,ParOper)
+        Val = VectorMeanDeviation(Var,Oper)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Val,.FALSE.,ParOper)
         
       CASE ('int','int mean','int variance','volume',&
         'potential energy','diffusive energy','convective energy')
 
-        VALUE = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
+        Val = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
         IF(GotCoeff) THEN
-          CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName)//' with '//TRIM(CoefficientName), VALUE,&
+          CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName)//' with '//TRIM(CoefficientName), Val,&
               .FALSE.,ParOper)
         ELSE
-          CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), VALUE,.FALSE.,ParOper)
+          CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Val,.FALSE.,ParOper)
         END IF
 
       CASE('boundary sum','boundary dofs','boundary max','boundary max abs','boundary min',&
@@ -655,8 +655,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   DO WHILE( GotVar )
     NoVar = NoVar + 1    
     WRITE (Name,'(A,I0)') 'Expression ',NoVar
-    VALUE = ListGetCReal( Params, TRIM(Name), GotVar )
-    IF( GotVar ) CALL AddToSaveList(TRIM(Name),VALUE)
+    Val = ListGetCReal( Params, TRIM(Name), GotVar )
+    IF( GotVar ) CALL AddToSaveList(TRIM(Name),Val)
   END DO
 
 
@@ -673,25 +673,25 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     l = 0
     DO i = 1, Model % NumberOfSolvers       
       IF ( Model % Solvers(i) % NOFEigenValues > 0 ) THEN
-        DO j = 1, Model % Solvers(i) % NOFEigenValues
+        DO k = 1, Model % Solvers(i) % NOFEigenValues
           
-          k = Model % Solvers(i) % NOFEigenValues - j + 1
-          VALUE = Model % Solvers(i) % Variable % EigenValues(k)
+!          k = Model % Solvers(i) % NOFEigenValues - j + 1
+          Val = Model % Solvers(i) % Variable % EigenValues(k)
           l = l + 1
 
           IF ( SaveEigenValue ) THEN
             WRITE( Name, '("eigen: value ", I0)' ) k
-            CALL AddToSaveList(TRIM(Name), VALUE)
+            CALL AddToSaveList(TRIM(Name), Val)
           END IF 
 
           IF ( SaveEigenFreq ) THEN
             WRITE( Name, '("eigen: frequency ", I0, " [Hz]")' ) k
             IF ( REAL( Model % Solvers(i) % Variable % EigenValues(k)) > 0 ) THEN
-              VALUE = SQRT(REAL(VALUE)) / (2*PI)
+              Val = SQRT(REAL(Val)) / (2*PI)
             ELSE
-              VALUE = -1.0d0
+              Val = -1.0d0
             END IF
-            CALL AddToSaveList(TRIM(Name), VALUE)
+            CALL AddToSaveList(TRIM(Name), Val)
           END IF
 
         END DO
@@ -738,11 +738,11 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
                   WRITE(Name,'("value: Eigen ",I0," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
                 END IF
                 IF(ComplexEigen) THEN
-                  VALUE = ABS( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
+                  Val = ABS( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
                 ELSE
-                  VALUE = REAL( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )                  
+                  Val = REAL( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )                  
                 END IF
-                CALL AddToSaveList( TRIM(Name), VALUE)
+                CALL AddToSaveList( TRIM(Name), Val)
               END IF
             END DO
           END DO
@@ -799,7 +799,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           DO j=1,NoEigenValues
             DO i=1,Var % DOFs
 
-              VALUE = -HUGE(VALUE)
+              Val = -HUGE(Val)
               GotIt = .FALSE.
 
               IF( l == 0 ) THEN
@@ -810,7 +810,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
                 ELSE
                   ElementValues(1:n) = REAL( Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i) )
                 END IF
-                VALUE = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
+                Val = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
                 GotIt = .TRUE.
               END IF
               
@@ -820,7 +820,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
                 ELSE
                   WRITE(Name,'("value: Eigen ",I0," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
                 END IF
-                CALL AddToSaveList(TRIM(Name), VALUE,.FALSE.,ParOper)
+                CALL AddToSaveList(TRIM(Name), Val,.FALSE.,ParOper)
               END IF
             END DO
           END DO
@@ -828,7 +828,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
       ELSE IF(Var % Dofs == 1) THEN          
 
-        VALUE = -HUGE( VALUE )
+        Val = -HUGE( Val )
         GotIt = .FALSE.
 
         IF( l == 0 ) THEN
@@ -836,18 +836,18 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         ELSE IF( ASSOCIATED( Var % Perm ) ) THEN
           IF( ALL(Var % Perm(NodeIndexes(1:n)) > 0)) THEN            
             ElementValues(1:n) = Var % Values(Var % Perm(NodeIndexes(1:n)))
-            VALUE = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
+            Val = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
             GotIt = .TRUE.
           END IF
         ELSE
           ElementValues(1:n) = Var % Values(NodeIndexes(1:n))
-          VALUE = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
+          Val = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
           GotIt = .TRUE.
         END IF
 
         IF(GotIt .OR. IsParallel) THEN
           WRITE(Name,'("value: ",A," in element ",I7)') TRIM(Var % Name),l
-          CALL AddToSaveList(TRIM(Name), VALUE,.FALSE.,ParOper)                   
+          CALL AddToSaveList(TRIM(Name), Val,.FALSE.,ParOper)                   
         END IF
       END IF
 
@@ -906,13 +906,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   IF( ParallelReduce ) THEN
     l = 0
     DO No=1,NoValues
-      VALUE = Values(No)
+      Val = Values(No)
 
       IF( MPIOper(No) > 0 ) THEN
         l = l + 1
-        CALL MPI_ALLREDUCE(VALUE,Value2,1,&
+        CALL MPI_ALLREDUCE(Val,Val2,1,&
             MPI_DOUBLE_PRECISION,MPIOper(No),MPI_COMM_WORLD,ierr)
-        Values(No) = Value2
+        Values(No) = Val2
 	IF( MPIOper(No) == MPI_MIN ) THEN
 	  WRITE( ValueNames(No),'(A)') TRIM( ValueNames(No) )//' : mpi_min'
 	ELSE IF( MPIOper(No) == MPI_MAX ) THEN
@@ -1188,11 +1188,11 @@ CONTAINS
 
 
 
-    SUBROUTINE AddToSaveList(Name, VALUE, ValueIsInteger, ParallelOperator )
+    SUBROUTINE AddToSaveList(Name, Val, ValueIsInteger, ParallelOperator )
 
     INTEGER :: n
     CHARACTER(LEN=*) :: Name
-    REAL(KIND=dp) :: VALUE
+    REAL(KIND=dp) :: Val
     LOGICAL, OPTIONAL :: ValueIsInteger
     CHARACTER(LEN=MAX_NAME_LEN), OPTIONAL :: ParallelOperator
     CHARACTER(LEN=MAX_NAME_LEN) :: ParOper
@@ -1255,7 +1255,7 @@ CONTAINS
     END IF
 
     n = n + 1
-    Values(n) = VALUE
+    Values(n) = Val
     ValueNames(n) = TRIM(Name)
     IF( PRESENT( ValueIsInteger ) ) THEN
       ValuesInteger(n) = ValueIsInteger
