@@ -58,8 +58,6 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
     CHARACTER(LEN=MAX_NAME_LEN) :: eqname
 !------------------------------------------------------------------------------
 
-!    PRINT *,'Running StressSolver_Init'
-
     SolverParams => GetSolverParams()
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       dim = CoordinateSystemDimension()
@@ -279,6 +277,11 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
      DisplPerm      => StressSol % Perm
      STDOFs         =  StressSol % DOFs
      Displacement   => StressSol % Values
+
+     IF( STDOFs < Mesh % MeshDim ) THEN
+       CALL Fatal('StressSolver','Number of Dofs smaller than dim: '&
+           //I2S(STDOFs)//' vs. '//I2S(Mesh % MeshDim))
+     END IF
 
      MeshDisplacementActive = ListGetLogical( SolverParams,  &
                'Displace Mesh', Found )
