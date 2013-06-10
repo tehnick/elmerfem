@@ -100,10 +100,11 @@ CONTAINS
       INTEGER   ::     IDO, NCV, lWORKL, kinfo, i, j, k, l, p, IERR, iter, &
                        NCONV, maxitr, ishfts, mode, istat, Dofs
       LOGICAL   ::     First, Stat, Direct = .FALSE., &
-                       Iterative = .FALSE., NewSystem, Damped, Stability
+                       Iterative = .FALSE., NewSystem, Damped, Stability, &
+                       NormalizeToUnity
 
       LOGICAL :: Factorize, FreeFactorize,FoundFactorize,FoundFreeFactorize
-      REAL(KIND=dp) :: SigmaR, SigmaI, TOL
+      REAL(KIND=dp) :: SigmaR, SigmaI, TOL, r
 
       COMPLEX(KIND=dp) :: s
 !
@@ -302,7 +303,7 @@ CONTAINS
       END IF
 
       DO WHILE( ido /= 99 )
-!
+
 !        %---------------------------------------------%
 !        | Repeatedly call the routine DSAUPD and take | 
 !        | actions indicated by parameter IDO until    |
@@ -320,9 +321,9 @@ CONTAINS
  
          IF (ido == -1 .OR. ido == 1) THEN
 
-!           WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
-!           CALL Info( 'EigenSolve', Message, Level=5 )
-            CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
+           WRITE( Message,'(A,I0)') 'Arpack reverse communication calls: ',Iter
+           CALL Info( 'EigenSolve', Message, Level=6 )
+!            CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
             iter = iter + 1
 
 !---------------------------------------------------------------------
@@ -508,7 +509,6 @@ CONTAINS
          END DO
          CALL SortC( NEIG, EigValues, Perm )
          IF( MINVAL( Perm ) < 1 .OR. MAXVAL( Perm ) > NEIG ) THEN
-           PRINT *,'Perm:',Perm
            CALL Fatal('EigenSolve','Reordering of EigenValues failed')
          END IF
 
@@ -518,11 +518,11 @@ CONTAINS
          CALL Info( 'EigenSolve', ' ', Level=4 )
          CALL Info( 'EigenSolve', 'Eigen system solution complete: ', Level=4 )
          CALL Info( 'EigenSolve', ' ', Level=4 )
-         WRITE( Message,'(A,ES12.3)') 'The convergence criterion is: ', TOL
+         WRITE( Message,'(A,ES12.3)') 'Convergence criterion is: ', TOL
          CALL Info( 'EigenSolve', Message, Level=4 )
-         WRITE( Message,'(A,I0)' ) ' The number of converged Ritz values is: ', IPARAM(5)
+         WRITE( Message,'(A,I0)' ) 'Number of converged Ritz values is: ', IPARAM(5)
          CALL Info( 'EigenSolve', Message, Level=4 )
-         WRITE( Message,'(A,I0)') ' The number of update iterations taken: ',  IPARAM(3)
+         WRITE( Message,'(A,I0)') 'Number of update iterations taken: ',  IPARAM(3)
          CALL Info( 'EigenSolve', Message, Level=4 )
          CALL Info( 'EigenSolve', ' ', Level=4 )
          WRITE( Message,'(A,I0,A)') 'Computed ',NEIG,' Eigen Values'
@@ -567,23 +567,29 @@ CONTAINS
 !          -------------------------------------------------
 
            CALL Info('EigenSolve','Normalizing Eigenvector',Level=12)
+           
+           NormalizeToUnity = ListGetLogical( Params, &
+               'Eigen System Normalize To Unity',Stat)
 
-           IF ( Matrix % Lumped ) THEN
-              s = 0.0d0
+           r = 0.0_dp
+           IF( NormalizeToUnity ) THEN
+             DO j=1,n
+               r = MAX( r, ABS(EigVectors(i,j))**2 )
+             END DO
+           ELSE IF ( Matrix % Lumped ) THEN
               DO j=1,n
-                 s = s + ABS(EigVectors(i,j))**2 * &
+                 r= r + ABS(EigVectors(i,j))**2 * &
                      Matrix % MassValues(Matrix % Diag(j))
               END DO
            ELSE
-              s = 0.0d0
               DO j=1,n
                  DO l=Matrix % Rows(j), Matrix % Rows(j+1)-1
-                    s = s + Matrix % MassValues(l) * &
+                    r = r + Matrix % MassValues(l) * &
                      CONJG( EigVectors(i,j) ) * EigVectors(i,Matrix % Cols(l))
                  END DO
               END DO
            END IF
-           IF ( ABS(s) > 0 ) EigVectors(i,:) = EigVectors(i,:) / SQRT(s)
+           IF ( ABS(r) > 0 ) EigVectors(i,:) = EigVectors(i,:) / SQRT( r )
          END DO
 
          IF ( ListGetLogical( Params, 'Eigen System Compute Residuals', stat ) ) THEN

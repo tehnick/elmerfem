@@ -2282,7 +2282,7 @@ CONTAINS
 
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Solver_t), POINTER :: Solver
-    CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond, dumpfile, dumpprefix
+    CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond, dumpfile, saveslot
 
     Solver => CurrentModel % Solver
 
@@ -2296,49 +2296,19 @@ CONTAINS
 
     Params => GetSolverParams(Solver)
 
-    dumpfile=GetString( Params, 'Dump system matrix', Found)
-    IF ( Found ) THEN
-      OPEN(1,FILE=dumpfile, STATUS='Unknown')
-      CALL CRS_PrintMatrix(A)
-      CLOSE(1)
-    END IF
-    dumpfile=GetString( Params, 'Dump system RHS', Found)
-    IF ( Found ) THEN
-      OPEN(1,FILE=dumpfile, STATUS='Unknown')
-      CALL CRS_PrintRHS(A)
-      CLOSE(1)
+    IF( ListCheckPresent( Params, 'Dump system matrix') .OR. &
+        ListCheckPresent( Params, 'Dump system RHS') ) THEN
+      CALL Error('DefaultSolve','> Dump System Matrix < and > Dump System Rhs < are obsolite')
+      CALL Fatal('DefaultSolve','Use > Linear System Save = True < instread!')
     END IF
 
     IF ( ListGetLogical( Params,'Linear System Save',Found )) THEN
-
-      dumpprefix = GetString( Params, 'Linear System Save Prefix', Found)
-      IF(.NOT. Found ) dumpprefix = 'linsys'
-
-      dumpfile = TRIM(dumpprefix)//'_a.dat'
-      CALL Info('DefaultSolve','Saving stiffness matrix to: '//TRIM(dumpfile),Level=3)     
-      OPEN(1,FILE=dumpfile, STATUS='Unknown')
-      CALL CRS_PrintMatrix(A)
-      CLOSE(1)
-
-      dumpfile = TRIM(dumpprefix)//'_b.dat'
-      CALL Info('DefaultSolve','Saving matrix rhs to: '//TRIM(dumpfile),Level=3)     
-      OPEN(1,FILE=dumpfile, STATUS='Unknown')
-      CALL CRS_PrintRHS(A)
-      CLOSE(1)
-
-      dumpfile = TRIM(dumpprefix)//'_sizes.dat'
-      CALL Info('DefaultSolve','Saving matrix sizes to: '//TRIM(dumpfile),Level=3)     
-      OPEN(1,FILE=dumpfile, STATUS='Unknown')
-      WRITE(1,*) Solver % Matrix % NumberOfRows
-      WRITE(1,*) SIZE(Solver % Matrix % Values)
-
-      IF( GetLogical( Params,'Linear System Save and Stop',Found ) ) THEN
-        CALL Info('DefaultSolve','Just saved matrix and stopped!',Level=3)
-        STOP
+      saveslot = GetString( Params,'Linear System Save Slot', Found )
+      IF(.NOT. Found .OR. TRIM( saveslot ) == 'solve') THEN
+        CALL SaveLinearSystem( Solver ) 
       END IF
     END IF
     
-
     IF (PRESENT(BackRotNT)) THEN
       BackRot=GetLogical(Params,'Back Rotate N-T Solution',Found)
       IF(.NOT.Found) BackRot=.TRUE.
@@ -3893,7 +3863,6 @@ CONTAINS
     LOGICAL :: Bupd, Found
     INTEGER :: n
     CHARACTER(LEN=MAX_NAME_LEN) :: str
-
     LOGICAL :: Transient
     REAL(KIND=dp) :: SScond
     INTEGER :: Order
@@ -3927,6 +3896,14 @@ CONTAINS
       CALL LinearSystemMultiply( PSolver )
     END IF
 
+    IF ( ListGetLogical( Params,'Linear System Save',Found )) THEN
+      str = GetString( Params,'Linear System Save Slot', Found )
+      IF(Found .AND. TRIM( str ) == 'bulk assembly') THEN
+        CALL SaveLinearSystem( PSolver ) 
+      END IF
+    END IF
+
+
   END SUBROUTINE DefaultFinishBulkAssembly
 
 
@@ -3938,11 +3915,11 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Solver_t), OPTIONAL, TARGET :: Solver
     LOGICAL, OPTIONAL :: BulkUpdate
-
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Bupd, Found
     INTEGER :: n
+    CHARACTER(LEN=MAX_NAME_LEN) :: str
 
     IF( PRESENT( Solver ) ) THEN
       PSolver => Solver
@@ -3963,6 +3940,13 @@ CONTAINS
       CALL Info('DefaultFinishBoundaryAssembly','Saving system values for Solver: '&
           //TRIM(PSolver % Variable % Name), Level=8)
       CALL CopyBulkMatrix( PSolver % Matrix ) 
+    END IF
+
+    IF ( ListGetLogical( Params,'Linear System Save',Found )) THEN
+      str = GetString( Params,'Linear System Save Slot', Found )
+      IF(Found .AND. TRIM( str ) == 'boundary assembly') THEN
+        CALL SaveLinearSystem( PSolver ) 
+      END IF
     END IF
 
   END SUBROUTINE DefaultFinishBoundaryAssembly
@@ -4041,6 +4025,13 @@ CONTAINS
     IF( GetLogical( Params,'Linear System Multiply',Found ) ) THEN
       CALL Info('DefaultFinishAssembly','Multiplying matrix equation',Level=10)
       CALL LinearSystemMultiply( PSolver )
+    END IF
+
+    IF ( ListGetLogical( Params,'Linear System Save',Found )) THEN
+      str = GetString( Params,'Linear System Save Slot', Found )
+      IF(Found .AND. TRIM( str ) == 'assembly') THEN
+        CALL SaveLinearSystem( PSolver ) 
+      END IF
     END IF
 
 !------------------------------------------------------------------------------

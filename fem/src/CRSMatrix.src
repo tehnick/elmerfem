@@ -873,15 +873,69 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 !------------------------------------------------------------------------------
 !> Prints the values of the CRS matrix to standard output.
 !------------------------------------------------------------------------------
-  SUBROUTINE CRS_PrintMatrix( A )
+  SUBROUTINE CRS_PrintMatrix( A, SaveMass, SaveDamp, SaveStiff )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A !< Structure holding matrix
+    TYPE(Matrix_t) :: A            !< Structure holding matrix
+    LOGICAL, OPTIONAL :: SaveMass  !< Should we save the mass matrix
+    LOGICAL, OPTIONAL :: SaveDamp  !< Should we save the damping matrix
+    LOGICAL, OPTIONAL :: SaveStiff !< Should we save the stiffness matrix
 !------------------------------------------------------------------------------
-    INTEGER :: i,j
-	
+    INTEGER :: i,j,k,IndMass,IndDamp,IndStiff,IndMax
+    LOGICAL :: DoMass, DoDamp, DoStiff
+    REAL(KIND=dp) :: Vals(3)
+
+    DoMass = .FALSE.
+    IF( PRESENT( SaveMass ) ) DoMass = SaveMass
+    IF( DoMass .AND. .NOT. ASSOCIATED( A % MassValues ) ) THEN
+      CALL Warn('CRS_PrintMatrix','Cannot save nonexisting mass matrix')
+      DoMass = .FALSE. 
+    END IF
+
+    DoDamp = .FALSE.
+    IF( PRESENT( SaveDamp ) ) DoDamp = SaveDamp
+    IF( DoDamp .AND. .NOT. ASSOCIATED( A % DampValues ) ) THEN
+      CALL Warn('CRS_PrintMatrix','Cannot save nonexisting damp matrix')
+      DoDamp = .FALSE. 
+    END IF
+
+    DoStiff = .TRUE.
+    IF( PRESENT( SaveStiff ) ) DoStiff = SaveStiff
+    IF( DoStiff .AND. .NOT. ASSOCIATED( A % Values ) ) THEN
+      CALL Warn('CRS_PrintMatrix','Cannot save nonexisting stiff matrix')
+      DoStiff = .FALSE. 
+    END IF
+
+    IF(.NOT. (DoStiff .OR. DoDamp .OR. DoMass ) ) THEN
+      CALL Warn('CRS_PrintMatrix','Saving just the topology!')
+    END IF
+    
+    IndStiff = 0
+    IndDamp = 0
+    IndMass = 0
+
+    IF( DoStiff ) IndStiff = 1
+    IF( DoDamp ) IndDamp = IndStiff + 1
+    IF( DoMass ) IndMass = IndDamp + 1
+    IndMax = MAX( IndStiff, IndDamp, IndMass )
+
     DO i=1,A % NumberOfRows
       DO j=A % Rows(i),A % Rows(i+1)-1
-        WRITE(1,*) i,A % Cols(j),A % Values(j)
+        WRITE(1,'(I0,A,I0,A)',ADVANCE='NO') i,' ',A % Cols(j),' '
+        IF( DoStiff ) THEN
+          Vals(IndStiff) = A % Values(j)
+        END IF
+        IF( DoDamp ) THEN
+          Vals(IndDamp) = A % DampValues(j)
+        END IF
+        IF( DoMass ) THEN
+          Vals(IndMass) = A % MassValues(j)
+        END IF
+
+        IF( IndMax > 0 ) THEN
+          WRITE(1,*) Vals(1:IndMax)          
+        ELSE
+          WRITE(1,'(A)') ' '
+        END IF
       END DO
     END DO
 
@@ -895,9 +949,16 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
     TYPE(Matrix_t) :: A  !< Structure holding matrix
 !------------------------------------------------------------------------------
     INTEGER :: i
-	
+    REAL(KIND=dp) :: Val
+
     DO i=1,A % NumberOfRows
-       WRITE(1,*) i,A % RHS(i)
+      Val = A % Rhs(i)
+      WRITE(1,'(I0,A)',ADVANCE='NO') i,' '
+      IF( ABS( Val ) <= TINY( Val ) ) THEN
+        WRITE(1,'(A)') '0.0'
+      ELSE
+        WRITE(1,*) Val
+      END IF
     END DO
 
   END SUBROUTINE CRS_PrintRHS
@@ -2065,6 +2126,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
     Values => A % Values
 
     IF ( .NOT. ASSOCIATED(A % ILUValues) ) THEN
+
        IF ( ILUn == 0 ) THEN
           A % ILURows => A % Rows
           A % ILUCols => A % Cols
@@ -2076,6 +2138,8 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
              ALLOCATE( A1 )
 
              DO i=1,ILUn-1
+                CALL Info('CRS_IncompleLU','Recursive round: '//I2S(i))
+
                 A1 % Cols => A % ILUCols
                 A1 % Rows => A % ILURows
                 A1 % Diag => A % ILUDiag
@@ -2093,10 +2157,13 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
           END IF
        END IF
 
+       m = A % ILURows(N+1)-1
        ALLOCATE( A % ILUValues(A % ILURows(N+1)-1), STAT=istat )
 
        IF ( istat /= 0 ) THEN
          CALL Fatal( 'CRS_IncompleteLU', 'Memory allocation error.' )
+       ELSE
+         CALL Info('CRS_IncompleteLU','Allocated LU matrix of size: '//i2s(m),Level=10 ) 
        END IF
     END IF
 
@@ -2111,8 +2178,8 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
     C = .FALSE.
     S =  0.0d0
 
-
     IF ( A % Cholesky ) THEN
+      CALL Info('CRS_IncompleteLU','Performing incomplete Cholesky',Level=12)
 
       ALLOCATE( T(n) )
       T =  0._dp
@@ -2177,7 +2244,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
      END DO
 
     ELSE
-
+      CALL Info('CRS_IncompleteLU','Performing incomplete LU',Level=12)
 
      ! The factorization row by row:
      ! -----------------------------
@@ -2260,9 +2327,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 !------------------------------------------------------------------------------
       TYPE(Matrix_t) :: A
       INTEGER :: n
-
       INTEGER :: i,j,k,l,istat,RowMin,RowMax,Nonzeros
-
       INTEGER :: C(n)
       INTEGER, POINTER :: Cols(:),Rows(:),Diag(:), &
            ILUCols(:),ILURows(:),ILUDiag(:)
@@ -2283,6 +2348,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 !     Count fills, row by row:
 !     ------------------------
       NonZeros = Rows(N+1) - 1
+
       C = 0
       DO i=1,n
          DO k=Rows(i), Rows(i+1)-1
@@ -2293,7 +2359,15 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
             IF ( C(k) /= 0 ) THEN
                DO l=Diag(k)+1, Rows(k+1)-1
                   j = Cols(l)
-                  IF ( C(j) == 0 ) Nonzeros = Nonzeros + 1
+                  IF ( C(j) == 0 ) THEN
+                    Nonzeros = Nonzeros + 1
+
+                    IF( Nonzeros == HUGE( NonZeros ) ) THEN
+                      CALL Error('CRS_IncompleteLU','Number of nonzeros larger than HUGE(Integer)')
+                      CALL Fatal('CRS_IncompleteLU','Try some cheaper preconditioner!')                     
+                    END IF
+
+                  END IF
                END DO
             END IF
          END DO
@@ -2302,6 +2376,8 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
             C(Cols(k)) = 0
          END DO
       END DO
+
+      CALL Info('CRS_IncompleteLU','Number of nonzeros: '//TRIM(I2S(NonZeros)),Level=12)
 
 !------------------------------------------------------------------------------
 
@@ -2349,6 +2425,9 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
          END DO
          ILURows(i+1) = j + 1
       END DO
+
+      CALL Info('CRS_IncompleteLU','Updated nonzero elements',Level=20)
+
 !------------------------------------------------------------------------------
     END SUBROUTINE InitializeILU1
 !------------------------------------------------------------------------------

@@ -6440,7 +6440,78 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 !------------------------------------------------------------------------------
       
 
-      
+  SUBROUTINE SaveLinearSystem( Solver )
+
+    TYPE( Solver_t ) :: Solver
+    
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: dumpfile, dumpprefix
+    INTEGER, POINTER :: Perm(:)
+    INTEGER :: i
+    LOGICAL :: SaveMass, SaveDamp, SavePerm, Found 
+
+    CALL Info('SaveLinearSystem','Saving linear system',Level=4)
+
+    Params => Solver % Values
+    IF(.NOT. ASSOCIATED( Params ) ) THEN
+      CALL Fatal('SaveLinearSystem','Parameter list not associated!')
+    END IF
+
+    A => Solver % Matrix
+    IF(.NOT. ASSOCIATED( A ) ) THEN
+      CALL Fatal('SaveLinearSystem','Matrix not assciated!')
+    END IF
+
+    SaveMass = ListGetLogical( Params,'Linear System Save Mass',Found)
+    SaveDamp = ListGetLogical( Params,'Linear System Save Damp',Found)
+    
+    dumpprefix = ListGetString( Params, 'Linear System Save Prefix', Found)
+    IF(.NOT. Found ) dumpprefix = 'linsys'
+    
+    dumpfile = TRIM(dumpprefix)//'_a.dat'
+    CALL Info('SaveLinearSystem','Saving matrix to: '//TRIM(dumpfile))
+    OPEN(1,FILE=dumpfile, STATUS='Unknown')
+    CALL CRS_PrintMatrix(A,SaveMass=SaveMass,SaveDamp=SaveDamp)
+    CLOSE(1)
+
+    dumpfile = TRIM(dumpprefix)//'_b.dat'
+    CALL Info('SaveLinearSystem','Saving matrix rhs to: '//TRIM(dumpfile))
+    OPEN(1,FILE=dumpfile, STATUS='Unknown')
+    CALL CRS_PrintRHS(A)
+    CLOSE(1)
+    
+    SavePerm = ListGetLogical( Params,'Linear System Save Perm',Found)
+    IF( SavePerm ) THEN
+      Perm => Solver % Variable % Perm
+      IF( .NOT. ASSOCIATED( Perm ) ) THEN
+        CALL Warn('SaveLinearSystem','Permuation not associated!')
+        SavePerm = .FALSE.
+      ELSE
+        dumpfile = TRIM(dumpprefix)//'_perm.dat'
+        CALL Info('SaveLinearSystem','Saving permutation to: '//TRIM(dumpfile))
+        OPEN(1,FILE=dumpfile, STATUS='Unknown')
+        DO i=1,SIZE(Perm)
+          WRITE(1,'(I0,A,I0)') i,' ',Perm(i)
+        END DO
+        CLOSE( 1 ) 
+      END IF
+    END IF
+    
+    dumpfile = TRIM(dumpprefix)//'_sizes.dat'
+    CALL Info('SaveLinearSystem','Saving matrix sizes to: '//TRIM(dumpfile))
+    OPEN(1,FILE=dumpfile, STATUS='Unknown')
+    WRITE(1,*) A % NumberOfRows
+    WRITE(1,*) SIZE(A % Values)
+    IF( SavePerm ) WRITE(1,*) SIZE( Perm )
+    CLOSE(1)
+    
+    IF( ListGetLogical( Params,'Linear System Save and Stop',Found ) ) THEN
+      CALL Info('SaveLinearSystem','Just saved matrix and stopped!',Level=4)
+      STOP
+    END IF
+    
+  END SUBROUTINE SaveLinearSystem
 
 !------------------------------------------------------------------------------
 !> Assemble Laplace matrix related to a solver and permutation vector. 
