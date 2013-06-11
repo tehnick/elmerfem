@@ -1635,6 +1635,9 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
     CALL ListAddConstReal(SolverParams,'Jfix: Linear System Convergence Tolerance', &
       0.01_dp*GetCReal(SolverParams,'Linear System Convergence Tolerance', Found))
 
+
+  CALL ListAddLogical(SolverParams,'Jfix: Skip Compute Nonlinear Change',.TRUE.)
+
   CALL DefaultInitialize()
   CALL BulkAssembly()
   CALL DefaultFinishAssembly()
