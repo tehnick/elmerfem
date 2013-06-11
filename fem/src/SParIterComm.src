@@ -563,13 +563,13 @@ CONTAINS
      TYPE(Edgen_t), ALLOCATABLE :: edgen(:), cccc(:)
 
      INTEGER, ALLOCATABLE :: owned_edges(:), owned_edges2(:), parentnodes(:,:), &
-             tosend(:), toreceive(:), gorder(:), grevorder(:),buf(:)
+             tosend(:), toreceive(:), gorder(:), grevorder(:),buf(:), Iedges(:)
 
      INTEGER  :: p,q,datasize, ierr,status(MPI_STATUS_SIZE)
      INTEGER, ALLOCATABLE ::  gindices(:)
      INTEGER, POINTER :: list1(:),list2(:), commonlist(:), gdofs(:)
 
-     INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs,retry,bd,gi,ind
+     INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs,retry,bd,gi,ind,proc,n_intf,k_intf
 
      LOGICAL, POINTER :: ig(:)
      TYPE(NeighbourList_t), POINTER :: nb(:)
@@ -770,21 +770,32 @@ real(kind=dp) :: realtime,tt
     !
     ! Determine the size of data to exchange between neighbours:
     !-----------------------------------------------------------
+    isNeighbour(ParEnv % myPE+1)=.FALSE.
+
+    n_intf=COUNT(Edgen(:) % Interface)
+    ALLOCATE(Iedges(n_intf));
+    n_intf=0
+    DO i=1,n
+      IF(Edgen(i) % Interface) THEN
+        n_intf=n_intf+1
+        Iedges(n_intf)=i
+      END IF
+    END DO
+
     tosend = 0
     toreceive = 0
-    DO i = 1, n
-       IF( Edgen(i) % Interface ) THEN
-          j = Edgen(i) % Neighbours(1)
-          IF( j /= ParEnv % MyPE ) THEN
-             toreceive(j+1) = toreceive(j+1)+1
-          ELSE
-             DO j = 2,SIZE(Edgen(i) % Neighbours)
-               k = Edgen(i) % Neighbours(j)
-               IF(k>=0) &
-                 tosend(k+1) = tosend(k+1)+1
-             END DO
-          END IF
-       END IF
+    DO k_intf = 1, n_intf
+      i=Iedges(k_intf)
+      j = Edgen(i) % Neighbours(1)
+      IF( j /= ParEnv % MyPE ) THEN
+         toreceive(j+1) = toreceive(j+1)+1
+      ELSE
+         DO j = 2,SIZE(Edgen(i) % Neighbours)
+           k = Edgen(i) % Neighbours(j)
+           IF(k>=0) &
+             tosend(k+1) = tosend(k+1)+1
+         END DO
+      END IF
     END DO
 
     !
@@ -801,19 +812,19 @@ real(kind=dp) :: realtime,tt
        datasize = 3*tosend(i)
        ALLOCATE( gindices(datasize) )
        k = 1
-       DO l = 1, n
-          IF( .NOT.Edgen(l) % Interface ) CYCLE
-          m = Edgen(l) % Neighbours(1)
-          IF( m /= ParEnv % MyPE ) CYCLE
+       DO k_intf = 1, n_intf
+         l=Iedges(k_intf)
+         m = Edgen(l) % Neighbours(1)
+         IF( m /= ParEnv % MyPE ) CYCLE
 
-          DO m = 2,SIZE(Edgen(l) % Neighbours)
-             mm = Edgen(l) %  Neighbours(m)
-             IF( mm+1 .NE. i ) CYCLE
-             gindices(k) = Edgen(l) % n
-             gindices(k+1) = gdofs(parentnodes(l,1))
-             gindices(k+2) = gdofs(parentnodes(l,2))
-             k = k+3
-          END DO
+         DO m = 2,SIZE(Edgen(l) % Neighbours)
+            mm = Edgen(l) %  Neighbours(m)
+            IF( mm+1 /= i ) CYCLE
+            gindices(k) = Edgen(l) % n
+            gindices(k+1) = gdofs(parentnodes(l,1))
+            gindices(k+2) = gdofs(parentnodes(l,2))
+            k = k+3
+         END DO
        END DO
 
        CALL MPI_BSEND( gindices, DataSize, MPI_INTEGER, &
@@ -825,36 +836,37 @@ real(kind=dp) :: realtime,tt
     ! Retrieve missing interface node numbers from our neighbours:
     !--------------------------------------------------------------
     tosend = 0
-    DO i = 1, ParEnv % PEs
-       IF( i-1 == ParEnv % MyPE ) CYCLE
-       IF( .NOT. IsNeighbour(i) ) CYCLE
 
+    DO i = 1, COUNT(isNeighbour)
        CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-        i-1, 100, MPI_COMM_WORLD, status, ierr )
+          MPI_ANY_SOURCE, 100, MPI_COMM_WORLD, status, ierr )
+
+       proc=status(MPI_SOURCE)
+
        ALLOCATE( gindices(3*DataSize) )
 
        IF( datasize > 0 ) THEN
          CALL MPI_RECV( gindices, 3*DataSize, MPI_INTEGER, &
-            i-1, 101, MPI_COMM_WORLD, status, ierr )
+            proc, 101, MPI_COMM_WORLD, status, ierr )
 
          DO l = 1, datasize
-           m = 3*l-2
            Found=.FALSE.
-           DO k = 1,n
-             IF(.NOT. Edgen(k) % Interface) CYCLE
-             IF( gdofs(parentnodes(k,1)) == gindices(m+1) .AND. &
-                 gdofs(parentnodes(k,2)) == gindices(m+2) .OR.  &
-                 gdofs(parentnodes(k,1)) == gindices(m+2) .AND. &
-                 gdofs(parentnodes(k,2)) == gindices(m+1) ) THEN
+           m = 3*l-2
+           DO k_intf = 1,n_intf
+             k = Iedges(k_intf)
+             IF( GDofs(ParentNodes(k,1)) == GIndices(m+1) .AND. &
+                 GDofs(ParentNodes(k,2)) == GIndices(m+2) .OR.  &
+                 GDofs(ParentNodes(k,1)) == GIndices(m+2) .AND. &
+                 GDofs(parentNodes(k,2)) == GIndices(m+1) ) THEN
                Found=.TRUE.
-               Edgen(k) % n = gindices(m) ! global DOF number
+               Edgen(k) % n = GIndices(m) ! global DOF number
                EXIT
              END IF
            END DO
 
            IF (.NOT.Found) THEN
-             tosend(i) = tosend(i)+1
-             gindices(tosend(i))=gindices(m)
+             tosend(proc+1) = tosend(proc+1)+1
+             gindices(tosend(proc+1))=gindices(m)
            END IF
          END DO
        END IF
@@ -864,35 +876,35 @@ real(kind=dp) :: realtime,tt
        ! we don't have these edges, ask to remove us from
        ! share lists:
        ! ------------------------------------------------
-       CALL MPI_BSEND( tosend(i), 1, MPI_INTEGER, &
-            i-1, 200, MPI_COMM_WORLD, ierr )
+       CALL MPI_BSEND( tosend(proc+1), 1, MPI_INTEGER, &
+            proc, 200, MPI_COMM_WORLD, ierr )
 
-       IF ( tosend(i)>0 ) THEN
-         CALL MPI_BSEND( gindices, tosend(i), MPI_INTEGER, &
-            i-1, 201, MPI_COMM_WORLD, ierr )
+       IF ( tosend(proc+1)>0 ) THEN
+         CALL MPI_BSEND( gindices, tosend(proc+1), MPI_INTEGER, &
+            proc, 201, MPI_COMM_WORLD, ierr )
        END IF
        DEALLOCATE(gindices)
     END DO
 
-    DO i = 1, ParEnv % PEs
-      IF( i-1 == ParEnv % MyPE ) CYCLE
-      IF( .NOT. IsNeighbour(i) ) CYCLE
+    DO i = 1, COUNT(isNeighbour)
 
       CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-       i-1, 200, MPI_COMM_WORLD, status, ierr )
+       MPI_ANY_SOURCE, 200, MPI_COMM_WORLD, status, ierr )
+
+      proc=status(MPI_SOURCE)
       IF( datasize < 1 ) CYCLE
 
       ALLOCATE( gindices(DataSize) )
       CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
-         i-1, 201, MPI_COMM_WORLD, status, ierr )
+         proc, 201, MPI_COMM_WORLD, status, ierr )
 
-      DO j=1,n
+      DO k_intf=1,n_intf
+        j=Iedges(k_intf) 
         DO k=1,Datasize
-          IF ( .NOT. Edgen(j) % Interface ) CYCLE
           IF (Edgen(j) % n==gindices(k)) THEN
             l = SIZE(Edgen(j) % Neighbours)
             DO m=2,l
-              IF (Edgen(j) % Neighbours(m)==i-1) THEN
+              IF (Edgen(j) % Neighbours(m)==proc) THEN
                 Edgen(j)%Neighbours(m)=-ABS(Edgen(j)%Neighbours(m))-1
                 EXIT
               END IF
@@ -909,8 +921,9 @@ real(kind=dp) :: realtime,tt
     ! Sync neighbour tables from owners
     !--------------------------------------------------------------
     tosend=0
-    DO j=1,n
-      IF (.NOT. Edgen(j) % Interface.OR.Edgen(j) % n==0 ) CYCLE
+    DO k_intf=1,n_intf
+      j = Iedges(k_intf)
+      IF (Edgen(j) % n==0 ) CYCLE
       IF (Edgen(j) % Neighbours(1)/=ParEnv % MyPE) CYCLE
 
       mm=COUNT(Edgen(j) % Neighbours>=0) 
@@ -931,6 +944,15 @@ real(kind=dp) :: realtime,tt
       IF(mm==1) Edgen(j) % Interface=.FALSE.
     END DO
 
+    n_intf=COUNT(Edgen(:) % Interface)
+    n_intf=0
+    DO i=1,n
+      IF(Edgen(i) % Interface) THEN
+        n_intf=n_intf+1
+        Iedges(n_intf)=i
+      END IF
+    END DO
+
     DO i = 1, ParEnv % PEs
       IF( i-1 == ParEnv % MyPE ) CYCLE
       IF( .NOT. IsNeighbour(i) ) CYCLE
@@ -942,8 +964,9 @@ real(kind=dp) :: realtime,tt
 
       ALLOCATE(Gindices(tosend(i)))
       l=0
-      DO j=1,n
-        IF (.NOT. Edgen(j) % Interface.OR.Edgen(j)%n==0) CYCLE
+      DO k_intf=1,n_intf
+        j=Iedges(k_intf)
+        IF (Edgen(j)%n==0) CYCLE
         IF (Edgen(j) % Neighbours(1)/=ParEnv % MyPE) CYCLE
         IF (ANY(Edgen(j) % Neighbours==i-1)) THEN
           l=l+1
@@ -961,34 +984,35 @@ real(kind=dp) :: realtime,tt
       DEALLOCATE(gindices)
     END DO
 
-    DO i = 1, ParEnv % PEs
-       IF( i-1 == ParEnv % MyPE ) CYCLE
-       IF( .NOT. IsNeighbour(i) ) CYCLE
+    DO i = 1,COUNT(isNeighbour)
 
        CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-        i-1, 300, MPI_COMM_WORLD, status, ierr )
+        MPI_ANY_SOURCE, 300, MPI_COMM_WORLD, status, ierr )
+
+       proc=status(MPI_SOURCE)
 
        IF( datasize > 0 ) THEN
          ALLOCATE( gindices(DataSize) )
          CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
-            i-1, 301, MPI_COMM_WORLD, status, ierr )
+            proc, 301, MPI_COMM_WORLD, status, ierr )
 
          j=0
          DO WHILE(j<Datasize)
            j=j+1
            k=-gindices(j)
            Found=.FALSE.
-           DO l=1,n
-             IF (.NOT.Edgen(l) % Interface.OR.Edgen(l) % n==0) CYCLE
+           DO k_intf=1,n_intf
+             l = Iedges(k_intf)
+             IF (Edgen(l) % n==0) CYCLE
              IF (Edgen(l) % n==k) THEN
                DO m=j+1,Datasize
                  IF (gindices(m)<0) EXIT
                END DO
                DEALLOCATE(Edgen(l) % Neighbours)
                ALLOCATE(Edgen(l) % Neighbours(m-j))
-               Edgen(l) % Neighbours(1)=i-1
+               Edgen(l) % Neighbours(1)=proc
                Edgen(l) % Neighbours(2:)=gindices(j+1:m-1)
-               j=m-1
+               j = m-1
                Found=.TRUE.
                EXIT
              END IF
@@ -1023,6 +1047,8 @@ real(kind=dp) :: realtime,tt
 
     ! if some of the edges don't have global numbers, retry.
     ! ------------------------------------------------------
+    DEALLOCATE(Iedges)
+
     IF ( retry>0 ) GOTO 10
 
 20  CONTINUE
@@ -1101,15 +1127,24 @@ real(kind=dp) :: realtime,tt
 
     ! Max the dofs for the shared edges:
     ! ----------------------------------
-    tosend=0
+    n_intf=COUNT(Edgen(:) % Interface)
+    ALLOCATE(Iedges(n_intf));
+    n_intf=0
     DO i=1,n
       IF(Edgen(i) % Interface) THEN
-        DO j=1,SIZE(Edgen(i) % Neighbours)
-          k = Edgen(i) % Neighbours(j)
-          IF(k/=ParEnv % MyPE) &
-            tosend(k+1)=tosend(k+1)+1
-        END DO
+        n_intf=n_intf+1
+        Iedges(n_intf)=i
       END IF
+    END DO
+
+    tosend=0
+    DO k_intf=1,n_intf
+      i = Iedges(k_intf)
+      DO j=1,SIZE(Edgen(i) % Neighbours)
+        k = Edgen(i) % Neighbours(j)
+        IF(k/=ParEnv % MyPE) &
+          tosend(k+1)=tosend(k+1)+1
+      END DO
     END DO
 
     ALLOCATE(buf(MAXVAL(tosend)*2))
@@ -1117,19 +1152,17 @@ real(kind=dp) :: realtime,tt
     DO i = 1, ParEnv % PEs
       IF( i-1 == ParEnv % MyPE ) CYCLE
       IF( .NOT. IsNeighbour(i) ) CYCLE
-
       mm=0
-      DO l=1,n
-        IF(Edgen(l) % Interface) THEN
-          DO j=1,SIZE(Edgen(l) % Neighbours)
-            k = Edgen(l) % Neighbours(j)
-            IF(k==i-1) THEN
-              mm=mm+1
-              buf(2*mm-1) = gdofs(l)
-              buf(2*mm) = Mesh % Edges(l) % BDOFs
-            END IF
-          END DO
-        END IF
+      DO k_intf=1,n_intf
+        l = Iedges(k_intf)
+        DO j=1,SIZE(Edgen(l) % Neighbours)
+          k = Edgen(l) % Neighbours(j)
+          IF(k==i-1) THEN
+            mm=mm+1
+            buf(2*mm-1) = gdofs(l)
+            buf(2*mm) = Mesh % Edges(l) % BDOFs
+          END IF
+        END DO
       END DO
 
       CALL MPI_BSEND( mm, 1, MPI_INTEGER, &
@@ -1143,21 +1176,25 @@ real(kind=dp) :: realtime,tt
 
     DEALLOCATE(buf)
 
-    DO i = 1, ParEnv % PEs
-      IF( i-1 == ParEnv % MyPE ) CYCLE
-      IF( .NOT. IsNeighbour(i) ) CYCLE
+    DO i = 1, COUNT(isNeighbour)
 
       CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-       i-1, 400, MPI_COMM_WORLD, status, ierr )
+       MPI_ANY_SOURCE, 400, MPI_COMM_WORLD, status, ierr )
+
+      proc = status(MPI_SOURCE)
+
       IF( DataSize > 0 ) THEN
         ALLOCATE( buf(DataSize*2) )
         CALL MPI_RECV( buf, DataSize*2, MPI_INTEGER, &
-           i-1, 401, MPI_COMM_WORLD, status, ierr )
+           proc, 401, MPI_COMM_WORLD, status, ierr )
 
         DO j=1,Datasize
           gi = buf(2*j-1)
           bd = buf(2*j)
-          k = SearchIAItem(n,gdofs,gi)
+          DO k_intf=1,n_intf
+            k=Iedges(k_intf)
+            IF(gdofs(k)==gi) EXIT
+          END DO
           Mesh % Edges(k) % BDOFs=MAX(Mesh % Edges(k) % BDOFs,bd)
         END DO
         DEALLOCATE(buf)
@@ -1194,13 +1231,13 @@ real(kind=dp) :: realtime,tt
      END TYPE flist_t
      TYPE(flist_t) :: list(4)
 
-     INTEGER, ALLOCATABLE :: owned_faces(:), owned_faces2(:), &
+     INTEGER, ALLOCATABLE :: owned_faces(:), owned_faces2(:), Ifaces(:), &
       parentnodes(:,:), tosend(:), toreceive(:), gorder(:), grevorder(:),buf(:)
 
      INTEGER, POINTER :: commonlist(:), gindices(:), gdofs(:)
 
-     INTEGER :: i,j,k,l,m,n,mm,nd,edofs,maxedofs,ind,gi,bd, &
-                p,q,r,datasize, ierr,status(MPI_STATUS_SIZE)
+     INTEGER :: i,j,k,l,m,n,mm,nd,edofs,maxedofs,ind,gi,bd,proc, &
+                p,q,r,datasize, ierr,status(MPI_STATUS_SIZE), k_intf,n_intf
 
      LOGICAL, POINTER :: ig(:)
      TYPE(NeighbourList_t), POINTER :: nb(:)
@@ -1373,19 +1410,30 @@ real(kind=dp) :: realtime,tt
     !
     ! Determine the size of data to exchange between neighbours:
     !-----------------------------------------------------------
+    isNeighbour(ParEnv % myPE+1)=.FALSE.
+
+    n_intf=COUNT(Facen(:) % Interface)
+    ALLOCATE(Ifaces(n_intf));
+    n_intf=0
+    DO i=1,n
+      IF(Facen(i) % Interface) THEN
+        n_intf=n_intf+1
+        Ifaces(n_intf)=i
+      END IF
+    END DO
+
     tosend = 0
     toreceive = 0
-    DO i = 1, n
-      IF( Facen(i) % Interface ) THEN
-        j = Facen(i) % Neighbours(1)
-        IF( j /= ParEnv % MyPE ) THEN
-           toreceive(j+1) = toreceive(j+1)+1
-        ELSE
-           DO j = 2,SIZE(Facen(i) % Neighbours)
-             k = Facen(i) % Neighbours(j)
-             tosend(k+1) = tosend(k+1)+1
-           END DO
-        END IF
+    DO k_intf = 1, n_intf
+      i=Ifaces(k_intf)
+      j = Facen(i) % Neighbours(1)
+      IF( j /= ParEnv % MyPE ) THEN
+         toreceive(j+1) = toreceive(j+1)+1
+      ELSE
+         DO j = 2,SIZE(Facen(i) % Neighbours)
+           k = Facen(i) % Neighbours(j)
+           tosend(k+1) = tosend(k+1)+1
+         END DO
       END IF
     END DO
 
@@ -1427,22 +1475,21 @@ real(kind=dp) :: realtime,tt
     ! Retrieve missing interface node numbers from our neighbours:
     !--------------------------------------------------------------
     tosend = 0
-    DO i = 1, ParEnv % PEs
-      IF( i-1 == ParEnv % MyPE ) CYCLE
-      IF( .NOT. IsNeighbour(i) ) CYCLE
-
-      CALL MPI_RECV( DataSize, 1, MPI_INTEGER, i-1, 100, &
-           MPI_COMM_WORLD, status, ierr )
+    DO i = 1, COUNT(isNeighbour)
+      CALL MPI_RECV( DataSize, 1, MPI_INTEGER, MPI_ANY_SOURCE, 100, &
+                  MPI_COMM_WORLD, status, ierr )
+      proc=status(MPI_SOURCE)
 
       ALLOCATE( gindices(4*DataSize) )
       IF( datasize > 0 ) THEN
         CALL MPI_RECV( gindices, 4*DataSize, MPI_INTEGER, &
-           i-1, 101, MPI_COMM_WORLD, status, ierr )
+           proc, 101, MPI_COMM_WORLD, status, ierr )
 
         DO l = 1, datasize
           m = 4*l-3
-          DO k = 1,n
-            IF( .NOT. Facen(k) % Interface .OR. Facen(k) % n>0 ) CYCLE
+          DO k_intf = 1,n_intf
+            k=Ifaces(k_intf)
+            IF( Facen(k) % n>0 ) CYCLE
             IF( gdofs(parentnodes(k,1)) == gindices(m+1) .AND. &
                 gdofs(parentnodes(k,2)) == gindices(m+2) .AND. &
                 gdofs(parentnodes(k,3)) == gindices(m+3) ) THEN
@@ -1451,8 +1498,8 @@ real(kind=dp) :: realtime,tt
             END IF
           END DO
           IF (k>n) THEN
-            tosend(i) = tosend(i)+1
-            gindices(tosend(i))=gindices(m)
+            tosend(proc+1) = tosend(proc+1)+1
+            gindices(tosend(proc+1))=gindices(m)
           END IF
         END DO
       END IF
@@ -1460,37 +1507,36 @@ real(kind=dp) :: realtime,tt
       ! we don't have these edges, ask to remove us from
       ! share lists:
       ! ------------------------------------------------
-      CALL MPI_BSEND( tosend(i), 1, MPI_INTEGER, &
-           i-1, 200, MPI_COMM_WORLD, ierr )
+      CALL MPI_BSEND( tosend(proc+1), 1, MPI_INTEGER, &
+           proc, 200, MPI_COMM_WORLD, ierr )
 
-      IF ( tosend(i)>0 ) THEN
-        CALL MPI_BSEND( gindices, tosend(i), MPI_INTEGER, &
-           i-1, 201, MPI_COMM_WORLD, ierr )
+      IF ( tosend(proc+1)>0 ) THEN
+        CALL MPI_BSEND( gindices, tosend(proc+1), MPI_INTEGER, &
+                proc, 201, MPI_COMM_WORLD, ierr )
       END IF
       DEALLOCATE(gindices)
     END DO
 
-    DO i = 1, ParEnv % PEs
-       IF( i-1 == ParEnv % MyPE ) CYCLE
-       IF( .NOT. IsNeighbour(i) ) CYCLE
-
+    DO i = 1, COUNT(isNeighbour)
        CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-        i-1, 200, MPI_COMM_WORLD, status, ierr )
+          MPI_ANY_SOURCE, 200, MPI_COMM_WORLD, status, ierr )
        IF( datasize < 1 ) CYCLE
+
+       proc=status(MPI_SOURCE)
 
        ALLOCATE( gindices(DataSize) )
        CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
-          i-1, 201, MPI_COMM_WORLD, status, ierr )
+          proc, 201, MPI_COMM_WORLD, status, ierr )
 
-       DO j=1,n
-         IF ( .NOT. Facen(j) % Interface ) CYCLE
+       DO k_intf=1,n_intf
+         j = Ifaces(k_intf)
          DO k=1,Datasize
            IF (Facen(j) % n==gindices(k)) THEN
              l = SIZE(Facen(j) % Neighbours)
              ALLOCATE(commonlist(l-1))
              p = 0
              DO m=1,l
-               IF (Facen(j) % Neighbours(m)==i-1) CYCLE
+               IF (Facen(j) % Neighbours(m)==proc) CYCLE
                p = p + 1
                commonlist(p)=Facen(j) % Neighbours(m)
              END DO
@@ -1502,6 +1548,15 @@ real(kind=dp) :: realtime,tt
          END DO
        END DO
        DEALLOCATE(gindices)
+    END DO
+
+    n_intf=COUNT(Facen(:) % Interface)
+    n_intf=0
+    DO i=1,n
+      IF(Facen(i) % Interface) THEN
+        n_intf=n_intf+1
+        Ifaces(n_intf)=i
+      END IF
     END DO
 
     !
@@ -1529,6 +1584,8 @@ real(kind=dp) :: realtime,tt
 
     ! if some of the faces miss a global number, retry.
     ! -------------------------------------------------
+    DEALLOCATE(Ifaces)
+
     IF ( mm>0 ) GOTO 10
 
     ! Deallocate temp arrays:
@@ -1613,16 +1670,24 @@ real(kind=dp) :: realtime,tt
              Facen(i) % Neighbours
     END DO
 
-
-    tosend=0
+    n_intf=COUNT(Facen(:) % Interface)
+    ALLOCATE(Ifaces(n_intf));
+    n_intf=0
     DO i=1,n
       IF(Facen(i) % Interface) THEN
-        DO j=1,SIZE(Facen(i) % Neighbours)
-          k = Facen(i) % Neighbours(j)
-          IF(k/=ParEnv % MyPE) &
-            tosend(k+1)=tosend(k+1)+1
-        END DO
+        n_intf=n_intf+1
+        Ifaces(n_intf)=i
       END IF
+    END DO
+
+    tosend=0
+    DO k_intf=1,n_intf
+      i=Ifaces(k_intf)
+      DO j=1,SIZE(Facen(i) % Neighbours)
+        k = Facen(i) % Neighbours(j)
+        IF(k/=ParEnv % MyPE) &
+          tosend(k+1)=tosend(k+1)+1
+      END DO
     END DO
 
     ALLOCATE(buf(MAXVAL(tosend)*2))
@@ -1632,17 +1697,16 @@ real(kind=dp) :: realtime,tt
       IF( .NOT. IsNeighbour(i) ) CYCLE
 
       mm=0
-      DO l=1,n
-        IF(Facen(l) % Interface) THEN
-          DO j=1,SIZE(Facen(l) % Neighbours)
-            k = Facen(l) % Neighbours(j)
-            IF(k==i-1) THEN
-              mm=mm+1
-              buf(2*mm-1) = gdofs(l)
-              buf(2*mm) = Mesh % Faces(l) % BDOFs
-            END IF
-          END DO
-        END IF
+      DO k_intf=1,n_intf
+        l=Ifaces(k_intf)
+        DO j=1,SIZE(Facen(l) % Neighbours)
+          k = Facen(l) % Neighbours(j)
+          IF(k==i-1) THEN
+            mm=mm+1
+            buf(2*mm-1) = gdofs(l)
+            buf(2*mm) = Mesh % Faces(l) % BDOFs
+          END IF
+        END DO
       END DO
 
       CALL MPI_BSEND( mm, 1, MPI_INTEGER, &
@@ -1656,21 +1720,23 @@ real(kind=dp) :: realtime,tt
 
     DEALLOCATE(buf)
 
-    DO i = 1, ParEnv % PEs
-      IF( i-1 == ParEnv % MyPE ) CYCLE
-      IF( .NOT. IsNeighbour(i) ) CYCLE
-
+    DO i = 1,COUNT(isNeighbour)
       CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-       i-1, 400, MPI_COMM_WORLD, status, ierr )
+         MPI_ANY_SOURCE, 400, MPI_COMM_WORLD, status, ierr )
+
+      proc = status(MPI_SOURCE) 
       IF( datasize > 0 ) THEN
         ALLOCATE( buf(DataSize*2) )
         CALL MPI_RECV( buf, DataSize*2, MPI_INTEGER, &
-           i-1, 401, MPI_COMM_WORLD, status, ierr )
+           proc, 401, MPI_COMM_WORLD, status, ierr )
 
         DO j=1,Datasize
           gi = buf(2*j-1)
           bd = buf(2*j)
-          k = SearchIAItem(n,gdofs,gi)
+          DO k_intf=1,n_intf
+            k=Ifaces(k_intf)
+            IF(gdofs(k)==gi) EXIT
+          END DO
           Mesh % Faces(k) % BDOFs = MAX(Mesh % Faces(k) % BDOFs,bd)
         END DO
         DEALLOCATE(buf)
