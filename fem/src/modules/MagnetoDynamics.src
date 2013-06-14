@@ -1823,10 +1823,10 @@ CONTAINS
        L_C(3) = SUM(Load_C(3,1:n))/n
 
        L_R = REAL(L_C)
-       L_R = L_R / SQRT(SUM(L_R**2))
+       IF (ANY(L_R /= 0.0d0)) L_R = L_R / SQRT(SUM(L_R**2))
        IF (ABS(SUM(L_R*Nrm))<Jfluxeps) THEN
          L_R = AIMAG(L_C)
-         L_R = L_R / SQRT(SUM(L_R**2))
+         IF (ANY(L_R /= 0.0d0)) L_R = L_R / SQRT(SUM(L_R**2))
          IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
        END IF
      ELSE
@@ -3628,7 +3628,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          IF (ASSOCIATED(EL_MFS)) THEN
            DO k=1,dim
              EL_MFS % Values( EL_MFS % DOFs*(EL_MFS % Perm( &
-                   Element % DGIndexes(j))-1)+k) = R_ip*B(1,k)-MG_ip(k)
+                   Element % DGIndexes(j))-1)+k) = R_ip*B(1,k)-REAL(MG_ip(k))
            END DO
 
            IF ( Vdofs>1 ) THEN
