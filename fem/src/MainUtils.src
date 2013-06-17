@@ -3402,21 +3402,22 @@ CONTAINS
      Params => Solver % Values
 
 !------------------------------------------------------------------------------
-! The solver may be skipped by giving the start time, or stop time, or the 
-! active exec intervals.
+! The solver may be skipped if the exec condition is negative. 
+! This allows for complicated conditions, and the earlier simple ones 
+! have therefore been replaced by this keyword.
 !------------------------------------------------------------------------------
-     st = ListGetConstReal( Params, 'Start Time', Found )
-     IF ( Found ) THEN
-       TimeVar => VariableGet( Model % Variables, 'Time' )
-       IF ( TimeVar % Values(1) < st ) RETURN
-     END IF
+     IF( ListCheckPresent( Params,'Start Time') ) &
+       CALL Fatal('SolverActivate','Use > Exec Condition = Real < instead of > Start Time <')
 
-     st = ListGetConstReal( Params, 'Stop Time', Found )
-     IF ( Found ) THEN
-       TimeVar => VariableGet( Model % Variables, 'Time' )
-       IF ( TimeVar % Values(1) > st ) RETURN
-     END IF
-    
+     IF( ListCheckPresent( Params,'Stop Time') ) & 
+       CALL Fatal('SolverActivate','Use > Exec Condition = Real < instead of > Stop Time <')
+
+     st = ListGetCReal( Params,'Exec Condition',Found) 
+     IF( Found .AND. st < 0.0 ) RETURN
+
+!---------------------------------------------------------------------------------   
+! There may also be predefined discrete intervals for the execution of the solver.
+!---------------------------------------------------------------------------------   
      ExecIntervals => ListGetIntegerArray( Params,'Exec Intervals', Found )
      IF( .NOT. Found ) THEN
        ExecIntervals =>  ListGetIntegerArray( Params,'Exec Interval', Found )
