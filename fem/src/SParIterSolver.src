@@ -1139,9 +1139,10 @@ END SUBROUTINE ZeroSplittedMatrix
 !----------------------------------------------------------------------
 !> Create continuous numbering for the dofs expected by some linear solvers.
 !----------------------------------------------------------------------
-  SUBROUTINE ContinuousNumbering(ParallelInfo, Mperm, Aperm, Owner, nin )
+  SUBROUTINE ContinuousNumbering(ParallelInfo, Mperm, Aperm, Owner, nin,Mesh )
 !--------------------------------------------------------------------
      INTEGER :: Mperm(:), Aperm(:), Owner(:)
+     TYPE(Mesh_t), OPTIONAL :: Mesh
      INTEGER, OPTIONAL :: nin
      TYPE(ParallelInfo_t) :: ParallelInfo
 
@@ -1149,8 +1150,9 @@ END SUBROUTINE ZeroSplittedMatrix
                   buf_aa(:), buf_gg(:)
      INTEGER, ALLOCATABLE :: n_nownbuf(:),g_nownbuf(:),i_nownbuf(:)
      INTEGER, POINTER :: nb(:)
+     LOGICAL, POINTER :: isNeighbour(:)
      INTEGER :: min_id,max_id,my_id,next_id,prev_id, active_neighbours
-     INTEGER :: i,j,k,src,n,nob,gind,ssz,status(MPI_STATUS_SIZE),ierr
+     INTEGER :: i,j,k,src,n,nob,gind,ssz,status(MPI_STATUS_SIZE),ierr,nneigh
 
      Owner = 0; Aperm = 0;
      IF(PRESENT(nin)) THEN
@@ -1158,6 +1160,14 @@ END SUBROUTINE ZeroSplittedMatrix
      ELSE
        n = SIZE(ParallelInfo % GlobalDOFs)
      END IF
+
+     IF(PRESENT(Mesh)) THEN
+       ALLOCATE(isNeighbour(ParEnv % PEs))
+       nneigh = MeshNeighbours(Mesh,isNeighbour)
+     ELSE
+       nneigh = ParEnv % NumOfNeighbours
+       isNeighbour => ParEnv % IsNeighbour
+     ENDIF
  
      DO min_id=0,Parenv % PEs-1
        IF ( ParEnv % Active(min_id+1) ) EXIT
@@ -1201,18 +1211,17 @@ END SUBROUTINE ZeroSplittedMatrix
           next_id, 801, MPI_COMM_WORLD, ierr )
      END IF
 
-
      ! the rest is to communicate the numbering of shared dofs
      ! from owners to others that share the dofs:
      ! --------------------------------------------------------
-     ALLOCATE( neigh(Parenv % PEs),sz(ParEnv % NumOfNeighbours) )
+     ALLOCATE(neigh(Parenv % PEs),sz(nneigh))
      k = 0
      DO i=1,ParEnv % PEs
        IF ( .NOT. ParEnv % Active(i) ) CYCLE
 
-       IF( ParEnv % IsNeighbour(i) ) THEN
-         k=k+1
-         neigh(i)=k
+       IF( IsNeighbour(i) ) THEN
+         k = k + 1
+         neigh(i) = k
        END IF
      END DO
 
@@ -1227,8 +1236,8 @@ END SUBROUTINE ZeroSplittedMatrix
        END IF
      END DO
 
-     ALLOCATE( buf_a(MAXVAL(sz),ParEnv % NumOfNeighbours), &
-               buf_g(MAXVAL(sz),ParEnv % NumOfNeighbours) )
+     ALLOCATE( buf_a(MAXVAL(sz),nneigh), &
+               buf_g(MAXVAL(sz),nneigh))
 
      nob = COUNT(owner==0)
      ALLOCATE( n_nownbuf(nob), g_nownbuf(nob), i_nownbuf(nob) )
@@ -1257,7 +1266,7 @@ END SUBROUTINE ZeroSplittedMatrix
      DO i=1,ParEnv % PEs
        IF ( .NOT. ParEnv % Active(i) ) CYCLE
 
-       IF ( ParEnv % IsNeighbour(i) ) THEN
+       IF ( isNeighbour(i) ) THEN
          active_neighbours = active_neighbours+1
          k = neigh(i)
          ssz = sz(k)
@@ -1289,7 +1298,10 @@ END SUBROUTINE ZeroSplittedMatrix
        END IF
      END DO
 
+     IF(PRESENT(Mesh)) DEALLOCATE(isNeighbour)
      DEALLOCATE( n_nownbuf, g_nownbuf, i_nownbuf )
+
+     CALL SParIterActiveBarrier()
 !--------------------------------------------------------------------
    END SUBROUTINE ContinuousNumbering
 !--------------------------------------------------------------------
@@ -1657,12 +1669,13 @@ integer::inside
       ELSE
         nnd = Solver % Mesh % NumberOfNodes
         ALLOCATE( NodeOwner(nnd), NodePerm(nnd), Bperm(nnd))
+        nodeowner=0
         DO i=1,nnd
           NodePerm(i)=i
         END DO
 
         CALL ContinuousNumbering( Solver % Mesh % ParallelInfo, &
-                    NodePerm, BPerm, NodeOwner, nnd)
+             NodePerm, BPerm, NodeOwner, nnd, Solver % Mesh)
 
         GM => AllocateMatrix()
         GM % Format = MATRIX_LIST
