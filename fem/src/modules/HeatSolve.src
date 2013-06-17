@@ -85,7 +85,7 @@
 
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles,NewtonLinearization = .FALSE., &
-         Found, GotIt, HeatFluxBC, HeatGapBC, GotMeltPoint, IsRadiation
+         Found, GotIt, HeatFluxBC, HeatGapBC, GotMeltPoint, IsRadiation, InfBC
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, ConvectionField
      INTEGER :: CompressibilityModel
@@ -128,7 +128,7 @@
        Pressure(:), dPressuredt(:), GasConstant(:),AText(:), HeaterArea(:), &
        HeaterTarget(:), HeaterScaling(:), HeaterDensity(:), HeaterSource(:), &
        HeatExpansionCoeff(:), ReferenceTemperature(:), PressureCoeff(:), &
-       PhaseVelocity(:,:), &
+       PhaseVelocity(:,:), HeatConductivityIso(:), &
        PerfusionRate(:), PerfusionDensity(:), PerfusionHeatCapacity(:), PerfusionRefTemperature(:)
 
      SAVE U, V, W, MU, MASS, STIFF, LOAD, PressureCoeff, &
@@ -140,6 +140,7 @@
        HeaterScaling, HeaterDensity, HeaterSource, SmartHeaters, IntegralHeaters, SmartTolReached,    &
        ReferenceTemperature, HeatExpansionCoeff, PrevPowerScaling, PowerScaling, &
        MeltPoint, DoneTime, SmartHeaterNode, SmartHeaterBC, SmartHeaterAverage, &
+       HeatConductivityIso, &
        PerfusionRate, PerfusionDensity, PerfusionHeatCapacity, PerfusionRefTemperature
 
 
@@ -198,7 +199,8 @@
      TempSol => Solver % Variable
      TempPerm    => TempSol % Perm
      Temperature => TempSol % Values
-
+     VarName = GetVarName( TempSol ) 
+  
      LocalNodes = COUNT( TempPerm > 0 )
      IF ( LocalNodes <= 0 ) RETURN
 
@@ -256,7 +258,8 @@
                  STIFF,LOAD,            &
                  Indexes, SaveIndexes,  &
                  FORCE, TimeForce,      &
-                 PerfusionRate,     &
+                 HeatConductivityIso,   &
+                 PerfusionRate,         &
                  PerfusionDensity,      &
                  PerfusionHeatCapacity, &
                  PerfusionRefTemperature )
@@ -287,6 +290,7 @@
                  NodalEmissivity( N ),                 &
                  GasConstant( N ),AText( N ),          &
                  HeatConductivity( 3,3,N ),            &
+                 HeatConductivityIso( N ),             &
                  STIFF( 2*N,2*N ),LOAD( N ), &
                  FORCE( 2*N ), TimeForce(2*N), &
                  PerfusionRate( N ),     &
@@ -1005,7 +1009,7 @@
         ! there can possibly not be any effect on temperature.
         !-----------------------------------------------------------------
 	IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
-          IF( ListCheckPresent(BC, TempSol % Name) ) THEN
+          IF( ListCheckPresent(BC, Varname) ) THEN
              nd = GetElementDOFs(Indexes)
              ForceHeater(TempPerm(Indexes(1:nd))) = 0.0_dp
           END IF
@@ -1363,21 +1367,34 @@ CONTAINS
          END DO
       END IF
 
-
 !------------------------------------------------------------------------------
 !     BC: -k@T/@n = g
 !------------------------------------------------------------------------------
       LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
+
+      InfBC = ListGetLogical( BC,'Infinity BC '//TRIM(VarName),GotIt)
+      IF( InfBC ) THEN
+        AText(1:n) = GetReal( BC,'Infinity BC '//TRIM(VarName)//' Offset',GotIt)
+        ! currently only isotropic heat conductivity supported
+        HeatConductivityIso(1:n) = GetParentMatProp('Heat Conductivity',Element,GotIt)
+        IF(.NOT. GotIt) THEN
+          CALL Fatal( 'HeatSolver','Could not find > Heat Conductivity < for parent!' )           
+        END IF
+      END IF
 
 !------------------------------------------------------------------------------
 !     Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
       IF ( CurrentCoordinateSystem() == Cartesian ) THEN
         CALL DiffuseConvectiveBoundary( STIFF,FORCE, &
-          LOAD,HeatTransferCoeff,Element,n,ElementNodes )
+            LOAD,HeatTransferCoeff,InfBC,HeatConductivityIso,AText(1:n),&
+            Element,n,ElementNodes )
       ELSE
+        IF( InfBC ) THEN
+          CALL Fatal('HeatSolver','Infinity BC not implemented only for cartersian case!')
+        END IF
         CALL DiffuseConvectiveGenBoundary(STIFF,FORCE,&
-          LOAD,HeatTransferCoeff,Element,n,ElementNodes ) 
+            LOAD,HeatTransferCoeff,Element,n,ElementNodes ) 
       END IF
 
 !------------------------------------------------------------------------------

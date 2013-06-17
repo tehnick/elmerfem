@@ -35,8 +35,8 @@
 ! ******************************************************************************/
 
 !----------------------------------------------------------------------
-!>  Diffuse-convective local matrix computing in cartesian coordinates.
-!> Used by a number of solvers.
+!> Diffuse-convective local matrix computing in cartesian coordinates.
+!> Used nowadays only by HeatSolver.
 !----------------------------------------------------------------------
 !> \ingroup ElmerLib
 !> \{
@@ -56,9 +56,9 @@ MODULE DiffuseConvective
 !------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveCompose( MassMatrix,StiffMatrix,ForceVector,  &
       LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,PhaseChange,NodalTemperature, &
-         Enthalpy,Ux,Uy,Uz,MUx,MUy,MUz,Nodalmu,Nodalrho,NodalPressure, &
-            NodaldPressureDt, NodalPressureCoeff, Compressible, Stabilize, &
-              UseBubbles, Element,n,Nodes )
+      Enthalpy,Ux,Uy,Uz,MUx,MUy,MUz,Nodalmu,Nodalrho,NodalPressure, &
+      NodaldPressureDt, NodalPressureCoeff, Compressible, Stabilize, &
+      UseBubbles, Element,n,Nodes )
 !------------------------------------------------------------------------------
 !
 !  REAL(KIND=dp) :: MassMatrix(:,:)
@@ -168,7 +168,6 @@ MODULE DiffuseConvective
      StabilizeFlag = GetString( GetSolverParams(),'Stabilization Method',Found )
      Vms = StabilizeFlag == 'vms'
 
-     Transient = GetString(GetSimulation(),'Simulation type',Found)=='transient'
 
      dim = CoordinateSystemDimension()
      c = dim + 1
@@ -228,6 +227,9 @@ MODULE DiffuseConvective
        END DO
 
        NodalPvelo = 0._dp
+
+       ! transient flag only needed for vms
+       Transient = GetString(GetSimulation(),'Simulation type',Found)=='transient'
        IF ( Transient ) THEN
          dt = CurrentModel % Solver % dt
          Order = MIN(CurrentModel % Solver % DoneTime,CurrentModel % Solver % Order)
@@ -619,7 +621,7 @@ MODULE DiffuseConvective
 !>  of diffusion convection equation: 
 !------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveBoundary( BoundaryMatrix,BoundaryVector, &
-               LoadVector,NodalAlpha,Element,n,Nodes )
+               LoadVector,NodalAlpha,OpenBC,NodalCond,NodalExt,Element,n,Nodes )
 !------------------------------------------------------------------------------
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
@@ -647,10 +649,10 @@ MODULE DiffuseConvective
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:), &
-                    LoadVector(:),NodalAlpha(:)
-
+                    LoadVector(:),NodalAlpha(:),NodalCond(:),NodalExt(:)
+     LOGICAL :: OpenBC
      TYPE(Nodes_t)   :: Nodes
-     TYPE(Element_t) :: Element
+     TYPE(Element_t), POINTER :: Element
 
      INTEGER :: n
 
@@ -659,7 +661,7 @@ MODULE DiffuseConvective
      REAL(KIND=dp) :: dBasisdx(n,3),detJ
 
      REAL(KIND=dp) :: U,V,W,S
-     REAL(KIND=dp) :: Force,Alpha
+     REAL(KIND=dp) :: Force,Alpha,Normal(3),Coord(3),x,y,z
      REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
 
      INTEGER :: i,t,q,p,N_Integ
@@ -698,6 +700,20 @@ MODULE DiffuseConvective
 !------------------------------------------------------------------------------
        Force = SUM( LoadVector(1:n)*Basis )
        Alpha = SUM( NodalAlpha(1:n)*Basis )
+
+       IF( OpenBC ) THEN
+         x = SUM( Nodes % x(1:n)*Basis(1:n) )
+         y = SUM( Nodes % y(1:n)*Basis(1:n) )
+         z = SUM( Nodes % z(1:n)*Basis(1:n) )         
+
+         Normal = NormalVector( Element, Nodes, u, v, .TRUE. )
+         Coord(1) = x
+         Coord(2) = y
+         Coord(3) = z
+         Alpha = SUM( Basis(1:n) * NodalCond(1:n) ) *  &
+             SUM( Coord * Normal ) / SUM( Coord * Coord ) 
+         Force = Alpha * SUM( Basis(1:n) * NodalExt(1:n) )
+       END IF
 
        DO p=1,N
          DO q=1,N
