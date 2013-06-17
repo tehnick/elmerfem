@@ -68,7 +68,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     Mesh => GetMesh()
     n = 0
-    SELECT CASE(GetElementFamily())
+    SELECT CASE(GetElementFamily(Boundary))
     CASE(1)
       RETURN
     CASE(2)
@@ -76,7 +76,7 @@ CONTAINS
         Parent => Boundary % BoundaryInfo % Left
         IF ( .NOT. ASSOCIATED(Parent) ) &
             Parent => Boundary % BoundaryInfo % Right
-
+ 
         jb1 = Boundary % NodeIndexes(1)
         jb2 = Boundary % NodeIndexes(2)
         DO i=1,Parent % TYPE % NumberOfEdges
@@ -90,7 +90,7 @@ CONTAINS
     CASE(3,4)
       j = GetBoundaryFaceIndex(Boundary)
       Face => Mesh % Faces(j)
-      IF ( nedge<=Face % TYPE % NumberOfEdges ) &
+      IF ( nedge>0.AND.nedge<=Face % TYPE % NumberOfEdges ) &
         n = Face % EdgeIndexes(nedge) 
     END SELECT
 !------------------------------------------------------------------------------
@@ -289,6 +289,11 @@ SUBROUTINE WhitneyAVSolver_Init0(Model,Solver,dt,Transient)
     ELSE
       CALL ListAddString( SolverParams, "Element", "n:0 e:1" )
     END IF
+
+    IF(GetString(SolverParams,'Linear System Solver')=='block') THEN
+      CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
+      CALL ListAddLogical( SolverParams, "Optimize Bandwidth", .FALSE.)
+    END IF
   END IF
   CALL ListAddLogical( SolverParams,'Use Global Mass Matrix',.TRUE.) 
 !------------------------------------------------------------------------------
@@ -343,6 +348,10 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   TYPE(Matrix_t), POINTER :: A
   TYPE(ListMatrix_t), POINTER :: BasicCycles(:)
 
+  INTEGER :: n_n, n_e
+  INTEGER, POINTER :: Vperm(:), Aperm(:)
+  REAL(KIND=dp), POINTER :: Avals(:), Vvals(:)
+
   SAVE STIFF, LOAD, MASS, FORCE, Tcoef, Acoef, AllocationsDone
 !------------------------------------------------------------------------------
 
@@ -359,6 +368,30 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
           MASS(N,N), Tcoef(N), Acoef(N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'WhitneyAVSolver', 'Memory allocation error.' )
+     END IF
+
+     IF(GetString(GetSolverParams(),'Linear System Solver')=='block') THEN
+       n = Mesh % NumberOfNodes
+       n_n = COUNT(Perm(1:n)>0)
+       n_e = COUNT(Perm(n+1:)>0)
+       ALLOCATE( Avals(n_e), Vvals(n_n) )
+       Vvals = Vecpot(1:n)
+       Avals = Vecpot(n+1:)
+
+       ALLOCATE(Aperm(SIZE(Perm)),Vperm(SIZE(Perm)))
+       Aperm = 0; Vperm = 0
+       DO i=1,SIZE(AVals)
+         Aperm(i+n) = i
+       END DO
+       DO i=1,SIZE(Vvals)
+         Vperm(i)=i
+       END DO
+
+       CALL VariableAdd(Mesh % Variables,Mesh,Solver, & 
+                 GetVarName(Solver % Variable)//' 1',1,Vvals,Vperm)
+
+       CALL VariableAdd(Mesh % Variables,Mesh,Solver, & 
+                 GetVarName(Solver % Variable)//' 2',1,Avals,Aperm)
      END IF
      AllocationsDone = .TRUE.
   END IF
@@ -392,16 +425,19 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 
 
   DO i=1,NoIterations
-    IF( DoSolve() ) EXIT
+    IF( DoSolve(i) ) EXIT
   END DO
 
 CONTAINS
 
 !------------------------------------------------------------------------------
-  LOGICAL FUNCTION DoSolve() RESULT(Converged)
+  LOGICAL FUNCTION DoSolve(IterNo) RESULT(Converged)
 !------------------------------------------------------------------------------
    CHARACTER(LEN=MAX_NAME_LEN) :: potname
-   INTEGER :: i,j,t,n,nd
+   INTEGER :: i,j,t,n,nd,IterNo
+
+   LOGICAL :: Found
+   REAL(KIND=dp)::TOL,Norm,PrevNorm
 
   !System assembly:
   !----------------
@@ -538,6 +574,7 @@ CONTAINS
   ! --------------------------------------------------
   CALL DirichletAfromB()
 
+
   !
   ! Gauge tree, if requested or using direct solver:
   ! ------------------------------------------------
@@ -565,6 +602,7 @@ CONTAINS
         'Linear System Refactorize', .TRUE. )
   END IF
 
+  PrevNorm = ParallelReduction(SQRT(SUM(Solver % Variable % Values**2)))
   Norm = DefaultSolve()
 
   IF ( Found .AND. dt /= PrevDT ) THEN
@@ -578,7 +616,17 @@ CONTAINS
 
 ! CALL WriteResults  ! debugging helper
 
-  Converged = Solver % Variable % NonLinConverged==1
+  TOL = GetCReal(GetSolverParams(),'Nonlinear system Convergence Tolerance',Found)
+  Norm = ParallelReduction(SQRT(SUM(Solver % Variable % Values**2)))
+
+  WRITE( Message, '(a,g15.8,g15.8,a)') &
+      'NS (ITER='//TRIM(i2s(IterNo))//') (NRM,RELC): (',Norm, &
+            2*ABS(Norm-PrevNorm)/(Norm+PrevNorm),&
+               ' ) :: '// 'magnetodynamics'
+  CALL Info( 'ComputeChange', Message, Level=3)
+
+  Converged = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)<TOL
+
 !------------------------------------------------------------------------------
  END FUNCTION DoSolve
 !------------------------------------------------------------------------------
@@ -1627,6 +1675,7 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
 
   CALL ListSetNameSpace('jfix:')
   CALL ListAddLogical(SolverParams,'Jfix: Linear System Use HYPRE', .FALSE.)
+  CALL ListAddLogical(SolverParams,'Jfix: Use Global Mass Matrix',.FALSE.)
 
   IF (.NOT.ListCheckPresent(SolverParams,'Jfix: Linear System Preconditioning')) &
     CALL ListAddString(SolverParams,'Jfix: Linear System Preconditioning', 'Ilu')
@@ -1667,7 +1716,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element, P1,P2
     TYPE(ValueList_t), POINTER ::  BodyForce
 
-    REAL(KIND=dp) :: weight,detJ,Source,L_R(3),Nrm(3), Jfluxeps
+    REAL(KIND=dp) :: weight,detJ,Source,L_R(3),Nrm(3), Jfluxeps,rabs
     REAL(KIND=dp), ALLOCATABLE :: Load_R(:,:)
 
     COMPLEX(KIND=dp) :: L_C(3)
@@ -1837,7 +1886,8 @@ CONTAINS
        L_R(1) = SUM(Load_R(1,1:n))/n
        L_R(2) = SUM(Load_R(2,1:n))/n
        L_R(3) = SUM(Load_R(3,1:n))/n
-       L_R = L_R / SQRT(SUM(L_R**2))
+       rabs = SQRT(SUM(L_R**2))
+       IF(rabs/=0) L_R = L_R / rabs
        IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
      END IF
 
