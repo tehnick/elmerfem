@@ -595,12 +595,11 @@ CONTAINS
             uj = PrevSolution(Cols(j),k)
             mu = mu - Mass(j) * a(k+1) * uj  
           END DO
+          Stiff(j) = Stiff(j) + a(1) * Mass(j)
         END DO
         Force(i) = Force(i) + mu
       END DO
       !$omp end parallel do
-      
-      Stiff = Stiff + a(1) * Mass
     END IF
 
 !------------------------------------------------------------------------------
