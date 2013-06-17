@@ -89,7 +89,7 @@ RECURSIVE SUBROUTINE TemperateIceSolver( Model,Solver,Timestep,TransientSimulati
   LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles, &
        Found, FluxBC, Permeable=.TRUE., IsPeriodicBC=.FALSE.,&
        AllocationsDone = .FALSE.,  SubroutineVisited = .FALSE., FirstTime=.TRUE.,&
-       LimitSolution, ApplyDirichlet, FlowSolutionFound
+       LimitSolution, ApplyDirichlet, FlowSolutionFound, DummyLogical = .FALSE.
   LOGICAL, ALLOCATABLE ::  LimitedSolution(:), ActiveNode(:), IsGhostNode(:)
   LOGICAL :: strainHeating
   LOGICAL :: LoopWhileUnconstrainedNodes, UnconstrainedNodesExist, GlobalUnconstrainedNodesExist
@@ -111,7 +111,7 @@ RECURSIVE SUBROUTINE TemperateIceSolver( Model,Solver,Timestep,TransientSimulati
        IceVeloU(:),IceVeloV(:),IceVeloW(:),TimeForce(:), &
        TransferCoeff(:), LocalTemp(:), Work(:), C1(:), C0(:), CT(:), Zero(:), Viscosity(:),&
        UpperLimit(:), HeatCapacity(:),  Density(:), TempExt(:), &
-       StiffVector(:), OldValues(:), OldRHS(:)
+       StiffVector(:), OldValues(:), OldRHS(:), DummyRealArray(:)
   REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
   SAVE &
@@ -144,7 +144,16 @@ RECURSIVE SUBROUTINE TemperateIceSolver( Model,Solver,Timestep,TransientSimulati
        LimitedSolution,       &
        IsGhostNode,           &
        ActiveNode,            &
-       AllocationsDone, FirstTime, Hwrk, VariableName, SolverName, NonLinearTol, M, round
+       AllocationsDone,       &
+       FirstTime,             &
+       Hwrk,                  &
+       VariableName,          &
+       SolverName,            &
+       NonLinearTol,          &
+       M,                     &
+       round,                 &
+       DummyLogical,          &
+       DummyRealArray
 
   totat = 0.0_dp
   totst = 0.0_dp
@@ -211,7 +220,8 @@ RECURSIVE SUBROUTINE TemperateIceSolver( Model,Solver,Timestep,TransientSimulati
              UpperLimit,               &
              LimitedSolution,          &
              IsGhostNode,              &
-             ActiveNode)              
+             ActiveNode,               &
+             DummyRealArray)              
      END IF
 
      ALLOCATE(                                  &
@@ -246,6 +256,7 @@ RECURSIVE SUBROUTINE TemperateIceSolver( Model,Solver,Timestep,TransientSimulati
           LimitedSolution( M ),                 &
           ActiveNode( M ),                      &
           IsGhostNode( M ),                     &
+          DummyRealArray( N ),                  &
           STAT=istat )
 
      IF ( istat /= 0 ) THEN
@@ -760,7 +771,7 @@ RECURSIVE SUBROUTINE TemperateIceSolver( Model,Solver,Timestep,TransientSimulati
               ! -------------------------------------
               IF ( CurrentCoordinateSystem() == Cartesian ) THEN
                  CALL DiffuseConvectiveBoundary( STIFF,FORCE, &
-                      LOAD,TransferCoeff,Element,n,ElementNodes )
+                      LOAD,TransferCoeff,DummyLogical, DummyRealArray, DummyRealArray, Element,n,ElementNodes )
               ELSE
                  CALL DiffuseConvectiveGenBoundary(STIFF,FORCE,&
                       LOAD,TransferCoeff,Element,n,ElementNodes ) 
