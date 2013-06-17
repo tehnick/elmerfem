@@ -6415,12 +6415,13 @@ CONTAINS
              IF( .NOT.ASSOCIATED( Element ) ) &
                   Element => BoundaryElement % BoundaryInfo % Right
              IF( .NOT.ASSOCIATED( Element ) ) CYCLE
+             IF( .NOT.ASSOCIATED( Element % EdgeIndexes ) ) CYCLE
              
              ALLOCATE( list1( SIZE( BoundaryElement % NodeIndexes )))
              list1 = BoundaryElement % NodeIndexes
              CALL Sort( SIZE(list1), list1 )
              
-             DO j = 1,SIZE( Element % EdgeIndexes )
+             DO j = 1,Element % Type % NumberOfEdges
                 k = Element % EdgeIndexes(j)
                 Edge => Mesh % Edges(k)
                 IF( SIZE( Edge % NodeIndexes ) /= SIZE(list1) ) CYCLE
@@ -6492,20 +6493,21 @@ CONTAINS
           ! Eliminate false interface faces based on BoundaryElement -data:
           !----------------------------------------------------------------
           DO i = 1,Mesh % NumberOfBoundaryElements
-             BoundaryElement => Mesh % Elements( Mesh % NumberOfBulkElements + i )
+             BoundaryElement => Mesh % Elements(Mesh % NumberOfBulkElements+i)
              Element => BoundaryElement % BoundaryInfo % Left
              IF( .NOT.ASSOCIATED(Element) ) &
-                  Element => BoundaryElement % BoundaryInfo % Right
-             IF( .NOT.ASSOCIATED(Element) ) CYCLE
+                Element => BoundaryElement % BoundaryInfo % Right
+              IF( .NOT.ASSOCIATED(Element) ) CYCLE
+              IF( .NOT.ASSOCIATED(Element % FaceIndexes) ) CYCLE
              
-             ALLOCATE( list1( SIZE( BoundaryElement % NodeIndexes )))
+             ALLOCATE(list1(SIZE(BoundaryElement % NodeIndexes)))
              list1 = BoundaryElement % NodeIndexes
-             CALL Sort( SIZE(list1), list1 )
+             CALL Sort(SIZE(list1),list1)
              
-             DO j = 1,SIZE( Element % FaceIndexes )
+             DO j = 1,Element % Type % NumberOfFaces
                 k = Element % FaceIndexes(j)
                 Face => Mesh % Faces(k)
-                IF( SIZE( Face % NodeIndexes ) /= SIZE(list1) ) CYCLE
+                IF(SIZE(Face % NodeIndexes)/= SIZE(list1) ) CYCLE
                 
                 ALLOCATE( list2( SIZE( Face % NodeIndexes )))
                 list2 = Face % NodeIndexes
