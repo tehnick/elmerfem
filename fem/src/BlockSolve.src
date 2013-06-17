@@ -38,6 +38,9 @@ MODULE BlockSolve
 
   LOGICAL, PRIVATE :: isParallel=.FALSE.
 
+  TYPE(Variable_t), POINTER :: SolverVar => Null()
+  TYPE(Matrix_t), POINTER :: SolverMatrix => Null()
+
 CONTAINS
 
 
@@ -316,7 +319,7 @@ CONTAINS
       END IF
       
       BlockMatrix % SubVector(i) % Var => Var
-      n = SIZE( Var % Values )
+      n = SIZE(Var % Values)
       
       BlockMatrix % Offset(i+1) = BlockMatrix % Offset(i) + n
       BlockMatrix % MaxSize = MAX( BlockMatrix % MaxSize, n )
@@ -345,8 +348,80 @@ CONTAINS
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: ReuseMatrix, Found
 
+    LOGICAL :: BlockAV
+    INTEGER::i,j,k,i_aa,i_vv,i_av,i_va,n;
+    TYPE(Matrix_t), POINTER :: B_aa,B_av,B_va,B_vv,A
+
     SolverMatrix => Solver % Matrix 
     Params => Solver % Values
+
+    BlockAV = ListGetLogical( Params,'Block A-V System', Found)
+
+    IF(BlockAV) THEN
+      A => SolverMatrix
+      i_aa=0; i_vv=0; i_av=0; i_va=0;
+      n = Solver % Mesh % NumberOfNodes
+
+      B_aa => TotMatrix % SubMatrix(2,2) % Mat
+      B_av => TotMatrix % SubMatrix(2,1) % Mat
+      B_va => TotMatrix % SubMatrix(1,2) % Mat
+      B_vv => TotMatrix % SubMatrix(1,1) % Mat
+
+      IF(ASSOCIATED(B_aa % Values)) B_aa % Values=0._dp
+      IF(ASSOCIATED(B_av % Values)) B_av % Values=0._dp
+      IF(ASSOCIATED(B_va % Values)) B_va % Values=0._dp
+      IF(ASSOCIATED(B_vv % Values)) B_vv % Values=0._dp
+
+      DO i=1,SIZE(Solver % Variable % Perm)
+        j = Solver % Variable % Perm(i)
+        IF(j<=0) CYCLE
+        if ( i<=n) then
+           i_vv=i_vv+1
+        else
+           i_aa=i_aa+1
+        end if
+        DO k=A % Rows(j+1)-1,A % Rows(j),-1
+          IF(i<=n.AND.A %Cols(k)<=n) THEN
+            CALL AddToMatrixElement(B_vv,i_vv,A % Cols(k),A % Values(k))
+          ELSE IF (i<=n.AND.A % Cols(k)>n) THEN
+            CALL AddToMatrixElement(B_va,i_vv,A % Cols(k)-n,A % Values(k))
+          ELSE IF (i>n.AND.A % Cols(k)<=n) THEN
+            CALL AddToMatrixElement(B_av,i_aa,A % Cols(k),A % Values(k))
+          ELSE
+            CALL AddToMatrixElement(B_aa,i_aa,A % Cols(k)-n,A % Values(k))
+          END IF
+        END DO
+      END DO
+
+      IF (B_aa % Format == MATRIX_LIST) THEN
+        CALL List_toCRSMatrix(B_aa)
+        CALL List_toCRSMatrix(B_av)
+        CALL List_toCRSMatrix(B_va)
+        CALL List_toCRSMatrix(B_vv)
+      END IF
+
+      IF(ASSOCIATED(B_aa % Rhs)) THEN
+        DEALLOCATE(B_aa % Rhs, B_vv % Rhs)
+      END IF
+
+      ALLOCATE(B_aa % Rhs(B_aa % NumberOfRows))
+      ALLOCATE(B_vv % Rhs(B_vv % NumberOfRows))
+
+      i_vv=0; i_aa=0
+      DO i=1,SIZE(Solver % Variable % Perm)
+        j = Solver % Variable % Perm(i)
+        IF(j<=0) CYCLE
+        IF (i<=n) THEN
+          i_vv=i_vv+1
+          B_vv % Rhs(i_vv) = A % Rhs(j)
+        ELSE 
+          i_aa=i_aa+1
+          B_aa % Rhs(i_aa) = A % Rhs(j)
+        END IF
+      END DO
+
+      RETURN
+    END IF
 
     ReuseMatrix = ListGetLogical( Params,'Block Matrix Reuse',Found)
 
@@ -507,6 +582,13 @@ CONTAINS
     Offset => TotMatrix % Offset
     MaxSize = TotMatrix % MaxSize
 
+    IF (isParallel) THEN
+      IF(.NOT.ASSOCIATED(TotMatrix % SubMatrix(1,NoVar) % Mat % ParMatrix)) THEN
+        CALL ParallelMatrixVector( SolverMatrix, u(1:ipar(3)), v(1:ipar(3)))
+        RETURN
+      END IF
+    END IF
+
     ALLOCATE( s(MaxSize) )
 
     v(1:offset(NoVar+1)) = 0
@@ -538,7 +620,7 @@ CONTAINS
     REAL(KIND=dp), TARGET :: u(*), v(*)
     INTEGER :: ipar(*)
 !---------------------------------------------------------------------------------
-    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),b(:), x(:), rhs_save(:)
+    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),xtmp(:),b(:), x(:), rhs_save(:)
     INTEGER :: i,j,k,l,NoVar
     TYPE(Solver_t), POINTER :: Solver
     INTEGER, POINTER :: Offset(:)
@@ -582,7 +664,7 @@ CONTAINS
     u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
 
     IF( BlockGS ) THEN
-      ALLOCATE( vtmp(offset(NoVar+1)), rtmp(offset(NoVar+1)) )
+      ALLOCATE( vtmp(offset(NoVar+1)), rtmp(offset(NoVar+1)), xtmp(offset(NoVar+1)))
       vtmp(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
     END IF
 
@@ -671,12 +753,10 @@ CONTAINS
             Solver,MatvecF=AddrFunc(SParMatrixVector), &
                 DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm))
 #else
-        CALL SolveSystem( A, ParMatrix, b, &
-            x, Var % Norm, Var % DOFs, Solver )
+        CALL SolveSystem( A, ParMatrix, b, x, Var % Norm, Var % DOFs, Solver )
 #endif
       ELSE
-        CALL SolveSystem( A, ParMatrix, b, &
-            x, Var % Norm, Var % DOFs, Solver )
+        CALL SolveSystem( A, ParMatrix, b, x, Var % Norm, Var % DOFs, Solver )
       END IF
 
 #ifdef SOLSYS
@@ -712,7 +792,14 @@ CONTAINS
           ! The residual is used only as a temporary vector
           !-------------------------------------------------------------
           IF (isParallel) THEN
-            CALL ParallelMatrixVector(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
+            IF(ASSOCIATED(TotMatrix % SubMatrix(k,i) % Mat % ParMatrix)) THEN
+              CALL ParallelMatrixVector(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
+            ELSE
+              xtmp=0
+              xtmp(offset(i)+1:offset(i+1))=x(offset(i)+1:offset(i+1))
+              CALL ParallelMatrixVector(SolverMatrix,xtmp,rtmp)
+              rtmp(1:offset(k+1)-offset(k))=rtmp(offset(k)+1:offset(k+1))
+            END IF
           ELSE
             CALL CRS_MatrixVectorMultiply(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
           END IF
@@ -852,17 +939,20 @@ CONTAINS
     REAL(KIND=dp), ALLOCATABLE :: x(:),b(:),r(:)
     
     TYPE(Matrix_t), POINTER :: A
-    TYPE(Variable_t), POINTER :: SolverVar
+    TYPE(Variable_t), POINTER :: SVar
     TYPE(ValueList_t), POINTER :: Params
     INTEGER :: NoVar, ndim, maxsize
     LOGICAL :: Converged, Diverged
     INTEGER :: Rounds, OutputInterval, PolynomialDegree
     INTEGER, POINTER :: Offset(:),poffset(:),BlockStruct(:)
     INTEGER :: i,j,k,l,ia,ib
-    LOGICAL :: LS
+    LOGICAL :: LS, BlockAV,Found
     TYPE(Varying_string) :: namesp
 
     Params => Solver % Values
+
+    BlockAV = ListGetLogical(Params,'Block A-V System', Found)
+
     Offset => TotMatrix % Offset
     ndim = TotMatrix % TotSize 
     NoVar = TotMatrix % NoVar
@@ -873,8 +963,8 @@ CONTAINS
       DO i=1,NoVar
         DO j=1,NoVar
           IF ( i /= j ) THEN
-            CALL ParallelInitSolve( TotMatrix % SubMatrix(i,j) % Mat, &
-                r,r,r)
+            IF(ASSOCIATED(TotMatrix % SubMatrix(i,j) % Mat % ParMatrix)) &
+              CALL ParallelInitSolve( TotMatrix % SubMatrix(i,j) % Mat,r,r,r)
           ELSE 
             x(offset(i)+1:offset(i+1)) = TotMatrix % SubVector(i) % Var % Values
             b(offset(i)+1:offset(i+1)) = TotMatrix % SubMatrix(i,i) % Mat % RHS
@@ -884,11 +974,13 @@ CONTAINS
           END IF
         END DO
       END DO
+      CALL ParallelInitSolve( SolverMatrix, x, b, r )
     END IF
     
     k=0
     x=0;b=0
     IF (isParallel) ALLOCATE(poffset(NoVar+1))
+
     DO i=1,NoVar
       IF (.NOT.isParallel) THEN
         x(offset(i)+1:offset(i+1)) = TotMatrix % SubVector(i) % Var % Values
@@ -937,15 +1029,20 @@ CONTAINS
           Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc,&
           DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm))
       
-      DO i=1,NoVar
-        TotMatrix % SubMatrix(i,i) % Mat % ParMatrix % SplittedMatrix % &
-            TmpXvec = x(poffset(i)+1:poffset(i+1))
-      END DO
+      IF (BlockAV) THEN
+        SolverMatrix % ParMatrix % SplittedMatrix % TmpXvec = x(1:poffset(NoVar+1))
+        CALL ParallelUpdateResult(SolverMatrix,x,r)
+      ELSE
+        DO i=1,NoVar
+            TotMatrix % SubMatrix(i,i) % Mat % ParMatrix % SplittedMatrix % &
+              TmpXvec = x(poffset(i)+1:poffset(i+1))
+        END DO
       
-      DO i=1,NoVar
-        CALL ParallelUpdateResult(TotMatrix % SubMatrix(i,i) % Mat, &
-            x(offset(i)+1:offset(i+1)), r )
-      END DO
+        DO i=1,NoVar
+          CALL ParallelUpdateResult(TotMatrix % SubMatrix(i,i) % Mat, &
+              x(offset(i)+1:offset(i+1)), r )
+        END DO
+      END IF
     ELSE
       CALL IterSolver( A,x,b,&
           Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
@@ -970,7 +1067,7 @@ CONTAINS
     ! components do not build the whole solution.
     !-----------------------------------------------------------------
     IF( TotMatrix % GotBlockStruct ) THEN
-      SolverVar => CurrentModel % Solver % Variable
+      SVar => CurrentModel % Solver % Variable
 
       BlockStruct => TotMatrix % BlockStruct
       l = SIZE(BlockStruct) 
@@ -980,10 +1077,12 @@ CONTAINS
         ib = COUNT( k == BlockStruct(1:j) )
         
         DO i=1,SIZE(x)/l
-          SolverVar % Values(l*(i-1)+j) = &
+          SVar % Values(l*(i-1)+j) = &
               TotMatrix % SubVector(k) % Var % Values( ia*(i-1) + ib )
         END DO
       END DO
+    ELSE IF (BlockAV) THEN
+      SolverVar % Values = x
     END IF
     
   END SUBROUTINE BlockKrylovIter
@@ -1001,9 +1100,9 @@ CONTAINS
     REAL(KIND=dp) :: x(:),b(:)
 !------------------------------------------------------------------------------
     TYPE(Solver_t), POINTER :: PSolver
-    TYPE(Variable_t), POINTER :: Var, SolverVar
+    TYPE(Variable_t), POINTER :: Var
     INTEGER :: i,j,k,l,n,nd,NonLinIter,tests,NoTests,iter
-    LOGICAL :: GotIt, GotIt2, BlockPrec, BlockGS
+    LOGICAL :: GotIt, GotIt2, BlockPrec, BlockGS, BlockAV
     INTEGER :: ColVar, RowVar, NoVar, BlockDofs
 
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
@@ -1014,7 +1113,7 @@ CONTAINS
         ReuseMatrix, LS
     INTEGER, POINTER :: VarPerm(:)
     
-    TYPE(Matrix_t), POINTER :: Amat, SolverMatrix
+    TYPE(Matrix_t), POINTER :: Amat
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Varying_string) :: namesp
@@ -1034,7 +1133,13 @@ CONTAINS
     IF(.NOT. GotIt ) BlockPrec = .TRUE.
     BlockGS = ListGetLogical( Params,'Block Gauss-Seidel',GotIt)    
 
-    BlockDofs = Solver % Variable % Dofs      
+    BlockAV = ListGetLogical( Params,'Block A-V System', GotIt)
+
+    IF(BlockAV) THEN
+      BlockDofs = 2
+    ELSE
+      BlockDofs = Solver % Variable % Dofs      
+    END IF
     CALL BlockInitMatrix( Solver, TotMatrix, BlockDofs )
 
     NoVar = TotMatrix % NoVar
@@ -1053,9 +1158,12 @@ CONTAINS
           Amat % Comm = Solver % Matrix % Comm
           Parenv % ActiveComm = Amat % Comm
           Solver % Variable => TotMatrix % SubVector(ColVar) % Var
-          IF (.NOT.ASSOCIATED(Amat % ParMatrix)) &          
-            CALL ParallelInitMatrix(Solver,Amat)
-          
+
+          IF(Amat % NumberOfRows==MAXVAL(Amat % Cols)) THEN
+            IF (.NOT.ASSOCIATED(Amat % ParMatrix)) &          
+              CALL ParallelInitMatrix(Solver,Amat)
+          END IF
+
           IF(ASSOCIATED(Amat % ParMatrix )) THEN
             Amat % ParMatrix % ParEnv % ActiveComm = &
                 Amat % Comm
@@ -1085,7 +1193,7 @@ CONTAINS
       Solver % Variable => TotMatrix % SubVector(1) % Var
       Solver % Matrix => TotMatrix % Submatrix(1,1) % Mat
       
-!      TotNorm = DefaultSolve()
+      TotNorm = DefaultSolve()
       MaxChange = Solver % Variable % NonlinChange 
       
     ELSE IF( BlockPrec ) THEN
