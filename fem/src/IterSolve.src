@@ -91,20 +91,29 @@ CONTAINS
 !------------------------------------------------------------------------------
   FUNCTION STOPC( x,b,r,ipar,dpar ) RESULT(err)
 !------------------------------------------------------------------------------
+     USE ParallelUtils
 
      INTEGER :: ipar(*),n
-     DOUBLE PRECISION :: x(*),b(*),r(*),dpar(*),err,res(HUTI_NDIM)
+     DOUBLE PRECISION :: x(HUTI_NDIM),b(HUTI_NDIM),r(HUTI_NDIM),dpar(*),err,res(HUTI_NDIM)
 
      n = HUTI_NDIM
 
-     CALL CRS_MatrixVectorMultiply( GlobalMatrix,x,res )
+     IF(ParEnv % PEs>1) THEN
+       CALL SParMatrixVector(x,res,ipar)
+     ELSE
+       CALL CRS_MatrixVectorMultiply(GlobalMatrix,x,res)
+     END IF
      res = res - b(1:n)
 
-     err = SQRT(SUM( res(1:n)**2) ) /  &
-        ( SQRT(SUM(GlobalMatrix % Values**2)) * SQRT(SUM(x(1:n)**2)) + SQRT(SUM(b(1:n)**2)) )
+     err = ParallelReduction(SQRT(SUM( res(1:n)**2) )) /  &
+        ( ParallelReduction(SQRT(SUM(GlobalMatrix % Values**2))) * &
+             ParallelReduction(SQRT(SUM(x(1:n)**2))) + &
+                ParallelReduction(SQRT(SUM(b(1:n)**2))) )
 
   END FUNCTION STOPC
 !------------------------------------------------------------------------------
+
+
 
 
 #ifndef HUTI_MAXTOLERANCE
@@ -335,10 +344,16 @@ CONTAINS
       StopcProc = StopcF
       HUTI_STOPC = HUTI_USUPPLIED_STOPC
     ELSE
-      StopcProc = AddrFunc(Stopc)
-      HUTI_STOPC = HUTI_TRESID_SCALED_BYB
-    END IF
+      IF(ListGetLogical(Params,'Linear System Use Backward Error Estimate',GotIt)) THEN
+        StopcProc = AddrFunc(STOPC)
+        HUTI_STOPC = HUTI_USUPPLIED_STOPC
+      ELSE
+        StopcProc = AddrFunc(Stopc)
+        HUTI_STOPC = HUTI_TRESID_SCALED_BYB
+      END IF
     HUTI_NDIM  = N
+
+    END IF
     
     HUTI_DBUGLVL  = ListGetInteger( Params, &
         'Linear System Residual Output', GotIt )
