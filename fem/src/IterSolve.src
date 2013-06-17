@@ -39,6 +39,9 @@
 !> \ingroup ElmerLib 
 !> \{
 
+
+
+
 !------------------------------------------------------------------------------
 !> Module containing a the control for iterative solvers for linear systems
 !> that come with the Elmer suite.
@@ -83,37 +86,6 @@ MODULE IterSolve
    LOGICAL :: FirstCall(stack_max)
 
 CONTAINS
-
-
-!------------------------------------------------------------------------------
-!> We don't use the backward error estimate e = ||Ax-b||/(||A|| ||x|| + ||b||)
-!> as stopping criteriation.
-!------------------------------------------------------------------------------
-  FUNCTION STOPC( x,b,r,ipar,dpar ) RESULT(err)
-!------------------------------------------------------------------------------
-     USE ParallelUtils
-
-     INTEGER :: ipar(*),n
-     DOUBLE PRECISION :: x(HUTI_NDIM),b(HUTI_NDIM),r(HUTI_NDIM),dpar(*),err,res(HUTI_NDIM)
-
-     n = HUTI_NDIM
-
-     IF(ParEnv % PEs>1) THEN
-       CALL SParMatrixVector(x,res,ipar)
-     ELSE
-       CALL CRS_MatrixVectorMultiply(GlobalMatrix,x,res)
-     END IF
-     res = res - b(1:n)
-
-     err = ParallelReduction(SQRT(SUM( res(1:n)**2) )) /  &
-        ( ParallelReduction(SQRT(SUM(GlobalMatrix % Values**2))) * &
-             ParallelReduction(SQRT(SUM(x(1:n)**2))) + &
-                ParallelReduction(SQRT(SUM(b(1:n)**2))) )
-
-  END FUNCTION STOPC
-!------------------------------------------------------------------------------
-
-
 
 
 #ifndef HUTI_MAXTOLERANCE
@@ -198,7 +170,7 @@ CONTAINS
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 
-    EXTERNAL MultigridPrec
+    EXTERNAL MultigridPrec, BackwardError
 
     INTEGER  :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, &
         HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
@@ -345,10 +317,9 @@ CONTAINS
       HUTI_STOPC = HUTI_USUPPLIED_STOPC
     ELSE
       IF(ListGetLogical(Params,'Linear System Use Backward Error Estimate',GotIt)) THEN
-        StopcProc = AddrFunc(STOPC)
+        StopcProc = AddrFunc(BackwardError)
         HUTI_STOPC = HUTI_USUPPLIED_STOPC
       ELSE
-        StopcProc = AddrFunc(Stopc)
         HUTI_STOPC = HUTI_TRESID_SCALED_BYB
       END IF
     HUTI_NDIM  = N
