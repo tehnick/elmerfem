@@ -66,23 +66,29 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   LOGICAL :: gotIt, OptimalFinish, OptimalStart, InternalHistory, SaveHistory
   LOGICAL, ALLOCATABLE :: FixedParam(:)
   INTEGER :: i,j,k,l,NoParam, NoValues, NoFreeParam, NoOpt, &
-      OptimizationsDone=0, Direction=1
-  REAL(KIND=dp), POINTER :: Param(:)
+      OptimizationsDone=0, Direction=1, NoImprovements=0
+  REAL(KIND=dp), POINTER :: Param(:),FoundBetter(:)
   REAL(KIND=dp), ALLOCATABLE :: MinParam(:), MaxParam(:), dParam(:), PrevParam(:,:), &
       PrevCost(:), BestParam(:)
   REAL(KIND=dp) :: Cost, CostTarget, MinCost, x(10), c(10)
   CHARACTER(LEN=MAX_NAME_LEN) :: Name, ParamStr, Method
   CHARACTER(LEN=MAX_NAME_LEN) :: BestFile, HistoryFile
+  TYPE(Variable_t),POINTER :: Var
   
   SAVE Param, MinParam, MaxParam, PrevParam, NoParam, &
       OptimizationsDone, Method, Direction, x, c, PrevCost, &
       FixedParam, NoFreeParam, MinCost, BestParam, NoValues, &
-      OptimalFinish, OptimalStart, InternalHistory, dParam
+      OptimalFinish, OptimalStart, InternalHistory, dParam, &
+      NoImprovements, FoundBetter
 
   !------------------------------------------------------------------------------
   ! In the 1st round perform initializations 
   !------------------------------------------------------------------------------
   IF( OptimizationsDone == 0) THEN
+
+    CALL DefaultVariableAdd('Found Better',Global=.TRUE.,InitValue = -1.0_dp)
+    Var => DefaultVariableGet('Found Better')
+    FoundBetter => Var % Values
 
     NoParam = Solver % Variable % DOFs
     IF(NoParam == 0) THEN
@@ -156,6 +162,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   ! If visiting for the second time inspect how good the previous solution was
   !------------------------------------------------------------------------------
   IF( OptimizationsDone > 0 ) THEN
+    FoundBetter = -1.0_dp
     Cost = GetCReal(Model % Simulation,'Cost Function',GotIt)
 
     IF(.NOT. GotIt) Cost = GetCReal(Solver % Values,'Cost Function',GotIt)
@@ -179,8 +186,10 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     ! Found a new best point
     !-----------------------
     IF(Cost < MinCost) THEN
+      FoundBetter = 1.0_dp
       MinCost = Cost
       BestParam(1:NoParam) = Param(1:NoParam)
+      NoImprovements = NoImprovements + 1
       
       WRITE(Message,'(A,ES15.6E3)') 'Found New Minimum Cost:',MinCost
       CALL Info('FindOptimum',Message,Level=4)
@@ -188,11 +197,13 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       BestFile = ListGetString(Solver % Values,'Best File',GotIt )
       IF( GotIt ) THEN
         OPEN (10, FILE=BestFile, STATUS='UNKNOWN')
-        WRITE (10,'(I4)') NoParam
+        WRITE (10,'(I0)') NoParam
         DO i=1,NoParam
           WRITE (10,'(ES17.8E3)') Param(i)
         END DO
         WRITE (10,'(ES17.8E3)') Cost
+        WRITE (10,'(I0)') NoImprovements
+        WRITE (10,'(I0)') OptimizationsDone 
         CLOSE(10)
       END IF
     END IF
@@ -378,6 +389,10 @@ CONTAINS
       ELSEWHERE
         parameters = pars(:,i0)
       END WHERE
+
+      parameters = MAX( parameters, MinParam ) 
+      parameters = MIN( parameters, MaxParam ) 
+
     END IF
 
   END SUBROUTINE GeneticOptimize
@@ -553,7 +568,7 @@ CONTAINS
       x2 = Param(j) + (no-1)*step
     ELSE
       dx = relax * f1 * (x1-x0) / (f1-f0)      
-      IF( abs( dx ) > maxstep ) THEN
+      IF( ABS( dx ) > maxstep ) THEN
         dx = SIGN( maxstep, dx )
       END IF	
       x2 = x1 - dx 
