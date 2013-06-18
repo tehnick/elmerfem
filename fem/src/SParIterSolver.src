@@ -1364,11 +1364,11 @@ integer::inside
       !! original C function, does everything
       SUBROUTINE SolveHYPRE( n, Rows, Cols, Vals, Perm, INVPerm, GDOFs, &
            Owner, Xvec, RHSVec, PE, ILUn, Rounds, TOL, &
-           hypremethod, hypre_intpara, hypre_dppara)
+           hypremethod, hypre_intpara, hypre_dppara, fcomm)
         USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
                    PE, Owner(n), Rounds, ILUn, hypremethod, &
-                   symmetry, maxlevel, hypre_intpara(10)
+                   symmetry, maxlevel, hypre_intpara(10), fcomm
         REAL(KIND=c_double) :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter, &
                             hypre_dppara(5)
       END SUBROUTINE SolveHYPRE
@@ -1377,11 +1377,11 @@ integer::inside
       SUBROUTINE SolveHYPRE1( n, Rows, Cols, Vals, GDOFs, &
            Owner, ILUn, BILU, &
            hypremethod, hypre_intpara, hypre_dppara, &
-           verbosity, hypreContainer)
+           verbosity, hypreContainer, fcomm)
         USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=c_int) :: n, Rows(n), Cols(n), GDOFs(n), &
                    PE, Owner(n), ILUn, BILU, hypremethod, &
-                   symmetry, maxlevel, hypre_intpara(10), verbosity
+                   symmetry, maxlevel, hypre_intpara(10), verbosity,fcomm
         REAL(KIND=c_double) :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter, &
                             hypre_dppara(5)
         INTEGER(KIND=C_INTPTR_T) :: hypreContainer
@@ -1389,9 +1389,9 @@ integer::inside
 
       !! solve linear system with same matrix as in SolveHYPRE1
       SUBROUTINE SolveHYPRE2( n, GDOFs, &
-           Owner, Xvec, RHSVec, Rounds, TOL, verbosity, hypreContainer)
+           Owner, Xvec, RHSVec, Rounds, TOL, verbosity, hypreContainer, fcomm)
         USE, INTRINSIC :: iso_c_binding
-        INTEGER(KIND=c_int) :: n, GDOFs(n), Owner(n), Rounds, verbosity
+        INTEGER(KIND=c_int) :: n, GDOFs(n), Owner(n), Rounds, verbosity, fcomm
         REAL(KIND=c_double) :: Xvec(n),RHSvec(n),TOL
         INTEGER(KIND=C_INTPTR_T) :: hypreContainer
       END SUBROUTINE SolveHYPRE2
@@ -1409,11 +1409,11 @@ integer::inside
 
       SUBROUTINE SolveHypreAMS(nrows,rows,cols,vals,n,grows,gcols,gvals, &
          perm, invperm, globaldofs, owner, Bperm,nodeowner,xvec, rhsvec, pe, ILUn, rounds, &
-            TOL, xx_d, yy_d, zz_d, hypremethod, hypre_intpara, hypre_dppara,verbosity,hyprecontainer )
+            TOL, xx_d, yy_d, zz_d, hypremethod, hypre_intpara, hypre_dppara,verbosity,hyprecontainer,fcomm )
 
         USE, INTRINSIC :: iso_c_binding
         INTEGER(KIND=c_int) :: nrows, n, Rows(*), Cols(*), Perm(*), INVPerm(*), &
-                   Grows(*), gcols(*), PE, Owner(*), Rounds, ILUn, hypremethod, &
+                   Grows(*), gcols(*), PE, Owner(*), Rounds, ILUn, hypremethod, fcomm, &
                    symmetry, maxlevel, hypre_intpara(10),bperm(*),nodeOwner(*),globaldofs(*),verbosity
         REAL(KIND=c_double) :: Vals(*),Xvec(*),RHSvec(*),TOL,threshold,filter, &
                             hypre_dppara(5), Gvals(*), xx_d(*), yy_d(*), zz_d(*)
@@ -1656,7 +1656,7 @@ integer::inside
         IF (SourceMatrix % Hypre == 0) THEN
           CALL SolveHYPRE1( SourceMatrix % NumberOfRows, Rows, Cols, Vals, &
               Aperm, Owner,  ILUn, BILU, hypremethod,hypre_intpara, hypre_dppara,&
-              verbosity, SourceMatrix % Hypre)        
+              verbosity, SourceMatrix % Hypre, SourceMatrix % Comm)
         END IF
 
         ! solve using previously computed HYPRE data structures.
@@ -1665,7 +1665,7 @@ integer::inside
         ! not implemented, yet. This function will not update the matrix
         ! in the solver and thus solve an old system if A has changed. 
         CALL SolveHYPRE2( SourceMatrix % NumberOfRows, Aperm, Owner, Xvec, RHSvec, &
-                     Rounds, TOL, verbosity, SourceMatrix % Hypre )
+                     Rounds, TOL, verbosity, SourceMatrix % Hypre, SourceMatrix % Comm )
       ELSE
         nnd = Solver % Mesh % NumberOfNodes
         ALLOCATE( NodeOwner(nnd), NodePerm(nnd), Bperm(nnd))
@@ -1702,7 +1702,7 @@ integer::inside
               nnd,GM % Rows,GM % Cols,GM % Values,Aperm,Aperm,Aperm,Owner, &
               Bperm,NodeOwner,Xvec,RHSvec,ParEnv % myPE, ILUn,Rounds,TOL,  &
               xx_d,yy_d,zz_d,hypremethod,hypre_intpara, hypre_dppara,verbosity, &
-              SourceMatrix % Hypre)
+              SourceMatrix % Hypre, SourceMatrix % Comm)
 
         DEALLOCATE(GM % Rows) 
         DEALLOCATE(GM % Cols) 

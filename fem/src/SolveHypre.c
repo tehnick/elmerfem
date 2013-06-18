@@ -85,7 +85,7 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
   int *nrows,int *rows, int *cols, double *vals, int *perm,
   int *invperm, int *globaldofs, int *owner,  double *xvec,
   double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL,
-  int *hypre_method, int *hypre_intpara, double *hypre_dppara
+  int *hypre_method, int *hypre_intpara, double *hypre_dppara,int *fcomm
  )
 {
    int i, j, k, *rcols;
@@ -98,6 +98,7 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
    int solver_id;
    int print_solution, print_system;
 
+
    double  *txvec, st, realtime_();
 
    HYPRE_IJMatrix A;
@@ -109,6 +110,8 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
 
    HYPRE_Solver solver, precond;
    int verbosity = 10;
+
+   MPI_Comm comm=MPI_Comm_f2c(*fcomm);
    
    st  = realtime_();
    /* How many rows do I have? */
@@ -125,11 +128,11 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
    }
 
   /* which process number am I? */
-   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+   MPI_Comm_rank(comm, &myid);
    /* Create the matrix.
       Note that this is a square matrix, so we indicate the row partition
       size twice (since number of rows = number of cols) */
-   HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, ilower, iupper, &A);
+   HYPRE_IJMatrixCreate(comm, ilower, iupper, ilower, iupper, &A);
 
    /* Choose a parallel csr format storage (see the User's Manual) */
    HYPRE_IJMatrixSetObjectType(A, HYPRE_PARCSR);
@@ -173,13 +176,13 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
    txvec = (double *)malloc( local_size*sizeof(double) );
    for( k=0,i=0; i<local_size; i++ ) rcols[k++] = globaldofs[i];
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
    for( i=0; i<local_size; i++ ) txvec[i] = rhsvec[i];
    HYPRE_IJVectorAddToValues(b, local_size, rcols, txvec );
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&x);
    HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(x);
    for( i=0; i<local_size; i++ ) txvec[i] = xvec[i];
@@ -204,7 +207,7 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
    */
    if ( *hypre_method < 10) { /* BiGSTAB methods */
      /* Create solver */
-     HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver);
+     HYPRE_ParCSRBiCGSTABCreate(comm, &solver);
 
      /* Set some parameters (See Reference Manual for more parameters) */
      HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
@@ -213,7 +216,7 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
      HYPRE_ParCSRBiCGSTABSetPrintLevel(solver, 2);   /* print solve info */
      HYPRE_ParCSRBiCGSTABSetLogging(solver, 1);      /* needed to get run info later */
      if ( *hypre_method == 0 ) {
-       HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
+       HYPRE_EuclidCreate( comm, &precond );
        {
          static char *argv[5], str[3];
          argv[0] = "-level";
@@ -230,7 +233,7 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
        if (myid == 0 & verbosity >= 5) fprintf( stderr,"SolveHypre: using BiCGStab + paraSails\n"); 
 
        /* Now set up the ParaSails preconditioner and specify any parameters */
-       HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
+       HYPRE_ParaSailsCreate(comm, &precond);
        {
 	 /* Set some parameters (See Reference Manual for more parameters) */
          /* threshold = dppara[0]; maxlevels= intpara[1] */
@@ -399,7 +402,8 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
   int *ILUn, int *BILU,
   int *hypre_method, int *hypre_intpara, double *hypre_dppara,
   int *verbosityPtr,
-  int** ContainerPtr
+  int** ContainerPtr,
+  int *fcomm
  )
 {
    int i, j, k, *rcols;
@@ -409,6 +413,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    int ilower, iupper;
    int local_size, extra;
    int hypre_sol, hypre_pre;
+   MPI_Comm comm=MPI_Comm_f2c(*fcomm);
    ElmerHypreContainer* Container;
 
    HYPRE_IJMatrix A, Atilde;
@@ -425,7 +430,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    int verbosity = *verbosityPtr;
 
    /* which process number am I? */
-   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+   MPI_Comm_rank(comm, &myid);
    
    if (myid==0 && verbosity >= 4) fprintf(stdout,"Performing HYPRE Setup\n");
 
@@ -459,7 +464,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    /* Create the matrix.
       Note that this is a square matrix, so we indicate the row partition
       size twice (since number of rows = number of cols) */
-   HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, ilower, iupper, &A);
+   HYPRE_IJMatrixCreate(comm, ilower, iupper, ilower, iupper, &A);
 
    /* Choose a parallel csr format storage (see the User's Manual) */
    HYPRE_IJMatrixSetObjectType(A, HYPRE_PARCSR);
@@ -501,7 +506,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      double *dbuf;
      if (myid==0 && verbosity >= 5) fprintf(stdout,"HYPRE: using BILU(%d) approximation for preconditioner\n",*BILU);
      
-     HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, ilower, iupper, &Atilde);
+     HYPRE_IJMatrixCreate(comm, ilower, iupper, ilower, iupper, &Atilde);
      HYPRE_IJMatrixSetObjectType(Atilde, HYPRE_PARCSR);
      HYPRE_IJMatrixInitialize(Atilde);
      
@@ -535,13 +540,13 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    /* ted matrix Atilde                   */
    HYPRE_IJMatrixGetObject(Atilde, (void**) &parcsr_A);
    
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
    HYPRE_IJVectorAssemble(b);
    HYPRE_IJVectorGetObject(b, (void **) &par_b);
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&x);
    HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(x);
    HYPRE_IJVectorAssemble(x);
@@ -571,7 +576,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    /* for Boomer as solver we create it as a   */
    /* preconditioner here and set the pointer  */
    if ( hypre_pre == 0) {
-     HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
+     HYPRE_EuclidCreate(comm, &precond );
      static char *argv[5], str[3];
      argv[0] = "-level";
      sprintf( str, "%d", *ILUn );
@@ -584,7 +589,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      if (myid == 0 && verbosity >= 4) fprintf( stderr,"SolveHypre: using ParaSails as preconditioner\n"); 
 
      /* Now set up the ParaSails preconditioner and specify any parameters */
-     HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
+     HYPRE_ParaSailsCreate(comm, &precond);
 
      /* Set some parameters (See Reference Manual for more parameters) */
      /* threshold = dppara[0]; maxlevels= intpara[1] */
@@ -643,7 +648,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    /* create solver */
    if ( hypre_sol == 0) { /* BiGSTAB methods */
      /* Create solver */
-     HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver);
+     HYPRE_ParCSRBiCGSTABCreate(comm, &solver);
 
      /* Set some parameters (See Reference Manual for more parameters) */
      HYPRE_ParCSRBiCGSTABSetStopCrit(solver, 0);     /* use the two norm as the stopping criteria */
@@ -685,7 +690,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 
    else if ( hypre_sol == 2) { /* CG */
      /* Create solver */
-     HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD, &solver);
+     HYPRE_ParCSRPCGCreate(comm, &solver);
      
      /* Set some parameters (See Reference Manual for more parameters) */
      HYPRE_ParCSRPCGSetTwoNorm(solver, 1);     /* use the two norm as the stopping criteria */
@@ -713,7 +718,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 
    else if ( hypre_sol == 3) { /* GMRES */
      /* Create solver */
-     HYPRE_ParCSRGMRESCreate(MPI_COMM_WORLD, &solver);
+     HYPRE_ParCSRGMRESCreate(comm, &solver);
     
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
@@ -749,7 +754,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 #if HAVE_GMRES
    else if ( hypre_sol == 4) { /* FlexGMRes */
      /* Create solver */
-     HYPRE_ParCSRFlexGMRESCreate(MPI_COMM_WORLD, &solver);
+     HYPRE_ParCSRFlexGMRESCreate(comm, &solver);
      
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
@@ -778,7 +783,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 
    else if ( hypre_sol == 5) { /* LGMRes */
      /* Create solver */
-     HYPRE_ParCSRLGMRESCreate(MPI_COMM_WORLD, &solver);
+     HYPRE_ParCSRLGMRESCreate(comm, &solver);
      
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
@@ -832,7 +837,7 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
  (
   int *nrows, int *globaldofs, int *owner,  double *xvec,
   double *rhsvec, int *Rounds, double *TOL,
-  int *verbosityPtr, int** ContainerPtr
+  int *verbosityPtr, int** ContainerPtr, int *fcomm
  )
 {
 
@@ -854,6 +859,8 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
    HYPRE_ParVector par_b;
    HYPRE_IJVector x;
    HYPRE_ParVector par_x;
+
+   MPI_Comm comm=MPI_Comm_f2c(*fcomm);
    
    ElmerHypreContainer *Container;
 
@@ -863,7 +870,7 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
    Container = (ElmerHypreContainer*)(*ContainerPtr);
 
    /* which process number am I? */
-   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+   MPI_Comm_rank(comm, &myid);
 
    if (myid==0 && verbosity >= 6) fprintf(stdout,"HYPRE Solve\n");
 
@@ -896,14 +903,14 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
 
    for( i=0; i<local_size; i++ ) txvec[i] = rhsvec[i];
    
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
 
    for( i=0; i<local_size; i++ ) txvec[i] = rhsvec[i];
    HYPRE_IJVectorAddToValues(b, local_size, rcols, txvec );
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&x);
    HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(x);
 
@@ -1054,7 +1061,7 @@ void STDCALLBULL FC_FUNC(solvehypreams,SOLVEHYPREAMS)
   double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL,
   double *xx_d, double *yy_d, double *zz_d, 
   int *hypre_method, int *hypre_intpara, double *hypre_dppara,
-  int *verbosityPtr, int** ContainerPtr
+  int *verbosityPtr, int** ContainerPtr, int *fcomm
  )
 {
    int i, j, k, *rcols;
@@ -1080,6 +1087,7 @@ void STDCALLBULL FC_FUNC(solvehypreams,SOLVEHYPREAMS)
 
    HYPRE_Solver solver, precond;
    int verbosity = 10;
+   MPI_Comm comm=MPI_Comm_f2c(*fcomm);
    
    st  = realtime_();
    /* How many rows do I have? */
@@ -1108,12 +1116,12 @@ void STDCALLBULL FC_FUNC(solvehypreams,SOLVEHYPREAMS)
    }
 
   /* which process number am I? */
-   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+   MPI_Comm_rank(comm, &myid);
    /* Create the matrix.
       Note that this is a square matrix, so we indicate the row partition
       size twice (since number of rows = number of cols) */
-   HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, ilower, iupper, &A);
-   HYPRE_IJMatrixCreate(MPI_COMM_WORLD, ilower, iupper, nlower, nupper, &G);
+   HYPRE_IJMatrixCreate(comm, ilower, iupper, ilower, iupper, &A);
+   HYPRE_IJMatrixCreate(comm, ilower, iupper, nlower, nupper, &G);
 
    /* Choose a parallel csr format storage (see the User's Manual) */
    HYPRE_IJMatrixSetObjectType(A, HYPRE_PARCSR);
@@ -1182,14 +1190,14 @@ void STDCALLBULL FC_FUNC(solvehypreams,SOLVEHYPREAMS)
    txvec = (double *)malloc( local_size*sizeof(double) );
    for( k=0,i=0; i<local_size; i++ ) rcols[k++] = globaldofs[i];
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(b);
    HYPRE_IJVectorAddToValues(b, local_size, rcols, rhsvec);
    HYPRE_IJVectorAssemble(b);
    HYPRE_IJVectorGetObject(b, (void **) &par_b);
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&x);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&x);
    HYPRE_IJVectorSetObjectType(x, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(x);
    HYPRE_IJVectorSetValues(x, local_size, rcols, xvec);
@@ -1199,42 +1207,42 @@ void STDCALLBULL FC_FUNC(solvehypreams,SOLVEHYPREAMS)
 #if 0
    for( k=0,i=0; i<local_nodes; i++ ) rcols[k++] = globalnodes[i];
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, nlower, nupper,&xx);
+   HYPRE_IJVectorCreate(comm, nlower, nupper,&xx);
    HYPRE_IJVectorSetObjectType(xx, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(xx);
    HYPRE_IJVectorSetValues(xx, local_nodes, rcols,xx_d);
    HYPRE_IJVectorAssemble(xx);
    HYPRE_IJVectorGetObject(xx, (void **) &par_xx);
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, nlower, nupper,&yy);
+   HYPRE_IJVectorCreate(comm, nlower, nupper,&yy);
    HYPRE_IJVectorSetObjectType(yy, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(yy);
    HYPRE_IJVectorSetValues(yy, local_nodes, rcols, yy_d);
    HYPRE_IJVectorAssemble(yy);
    HYPRE_IJVectorGetObject(yy, (void **) &par_yy);
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, nlower, nupper,&zz);
+   HYPRE_IJVectorCreate(comm, nlower, nupper,&zz);
    HYPRE_IJVectorSetObjectType(zz, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(zz);
    HYPRE_IJVectorSetValues(zz, local_nodes, rcols, zz_d);
    HYPRE_IJVectorAssemble(zz);
    HYPRE_IJVectorGetObject(zz, (void **) &par_zz);
 #else
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&xx);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&xx);
    HYPRE_IJVectorSetObjectType(xx, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(xx);
    HYPRE_IJVectorSetValues(xx, local_size, rcols, xx_d);
    HYPRE_IJVectorAssemble(xx);
    HYPRE_IJVectorGetObject(xx, (void **) &par_xx);
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&yy);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&yy);
    HYPRE_IJVectorSetObjectType(yy, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(yy);
    HYPRE_IJVectorSetValues(yy, local_size, rcols, yy_d);
    HYPRE_IJVectorAssemble(yy);
    HYPRE_IJVectorGetObject(yy, (void **) &par_yy);
 
-   HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&zz);
+   HYPRE_IJVectorCreate(comm, ilower, iupper,&zz);
    HYPRE_IJVectorSetObjectType(zz, HYPRE_PARCSR);
    HYPRE_IJVectorInitialize(zz);
    HYPRE_IJVectorSetValues(zz, local_size, rcols, zz_d);
@@ -1263,7 +1271,7 @@ void STDCALLBULL FC_FUNC(solvehypreams,SOLVEHYPREAMS)
 // HYPRE_AMSSetBetaPoissonMatrix(precond,NULL);
 
     /* Create solver */
-     HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver);
+     HYPRE_ParCSRBiCGSTABCreate(comm, &solver);
 
      /* Set some parameters (See Reference Manual for more parameters) */
      HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */

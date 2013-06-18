@@ -28,6 +28,8 @@ void MPI_Comm_free(){};
 
 void MPI_Comm_test_inter() {}
 
+void MPI_Comm_f2c() {}
+
 
 void STDCALLBULL FC_FUNC_(mpi_init,MPI_INIT) 
      (int *p) { *p = 0; }
