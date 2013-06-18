@@ -1232,7 +1232,7 @@ END SUBROUTINE ZeroSplittedMatrix
          nb => ParallelInfo % NeighbourList(i) % Neighbours
          DO j=2,SIZE(nb)
            k = neigh(nb(j)+1)
-           IF(k<0) CYCLE
+           IF(k<=0) CYCLE
            sz(k) = sz(k) + 1
          END DO
        END IF
@@ -1251,7 +1251,7 @@ END SUBROUTINE ZeroSplittedMatrix
          nb => ParallelInfo % NeighbourList(i) % Neighbours
          DO j=2,SIZE(nb)
            k = neigh(nb(j)+1)
-           IF(k<0) CYCLE
+           IF(k<=0) CYCLE
            sz(k) = sz(k) + 1
            buf_a(sz(k),k) = Aperm(i)
            buf_g(sz(k),k) = ParallelInfo % GlobalDOFs(i)

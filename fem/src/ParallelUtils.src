@@ -189,8 +189,11 @@ CONTAINS
                  Matrix % ParallelInfo % GlobalDOFs(l) = &
                      DOFs*(g_beg+maxedofs*(Element % GelementIndex-1)+j-1)+m
                  Matrix % ParallelInfo % Interface(l) = Mesh % ParallelInfo % EdgeInterface(i)
-                 Matrix % Parallelinfo % NeighbourList(l) % Neighbours => &
-                            Mesh % ParallelInfo % EdgeNeighbourList(i) % Neighbours
+                
+                 ALLOCATE(Matrix % Parallelinfo % NeighbourList(l) % Neighbours(SIZE( &
+                      Mesh % ParallelInfo % EdgeNeighbourList(i) % Neighbours)))
+                 Matrix % Parallelinfo % NeighbourList(l) % Neighbours = &
+                      Mesh % ParallelInfo % EdgeNeighbourList(i) % Neighbours
                END DO
              END DO
            END DO
@@ -221,8 +224,12 @@ CONTAINS
                  Matrix % ParallelInfo % GlobalDOFs(l) = &
                      DOFs*(g_beg+maxfdofs*(Element % GelementIndex-1)+j-1)+m
                  Matrix % ParallelInfo % Interface(l) = Mesh % ParallelInfo % FaceInterface(i)
-                 Matrix % Parallelinfo % NeighbourList(l) % Neighbours => &
-                            Mesh % ParallelInfo % FaceNeighbourList(i) % Neighbours
+
+                 ALLOCATE(Matrix % Parallelinfo % NeighbourList(l) % Neighbours(SIZE( &
+                      Mesh % ParallelInfo % FaceNeighbourList(i) % Neighbours)))
+
+                 Matrix % Parallelinfo % NeighbourList(l) % Neighbours = &
+                      Mesh % ParallelInfo % FaceNeighbourList(i) % Neighbours
                END DO
              END DO
            END DO
