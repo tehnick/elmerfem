@@ -1215,6 +1215,7 @@ END SUBROUTINE ZeroSplittedMatrix
      ! from owners to others that share the dofs:
      ! --------------------------------------------------------
      ALLOCATE(neigh(Parenv % PEs),sz(nneigh))
+     neigh=-1
      k = 0
      DO i=1,ParEnv % PEs
        IF ( .NOT. ParEnv % Active(i) ) CYCLE
@@ -1231,6 +1232,7 @@ END SUBROUTINE ZeroSplittedMatrix
          nb => ParallelInfo % NeighbourList(i) % Neighbours
          DO j=2,SIZE(nb)
            k = neigh(nb(j)+1)
+           IF(k<0) CYCLE
            sz(k) = sz(k) + 1
          END DO
        END IF
@@ -1249,6 +1251,7 @@ END SUBROUTINE ZeroSplittedMatrix
          nb => ParallelInfo % NeighbourList(i) % Neighbours
          DO j=2,SIZE(nb)
            k = neigh(nb(j)+1)
+           IF(k<0) CYCLE
            sz(k) = sz(k) + 1
            buf_a(sz(k),k) = Aperm(i)
            buf_g(sz(k),k) = ParallelInfo % GlobalDOFs(i)
