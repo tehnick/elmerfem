@@ -247,7 +247,7 @@ CONTAINS
     CHARACTER(LEN=MAX_STRING_LEN) :: section, name, str
 #endif
 
-    LOGICAL :: SizeGiven
+    LOGICAL :: Found, SizeGiven
     LOGICAL :: FreeNames=.FALSE., Echo = .FALSE.
     INTEGER :: CheckAbort = 0
 
@@ -259,6 +259,7 @@ CONTAINS
     TYPE(BodyForceArray_t), POINTER :: ABF(:)
     TYPE(InitialConditionArray_t), POINTER  :: AIC(:)
     TYPE(BoundaryConditionArray_t), POINTER :: ABC(:)
+    LOGICAL, ALLOCATABLE :: EntryUsed(:)
 
     LOGICAL :: FirstTime = .TRUE.
 
@@ -875,6 +876,47 @@ CONTAINS
           CALL Fatal('LoadInputFile',Message)
         END IF
       END DO
+
+      ! Make sanity check that all Material, Body Force and Equation is associated to some
+      ! body. This is not detrimental so a warning suffices.
+      !-----------------------------------------------------------------------------------
+      n = MAX( Model % NumberOfMaterials, &
+          Model % NumberOfBodyForces, &
+          Model % NumberOfEquations )
+      ALLOCATE( EntryUsed( n ) )
+      EntryUsed = .FALSE.
+      DO i = 1, Model % NumberOfBodies
+        j = ListGetInteger( Model % Bodies(i) % Values,'Material',Found )
+        IF( Found ) EntryUsed(j) = .TRUE.
+      END DO
+      DO i = 1,Model % NumberOfMaterials
+        IF( .NOT. EntryUsed(i) ) THEN
+          CALL Warn('LoadInputFile','> Material '// TRIM(I2S(i)) //' < not used in any Body!')
+        END IF
+      END DO
+
+      EntryUsed = .FALSE.
+      DO i = 1, Model % NumberOfBodies
+        j = ListGetInteger( Model % Bodies(i) % Values,'Body Force',Found )
+        IF( Found ) EntryUsed(j) = .TRUE.
+      END DO
+      DO i = 1,Model % NumberOfBodyForces
+        IF( .NOT. EntryUsed(i) ) THEN
+          CALL Warn('LoadInputFile','> Body Force '// TRIM(I2S(i)) //' < not used in any Body!')
+        END IF
+      END DO
+
+      EntryUsed = .FALSE.
+      DO i = 1, Model % NumberOfBodies
+        j = ListGetInteger( Model % Bodies(i) % Values,'Equation',Found )
+        IF( Found ) EntryUsed(j) = .TRUE.
+      END DO
+      DO i = 1,Model % NumberOfEquations
+        IF( .NOT. EntryUsed(i) ) THEN
+          CALL Warn('LoadInputFile','> Equation '// TRIM(I2S(i)) //' < not used in any Body!')
+        END IF
+      END DO
+      DEALLOCATE( EntryUsed ) 
       !--- sanity checks done
 
 
@@ -919,7 +961,7 @@ CONTAINS
          CALL ListAddInteger( Model % Bodies(1) % Values, 'Material',   1 )
          CALL ListAddInteger( Model % Bodies(1) % Values, 'Body Force', 1 )
          CALL ListAddInteger( Model % Bodies(1) % Values, 'Initial Condition', 1 )
-      END IF
+       END IF
       ! -- done adding default fields
       
     END IF
