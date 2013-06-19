@@ -53,6 +53,7 @@ MODULE MeshUtils
 
 CONTAINS
 
+
 !------------------------------------------------------------------------------
 !> Allocated one single element. 
 !------------------------------------------------------------------------------
@@ -89,7 +90,7 @@ CONTAINS
    SUBROUTINE AllocatePDefinitions(Element)
 !------------------------------------------------------------------------------
      IMPLICIT NONE
-     INTEGER :: istat
+     INTEGER :: istat,n
 
      TYPE(Element_t) :: Element
 
@@ -494,6 +495,11 @@ END SUBROUTINE GetMaxDefs
       inDOFs = 0
       CALL eio_get_mesh_element_conns( ElementTags(i),partn,body, &
                   TYPE, inDOFs, nodes, eio_info )
+
+      IF(inDOFs(6)>0) THEN
+        CALL Fatal('LoadMesh', 'Mesh defined p-degree obsolite, use "Element=p:n" instead.')
+      END IF
+
       IF ( eio_info /= 0 ) EXIT
 
       IF ( PRESENT(Def_Dofs) ) THEN
@@ -540,7 +546,6 @@ END SUBROUTINE GetMaxDefs
         Vlist => Model % Bodies(id) % Values
         j = ListGetInteger(Vlist,'Equation',gotIt)
         IF( gotIt ) THEN
-
           Vlist => Model % Equations(j) % Values
           ElementDef0=ListGetString(Vlist,'Element',Found )
           DO j=1,Model % NumberOfSolvers
@@ -586,7 +591,7 @@ END SUBROUTINE GetMaxDefs
 
         ! Check if given element is a p element
         IF (inDOFs(6) > 0) THEN
-           CALL AllocatePDefinitions(Element) 
+           CALL AllocatePDefinitions(Element)
 
            NeedEdges = .TRUE.
               
@@ -604,7 +609,7 @@ END SUBROUTINE GetMaxDefs
 
            ! If element is of type tetrahedron and is a p element, 
            ! do the Ainsworth & Coyle trick
-           IF (Element % TYPE % ElementCode == 504) CALL ConvertToACTetra( Element )
+           IF (Element % TYPE % ElementCode == 504) CALL ConvertToACTetra(Element)
               CALL GetRefPElementNodes( Element,  Element % TYPE % NodeU, &
                    Element % TYPE % NodeV, Element % TYPE % NodeW )
         ELSE 
@@ -964,8 +969,8 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
   SUBROUTINE SetMeshEdgeFaceDOFs(Mesh,EdgeDOFs,FaceDOFs)
 !------------------------------------------------------------------------------
-    TYPE(Mesh_t), POINTER :: Mesh
     INTEGER, OPTIONAL :: EdgeDOFs(:), FaceDOFs(:)
+    TYPE(Mesh_t) :: Mesh
 !------------------------------------------------------------------------------
     INTEGER :: i,j
     TYPE(Element_t), POINTER :: Element, Edge, Face
@@ -1042,11 +1047,10 @@ END SUBROUTINE GetMaxDefs
        IF (ASSOCIATED(Element % BoundaryInfo % Left)) THEN
           ! Local edges are only assigned for p elements
           IF (ASSOCIATED(Element % BoundaryInfo % Left % PDefs)) THEN
-
-             CALL AllocatePDefinitions(Element)
-             Element % PDefs % isEdge = .TRUE.
-             CALL AssignLocalNumber(Element, Element % BoundaryInfo % Left, Mesh)
-             ! CYCLE
+            CALL AllocatePDefinitions(Element)
+            Element % PDefs % isEdge = .TRUE.
+            CALL AssignLocalNumber(Element, Element % BoundaryInfo % Left, Mesh)
+            ! CYCLE
           END IF
        END IF
 
@@ -1067,7 +1071,7 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
  SUBROUTINE SetMeshMaxDOFs(Mesh)
 !------------------------------------------------------------------------------
-   TYPE(Mesh_t), POINTER :: Mesh
+   TYPE(Mesh_t) :: Mesh
 !------------------------------------------------------------------------------
    TYPE(Element_t), POINTER :: Element
    INTEGER :: i,j,n
@@ -1076,7 +1080,7 @@ END SUBROUTINE GetMaxDefs
    DO i=1,Mesh % NumberOfBulkElements
      Element => Mesh % Elements(i)
      IF ( ASSOCIATED(Element % PDefs) ) THEN
-        Element % PDefs % GaussPoints = getNumberOfGaussPoints( Element, Mesh )
+       Element % PDefs % GaussPoints = getNumberOfGaussPoints( Element, Mesh )
      END IF
 
      ! Set max element dofs here (because element size may have changed
@@ -4932,7 +4936,7 @@ END SUBROUTINE FindNeighbourNodes
 !> same form, and 3D element into 8 elements. 
 !> Currently works only for linear elements.
 !------------------------------------------------------------------------------
-  FUNCTION SplitMeshEqual( Mesh,h ) RESULT( NewMesh )
+  FUNCTION SplitMeshEqual(Mesh,h) RESULT( NewMesh )
 !------------------------------------------------------------------------------
     REAL(KIND=dp), OPTIONAL :: h(:)
     TYPE(Mesh_t), POINTER :: Mesh, NewMesh
@@ -4945,6 +4949,7 @@ END SUBROUTINE FindNeighbourNodes
     INTEGER :: n1,n2,n3,EoldNodes(4),FaceNodes(4),EdgeNodes(2) ! Only linears so far
     INTEGER :: FaceNumber,Edge1,Edge2,Edge3,Edge4,Node12,Node23,Node34,Node41,Node31
     REAL(KIND=dp) :: dxyz(3,3),Dist(3),r,s,t,h1,h2
+    TYPE(PElementDefs_t), POINTER :: PDefs
     INTEGER :: ierr, ParTmp(6), ParSizes(6)
 !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Mesh ) ) RETURN
@@ -6246,19 +6251,41 @@ END SUBROUTINE FindNeighbourNodes
 
     j = 0
     DO i=1,NewMesh % NumberOfBulkElements+NewMesh % NumberOfBoundaryElements
-      IF ( NewMesh % Elements(i) % DGDOFs>0 ) THEN
-        ALLOCATE(NewMesh % Elements(i) % DGIndexes(NewMesh % Elements(i) % DGDOFs))
-        DO k=1,NewMesh % Elements(i) % DGDOFs
+      Enew => NewMesh % Elements(i)
+
+      IF ( Enew % DGDOFs>0 ) THEN
+        ALLOCATE(Enew % DGIndexes(Enew % DGDOFs))
+        DO k=1,Enew % DGDOFs
           j = j + 1
-          NewMesh % Elements(i) % DGIndexes(k)=j
+          Enew % DGIndexes(k)=j
         END DO
       ELSE
-        NewMesh % Elements(i) % DGIndexes=>NULL()
+        Enew % DGIndexes=>NULL()
       END IF
-      NewMesh % Elements(i) % PDefs => NULL()
-      NewMesh % Elements(i) % EdgeIndexes => NULL()
-      NewMesh % Elements(i) % FaceIndexes => NULL()
-      NewMesh % Elements(i) % BubbleIndexes => NULL()
+
+      IF (i<=NewMesh % NumberOfBulkElements) THEN
+         PDefs => Enew % PDefs
+
+         IF(ASSOCIATED(PDefs)) THEN
+           CALL AllocatePDefinitions(Enew)
+           Enew % PDefs = PDefs
+
+           ! All elements in actual mesh are not edges
+           Enew % PDefs % pyramidQuadEdge = .FALSE.
+           Enew % PDefs % isEdge = .FALSE.
+
+           ! If element is of type tetrahedron and is a p element,
+           ! do the Ainsworth & Coyle trick
+           IF (Enew % TYPE % ElementCode == 504) CALL ConvertToACTetra(Enew)
+            CALL GetRefPElementNodes( Enew,  Enew % TYPE % NodeU, &
+                 Enew % TYPE % NodeV, Enew % TYPE % NodeW )
+         END IF
+      ELSE
+        Enew % PDefs=>Null()
+      END IF
+      Enew % EdgeIndexes => NULL()
+      Enew % FaceIndexes => NULL()
+      Enew % BubbleIndexes => NULL()
     END DO
 
     CALL Info( 'SplitMeshEqual', '******** New mesh ********', Level=6 )
@@ -7189,9 +7216,9 @@ CONTAINS
     IMPLICIT NONE
 
     ! Parameters
+    TYPE(Mesh_t) :: Mesh            !< Finite element mesh containing faces and edges.
     TYPE(Element_t), POINTER :: EdgeElement  !< Edge element to which assign local number
     TYPE(Element_t), POINTER :: Element      !< Bulk element with some global numbering to use to assign local number
-    TYPE(Mesh_t), POINTER :: Mesh            !< Finite element mesh containing faces and edges.
 !------------------------------------------------------------------------------
     ! Local variables
 
@@ -7291,8 +7318,8 @@ CONTAINS
       IMPLICIT NONE
 
       TYPE(Element_t), POINTER :: Element, Entity 
-      TYPE(Mesh_t), POINTER :: Mesh
       INTEGER :: which
+      TYPE(Mesh_t) :: Mesh
 
       NULLIFY(Entity)
       ! Switch by element dimension

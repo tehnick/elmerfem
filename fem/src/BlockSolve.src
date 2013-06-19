@@ -356,16 +356,15 @@ CONTAINS
     Params => Solver % Values
 
     BlockAV = ListGetLogical( Params,'Block A-V System', Found)
-
     IF(BlockAV) THEN
       A => SolverMatrix
       i_aa=0; i_vv=0; i_av=0; i_va=0;
       n = Solver % Mesh % NumberOfNodes
 
-      B_aa => TotMatrix % SubMatrix(2,2) % Mat
-      B_av => TotMatrix % SubMatrix(2,1) % Mat
-      B_va => TotMatrix % SubMatrix(1,2) % Mat
       B_vv => TotMatrix % SubMatrix(1,1) % Mat
+      B_va => TotMatrix % SubMatrix(1,2) % Mat
+      B_av => TotMatrix % SubMatrix(2,1) % Mat
+      B_aa => TotMatrix % SubMatrix(2,2) % Mat
 
       IF(ASSOCIATED(B_aa % Values)) B_aa % Values=0._dp
       IF(ASSOCIATED(B_av % Values)) B_av % Values=0._dp
@@ -375,13 +374,15 @@ CONTAINS
       DO i=1,SIZE(Solver % Variable % Perm)
         j = Solver % Variable % Perm(i)
         IF(j<=0) CYCLE
-        if ( i<=n) then
+        if (i<=n) then
            i_vv=i_vv+1
         else
            i_aa=i_aa+1
         end if
         DO k=A % Rows(j+1)-1,A % Rows(j),-1
-          IF(i<=n.AND.A %Cols(k)<=n) THEN
+          IF(A % Cols(k) /= j.AND.A % Values(k)==0) CYCLE
+
+          IF(i<=n.AND.A % Cols(k)<=n) THEN
             CALL AddToMatrixElement(B_vv,i_vv,A % Cols(k),A % Values(k))
           ELSE IF (i<=n.AND.A % Cols(k)>n) THEN
             CALL AddToMatrixElement(B_va,i_vv,A % Cols(k)-n,A % Values(k))
@@ -571,7 +572,9 @@ CONTAINS
   !> Perform matrix-vector product for block matrices.
   !> Has to be callable outside the module by Krylov methods.
   !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
   SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
+!------------------------------------------------------------------------------
     INTEGER :: i,j,k,NoVar,ipar(*)
     REAL(KIND=dp) :: u(*),v(*)
     REAL(KIND=dp), ALLOCATABLE :: s(:)
@@ -597,7 +600,7 @@ CONTAINS
         s = 0._dp
         IF (isParallel) THEN
           CALL ParallelMatrixVector( TotMatrix % SubMatrix(i,j) % Mat, &
-               u(offset(j)+1:offset(j+1)), s  )
+                   u(offset(j)+1:offset(j+1)), s  )
         ELSE
           CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
                    u(offset(j)+1:offset(j+1)), s )
@@ -608,8 +611,9 @@ CONTAINS
         END DO
       END DO
     END DO
-
+!------------------------------------------------------------------------------
   END SUBROUTINE BlockMatrixVectorProd
+!------------------------------------------------------------------------------
   
 
 !------------------------------------------------------------------------------
@@ -1159,15 +1163,17 @@ CONTAINS
           Parenv % ActiveComm = Amat % Comm
           Solver % Variable => TotMatrix % SubVector(ColVar) % Var
 
-          IF(Amat % NumberOfRows==MAXVAL(Amat % Cols)) THEN
-            IF (.NOT.ASSOCIATED(Amat % ParMatrix)) &          
-              CALL ParallelInitMatrix(Solver,Amat)
-          END IF
+          IF(Amat % NumberOfRows>0) THEN
+            IF(Amat % NumberOfRows==MAXVAL(Amat % Cols)) THEN
+              IF (.NOT.ASSOCIATED(Amat % ParMatrix)) &          
+                CALL ParallelInitMatrix(Solver,Amat)
+            END IF
 
-          IF(ASSOCIATED(Amat % ParMatrix )) THEN
-            Amat % ParMatrix % ParEnv % ActiveComm = &
+            IF(ASSOCIATED(Amat % ParMatrix )) THEN
+              Amat % ParMatrix % ParEnv % ActiveComm = &
                 Amat % Comm
-            ParEnv = Amat % ParMatrix % ParEnv
+              ParEnv = Amat % ParMatrix % ParEnv
+            END IF
           END IF
         END DO
       END DO
@@ -1217,8 +1223,6 @@ CONTAINS
     CALL Info('BlockSolverInt','-------------------------------------------------',Level=5)
 
   END SUBROUTINE BlockSolveInt
-
-
 END MODULE BlockSolve
 
 

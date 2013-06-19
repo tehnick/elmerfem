@@ -829,6 +829,25 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+  FUNCTION isActivePElement(Element) RESULT(retVal)
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+
+    TYPE(Element_t), INTENT(IN) :: Element
+    LOGICAL :: retVal
+
+    retVal = isPelement(Element)
+
+    IF(ASSOCIATED(CurrentModel % Solver)) THEN
+      IF(ALLOCATED(CurrentModel % Solver % Def_Dofs)) &
+        retVal = retVal.AND.ANY(CurrentModel % Solver % Def_Dofs(:,6)>0)
+    END IF
+!------------------------------------------------------------------------------
+  END FUNCTION isActivePElement
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
 !> Checks if given element is a p element.   
 !------------------------------------------------------------------------------
     FUNCTION isPElement( Element ) RESULT(retVal)
@@ -1015,9 +1034,8 @@ CONTAINS
     FUNCTION getNumberOfGaussPoints( Element, Mesh ) RESULT(ngp)
 !------------------------------------------------------------------------------
       IMPLICIT NONE
-      
+      TYPE(Mesh_t) :: Mesh 
       TYPE(Element_t) :: Element
-      TYPE(Mesh_t), POINTER :: Mesh 
       INTEGER :: ngp
 !------------------------------------------------------------------------------
       INTEGER :: edgeP, faceP, bubbleP, nb, maxp
@@ -1090,9 +1108,9 @@ CONTAINS
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
+      TYPE(Mesh_t) :: Mesh
       TYPE(Element_t) :: Element 
       TYPE(Element_t), POINTER :: Edge
-      TYPE(Mesh_t), POINTER :: Mesh
       
       INTEGER :: edgeP, i
 
@@ -1123,8 +1141,8 @@ CONTAINS
 
       TYPE(Element_t) :: Element
       TYPE(Element_t), POINTER :: Face
-      TYPE(Mesh_t), POINTER :: Mesh
       INTEGER :: faceP, i
+      TYPE(Mesh_t) :: Mesh
       
       IF (.NOT. ASSOCIATED(Element % PDefs)) THEN
          CALL Warn('PElementBase::getFaceP','Element not p element')
@@ -1152,8 +1170,8 @@ CONTAINS
 
       TYPE(Element_t), POINTER :: Face, Edge
       INTEGER :: ngp
+      TYPE(Mesh_t) :: Mesh
 !------------------------------------------------------------------------------
-      TYPE(Mesh_t), POINTER :: Mesh
       INTEGER :: edgeP, i, maxp
 
       ! Get max p of edges contained in face

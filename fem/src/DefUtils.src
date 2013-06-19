@@ -1055,7 +1055,7 @@ CONTAINS
 
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
-     IF (IsPelement(Element)) n=GetElementNOFNOdes(Element)
+     IF (isActivePElement(Element)) n=GetElementNOFNOdes(Element)
 
      l = ALL( Solver % Variable % Perm(Indexes(1:n)) > 0)
   END FUNCTION ActiveBoundaryElement
@@ -1285,7 +1285,7 @@ CONTAINS
        SELECT CASE(GetElementFamily(Element))
        CASE(2)
          IF ( ASSOCIATED(Parent % EdgeIndexes) ) THEN
-           IF ( isPElement(Element) ) THEN
+           IF ( isActivePElement(Element) ) THEN
              Ind=Element % PDefs % LocalNumber
            ELSE
              DO Ind=1,Parent % TYPE % NumberOfEdges
@@ -1310,7 +1310,7 @@ CONTAINS
 
        CASE(3,4)
          IF ( ASSOCIATED( Parent % FaceIndexes ) ) THEN
-           IF ( isPElement(Element) ) THEN
+           IF ( isActivePElement(Element) ) THEN
              Ind=Element % PDefs % LocalNumber
            ELSE
              DO Ind=1,Parent % TYPE % NumberOfFaces
@@ -3369,7 +3369,7 @@ CONTAINS
            
            ! Get indexes for boundary and values for dofs associated to them
            n = GetElementNOFNodes()
-           IF ( ASSOCIATED(Parent % PDefs) ) THEN
+           IF ( isActivePElement(Parent)) THEN
              CALL getBoundaryIndexes( Solver % Mesh, Element, Parent, gInd, numEdgeDofs )
            ELSE
              CYCLE 
@@ -3392,7 +3392,6 @@ CONTAINS
         CurrentModel % CurrentElement => SaveElement
      END DO
  
-
      ! Set Dirichlet dofs for edges and faces
      DO DOF=1,x % DOFs
         name = x % name
@@ -3510,7 +3509,7 @@ CONTAINS
              END DO
            END IF
 
-           IF ( .NOT. ASSOCIATED( Parent % pDefs ) ) CYCLE
+           IF (.NOT.isActivePElement(Parent)) CYCLE
 
            ptr => ListFind(BC, Name,Found )
            ConstantValue =  ptr % PROCEDURE == 0 .AND. &
