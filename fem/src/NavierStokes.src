@@ -258,7 +258,7 @@ MODULE NavierStokes
 
      Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.(Vms .OR. Stabilize) .OR. Compressible ) THEN
-       PBubbles  = isPElement(Element) .AND. Element % BDOFs > 0
+       PBubbles  = isActivePElement(Element) .AND. Element % BDOFs > 0
        IF ( PBubbles ) THEN
           NBasis = n + Element % BDOFs
        ELSE IF ( StabilizeFlag == 'bubbles' .OR. &
