@@ -3042,28 +3042,30 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: TransientSimulation
   
   INTEGER, SAVE :: nTime = 0
-  LOGICAL :: GotIt, Parallel, FixedMesh
+  LOGICAL :: GotIt, Hit, Parallel, FixedMesh
   CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
   CHARACTER(MAX_NAME_LEN) :: BaseFile, VtuFile, PvtuFile, PvdFile, DataSetFile
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Variable_t), POINTER :: Var
-  INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
+  INTEGER :: i, j, k, l, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
              PrecSize, IntSize, FileIndex
   CHARACTER(MAX_NAME_LEN) :: Dir
   LOGICAL :: Visited = .FALSE.
   REAL(KIND=dp) :: DoubleWrk
   REAL :: SingleWrk
 
-  LOGICAL :: MaskExists, MaskAllocated, BinaryOutput, AsciiOutput, SinglePrec, NoFileindex
-  CHARACTER(MAX_NAME_LEN) :: Str
+  LOGICAL :: MaskExists, BinaryOutput, AsciiOutput, SinglePrec, NoFileindex
+  CHARACTER(MAX_NAME_LEN) :: Str, MaskName
   TYPE(Variable_t), POINTER :: MaskVar
-  INTEGER, POINTER :: MaskPerm(:), MaskOrder(:)
+  INTEGER, POINTER :: MaskPerm(:), NodePerm(:),NodeOrder(:)
   INTEGER :: NumberOfNodes, NumberOfElements, ParallelNodes, ParallelElements
   TYPE(Element_t), POINTER :: CurrentElement
   TYPE(ValueList_t),POINTER :: Params
   INTEGER :: MaxModes, BCOffset, ElemFirst, ElemLast
   INTEGER, POINTER :: ActiveModes(:)
-  LOGICAL :: GotActiveModes, EigenAnalysis, WriteIds
+  LOGICAL :: GotActiveModes, EigenAnalysis, WriteIds, SaveBoundariesOnly, SaveBulkOnly, &
+      GotMaskName, AllNodesUsed
+  LOGICAL, ALLOCATABLE :: ActiveElem(:)
 
 ! Parameters for buffered binary output
   INTEGER :: BufferSize
@@ -3127,7 +3129,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   ! Initialize stuff for masked saving
   !------------------------------------------------------------------------------
-  MaskAllocated = .FALSE.
+  GotMaskName = .FALSE.
   Str = GetString( Params,'Mask Variable',MaskExists)
   IF( MaskExists ) THEN
     MaskVar => VariableGet(Model % Variables,TRIM(Str))
@@ -3137,117 +3139,114 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL Info('VtuOutputSolver','Using > '// TRIM(Str) // ' < as mask variable')
     END IF
   ELSE
+    ! Check if there is an additional mask name given
     IF( MeshDim == 2 ) THEN
-      Str = GetString( Params,'2D Mask Name',GotIt)    
+      MaskName = GetString( Params,'2D Mask Name',GotIt)    
     ELSE IF( MeshDim == 3 ) THEN  
-      Str = GetString( Params,'3D Mask Name',GotIt)    
+      MaskName = GetString( Params,'3D Mask Name',GotIt)    
     END IF
-    IF(.NOT. GotIt) Str = GetString( Params,'Mask Name',GotIt) 
-    IF( GotIt ) THEN
-      ALLOCATE( MaskPerm( Mesh % NumberOfNodes ) ) 
-      CALL MakePermUsingMask( Model,Solver,Mesh,Str, &
-          .FALSE., MaskPerm, NumberOfNodes )
-      ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
-      IF( ParallelNodes > 0 ) THEN
-        MaskExists = .TRUE.
-        MaskAllocated = .TRUE.
-        CALL Info('VtuOutputSolver','Using > '// TRIM(Str) // ' < as mask flag')       
-      ELSE
-        CALL Warn('VtuOutputSolver','Given mask not active: '//TRIM(Str) )
-        DEALLOCATE( MaskPerm )
-      END IF
-    END IF
+    IF(.NOT. GotIt) MaskName = GetString( Params,'Mask Name',GotIt) 
+    GotMaskName = GotIt
   END IF
 
-  IF(MaskExists) THEN
-    NumberOfNodes = 0
-    DO i=1,Mesh % NumberOfNodes
-      IF( MaskPerm(i) == 0 ) CYCLE
-      NumberOfNodes = NumberOfNodes +1 
-    END DO
-    NumberOfElements = 0
+  SaveBoundariesOnly = GetLogical( Params,'Save Boundaries Only',GotIt ) 
+  SaveBulkOnly = GetLogical( Params,'Save Bulk Only',GotIt ) 
+  
+  NumberOfNodes = Mesh % NumberOfNodes
+  IF( MaskExists ) THEN
+    NumberOfNodes = COUNT( MaskPerm(1:NumberOfNodes) > 0 ) 
+  END IF
+  NumberOfElements = 0
+
+  IF( NumberOfNodes > 0) THEN
     ElemFirst = HUGE( ElemFirst )
     ElemLast = 0 
-    IF( NumberOfNodes > 0 ) THEN
-      ALLOCATE(MaskOrder(NumberOfNodes))
-      DO i=1,Mesh % NumberOfNodes
-        j = MaskPerm(i)
-        IF(j > 0) MaskOrder(j) = i
-      END DO
-      DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-        CurrentElement => Mesh % Elements(i)
-        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE          
+    ALLOCATE(NodePerm(Mesh % NumberOfNodes))
+    NodePerm = 0
 
-        IF( ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0) ) THEN
-          NumberOfElements = NumberOfElements + 1
-          ElemFirst = MIN( ElemFirst, i )
-          ElemLast = MAX( ElemLast, i )
+    ALLOCATE(ActiveElem(Mesh % NumberOfBulkElements + & 
+        Mesh % NumberOfBoundaryElements))
+    ActiveElem = .FALSE.
+    
+    ! Count the true number of elements and mark the 1st and last element
+    !-----------------------------------------------------------------------
+    DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+      
+      IF( i > Mesh % NumberOfBulkElements ) THEN
+        IF( SaveBulkOnly ) CYCLE
+      ELSE
+        IF( SaveBoundariesOnly ) CYCLE
+      END IF
+      
+      CurrentElement => Mesh % Elements(i)
+      IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE          
+      
+      IF( MaskExists ) THEN
+        IF( ANY(MaskPerm(CurrentElement % NodeIndexes) <= 0) ) CYCLE
+      END IF
+
+      IF( GotMaskName ) THEN
+        Hit = .FALSE.
+        IF( i <= Mesh % NumberOfBulkElements ) THEN
+          l = CurrentElement % BodyId
+          k = ListGetInteger( Model % Bodies(l) % Values,'Body Force',GotIt)
+          IF( GotIt ) THEN
+            Hit = ListGetLogical( Model % BodyForces(k) % Values, TRIM(MaskName), GotIt)
+          END  IF
+          IF( .NOT. Hit ) THEN
+            k = ListGetInteger( Model % Bodies(l) % Values,'Equation',GotIt)
+            IF( GotIt ) THEN
+              Hit = ListGetLogical( Model % Equations(k) % Values, TRIM(MaskName), GotIt)
+            END IF
+          END IF
+        ELSE
+          DO l=1, Model % NumberOfBCs
+            IF ( Model % BCs(l) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
+            Hit = ListGetLogical(Model % BCs(l) % Values, MaskName, GotIt ) 
+            EXIT
+          END DO
+        END IF
+        IF(.NOT. Hit ) CYCLE
+      END IF 
+
+      NodePerm( CurrentElement % NodeIndexes ) = 1
+      ActiveElem(i) = .TRUE.
+
+      NumberOfElements = NumberOfElements + 1
+      ElemFirst = MIN( ElemFirst, i )
+      ElemLast = MAX( ElemLast, i )
+    END DO
+    
+    ! Make the numbered list of nodes used. 
+    NumberOfNodes = COUNT( NodePerm > 0 ) 
+    AllNodesUsed = ( NumberOfNodes == Mesh % NumberOfNodes )
+
+    IF( AllNodesUsed ) THEN
+      DEALLOCATE( NodePerm ) 
+    ELSE
+      ALLOCATE( NodeOrder( NumberOfNodes ) ) 
+      NodeOrder = 0
+      j = 0
+      DO i=1,Mesh % NumberOfNodes
+        IF( NodePerm(i) > 0 ) THEN
+          j = j + 1       
+          NodePerm(i) = j
+          NodeOrder(j) = i
         END IF
       END DO
-      IF( nTime == 1 ) THEN
-        ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
-        ParallelElements = NINT( ParallelReduction( 1.0_dp * NumberOfElements ) )
-        WRITE( Message,'(A,I8)') 'Total number of masked nodes:',ParallelNodes
-        CALL Info('VtuOutputSolver',Message)
-        WRITE( Message,'(A,I8)') 'Total number of masked elements:',ParallelElements
-        CALL Info('VtuOutputSolver',Message)
-      END IF
     END IF
-  ELSE IF( GetLogical( Params,'Save Boundaries Only',GotIt ) ) THEN
-    ElemFirst = Mesh % NumberOfBulkElements + 1
-    ElemLast = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-    NumberOfElements =  Mesh % NumberOfBoundaryElements
-
-    ALLOCATE( MaskPerm( Mesh % NumberOfNodes ) ) 
-    MaskPerm = 0
-    DO i=ElemFirst, ElemLast 
-      CurrentElement => Mesh % Elements(i)
-      IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
-      MaskPerm(CurrentElement % NodeIndexes) = 1
-    END DO
-    j = 0
-    DO i=1,SIZE(MaskPerm) 
-      IF( MaskPerm(i) > 0 ) THEN
-        j = j + 1
-        MaskPerm(i) = j
-      END IF
-    END DO
-    NumberOfNodes = j
-
-    ALLOCATE(MaskOrder(NumberOfNodes))
-    MaskOrder = 0
-    DO i=1,Mesh % NumberOfNodes
-      j = MaskPerm(i)
-      IF(j > 0) MaskOrder(j) = i
-    END DO
-    MaskExists = .TRUE.
-    CALL Info('VtuOutputSolver','Created a mask for all boundaries')       
-  ELSE IF( GetLogical( Params,'Save Bulk Only',GotIt ) ) THEN
-    ElemFirst = 1
-    ElemLast = Mesh % NumberOfBulkElements 
-    NumberOfElements =  Mesh % NumberOfBulkElements
-
-    DO i=ElemFirst, ElemLast 
-      CurrentElement => Mesh % Elements(i)
-      IF( GetElementFamily( CurrentElement ) == 1 ) THEN
-        NumberOfElements = NumberOfElements - 1
-      END IF
-    END DO   
-    NumberOfNodes = Mesh % NumberOfNodes
-    CALL Info('VtuOutputSolver','Saving only bulk elements')       
-  ELSE
-    NumberOfNodes = Mesh % NumberOfNodes
-    NumberOfElements = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-    ElemFirst = 1
-    ElemLast = NumberOfElements
- 
-   DO i=ElemFirst, ElemLast 
-      CurrentElement => Mesh % Elements(i)
-      IF( GetElementFamily( CurrentElement ) == 1 ) THEN
-        NumberOfElements = NumberOfElements - 1
-      END IF
-    END DO
   END IF
+
+
+  IF( nTime == 1 ) THEN
+    ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
+    ParallelElements = NINT( ParallelReduction( 1.0_dp * NumberOfElements ) )
+    WRITE( Message,'(A,I8)') 'Number of nodes to save:',ParallelNodes
+    CALL Info('VtuOutputSolver',Message)
+    WRITE( Message,'(A,I8)') 'Number of elements to save:',ParallelElements
+    CALL Info('VtuOutputSolver',Message)
+  END IF
+
   IF( BinaryOutput ) THEN
     BufferSize = GetInteger( Params,'Binary Output Buffer Size',GotIt)
     IF( .NOT. GotIt ) BufferSize = MAX( NumberOfNodes, NumberOfElements )
@@ -3373,8 +3372,13 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     IF( FileIndex <= MaxModes ) GOTO 100
   END IF
 
-  IF( MaskExists ) DEALLOCATE(MaskOrder)
-  IF( MaskAllocated ) DEALLOCATE( MaskPerm ) 
+  IF( NumberOfNodes > 0 ) THEN
+    IF( .NOT. AllNodesUsed ) THEN
+      DEALLOCATE( NodeOrder, NodePerm ) 
+    END IF
+    DEALLOCATE( ActiveElem ) 
+  END IF
+
   IF( BinaryOutput ) THEN
     DEALLOCATE( IVals ) 
     IF( SinglePrec ) THEN
@@ -3768,9 +3772,12 @@ CONTAINS
             IF( BinaryOutput ) WRITE( VtuUnit ) k
             
             DO ii = 1, NumberOfNodes
-              i = ii
-              IF( MaskExists ) i = MaskOrder(i)
-              
+              IF( AllNodesUsed ) THEN
+                i = ii 
+              ELSE
+                i = NodeOrder(ii)
+              END IF
+
               IF( ASSOCIATED( Perm ) ) THEN
                 j = Perm(i)
               ELSE
@@ -3908,14 +3915,10 @@ CONTAINS
           IF( BinaryOutput ) WRITE( VtuUnit ) k
 
           DO i = ElemFirst, ElemLast
+            IF( .NOT. ActiveElem(i) ) CYCLE
+
             ElemVectVal = 0.0
-
             CurrentElement => Model % Elements(i)
-            IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
-
-            IF( MaskExists ) THEN
-              IF( ANY(MaskPerm(CurrentElement % NodeIndexes) == 0) ) CYCLE
-            END IF
 
             IF (i <= Mesh % NumberOfBulkElements) THEN
               IF ( ALL(Perm(CurrentElement % DGIndexes)>0)) THEN
@@ -3973,12 +3976,9 @@ CONTAINS
         IF( BinaryOutput ) WRITE( VtuUnit ) k
         
         DO i = ElemFirst, ElemLast
-          CurrentElement => Model % Elements(i)
-          IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+          IF(.NOT. ActiveElem(i)) CYCLE
 
-          IF( MaskExists ) THEN
-            IF( ANY(MaskPerm(CurrentElement % NodeIndexes) == 0) ) CYCLE
-          END IF
+          CurrentElement => Model % Elements(i)
           
           IF( i <= Mesh % NumberOfBulkElements ) THEN
             j = CurrentElement % BodyId
@@ -3996,7 +3996,6 @@ CONTAINS
         CALL StrWrite( OutStr ) 
       END IF
     END IF
-
 
     IF( WriteXML ) THEN
       WRITE( OutStr,'(A)') '      </CellData>'//lf
@@ -4021,18 +4020,22 @@ CONTAINS
       END IF
     END IF
 
+
     IF( BinaryOutput ) THEN
       k = dim * NumberOfNodes * PrecSize
       Offset = Offset + IntSize + k
     END IF
 
-
     IF( WriteData ) THEN
       IF( BinaryOutput ) WRITE( VtuUnit ) k 
 
       DO ii = 1, NumberOfNodes
-        i = ii
-        IF( MaskExists ) i = MaskOrder(i)
+        IF( AllNodesUsed ) THEN
+          i = ii 
+        ELSE
+          i = NodeOrder(ii)
+        END IF
+
         x = Model % Mesh % Nodes % x(i)
         y = Model % Mesh % Nodes % y(i)
         z = Model % Mesh % Nodes % z(i)
@@ -4097,12 +4100,9 @@ CONTAINS
       ! The offset needs to be summed over all elements, this is just the size factor
       k = 0
       DO i = ElemFirst, ElemLast
-        CurrentElement => Model % Elements(i)
-        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+        IF( .NOT. ActiveElem(i) ) CYCLE
 
-        IF(MaskExists) THEN
-          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-        END IF
+        CurrentElement => Model % Elements(i)
         n = GetElementNOFNodes(CurrentElement)
         k = k + n * IntSize
       END DO
@@ -4114,21 +4114,18 @@ CONTAINS
       IF( BinaryOutput ) WRITE( VtuUnit ) k
 
       DO i = ElemFirst, ElemLast
-        CurrentElement => Model % Elements(i)
-        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+        IF(.NOT. ActiveElem(i) ) CYCLE
 
+        CurrentElement => Model % Elements(i)
         n = GetElementNOFNodes(CurrentElement)
        
-        IF(MaskExists) THEN
-          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-          DO j=1,n
-            CALL IntegerWrite( MaskPerm( CurrentElement % NodeIndexes(j)) - 1 )
-          END DO
-        ELSE          
-          DO j=1,n
+        DO j=1,n
+          IF( AllNodesUsed ) THEN
             CALL IntegerWrite( CurrentElement % NodeIndexes(j) - 1 )
-          END DO
-        END IF
+          ELSE
+            CALL IntegerWrite( NodePerm( CurrentElement % NodeIndexes(j)) - 1 )
+          END IF
+        END DO
 
       END DO
       CALL IntegerWrite( 0, .TRUE. ) 
@@ -4138,6 +4135,7 @@ CONTAINS
       WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
       CALL StrWrite( OutStr ) 
     END IF
+
 
     ! Offsets for element indexes 
     !-------------------------------------------------------------------
@@ -4166,12 +4164,9 @@ CONTAINS
 
       cumn = 0
       DO i = ElemFirst, ElemLast
-        CurrentElement => Model % Elements(i)
-        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+        IF( .NOT. ActiveElem(i) ) CYCLE
 
-        IF(MaskExists) THEN
-          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-        END IF
+        CurrentElement => Model % Elements(i)
         n = CurrentElement % TYPE % NumberOfNodes
         cumn = cumn + n
 
@@ -4181,6 +4176,7 @@ CONTAINS
       CALL IntegerWrite( 0, .TRUE.)
       
     END IF
+
 
     IF( AsciiOutput ) THEN   
       WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
@@ -4209,12 +4205,9 @@ CONTAINS
       IF( BinaryOutput ) WRITE( VtuUnit ) k
 
       DO i = ElemFirst, ElemLast
-        CurrentElement => Model % Elements(i)
-        IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE
+        IF( .NOT. ActiveElem(i) ) CYCLE
 
-        IF(MaskExists) THEN
-          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-        END IF
+        CurrentElement => Model % Elements(i)
         n = Elmer2VTKElement(CurrentElement % TYPE % ElementCode)
 
         CALL IntegerWrite( n )
@@ -4250,7 +4243,7 @@ CONTAINS
         CALL StrWrite( OutStr ) 
       END IF
     END IF
-    
+
     WRITE( OutStr,'(A)') '</VTKFile>'//lf
     CALL StrWrite( OutStr ) 
 
