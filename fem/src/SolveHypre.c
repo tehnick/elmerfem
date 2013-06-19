@@ -627,7 +627,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      i = (verbosity >= 6);
      HYPRE_BoomerAMGSetPrintLevel(precond, i); /* print amg solution info */
 
-     HYPRE_BoomerAMGSetNumSweeps(precond, 1); /* fixed for preconditioner to 1 */
+     HYPRE_BoomerAMGSetNumSweeps(precond, hypre_intpara[2]); /* fixed for preconditioner to 1 */
      HYPRE_BoomerAMGSetTol(precond, 0.0); /* conv. tolerance zero */
      HYPRE_BoomerAMGSetMaxIter(precond, 1); /* do only one iteration! */
      HYPRE_BoomerAMGSetRelaxType(precond, hypre_intpara[0]);   /* G-S/Jacobi hybrid relaxation */
