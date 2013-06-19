@@ -1674,6 +1674,8 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
   IF(ParEnv % PEs>1) CALL ParallelInitMatrix(Solver,A)
 
   CALL ListSetNameSpace('jfix:')
+  CALL ListAddString(SolverParams,'Jfix: Linear System Solver', 'Iterative')
+
   CALL ListAddLogical(SolverParams,'Jfix: Linear System Use HYPRE', .FALSE.)
   CALL ListAddLogical(SolverParams,'Jfix: Use Global Mass Matrix',.FALSE.)
 
