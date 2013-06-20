@@ -156,8 +156,6 @@ REAL(kind=dp) :: tt,realtime
 
     LOGICAL :: NeedMass, NeedDamp, NeedPrec, GotNewCol, Found
 
-LOGICAL , ALLOCATABLE :: neighs(:,:)
-INTEGER :: ierr,status(1000)
 
 REAL(kind=dp) :: realtime,st
   !******************************************************************
@@ -1029,7 +1027,6 @@ END SUBROUTINE ZeroSplittedMatrix
     ParallelInfo => SourceMatrix % ParMatrix % ParallelInfo
     TmpXVec => SourceMatrix % ParMatrix % SplittedMatrix % TmpXVec
     TmpRVec => SourceMatrix % ParMatrix % SplittedMatrix % TmpRVec
-
     j = 0
     DO i = 1, SourceMatrix % NumberOfRows
        IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
@@ -1071,11 +1068,11 @@ END SUBROUTINE ZeroSplittedMatrix
     j = 0
     DO i = 1, SourceMatrix % NumberOfRows
        IF ( ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % MyPE ) THEN
-          j = j + 1
-          XVec(i) = TmpXVec(j)
-          RVec(i) = TmpRVec(j)
+         j = j + 1
+         XVec(i) = TmpXVec(j)
+         RVec(i) = TmpRVec(j)
        ELSE
-          RVec(i) = SourceMatrix % RHS(i)
+         Rvec(i) = SourceMatrix % RHS(i)
        END IF
     END DO
 

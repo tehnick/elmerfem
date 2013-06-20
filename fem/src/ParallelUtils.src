@@ -77,8 +77,9 @@ CONTAINS
 !-------------------------------------------------------------------------------
                                                                                                                                
 !--------------------------------'-----------------------------------------------
-    SUBROUTINE ParallelInitMatrix( Solver, Matrix )
+    SUBROUTINE ParallelInitMatrix( Solver, Matrix, inPerm )
 !-------------------------------------------------------------------------------
+       INTEGER, POINTER, OPTIONAL :: inPerm(:)
        TYPE(Solver_t) :: Solver
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
@@ -92,6 +93,7 @@ CONTAINS
        INTEGER :: maxnode, maxedge, maxface, fdofs, maxfdofs, &
                   edofs, maxedofs, maxbdofs, l_beg, g_beg
 
+       INTEGER, POINTER :: Perm(:)
        LOGICAL :: Interf_dof
        REAL(KIND=dp) :: realtime,tt
 !-------------------------------------------------------------------------------
@@ -101,27 +103,29 @@ CONTAINS
        IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Matrix) ) RETURN
        Mesh => Solver % Mesh
        DOFs = Solver % Variable % DOFs
-       n = SIZE(Solver % Variable % Perm)
 
+       Perm => Solver % Variable % Perm
+       IF(PRESENT(inPerm)) Perm=>InPerm
+
+       n = SIZE(Perm)
        k = n*DOFs+Matrix % ExtraDOFs
        ALLOCATE( Matrix % Perm(k), Matrix % InvPerm(k))
 
-       Matrix % Perm    = 0
-       Matrix % INVPerm = 0
-
+       Matrix % Perm = 0
        DO i=1,n
-          IF ( Solver % Variable % Perm(i) /= 0 )  THEN
-             DO j=1,DOFs
-                Matrix % Perm((i-1)*DOFs+j) = &
-                   DOFs * (Solver % Variable % Perm(i)-1) + j
-             END DO
-          END IF
+         IF ( Perm(i) /= 0 )  THEN
+            DO j=1,DOFs
+               Matrix % Perm((i-1)*DOFs+j) = &
+                  DOFs * (Perm(i)-1) + j
+            END DO
+         END IF
        END DO
 
-       DO i=n*DOFs+1,SIZE(Matrix % Perm)
-         Matrix % Perm(i) = i
-       END DO
+        DO i=n*DOFs+1,SIZE(Matrix % Perm)
+          Matrix % Perm(i) = i
+        END DO
 
+       Matrix % INVPerm = 0
        DO i=1,SIZE(Matrix % Perm)
           IF ( Matrix % Perm(i) /= 0 ) THEN
              Matrix % INVPerm(Matrix % Perm(i)) = i
@@ -144,7 +148,7 @@ CONTAINS
          DO i=1,Solver % Mesh % NumberOfNodes
            DO j=1,DOFs
               k = Matrix % Perm((i-1)*DOFs+j)
-              IF(k==0) CYCLE
+              IF(k<=0) CYCLE
               Matrix % ParallelInfo % GlobalDOFs(k) = &
                 DOFs*(Solver % Mesh % ParallelInfo % GlobalDOFs(i)-1)+j
               Matrix % ParallelInfo % Interface(k) = &
@@ -184,7 +188,8 @@ CONTAINS
              Element => Solver % Mesh % Edges(i)
              DO j=1,Element % BDOFs
                DO m=1,DOFs
-                 l = Matrix % Perm(DOFs*(l_beg + edofs*(i-1)+j-1)+m)
+                 l = DOFs*(l_beg + edofs*(i-1)+j-1)+m
+                 l=Matrix % Perm(l)
                  IF(l==0) CYCLE
                  Matrix % ParallelInfo % GlobalDOFs(l) = &
                      DOFs*(g_beg+maxedofs*(Element % GelementIndex-1)+j-1)+m
@@ -280,7 +285,6 @@ CONTAINS
            END IF
            Matrix % ParallelInfo % GlobalDofs(i) = g_beg+j
          END DO
-
 
        ELSE
          MeshPI => Solver % Mesh % ParallelInfo
@@ -407,11 +411,11 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelMatrixVector( Matrix, x, b, Update, UseMassVals )
+    SUBROUTINE ParallelMatrixVector( Matrix, x, b, Update, UseMassVals,ZeroNotOwned )
 !-------------------------------------------------------------------------------
       REAL(KIND=dp) CONTIG :: x(:), b(:)
-      LOGICAL, OPTIONAL :: Update, UseMassVals
       TYPE(Matrix_t), POINTER :: Matrix
+      LOGICAL, OPTIONAL :: Update, UseMassVals,ZeroNotOwned
 !-------------------------------------------------------------------------------
       INTEGER :: i,ipar(1)
       REAL(KIND=dp), POINTER CONTIG :: Mx(:), Mr(:), Mb(:), r(:)
@@ -462,11 +466,31 @@ CONTAINS
                Mr => GlobalData % SplittedMatrix % TmpRVec 
                CALL SParMatrixVector( Mx, Mr, ipar )
                CALL SParUpdateResult( Matrix, x, b, .FALSE. )
+
+               IF(PRESENT(ZeroNotOwned)) THEN
+                 IF(ZeroNotOwned) THEN
+                   DO i = 1, Matrix % NumberOFRows
+                     IF ( Matrix % ParallelInfo % NeighbourList(i) % Neighbours(1) /= ParEnv % MyPE ) THEN
+                       b(i) = 0._dp
+                     END IF
+                   END DO
+                 END IF
+               ENDIF
             ELSE
                Mx => GlobalData % SplittedMatrix % TmpXVec 
                Mr => GlobalData % SplittedMatrix % TmpRVec 
                CALL SParMatrixVector( Mx, Mr, ipar )
                CALL SParUpdateResult( Matrix, x, b, .FALSE. )
+
+               IF(PRESENT(ZeroNotOwned)) THEN
+                 IF(ZeroNotOwned) THEN
+                   DO i = 1, Matrix % NumberOFRows
+                     IF ( Matrix % ParallelInfo % NeighbourList(i) % Neighbours(1) /= ParEnv % MyPE ) THEN
+                       b(i) = 0._dp
+                     END IF
+                   END DO
+                 END IF
+               ENDIF
             END IF
 
             IF ( PRESENT(UseMassVals) ) THEN

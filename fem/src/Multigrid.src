@@ -107,7 +107,6 @@ CONTAINS
        ELSE
          CALL GMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
        END IF
-
 !------------------------------------------------------------------------------
     END SUBROUTINE MultiGridSolve
 !------------------------------------------------------------------------------
@@ -818,9 +817,9 @@ CONTAINS
          CALL CRS_MatrixVectorMultiply( A, x, b )
        ELSE
          IF ( PRESENT( Update ) ) THEN
-           CALL ParallelMatrixVector( A,x,b,Update )
+           CALL ParallelMatrixVector( A,x,b,Update,ZeroNotOwned=.TRUE. )
          ELSE
-           CALL ParallelMatrixVector( A,x,b )
+           CALL ParallelMatrixVector( A,x,b,ZeroNotOwned=.TRUE. )
          END IF
        END IF
 !------------------------------------------------------------------------------
@@ -885,7 +884,7 @@ CONTAINS
 
        TYPE(Matrix_t), POINTER :: ProjPN, ProjQT
        INTEGER, POINTER :: Permutation(:), Permutation2(:), Indexes(:), Deg(:), &
-                PatLevel(:)
+                PatLevel(:), iPerm(:),dum(:)
 
        REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
        REAL(KIND=dp), POINTER CONTIG :: Residual(:), Residual2(:), Solution2(:), &
@@ -938,7 +937,7 @@ CONTAINS
              CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
            END IF
          ELSE
-           CALL ParallelIter( Matrix1, Solver % Mesh % ParallelInfo, DOFs, &
+           CALL ParallelIter( Matrix1, Matrix1 % ParallelInfo, DOFs, &
                Solution, ForceVector, Solver, Matrix1 % ParMatrix )
          END IF
 
@@ -949,22 +948,22 @@ CONTAINS
 !
        n = Matrix1 % NumberOfRows
        ALLOCATE( Residual(n) )
-       Residual = 0.0d0
+       Residual = 0.0_dp
 !
 !      Parallel initializations:
 !      -------------------------
        IF ( Parallel ) THEN
           CALL ParallelInitSolve( Matrix1, Solution, &
               ForceVector, Residual, NewLinearSystem )
-          PMatrix => ParallelMatrix( Matrix1 ) 
+          PMatrix => ParallelMatrix(Matrix1) 
        END IF
 !
 !      Compute residual:
 !      -----------------
-       CALL MGmv( Matrix1, Solution, Residual, .TRUE. )
+       CALL MGmv(Matrix1,Solution, Residual,.TRUE.)
        Residual(1:n) = ForceVector(1:n) - Residual(1:n)
  
-       RHSNorm = MGnorm( n, ForceVector )
+       RHSNorm = MGnorm(n, ForceVector)
        ResidualNorm = MGnorm( n, Residual ) / RHSNorm
  
        Tolerance = ListGetConstReal( Params,'Linear System Convergence Tolerance' )
@@ -983,18 +982,14 @@ CONTAINS
       
        IF ( NewLinearSystem ) THEN
          IF ( .NOT. ASSOCIATED(Matrix2) ) THEN
-           n2 = Solver % Mesh % MaxElementDOFs
-           ALLOCATE( Degree(n), Indexes(n2), Deg(n2), Basis(n2) )
-           ALLOCATE( Nodes % x(n2),Nodes % y(n2), Nodes % z(n2) )
-           DO i=1,Solver % Mesh % NumberOfBulkElements
-             Element => Solver % Mesh % Elements(i)
-             n = PMGGetElementDOFs( Indexes, Element )
 
-             Nodes % x = Solver % Mesh % Nodes % x(Indexes(1:n))
-             Nodes % y = Solver % Mesh % Nodes % y(Indexes(1:n))
-             Nodes % z = Solver % Mesh % Nodes % z(Indexes(1:n))
-             stat = ElementInfo( Element, Nodes, 0._dp, 0._dp, 0._dp, detJ, &
-                          Basis, BasisDegree=Deg )
+           n2 = Solver % Mesh % MaxElementDOFs
+           ALLOCATE(Degree(n), Indexes(n2), Deg(n2))
+
+           DO i=1,Solver % NumberOfActiveElements
+             Element => Solver % Mesh % Elements(Solver % ActiveElements(i))
+             n = PMGGetElementDOFs( Indexes, Element )
+             CALL ElementBasisDegree(Element, Deg)
 
              DO j=1,n
                DO k=1,DOFs
@@ -1002,7 +997,7 @@ CONTAINS
                END DO
              END DO
            END DO
-           DEALLOCATE( Indexes,Deg,Basis,Nodes % x,Nodes % y,Nodes % z )
+           DEALLOCATE(Indexes,Deg)
             
            PatLevel => ListGetIntegerArray( Params,'MG P at Level',Found)
            IF(.NOT.Found) THEN
@@ -1011,8 +1006,8 @@ CONTAINS
            END IF
 
            n = Matrix1 % NumberOfRows
-           ALLOCATE( Matrix1 % Perm(n) )
-           Matrix1 % Perm=(/(i,i=1,n)/)
+           ALLOCATE(Matrix1 % Eperm(n))
+           Matrix1 % Eperm=(/(i,i=1,n)/)
 
            PMatrix => Matrix1
            DO l=level-1,1,-1
@@ -1021,25 +1016,25 @@ CONTAINS
              Pmatrix % Child  => Matrix2
              n2 = COUNT(Degree<=PatLevel(l))
              Matrix2 % NumberOfRows = n2
-             ALLOCATE( Matrix2 % Rows(n2+1), Matrix2 % Diag(n2), Matrix2 % Perm(n) )
-             Matrix2 % Perm = 0
-           
+             ALLOCATE( Matrix2 % Rows(n2+1), Matrix2 % Diag(n2), Matrix2 % Eperm(n) )
+
+             Matrix2 % Eperm = 0
              j = 0
              DO i=1,n
                IF ( Degree(i) <= PatLevel(l) ) THEN
                  j = j + 1
-                 Matrix2 % Perm(i) = j
+                 Matrix2 % Eperm(i) = j
                END IF
              END DO
 
              Matrix2 % Rows(1) = 1
              j = 0
              DO i=1,n
-               IF ( Matrix2 % Perm(i) == 0 ) CYCLE
+               IF ( Matrix2 % Eperm(i) == 0 ) CYCLE
                j = j + 1
                Matrix2 % Rows(j+1) = Matrix2 % Rows(j)
                DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
-                 IF ( Matrix2 % Perm(Matrix1 % Cols(k)) /= 0 ) &
+                 IF ( Matrix2 % Eperm(Matrix1 % Cols(k)) /= 0 ) &
                    Matrix2 % Rows(j+1) = Matrix2 % Rows(j+1)+1
                END DO
              END DO
@@ -1050,12 +1045,12 @@ CONTAINS
              j = 0
              m = 0
              DO i=1,n
-               IF ( Matrix2 % Perm(i) == 0 ) CYCLE
+               IF ( Matrix2 % Eperm(i) == 0 ) CYCLE
                j = j + 1
                DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
-                 IF ( Matrix2 % Perm(Matrix1 % Cols(k)) /= 0 ) THEN
+                 IF ( Matrix2 % Eperm(Matrix1 % Cols(k)) /= 0 ) THEN
                    m = m + 1
-                   Matrix2 % Cols(m) = Matrix2 % Perm(Matrix1 % Cols(k))
+                   Matrix2 % Cols(m) = Matrix2 % Eperm(Matrix1 % Cols(k))
                    IF ( j==Matrix2 % Cols(m)) Matrix2 % Diag(j)=m
                  END IF
                END DO
@@ -1072,10 +1067,10 @@ CONTAINS
              j = 0
              m = 0
              DO i=1,n
-               IF ( Pmatrix % Perm(i) == 0 ) CYCLE
+               IF ( Pmatrix % Eperm(i) == 0 ) CYCLE
                j = j + 1
                DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
-                 IF ( Pmatrix % Perm(Matrix1 % Cols(k)) /= 0 ) THEN
+                 IF ( Pmatrix % Eperm(Matrix1 % Cols(k)) /= 0 ) THEN
                    m = m + 1
                    Pmatrix % Values(m) = Matrix1 % Values(k)
                  END IF
@@ -1097,6 +1092,32 @@ CONTAINS
        ALLOCATE( Residual2(n2), Solution2(n2) )
        Residual2 = 0._dp
        Solution2 = 0._dp
+
+       IF ( Parallel ) THEN
+         IF(.NOT.ASSOCIATED(Matrix2 % ParMatrix)) THEN
+           k = SIZE(Solver % Variable % Perm)
+           ALLOCATE(Permutation(k),iPerm(k))
+           Permutation=0; iPerm=0
+           DO i=1,k
+             j=Solver % Variable % Perm(i)
+             IF(j<=0) CYCLE
+             iPerm(j) = i
+           END DO
+
+           j=0
+           DO i=1,n
+             IF(Matrix2 % Eperm(i)>0) THEN
+               j = j + 1
+               k=(i-1)/DOFs+1
+               Permutation(iPerm(k))=(j-1)/DOFs+1
+             END IF
+           END DO
+           Matrix2 % Comm = Matrix1 % Comm
+           CALL ParallelInitMatrix(Solver,Matrix2,Permutation)
+           DEALLOCATE(Permutation, iPerm)
+         END IF
+       END IF
+
 !------------------------------------------------------------------------------
 !
 !      Global iteration parameters:
@@ -1178,7 +1199,6 @@ CONTAINS
           END IF
        END DO
 
-
 !------------------------------------------------------------------------------
 !
 !      Finalize:
@@ -1201,8 +1221,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   CONTAINS
-
-
 
 !------------------------------------------------------------------------------
   FUNCTION PMGGetElementDOFs( Indexes, UElement, USolver )  RESULT(NB)
@@ -1345,21 +1363,21 @@ CONTAINS
 !
 !     Recursively solve (PAQ)z = Pr:
 !     ------------------------------
-      DO i=1,SIZE(Matrix2 % Perm)
-        j = Matrix2 % Perm(i)
+      DO i=1,SIZE(Matrix2 % Eperm)
+        j = Matrix2 % Eperm(i)
         IF ( j>0 )  THEN
-          k = Matrix1 % Perm(i)
+          k = Matrix1 % Eperm(i)
           Residual2(j) = Residual(k)
         END IF
       END DO
 
       CALL MultigridSolve( Matrix2, Solution2, Residual2, &
-        DOFs, Solver, Level-1, NewLinearSystem )
+           DOFs, Solver, Level-1, NewLinearSystem )
 
-      DO i=1,SIZE(Matrix2 % Perm)
-        j = Matrix2 % Perm(i)
-        IF ( j>0 )  THEN
-          k = Matrix1 % Perm(i)
+      DO i=1,SIZE(Matrix2 % Eperm)
+        j = Matrix2 % Eperm(i)
+        IF (j>0)  THEN
+          k = Matrix1 % Eperm(i)
           Solution(k) = Solution(k) + Solution2(j)
         END IF
       END DO
@@ -1374,39 +1392,40 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    FUNCTION MGnorm( n, x ) RESULT(s)
+      FUNCTION MGnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
-       INTEGER :: n
-       REAL(KIND=dp)  :: s
-       REAL(KIND=dp) CONTIG :: x(:)
+        INTEGER :: n
+        REAL(KIND=dp)  :: s
+        REAL(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
-       IF ( .NOT. Parallel ) THEN
+        IF ( .NOT. Parallel ) THEN
           s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
-       ELSE
-          s = ParallelNorm( n, x )
-       END IF
+        ELSE
+          s = ParallelNorm(n, x)
+        END IF
 !------------------------------------------------------------------------------
-    END FUNCTION MGnorm
+      END FUNCTION MGnorm
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
-    SUBROUTINE MGmv( A, x, b, Update )
+      SUBROUTINE MGmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) CONTIG :: x(:), b(:)
-       LOGICAL, OPTIONAL :: Update
-       TYPE(Matrix_t), POINTER :: A
+        REAL(KIND=dp) CONTIG :: x(:), b(:)
+        TYPE(Matrix_t), POINTER :: A
+        LOGICAL, OPTIONAL :: Update
 !------------------------------------------------------------------------------
-       IF ( .NOT. Parallel ) THEN
-         CALL CRS_MatrixVectorMultiply( A, x, b )
-       ELSE
-         IF ( PRESENT( Update ) ) THEN
-           CALL ParallelMatrixVector( A,x,b,Update )
-         ELSE
-           CALL ParallelMatrixVector( A,x,b )
-         END IF
-       END IF
+        IF ( .NOT. Parallel ) THEN
+          CALL CRS_MatrixVectorMultiply( A, x, b )
+        ELSE
+          IF ( PRESENT( Update ) ) THEN
+            CALL ParallelMatrixVector( A,x,b,Update,ZeroNotOwned=.TRUE. )
+          ELSE
+            CALL ParallelMatrixVector(A,x,b,ZeroNotOwned=.TRUE.)
+          END IF
+        END IF
 !------------------------------------------------------------------------------
-    END SUBROUTINE MGmv
+      END SUBROUTINE MGmv
 !------------------------------------------------------------------------------
 
 
@@ -1520,7 +1539,7 @@ CONTAINS
           CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
         END IF
       ELSE
-        CALL ParallelIter( Matrix1, Solver % Mesh % ParallelInfo, DOFs, &
+        CALL ParallelIter( Matrix1, Matrix1 % ParallelInfo, DOFs, &
             Solution, ForceVector, Solver, Matrix1 % ParMatrix )
       END IF
 
@@ -1855,9 +1874,9 @@ CONTAINS
          CALL CRS_MatrixVectorMultiply( A, x, b )
        ELSE
          IF ( PRESENT( Update ) ) THEN
-           CALL ParallelMatrixVector( A,x,b,Update )
+           CALL ParallelMatrixVector( A,x,b,Update,ZeroNotOwned=.TRUE. )
          ELSE
-           CALL ParallelMatrixVector( A,x,b )
+           CALL ParallelMatrixVector( A,x,b,ZeroNotOwned=.TRUE. )
          END IF
        END IF
 !------------------------------------------------------------------------------
@@ -5472,9 +5491,9 @@ CONTAINS
          CALL CRS_MatrixVectorMultiply( A, x, b )
        ELSE
          IF ( PRESENT( Update ) ) THEN
-           CALL ParallelMatrixVector( A,x,b,Update )
+           CALL ParallelMatrixVector( A,x,b,Update,ZeroNotOwned=.TRUE. )
          ELSE
-           CALL ParallelMatrixVector( A,x,b )
+           CALL ParallelMatrixVector( A,x,b,ZeroNotOwned=.TRUE. )
          END IF
        END IF
 !------------------------------------------------------------------------------

@@ -179,7 +179,7 @@ CONTAINS
 
       IF( Rounds == 0 ) THEN
         CALL Info('MGSmooth','Zero smoothing rounds given, doing nothing.')
-        RETURN
+        GOTO 10
       END IF
 
       IF( IterMethod == 'direct1d' .OR. IterMethod == 'psgs' ) THEN
@@ -187,7 +187,6 @@ CONTAINS
           CALL Fatal('MGSmooth','Smoother requires CF clustering info: '//TRIM(IterMethod))
         END IF
       END IF
-
 
       RNorm = MGnorm( n, Mr ) 
       IF ( Rounds <= 0 ) RETURN
@@ -290,15 +289,6 @@ CONTAINS
         CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
       END SELECT
 
-      CALL MGmv( A, x, r, .TRUE. )
-      r = b - r
-      IF ( Parallel ) THEN
-        DO i=1,SIZE(Mr)
-          Mr(i) = Mb(i) - Mr(i)
-        END DO
-      END IF
-     
-      RNorm = MGnorm( n, Mr ) 
 
       SELECT CASE( Itermethod )
       CASE( 'cg' )
@@ -307,6 +297,17 @@ CONTAINS
       CASE( 'bicgstab' )
         DEALLOCATE( Pr, Ri, T, T1, T2, S, V )
       END SELECT
+
+10    CONTINUE
+
+      CALL MGmv( A, x, r, .TRUE. )
+      r = b - r
+      IF ( Parallel ) THEN
+        DO i=1,SIZE(Mr)
+          Mr(i) = Mb(i) - Mr(i)
+        END DO
+      END IF
+      RNorm = MGnorm( n, Mr ) 
 
       CALL Info('MGSmooth','Smoothing finished',Level=12)
 
@@ -372,9 +373,9 @@ CONTAINS
           CALL CRS_MatrixVectorMultiply( A, x, b )
         ELSE
           IF ( PRESENT( Update ) ) THEN
-            CALL ParallelMatrixVector( A,x,b,Update )
+            CALL ParallelMatrixVector( A,x,b,Update,ZeroNotOwned=.TRUE. )
           ELSE
-            CALL ParallelMatrixVector( A,x,b )
+            CALL ParallelMatrixVector( A,x,b,ZeroNotOwned=.TRUE. )
           END IF
         END IF
 !------------------------------------------------------------------------------
