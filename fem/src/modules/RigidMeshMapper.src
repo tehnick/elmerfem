@@ -372,11 +372,14 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
             END DO
           ELSE
             Origin(1) = ListGetCReal( BodyForce,'Mesh Origin 1', Found) 
-            Origin(2) = ListGetCReal( BodyForce,'Mesh Origin 1', Found) 
-            Origin(3) = ListGetCReal( BodyForce,'Mesh Origin 1', Found) 
+            Origin(2) = ListGetCReal( BodyForce,'Mesh Origin 2', Found) 
+            Origin(3) = ListGetCReal( BodyForce,'Mesh Origin 3', Found) 
           END IF
           
-          TrfMatrix = MATMUL( TrsMatrix, RotMatrix )
+!          TrfMatrix = MATMUL( TrsMatrix, RotMatrix )
+! It is easier to first translate the matrix to origin and only then
+! do the rotation than vice versa. 
+          TrfMatrix = MATMUL( RotMatrix, TrsMatrix )
           IF( GotScale ) THEN
             TrsMatrix = TrfMatrix
             TrfMatrix = MATMUL( SClMatrix, TrsMatrix )
