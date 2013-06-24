@@ -72,7 +72,7 @@ CONTAINS
       INTEGER :: i, j, k, n, Rounds, InvLevel, me
       INTEGER, POINTER :: Iters(:)
       REAL(KIND=dp), POINTER CONTIG :: Mx(:),Mb(:),Mr(:)
-      REAL(KIND=dp) :: Omega, Bnorm
+      REAL(KIND=dp) :: Omega, Bnorm, TOL
       REAL(KIND=dp), POINTER :: TmpArray(:,:)
       REAL(KIND=dp), ALLOCATABLE :: Q(:), Z(:), Ri(:), T(:), &
              T1(:), T2(:), S(:), V(:), Pr(:), dx(:),diag(:)
@@ -187,6 +187,8 @@ CONTAINS
           CALL Fatal('MGSmooth','Smoother requires CF clustering info: '//TRIM(IterMethod))
         END IF
       END IF
+
+      TOL = ListGetConstReal( Solver % Values, 'MG Smoother Reduction TOL',Found)
 
       RNorm = MGnorm( n, Mr ) 
       IF ( Rounds <= 0 ) RETURN
@@ -1215,12 +1217,13 @@ CONTAINS
         TYPE(Matrix_t), POINTER :: A,M
         INTEGER :: Rounds
         REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
-        REAL(KIND=dp) :: alpha,rho,oldrho
 !------------------------------------------------------------------------------
         INTEGER :: i,n
+        REAL(KIND=dp) :: alpha,rho,oldrho,residual0,residual
 !------------------------------------------------------------------------------
         CALL MGmv( A, x, r )
         r(1:n) = b(1:n) - r(1:n)
+        residual0 = MGnorm(n, r)
         
         DO i=1,Rounds
           Z(1:n) = r(1:n)
@@ -1239,6 +1242,9 @@ CONTAINS
           
           x(1:n) = x(1:n) + alpha * Pr(1:n)
           r(1:n) = r(1:n) - alpha * Q(1:n)
+
+          residual = MGnorm(n, r)
+          IF(residual<TOL*residual0) EXIT
         END DO
 !------------------------------------------------------------------------------
       END SUBROUTINE CG
