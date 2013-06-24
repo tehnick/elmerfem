@@ -279,7 +279,6 @@ CONTAINS
 !------------------------------------------------------------------------------
     CheckAbort = 1
     IF ( FirstTime ) THEN
-       FirstTime = .FALSE.
        CALL CheckKeyword( 'coordinate system', 'string', &
            CheckAbort,FreeNames,'simulation' )
     END IF
@@ -878,45 +877,48 @@ CONTAINS
       END DO
 
       ! Make sanity check that all Material, Body Force and Equation is associated to some
-      ! body. This is not detrimental so a warning suffices.
+      ! body. This is not detrimental so a warning suffices. The 2nd time there is the 
+      ! default setting so apply this only on the first time.
       !-----------------------------------------------------------------------------------
-      n = MAX( Model % NumberOfMaterials, &
-          Model % NumberOfBodyForces, &
-          Model % NumberOfEquations )
-      ALLOCATE( EntryUsed( n ) )
-      EntryUsed = .FALSE.
-      DO i = 1, Model % NumberOfBodies
-        j = ListGetInteger( Model % Bodies(i) % Values,'Material',Found )
-        IF( Found ) EntryUsed(j) = .TRUE.
-      END DO
-      DO i = 1,Model % NumberOfMaterials
-        IF( .NOT. EntryUsed(i) ) THEN
-          CALL Warn('LoadInputFile','> Material '// TRIM(I2S(i)) //' < not used in any Body!')
-        END IF
-      END DO
-
-      EntryUsed = .FALSE.
-      DO i = 1, Model % NumberOfBodies
-        j = ListGetInteger( Model % Bodies(i) % Values,'Body Force',Found )
-        IF( Found ) EntryUsed(j) = .TRUE.
-      END DO
-      DO i = 1,Model % NumberOfBodyForces
-        IF( .NOT. EntryUsed(i) ) THEN
-          CALL Warn('LoadInputFile','> Body Force '// TRIM(I2S(i)) //' < not used in any Body!')
-        END IF
-      END DO
-
-      EntryUsed = .FALSE.
-      DO i = 1, Model % NumberOfBodies
-        j = ListGetInteger( Model % Bodies(i) % Values,'Equation',Found )
-        IF( Found ) EntryUsed(j) = .TRUE.
-      END DO
-      DO i = 1,Model % NumberOfEquations
-        IF( .NOT. EntryUsed(i) ) THEN
-          CALL Warn('LoadInputFile','> Equation '// TRIM(I2S(i)) //' < not used in any Body!')
-        END IF
-      END DO
-      DEALLOCATE( EntryUsed ) 
+      IF( FirstTime ) THEN
+        n = MAX( Model % NumberOfMaterials, &
+            Model % NumberOfBodyForces, &
+            Model % NumberOfEquations )
+        ALLOCATE( EntryUsed( n ) )
+        EntryUsed = .FALSE.
+        DO i = 1, Model % NumberOfBodies
+          j = ListGetInteger( Model % Bodies(i) % Values,'Material',Found )
+          IF( Found ) EntryUsed(j) = .TRUE.
+        END DO
+        DO i = 1,Model % NumberOfMaterials
+          IF( .NOT. EntryUsed(i) ) THEN
+            CALL Warn('LoadInputFile','> Material '// TRIM(I2S(i)) //' < not used in any Body!')
+          END IF
+        END DO
+        
+        EntryUsed = .FALSE.
+        DO i = 1, Model % NumberOfBodies
+          j = ListGetInteger( Model % Bodies(i) % Values,'Body Force',Found )
+          IF( Found ) EntryUsed(j) = .TRUE.
+        END DO
+        DO i = 1,Model % NumberOfBodyForces
+          IF( .NOT. EntryUsed(i) ) THEN
+            CALL Warn('LoadInputFile','> Body Force '// TRIM(I2S(i)) //' < not used in any Body!')
+          END IF
+        END DO
+        
+        EntryUsed = .FALSE.
+        DO i = 1, Model % NumberOfBodies
+          j = ListGetInteger( Model % Bodies(i) % Values,'Equation',Found )
+          IF( Found ) EntryUsed(j) = .TRUE.
+        END DO
+        DO i = 1,Model % NumberOfEquations
+          IF( .NOT. EntryUsed(i) ) THEN
+            CALL Warn('LoadInputFile','> Equation '// TRIM(I2S(i)) //' < not used in any Body!')
+          END IF
+        END DO
+        DEALLOCATE( EntryUsed ) 
+      END IF
       !--- sanity checks done
 
 
@@ -963,9 +965,11 @@ CONTAINS
          CALL ListAddInteger( Model % Bodies(1) % Values, 'Initial Condition', 1 )
        END IF
       ! -- done adding default fields
-      
+
     END IF
     !--------------------------------------------------------------------
+
+    FirstTime = .FALSE.
 
     RETURN
 
