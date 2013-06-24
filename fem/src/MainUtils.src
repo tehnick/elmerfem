@@ -3259,7 +3259,7 @@ CONTAINS
      INTEGER :: comm_active, group_active, group_world, ierr
 
      LOGICAL :: FoundMortar
-     TYPE(Matrix_t), POINTER :: CM
+     TYPE(Matrix_t), POINTER :: CM, CM0
 
 !------------------------------------------------------------------------------
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
@@ -3361,23 +3361,35 @@ CONTAINS
      ! -----------------------------------
      FoundMortar = .FALSE.
      IF (GetLogical(Solver % Values,'Apply Mortar BCs',Found)) THEN
+       CM => Null()
        DO i=1,Model % NumberOFBCs
          j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
          IF(FoundMortar) THEN
-           CM => PeriodicProjector(Model,Solver % Mesh,i,j,CoordinateSystemDimension(),.TRUE.)
-           FoundMortar = ASSOCIATED(CM)
-           EXIT
+           CM0 => PeriodicProjector(Model,Solver % Mesh,i,j,CoordinateSystemDimension(),.TRUE.)
+           IF(ASSOCIATED(CM0)) THEN
+             CM0 % ConstraintMatrix => CM
+             CM => CM0
+           END IF
          END IF
        END DO
+       FoundMortar = ASSOCIATED(CM)
 
        IF(FoundMortar) THEN
-         ALLOCATE(CM % RHS(CM % NumberOfRows))
-         CM % RHS = 0._dp
-         CM % ConstraintMatrix => Solver % Matrix % ConstraintMatrix
-         Solver % Matrix % ConstraintMatrix => CM
-         CM % Cols = Solver % Variable % Perm(CM % Cols)
-         CM % Ordered = .FALSE.
-         CALL CRS_SortMatrix(CM,.TRUE.)
+         CM0 => CM
+         DO WHILE(ASSOCIATED(CM0))
+           ALLOCATE(CM0 % RHS(CM0 % NumberOfRows))
+           CM0 % RHS = 0._dp
+           CM0 % Cols = Solver % Variable % Perm(CM0 % Cols)
+           CM0 % Ordered = .FALSE.
+           CALL CRS_SortMatrix(CM0,.TRUE.)
+           CM0 => CM0 % ConstraintMatrix
+         END DO
+
+         CM0 => Solver % Matrix
+         DO WHILE(ASSOCIATED(CM0 % ConstraintMatrix))
+           CM0 => CM0 % ConstraintMatrix
+         END DO
+         CM0 % ConstraintMatrix => CM
        END IF
      END IF
 
@@ -3391,8 +3403,11 @@ CONTAINS
 #endif
 
     IF(FoundMortar) THEN
-      Solver % Matrix % ConstraintMatrix => &
-            Solver % Matrix % ConstraintMatrix % ConstraintMatrix
+      CM0 => Solver % Matrix
+      DO WHILE(.NOT.ASSOCIATED(CM,CM0 % ConstraintMatrix))
+        CM0 => CM0 % ConstraintMatrix
+      END DO
+      CM0 % ConstraintMatrix => Null()
       CALL FreeMatrix(CM)
     END IF
 !------------------------------------------------------------------------------
