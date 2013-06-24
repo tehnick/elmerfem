@@ -3258,6 +3258,9 @@ CONTAINS
      TYPE(Matrix_t), POINTER :: M
      INTEGER :: comm_active, group_active, group_world, ierr
 
+     LOGICAL :: FoundMortar
+     TYPE(Matrix_t), POINTER :: CM
+
 !------------------------------------------------------------------------------
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
        Solver % NumberOFActiveElements = 0
@@ -3353,6 +3356,32 @@ CONTAINS
        END IF
      END IF
 
+
+     ! Linear constraints from mortar BCs:
+     ! -----------------------------------
+     FoundMortar = .FALSE.
+     IF (GetLogical(Solver % Values,'Apply Mortar BCs',Found)) THEN
+       DO i=1,Model % NumberOFBCs
+         j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
+         IF(FoundMortar) THEN
+           CM => PeriodicProjector(Model,Solver % Mesh,i,j,CoordinateSystemDimension(),.TRUE.)
+           FoundMortar = ASSOCIATED(CM)
+           EXIT
+         END IF
+       END DO
+
+       IF(FoundMortar) THEN
+         ALLOCATE(CM % RHS(CM % NumberOfRows))
+         CM % RHS = 0._dp
+         CM % ConstraintMatrix => Solver % Matrix % ConstraintMatrix
+         Solver % Matrix % ConstraintMatrix => CM
+         CM % Cols = Solver % Variable % Perm(CM % Cols)
+         CM % Ordered = .FALSE.
+         CALL CRS_SortMatrix(CM,.TRUE.)
+       END IF
+     END IF
+
+
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
      CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation)
@@ -3361,6 +3390,11 @@ CONTAINS
          Model, Solver, dt, TransientSimulation)
 #endif
 
+    IF(FoundMortar) THEN
+      Solver % Matrix % ConstraintMatrix => &
+            Solver % Matrix % ConstraintMatrix % ConstraintMatrix
+      CALL FreeMatrix(CM)
+    END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE SingleSolver
 !------------------------------------------------------------------------------

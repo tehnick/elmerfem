@@ -35,9 +35,26 @@
 ! *  Original Date: 30.11.2012
 ! *
 ! *****************************************************************************/
-
 !> \ingroup Solvers
 !> \{
+!------------------------------------------------------------------------------
+SUBROUTINE MagnetoDynamics2D_Init( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver       !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model         !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt            !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation !< Steady state or transient simulation
+!------------------------------------------------------------------------------
+  CALL ListAddLogical( Solver % Values, 'Apply Mortar BCs',.TRUE.)
+!------------------------------------------------------------------------------
+END SUBROUTINE MagnetoDynamics2D_Init
+!------------------------------------------------------------------------------
+!> \ingroup Solvers
+!> \{
+!> \}
 
 !------------------------------------------------------------------------------
 !> Solver the magnetic vector potential in cartesian 2D case.
@@ -83,24 +100,24 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
 
-  S=>Solver % Matrix
-  DO i=1,Model % NumberOFBCs
-    j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
-    IF(FoundMortar) THEN
-      CM => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
-      FoundMortar = ASSOCIATED(CM)
-      EXIT
-    END IF
-  END DO
-
-  IF(FoundMortar) THEN
-    ALLOCATE(CM % RHS(CM % NumberOfRows))
-    CM % RHS = 0._dp
-    S % ConstraintMatrix => CM
-    CM % Cols = Solver % Variable % Perm(CM % Cols)
-    CM % Ordered = .FALSE.
-    CALL CRS_SortMatrix(CM,.TRUE.)
-  END IF
+! S=>Solver % Matrix
+! DO i=1,Model % NumberOFBCs
+!   j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
+!   IF(FoundMortar) THEN
+!     CM => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
+!     FoundMortar = ASSOCIATED(CM)
+!     EXIT
+!   END IF
+! END DO
+!
+! IF(FoundMortar) THEN
+!   ALLOCATE(CM % RHS(CM % NumberOfRows))
+!   CM % RHS = 0._dp
+!   S % ConstraintMatrix => CM
+!   CM % Cols = Solver % Variable % Perm(CM % Cols)
+!   CM % Ordered = .FALSE.
+!   CALL CRS_SortMatrix(CM,.TRUE.)
+! END IF
 
   NonlinIter = GetInteger(GetSolverParams(), &
            'Nonlinear System Max Iterations',Found)
@@ -154,10 +171,10 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
     PrevNorm=Norm
   END DO
 
-  IF(FoundMortar) THEN
-    CALL FreeMatrix(CM)
-    S % ConstraintMatrix => NULL()
-  END IF
+! IF(FoundMortar) THEN
+!   CALL FreeMatrix(CM)
+!   S % ConstraintMatrix => NULL()
+! END IF
 
   CALL CalculateLumped(Model % NumberOfBodyForces)
 
