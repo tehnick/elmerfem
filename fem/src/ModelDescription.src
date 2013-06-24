@@ -2069,7 +2069,6 @@ CONTAINS
           NewMesh % Next => OldMesh
           NewMesh % Parent => OldMesh
           OldMesh % Child  => NewMesh
-          NewMesh % Name = OldMesh % Name
           Newmesh % OutputActive = .TRUE.
           OldMesh % OutputActive = .FALSE.
         ELSE
@@ -2095,6 +2094,13 @@ CONTAINS
         Model % Meshes % Name(k:k) = MeshName(i:i)
         k = k + 1
         i = i + 1
+      END DO
+
+      ! Ok, give name also to the parent meshes as they might be saved too
+      OldMesh => Model % Meshes % Parent
+      DO WHILE( ASSOCIATED( OldMesh ) )
+        OldMesh % Name = TRIM(OldMesh % Child % Name)//'p'
+        OldMesh => OldMesh % Parent
       END DO
 
       DO i=1,Model % NumberOfSolvers
