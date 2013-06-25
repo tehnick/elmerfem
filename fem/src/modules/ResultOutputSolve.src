@@ -3237,6 +3237,9 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
+  ! The partition is active for saving if there are any nodes 
+  ! to write. There can be no elements nor dofs without nodes.
+  CALL ParallelActive( NumberOfNodes > 0 )
 
   IF( nTime == 1 ) THEN
     ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
@@ -4341,7 +4344,6 @@ CONTAINS
     Active = 0
     IF( ThisActive ) Active = 1    	
 
-! Why does this not work?
     NoActive = NINT( ParallelReduction( 1.0_dp * Active ) )
     IF( NoActive == 0 ) THEN
       CALL Warn('WritePvtuFile','No active partitions for saving')
