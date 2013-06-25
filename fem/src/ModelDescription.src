@@ -2774,7 +2774,7 @@ CONTAINS
     LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var, Comp
-    CHARACTER(LEN=MAX_NAME_LEN) :: Name,VarName,VarName2,PosName
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name,VarName,VarName2,FullName,PosName
 #ifdef ALLOC_CHAR
     CHARACTER(LEN=:), ALLOCATABLE :: Row
 #else
@@ -2965,7 +2965,15 @@ CONTAINS
           VarName = TRIM(Row(1:k-1))
         END IF
         FieldSize = 0
+        FullName = VarName
       ELSE IF( FmtVersion == 3 ) THEN
+
+        ! read the full field name
+        j = INDEX( Row,']')
+        IF( j == 0 ) THEN
+          j = INDEX( Row,':') - 1
+        END IF
+        FullName = TRIM(Row(1:j))
 
         ! read the field name
         j = INDEX( Row,'[')
@@ -3000,9 +3008,11 @@ CONTAINS
         END DO
         IF( .NOT. Found .AND. PermSize > 0 ) THEN
           CALL Warn('LoadRestartFile','Could not associate variable to solver: '//TRIM(VarName))
+          ! Associated to some solver at least 
+          Solver => CurrentModel % Solvers(1)
         END IF
       ELSE
-        CALL Fatal('LoaRestartFile','Unknown file version: '//I2S(FmtVersion))
+        CALL Fatal('LoadRestartFile','Unknown file version: '//I2S(FmtVersion))
       END IF
 
       ! The user may optionally give a list of the fields to be loaded from the 
@@ -3062,13 +3072,14 @@ CONTAINS
           Var % Perm = 0
         END IF
 
-        IF ( row(1:14) == 'flow solution ' ) THEN
+        IF ( VarName(1:14) == 'flow solution ' ) THEN
 !------------------------------------------------------------------------------
 !         First add components to the variable list separately...
 !         (must be done this way for the output routines to work properly...)
 !----------------------------------------------------------------------------
-          NSDOFs = CoordinateSystemDimension() + 1
-          IF ( Coordinates == CylindricSymmetric ) NSDOFs = NSDOFs + 1
+!          NSDOFs = CoordinateSystemDimension() + 1
+!          IF ( Coordinates == CylindricSymmetric ) NSDOFs = NSDOFs + 1
+          NSDOFS = Dofs
 
           Velocity1 => Var % Values(1:NSDOFs*Mesh % NumberOfNodes:NSDOFs)
           CALL VariableAdd( Mesh % Variables,  Mesh, Solver, 'Velocity 1', &
@@ -3077,7 +3088,7 @@ CONTAINS
           Velocity2 => Var % Values(2:NSDOFs*mesh % NumberOfNodes:NSDOFs)
           CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Velocity 2', &
                        1, Velocity2, Var % Perm )
-  
+
           IF ( NSDOFs == 3 ) THEN
             Pressure => Var % Values(3:NSDOFs*Mesh % NumberOfNodes:NSDOFs)
             CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Pressure', &
@@ -3100,24 +3111,24 @@ CONTAINS
           IF ( DOFs > 1 ) THEN
             DO i=1,DOFs
               Component => Var % Values(i:FieldSize:DOFs)
-              name = ComponentName( VarName, i )
+              name = ComponentName( FullName, i )
               CALL VariableAdd( Mesh % Variables,  Mesh, Solver, name, &
                   1, Component )
             END DO
           END IF
           CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-              VarName,DOFs,Var % Values) 
+              FullName,DOFs,Var % Values) 
         ELSE
           IF ( DOFs > 1 ) THEN
             DO i=1,DOFs
               Component => Var % Values(i:FieldSize:DOFs)
-              name = ComponentName( VarName, i )
+              name = ComponentName( FullName, i )
               CALL VariableAdd( Mesh % Variables,  Mesh, Solver, name, &
                            1, Component, Var % Perm )
             END DO
           END IF
           CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-              VarName,DOFs,Var % Values,Var % Perm )
+              FullName,DOFs,Var % Values,Var % Perm )
         END IF
       END IF
 
