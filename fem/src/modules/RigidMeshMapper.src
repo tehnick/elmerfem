@@ -77,7 +77,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   TYPE(Mesh_t), POINTER :: Mesh
   LOGICAL :: Found,GotMatrix,GotRotate,GotTranslate,GotScale,Visited=.FALSE.,&
       UseOriginalMesh, Cumulative, GotDisplace, GotRelaxField=.FALSE., &
-      CalculateVelocity
+      CalculateVelocity,TranslateBeforeRotate
   LOGICAL, POINTER :: NodeDone(:)
   TYPE(Element_t), POINTER :: Element
   TYPE(Nodes_t), SAVE :: Nodes
@@ -132,6 +132,8 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
     CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh,'Mesh Velo' )	
   END IF
 
+  TranslateBeforeRotate = GetLogical( SolverParams,&
+      'Translate Before Rotate',Found )
 
 
   ! If using original mesh as a reference mesh it must be saved,
@@ -376,10 +378,14 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
             Origin(3) = ListGetCReal( BodyForce,'Mesh Origin 3', Found) 
           END IF
           
-!          TrfMatrix = MATMUL( TrsMatrix, RotMatrix )
-! It is easier to first translate the matrix to origin and only then
-! do the rotation than vice versa. 
-          TrfMatrix = MATMUL( RotMatrix, TrsMatrix )
+          ! It may be easier to first translate the matrix to origin 
+          ! and only the do the rotation than vice versa. 
+          IF( TranslateBeforeRotate ) THEN
+            TrfMatrix = MATMUL( RotMatrix, TrsMatrix )
+          ELSE
+            TrfMatrix = MATMUL( TrsMatrix, RotMatrix )
+          END IF
+
           IF( GotScale ) THEN
             TrsMatrix = TrfMatrix
             TrfMatrix = MATMUL( SClMatrix, TrsMatrix )
