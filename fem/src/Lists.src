@@ -2748,10 +2748,11 @@ CONTAINS
     LOGICAL :: ShowVariables
     LOGICAL, OPTIONAL :: ClearList
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,LoopDim, VarDim,DOFs,dim
+    INTEGER :: i,j,k,l,LoopDim, VarDim,FullDim,DOFs,dim,Comp
     TYPE(Variable_t), POINTER :: Variables, Var, Var1
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VarStr, VarStrComp, VarStrExt, str
-    LOGICAL :: IsVector, Set, GotIt, ComponentVector, ThisOnly
+    LOGICAL :: IsVector, Set, GotIt, ComponentVector, ThisOnly, IsIndex, &
+        EnforceVectors
     INTEGER :: Nvector, Nscalar
     TYPE(ValueList_t), POINTER :: Params
 
@@ -2813,6 +2814,10 @@ CONTAINS
 
     ThisOnly = .NOT. ListGetLogical( Params,'Interpolate Fields',GotIt)
     dim = Model % Mesh % MeshDim
+
+    EnforceVectors = ListGetLogical( Params,'Enforce Vectors',GotIt)
+    IF(.NOT. GotIt ) EnforceVectors = .TRUE.
+
     
     Var => Variables
 
@@ -2894,7 +2899,7 @@ CONTAINS
         ! All vector variables are assumed to be saved using its components
         ! rather than vector itself.
 
-        IF ( Var % DOFs == 1 ) THEN
+        IF ( VarDim == 1 ) THEN
           Set = .TRUE. 
           
 	  str =  ' '
@@ -2902,60 +2907,62 @@ CONTAINS
           DO i=1,j
             str(i:i) = Var % Name(i:i)
           END DO
-          
+
+          IsIndex = .FALSE.
+          Comp = 0
+          k = INDEX( str(:j),' ',BACK=.TRUE.)
+
+          IF( k > 0 ) THEN
+            IsIndex = ( VERIFY( str(k:j),' 0123456789') == 0 )
+            IF( IsIndex ) READ( str(k:j), * ) Comp
+          END IF
+
+          ! This is the easy way of checking that the component belongs to a vector
+          GotIt = .FALSE.
+          IF( IsIndex ) THEN
+            Var1 => VariableGet(Variables,TRIM(str(1:k)))
+            IF( ASSOCIATED( Var1 ) ) THEN
+              GotIt = .TRUE.
+              IsVector = ( Var1 % Dofs == Dim ) 
+              Set = ( Comp == 1 .OR. .NOT. IsVector )
+            END IF
+          END IF
+                
+          ! This is a hard way of ensuring that the component belongs to a vector    
           ! Check that there are exactly dim number of components
           ! If so save the quantity as a vector, otherwise componentwise
-          IF( str(j:j) == '1') THEN
-            IF(dim == 2) THEN
-              Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 2',ThisOnly)		
+          IF( EnforceVectors .AND. .NOT. GotIt ) THEN
+            IF( Comp == 1 ) THEN
+              Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' '//I2S(dim),ThisOnly)		
               IF( ASSOCIATED(Var1)) THEN
-                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
+                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' '//I2S(dim+1),ThisOnly)		
                 IsVector = .NOT. ASSOCIATED(Var1)
               END IF
-            END IF
-            IF(dim == 3) THEN
-              Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
-              IF( ASSOCIATED(Var1)) THEN
-                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
-                IsVector = .NOT. ASSOCIATED(Var1)
-              END IF
-            END IF
-            IF( IsVector ) WRITE(VarName,'(A)') TRIM(str(1:j-2))
-
-            ! Associated to the previous case, cycle the other components of the vector
-            ! and cycle them if they are part of the vector that will be detected above.
-          ELSE IF( str(j:j) == '2' ) THEN
-            Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 1',ThisOnly)		
-            IF( ASSOCIATED( Var1 ) ) THEN
-              IF( dim == 2 ) THEN 
-                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
-              ELSE IF( dim == 3 ) THEN
-                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
-              END IF
-              Set = ASSOCIATED( Var1 )
-            END IF
-
-          ELSE IF( str(j:j) == '3' ) THEN
-            IF( dim == 3 ) THEN
+              
+              ! Associated to the previous case, cycle the other components of the vector
+              ! and cycle them if they are part of the vector that will be detected above.
+            ELSE IF( Comp <= dim ) THEN
               Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 1',ThisOnly)		
               IF( ASSOCIATED( Var1 ) ) THEN
-                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
+                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' '//I2S(dim+1),ThisOnly)		
                 Set = ASSOCIATED( Var1 )
               END IF
             END IF
-
           END IF
         END IF
       END SELECT
+
+      
       
       !---------------------------------------------------------------------------
       ! Set the default variable names that have not been set
       !------------------------------------------------------------------------
       IF( Set ) THEN
         IF( IsVector ) THEN
+          WRITE(VarName,'(A)') TRIM(str(1:j-2))
           Nvector = Nvector + 1
           WRITE(VarStr,'(A,I0)') 'Vector Field ',Nvector
-        ELSE 
+        ELSE
           Nscalar = Nscalar + 1
           WRITE(VarStr,'(A,I0)') 'Scalar Field ',Nscalar
         END IF
