@@ -3643,7 +3643,7 @@ CONTAINS
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
-            WRITE(Txt, '(A,A)') 'Nonexistent variable 1: ',TRIM(FieldName)
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
             CALL Warn('WriteVtuXMLFile', Txt)
             CYCLE
           END IF
@@ -3869,8 +3869,8 @@ CONTAINS
        
         IF(.NOT. ASSOCIATED(Solution)) THEN
 	  IF( L ) THEN
-            WRITE(Txt, '(A,A)') 'Nonexistent variable 2: ',TRIM(FieldName)
-            CALL Fatal('WriteVtuXMLFile', Txt)
+            WRITE(Txt, '(A,A)') 'Nonexistent elemental variable: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
           END IF
           CYCLE
         END IF
@@ -4427,7 +4427,7 @@ CONTAINS
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
-            WRITE(Txt, '(A,A)') 'Nonexistent variable 3: ',TRIM(FieldName)
+            WRITE(Txt, '(A,A)') 'Nonexistent variable 2: ',TRIM(FieldName)
             CALL Warn('WriteVtuXMLFile', Txt)
             CYCLE
           END IF
@@ -4529,9 +4529,12 @@ CONTAINS
             Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1')
             IF( ASSOCIATED(Solution)) THEN 
               ComponentVector = .TRUE.
-            ELSE IF( L ) THEN
-              WRITE(Txt, '(A,A)') 'Nonexistent variable 3: ',TRIM(FieldName)
-              CALL Fatal('WriteVtuXMLFile', Txt)
+            ELSE 
+              IF( L ) THEN
+                WRITE(Txt, '(A,A)') 'Nonexistent elemental variable 2: ',TRIM(FieldName)
+                CALL Warn('WriteVtuXMLFile', Txt)
+              END IF
+              CYCLE
             END IF
           END IF
           
