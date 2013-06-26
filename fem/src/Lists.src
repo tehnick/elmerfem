@@ -2949,6 +2949,8 @@ CONTAINS
               END IF
             END IF
           END IF
+
+          IF(IsVector) WRITE(VarName,'(A)') TRIM(str(1:j-2))
         END IF
       END SELECT
 
@@ -2958,8 +2960,7 @@ CONTAINS
       ! Set the default variable names that have not been set
       !------------------------------------------------------------------------
       IF( Set ) THEN
-        IF( IsVector ) THEN
-          WRITE(VarName,'(A)') TRIM(str(1:j-2))
+        IF( IsVector ) THEN          
           Nvector = Nvector + 1
           WRITE(VarStr,'(A,I0)') 'Vector Field ',Nvector
         ELSE
