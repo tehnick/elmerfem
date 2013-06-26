@@ -366,6 +366,7 @@ struct ElmergridType {
     partbw, /* minimize bandwidth for partitions */
     parthypre, /* renumber for hypre */
     partdual, 
+    partz, 
     nofilesin,
     saveinterval[3],
     elementsredone,

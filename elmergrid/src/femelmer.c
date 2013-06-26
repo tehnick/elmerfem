@@ -2431,6 +2431,114 @@ int PartitionSimpleElementsRotational(struct FemType *data,int dimpart[],int dim
 }
 
 
+int PartitionConnectedElements1D(struct FemType *data,int partz,int info) {
+  int i,j,k,ind,dim;
+  int noknots, noelements,nonodes;
+  int IndZ,noconnect;
+  int *cumz,*elemconnect;
+  Real z,MaxZ,MinZ; 
+
+  if(info) {
+    printf("Making a simple 1D partitioing in z for the %d connected elements only\n",j);
+  }
+
+  if(!data->nodeconnectexist) {
+    printf("There are no connected elements\n");
+    return(1);
+  }
+
+  dim = data->dim;
+  if( dim < 3 ) {
+    printf("The routine is only applicable in 3D\n");
+  }
+
+  noknots = data->noknots;
+  noelements = data->noelements;
+  elemconnect = data->elemconnect;
+  noconnect = 0;
+  for(i=1;i<=noelements;i++) 
+    if( elemconnect[i] == -1 ) noconnect++;
+
+  if( noconnect == 0 ) {
+    printf("There are really no connected elements?\n");
+    return(2);
+  }
+  if(info) printf("Number of connected elements is %d\n",noconnect);
+
+  MaxZ = MinZ = data->z[1];
+  for(i=1;i<=noknots;i++) {
+    z = data->z[i];
+    MaxZ = MAX( MaxZ, z);
+    MinZ = MIN( MinZ, z);
+  }
+
+  if( info ) {
+    printf("Range in z-direction: %12.5le %12.5le\n",MinZ,MaxZ);
+  }
+
+  /* Zero is the 1st value so that recursive algos can be used. */ 
+  cumz = Ivector(0,MAXCATEGORY);
+  for(i=0;i<=MAXCATEGORY;i++) 
+    cumz[i] = 0;
+
+  for(j=1;j<=noelements;j++) {
+    if( elemconnect[j] >= 0 ) continue;
+
+    nonodes = data->elementtypes[j] % 100;
+    z = 0.0;
+    for(i=0;i<nonodes;i++) {
+      k = data->topology[j][i];
+      z += data->z[k];
+    }
+    z = z / nonodes;
+    IndZ = ceil( MAXCATEGORY * ( z - MinZ ) / ( MaxZ - MinZ ) );
+    
+    if( IndZ < 1 || IndZ > MAXCATEGORY ) {
+      printf("IndZ out of bounds : %d\n",IndZ );
+      IndZ = MIN( MAX( IndZ, 1 ), MAXCATEGORY );
+    }
+    cumz[IndZ] += 1;
+  }
+
+  printf("Categories\n");
+  for(j=0;j<=MAXCATEGORY;j++) {
+    if( cumz[j] > 0 ) printf("%d : %d\n",j,cumz[j]);
+  }   
+
+  /* Count the cumulative numbers and map them to number of partitions */
+  for(i=1;i<=MAXCATEGORY;i++) 
+    cumz[i] = cumz[i] + cumz[i-1];
+  for(i=1;i<=MAXCATEGORY;i++) 
+    cumz[i] = ceil( 1.0 * partz * cumz[i] / noconnect );
+
+
+  /* Do it again, now set the partition */
+  for(j=1;j<=noelements;j++) {
+
+    if( elemconnect[j] >= 0 ) continue;
+    nonodes = data->elementtypes[j]%100;
+    z = 0.0;
+    for(i=0;i<nonodes;i++) {
+      k = data->topology[j][i];
+      z += data->z[k];
+    }
+    z = z / nonodes;
+    
+    IndZ = ceil( MAXCATEGORY * ( z - MinZ ) / ( MaxZ - MinZ ) );
+    IndZ = MIN( MAX( IndZ, 1 ), MAXCATEGORY );
+    IndZ = cumz[IndZ];
+
+    elemconnect[j] = -IndZ; 
+  } 
+
+  free_Ivector( cumz,0,MAXCATEGORY);
+
+  if(info) printf("Successfully made a partitioning 1D with %d to %d elements.\n");
+
+  return(0);
+}
+
+
 
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info)
@@ -2880,12 +2988,18 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
     CreateDualGraph(data,TRUE,info);
     maxcon = data->dualmaxconnections;
     if( data->elemconnectexist ) {
+
+      if( eg->partz > 1 ) 
+	PartitionConnectedElements1D(data,eg->partz,info);
+
       maxconset = 0;
       for(i=1;i<=noelements;i++)
 	maxconset = MIN( maxconset, data->elemconnect[i] );
       maxconset = -maxconset;
       nn = noelements - data->elemconnectexist;
       nparts -= maxconset;
+
+      printf("maxconset=%d\n",maxconset);
     }
     else {
       nn = noelements;

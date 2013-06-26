@@ -23,6 +23,7 @@ int PartitionSimpleElementsNonRecursive(struct FemType *data,
 					int dimpart[],int dimper[],int info);
 int PartitionSimpleElementsRotational(struct FemType *data,int dimpart[],int dimper[],
 				      int info);
+int PartitionConnectedElements1D(struct FemType *data,int partz,int info);
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info);
 #if PARTMETIS

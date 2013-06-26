@@ -180,6 +180,7 @@ static void Instructions()
   printf("-partbcoptim         : apply optimization to bc ownership sharing\n");
   printf("-partbw              : minimize the bandwidth of partition-partion couplings\n");
   printf("-parthypre           : number the nodes continuously partitionwise\n");
+  printf("-partconnect         : partition connected elements separately to partitions\n");
 
   if(0) printf("-names               : conserve name information where applicable\n");
 }

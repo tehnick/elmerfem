@@ -268,6 +268,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->findsides = FALSE;
   eg->parthypre = FALSE;
   eg->partdual = FALSE;
+  eg->partz = 0;
   eg->partbw = FALSE;
   eg->saveboundaries = TRUE;
   eg->timeron = FALSE;
@@ -682,6 +683,17 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       else {
 	eg->partjoin = atoi(argv[arg+1]);
 	printf("The results will joined using %d partitions.\n",eg->partjoin);
+      }
+    }
+
+    if(strcmp(argv[arg],"-partconnect") == 0) {
+      if(arg+1 >= argc) {
+	printf("The number of partitions is required as a parameter\n");
+	return(15);
+      }
+      else {
+	eg->partz = atoi(argv[arg+1]);
+	printf("The connected elements will be joined to %d partitions.\n",eg->partz);
       }
     }
 
