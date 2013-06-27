@@ -49,166 +49,176 @@
 !    No data are given by -9999
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
+SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
 
-        USE DefUtils
+   USE DefUtils
 
-        IMPLICIT NONE
+   IMPLICIT NONE
+   TYPE(Solver_t), TARGET :: Solver
+   TYPE(Model_t) :: Model
+   REAL(KIND=dp) :: dt
+   LOGICAL :: TransientSimulation
 
-        TYPE(Solver_t), TARGET :: Solver
-        TYPE(Model_t) :: Model
-        REAL(KIND=dp) :: dt
-        LOGICAL :: TransientSimulation
+   TYPE(ValueList_t), POINTER :: Params
+   TYPE(Variable_t), POINTER :: Var
+   REAL(KIND=dp), POINTER :: Values(:)
+   INTEGER, POINTER :: Perm(:)
 
-        TYPE(ValueList_t), POINTER :: Params
-        TYPE(Variable_t), POINTER :: Var
-        REAL(KIND=dp), POINTER :: Values(:)
-        INTEGER, POINTER :: Perm(:)
+   REAL(KIND=DP) :: Rmin, Rmax
+   REAL(KIND=DP) :: x, y, z, x0, y0, lx, ly, dx, dy
+   REAL(KIND=DP), ALLOCATABLE :: xb(:), yb(:), zb(:)
 
-        REAL(KIND=DP) :: Rmin, Rmax
-        REAL(KIND=DP) :: x, y, z, x0, y0, lx, ly
-        REAL(KIND=DP), ALLOCATABLE :: xb(:), yb(:), zb(:)
+   INTEGER,parameter :: io=20
+   INTEGER :: ok, Nx, Ny, Nb, OutNode
+   INTEGER :: i, j, k, kmin, NoVar
 
-        INTEGER,parameter :: io=20
-        INTEGER :: ok, Nx, Ny, Nb, OutNode
-        INTEGER :: i, k, kmin, NoVar
+   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, DataF
+   CHARACTER(LEN=MAX_NAME_LEN) :: Name, FName, ParaName
+   CHARACTER(LEN=MAX_NAME_LEN), PARAMETER :: SolverName='Grid2DInterpolator'
 
-        CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, DataF
-        CHARACTER(LEN=MAX_NAME_LEN) :: Name, FName, ParaName
-        CHARACTER(LEN=MAX_NAME_LEN),parameter :: &
-                         SolverName='Grid2DInterpolator'
+   LOGICAL :: GotVar, Found
 
-        LOGICAL :: GotVar, Found
+   Params => GetSolverParams()
 
-       Params => GetSolverParams()
+   ! Read variable to initialize and Data
+   NoVar=0
+   GotVar=.True.
 
+   DO WHILE(GotVar)
+      NoVar = NoVar + 1
+      WRITE (Name,'(A,I0)') 'Variable ',NoVar
 
-       ! Read variable to initialize and Data
-        NoVar=0
-        GotVar=.True.
+      VariableName = ListGetString( Params, TRIM(Name), GotVar )
+      IF (.NOT.GotVar) EXIT
 
-        DO WHILE(GotVar)
-            NoVar = NoVar + 1
-            WRITE (Name,'(A,I0)') 'Variable ',NoVar
+      Var => VariableGet(Model %  Mesh % Variables, VariableName )
+      IF(.NOT.ASSOCIATED(Var)) THEN
+         WRITE(message,'(A,A,A)') &
+                        'Variable <',Trim(VariableName),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      ELSE
+         Values => Var % Values
+         Perm => Var % Perm
+      END IF
 
-            VariableName = ListGetString( Params, TRIM(Name), GotVar )
-            IF (.NOT.GotVar) exit
+      WRITE (FName,'(A,I0,A)') 'Variable ',NoVar,' Data File'
+      DataF = ListGetString( Params, TRIM(FName), Found )
 
-            Var => VariableGet(Model %  Mesh % Variables, VariableName )
-            IF(.NOT.ASSOCIATED(Var)) Then
-                
-            ELSE
-                Values => Var % Values
-                Perm => Var % Perm
-            END IF
+      IF (.NOT.Found) then
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
 
-            WRITE (FName,'(A,I0,A)') 'Variable ',NoVar,' Data File'
-            DataF = ListGetString( Params, TRIM(FName), Found )
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' x0'
+      x0 = ListGetConstReal( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
 
-            IF (.NOT.Found) then
-               write(message,'(A,A,A)') &
-                        'Keyword <',Trim(Fname),'> not found'
-               CALL Fatal(Trim(SolverName),Trim(message))
-            END IF
-
-            WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' x0'
-            x0 = ListGetConstReal( Params, TRIM(ParaName), Found )
-            if (.NOT.Found) then
-               write(message,'(A,A,A)') &
-                        'Keyword <',Trim(Paraname),'> not found'
-               CALL Fatal(Trim(SolverName),Trim(message))
-            endif
-
-            WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' y0'
-            y0 = ListGetConstReal( Params, TRIM(ParaName), Found )
-            if (.NOT.Found) then
-               write(message,'(A,A,A)') &
-                        'Keyword <',Trim(Paraname),'> not found'
-               CALL Fatal(Trim(SolverName),Trim(message))
-            endif
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' y0'
+      y0 = ListGetConstReal( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
             
-            WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' lx'
-            lx = ListGetConstReal( Params, TRIM(ParaName), Found )
-            if (.NOT.Found) then
-               write(message,'(A,A,A)') &
-                        'Keyword <',Trim(Paraname),'> not found'
-               CALL Fatal(Trim(SolverName),Trim(message))
-            endif
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' lx'
+      lx = ListGetConstReal( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
             
-            WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' ly'
-            ly = ListGetConstReal( Params, TRIM(ParaName), Found )
-            if (.NOT.Found) then
-               write(message,'(A,A,A)') &
-                        'Keyword <',Trim(Paraname),'> not found'
-               CALL Fatal(Trim(SolverName),Trim(message))
-            endif
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' ly'
+      ly = ListGetConstReal( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
 
-            WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Nx'
-            Nx = ListGetInteger( Params, TRIM(ParaName), Found )
-            if (.NOT.Found) then
-               write(message,'(A,A,A)') &
-                        'Keyword <',Trim(Paraname),'> not found'
-               CALL Fatal(Trim(SolverName),Trim(message))
-            endif
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Nx'
+      Nx = ListGetInteger( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
 
-            WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Ny'
-            Ny = ListGetInteger( Params, TRIM(ParaName), Found )
-            if (.NOT.Found) then
-               write(message,'(A,A,A)') &
-                        'Keyword <',Trim(Paraname),'> not found'
-               CALL Fatal(Trim(SolverName),Trim(message))
-            endif
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Ny'
+      Ny = ListGetInteger( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
 
-            open(unit = io, file = TRIM(DataF), status = 'old',iostat = ok)
+      OPEN(unit = io, file = TRIM(DataF), status = 'old',iostat = ok)
 
-            if(ok /= 0) then
-               write(message,'(A,A)') 'Unable to open file ',TRIM(DataF)
-               CALL Fatal(Trim(SolverName),Trim(message))
-            end if
+      IF (ok /= 0) THEN
+         WRITE(message,'(A,A)') 'Unable to open file ',TRIM(DataF)
+         CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
             
-            Nb = Nx*Ny 
+      Nb = Nx*Ny 
           
-            allocate(xb(Nb), yb(Nb), zb(Nb))
+      ALLOCATE(xb(Nb), yb(Nb), zb(Nb))
 
-            ! read datas
-            DO i = 1, Nb 
-                READ(io,*,iostat = ok) xb(i), yb(i), zb(i)
-            END DO
-            CLOSE(io)
+      ! read datas
+      DO i = 1, Nb 
+         READ(io,*,iostat = ok) xb(i), yb(i), zb(i)
+      END DO
+      CLOSE(io)
 
-            OutNode = 0
-            Rmax = 0.0
-            DO i=1,Model % Mesh % NumberOfNodes
-              x = Model % Mesh % Nodes % x(i)
-              y = Model % Mesh % Nodes % y(i)
-              Rmin = 0.0
-              CALL InterpolateDEM(x,y,xb,yb,zb,Nx,Ny,x0,y0,lx,ly,Rmin,z)
-              Values(Perm(i)) = z
-              IF (Rmin > 0.0) THEN
-                OutNode = OutNode + 1
-                IF (Rmin > Rmax) Rmax = Rmin
-              END IF
-           END DO
+      ! Make some verifications on the DEM structure
+      dx = lx / (Nx-1.0)
+      dy = ly / (Ny-1.0)
+      k = 0 
+      DO j = 1, Ny
+         y = y0 + dy*(j-1)
+         DO i = 1, Nx 
+             k = k + 1
+             x = x0 + dx*(i-1)
+             IF ((ABS(x-xb(k))>1.0e-6*dx).OR.(ABS(y-yb(k))>1.0e-6*dy)) THEN
+                WRITE(Message,'(A,A)')'Structure of the DEM is not conforming to what is given in the sif for ',TRIM(FName) 
+                CALL INFO(SolverName, Message, Level=1)
+                WRITE(Message,'(A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
+                   'Found that point ',k,' coordinate is (',xb(k),yb(k),'), whereas it should be (',x,y,')' 
+                CALL FATAL(SolverName, Message) 
+             END IF
+         END DO
+      END DO
+
+      OutNode = 0
+      Rmax = 0.0
+      DO i=1,Model % Mesh % NumberOfNodes
+         x = Model % Mesh % Nodes % x(i)
+         y = Model % Mesh % Nodes % y(i)
+         Rmin = 0.0
+         CALL InterpolateDEM(x,y,xb,yb,zb,Nx,Ny,x0,y0,lx,ly,Rmin,z)
+         Values(Perm(i)) = z
+         IF (Rmin > 0.0) THEN
+            OutNode = OutNode + 1
+            IF (Rmin > Rmax) Rmax = Rmin
+         END IF
+      END DO
           
-           ! Give information on the number of Nodes which are outside of the
-           ! DEM domain
-           IF (OutNode > 0) THEN
-             WRITE( Message, '(I0,A,A)' )OutNode,' nodes where found outside of &
+      ! Give information on the number of Nodes which are outside of the
+      ! DEM domain
+      IF (OutNode > 0) THEN
+         WRITE( Message, '(I0,A,A)' )OutNode,' nodes where found outside of &
                  the DEM domain in ',TRIM(DataF)
-             CALL Info( TRIM(SolverName), Message, Level=3 )
-             WRITE( Message, '(A,e14.8)' )'The farthest DEM point used to evaluate & 
+         CALL Info( TRIM(SolverName), Message, Level=3 )
+         WRITE( Message, '(A,e14.8)' )'The farthest DEM point used to evaluate & 
                  the nodal value was: ', Rmax
-             CALL Info( TRIM(SolverName), Message, Level=3 )
-           END IF
+         CALL Info( TRIM(SolverName), Message, Level=3 )
+      END IF
             
-           DEALLOCATE(xb, yb, zb)
-        END DO
+      DEALLOCATE(xb, yb, zb)
+   END DO
 
 
-       CALL INFO(Trim(SolverName), &
-           '-----ALL DONE----------',Level=5)
+   CALL INFO(Trim(SolverName), '----------ALL DONE----------',Level=5)
 
-        END SUBROUTINE Grid2DInterpolator
+END SUBROUTINE Grid2DInterpolator
 
 
 !!!!!!!!!!!!!!!!!!!
@@ -223,58 +233,56 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
    REAL(KIND=dp) :: R, Rmin, lbx, lby, dbx, dby
    REAL(KIND=dp) :: xb(Nbx*Nby), yb(Nbx*Nby), zb(Nbx*Nby)       
 
-! Find zbed for that point from the Bedrock MNT 
-        dbx = lbx / (Nbx-1.0)
-        dby = lby / (Nby-1.0)
-        Nb = Nbx*Nby
+   ! Find zbed for that point from the Bedrock MNT 
+   dbx = lbx / (Nbx-1.0)
+   dby = lby / (Nby-1.0)
+   Nb = Nbx*Nby
 
-        ix = INT((x-xb0)/dbx)+1
-        iy = INT((y-yb0)/dbx)+1
-        ib = Nbx * (iy - 1) + ix
+   ix = INT((x-xb0)/dbx)+1
+   iy = INT((y-yb0)/dbx)+1
+   ib = Nbx * (iy - 1) + ix
         
-        x1 = xb(ib)
-        x2 = xb(ib+1)
-        y1 = yb(ib)
-        y2 = yb(ib + Nbx)
+   x1 = xb(ib)
+   x2 = xb(ib+1)
+   y1 = yb(ib)
+   y2 = yb(ib + Nbx)
         
-        zi(1,1) = zb(ib)
-        zi(2,1) = zb(ib+1)
-        zi(2,2) = zb(ib + Nbx + 1)
-        zi(1,2) = zb(ib + Nbx)
+   zi(1,1) = zb(ib)
+   zi(2,1) = zb(ib+1)
+   zi(2,2) = zb(ib + Nbx + 1)
+   zi(1,2) = zb(ib + Nbx)
         
-        
-        IF ((zi(1,1)<-9990.0).OR.(zi(1,2)<-9990.0).OR.(zi(2,1)<-9990.0).OR.(zi(2,2)<-9990.0)) THEN
-           IF ((zi(1,1)<-9990.0).AND.(zi(1,2)<-9990.0).AND.(zi(2,1)<-9990.0).AND.(zi(2,2)<-9990.0)) THEN
-           ! Find the nearest point avalable
-             Rmin = 9999.0
-             DO i=1, Nb
-               IF (zb(i)>0.0) THEN
-                 R = SQRT((x-xb(i))**2.0+(y-yb(i))**2.0)
-                 IF (R<Rmin) THEN
-                   Rmin = R
-                   imin = i
-                 END IF
+   IF ((zi(1,1)<-9990.0).OR.(zi(1,2)<-9990.0).OR.(zi(2,1)<-9990.0).OR.(zi(2,2)<-9990.0)) THEN
+      IF ((zi(1,1)<-9990.0).AND.(zi(1,2)<-9990.0).AND.(zi(2,1)<-9990.0).AND.(zi(2,2)<-9990.0)) THEN
+         ! Find the nearest point avalable
+         Rmin = 9999.0
+         DO i=1, Nb
+            IF (zb(i)>-9990.0) THEN
+               R = SQRT((x-xb(i))**2.0+(y-yb(i))**2.0)
+               IF (R<Rmin) THEN
+                  Rmin = R
+                  imin = i
                END IF
-             END DO
-             zbed = zb(imin)
+            END IF
+         END DO
+         zbed = zb(imin)
                         
-           ELSE
-            ! Mean value over the avalable data
-             zbed = 0.0
-             Npt = 0
-             DO i=1, 2
-               DO J=1, 2
-                  IF (zi(i,j) > 0.0) THEN 
-                     zbed = zbed + zi(i,j)
-                     Npt = Npt + 1
-                  END IF   
-               END DO
-             END DO
-             zbed = zbed / Npt
-             
-           END IF
-        ELSE
-          zbed = (zi(1,1)*(x2-x)*(y2-y)+zi(2,1)*(x-x1)*(y2-y)+zi(1,2)*(x2-x)*(y-y1)+zi(2,2)*(x-x1)*(y-y1))/(dbx*dby)      
-        END IF
+      ELSE
+         ! Mean value over the avalable data
+         zbed = 0.0
+         Npt = 0
+         DO i=1, 2
+            DO J=1, 2
+               IF (zi(i,j) > 0.0) THEN 
+                  zbed = zbed + zi(i,j)
+                  Npt = Npt + 1
+               END IF   
+            END DO
+         END DO
+         zbed = zbed / Npt
+      END IF
+   ELSE
+      zbed = (zi(1,1)*(x2-x)*(y2-y)+zi(2,1)*(x-x1)*(y2-y)+zi(1,2)*(x2-x)*(y-y1)+zi(2,2)*(x-x1)*(y-y1))/(dbx*dby)      
+   END IF
 END SUBROUTINE InterpolateDEM
 
