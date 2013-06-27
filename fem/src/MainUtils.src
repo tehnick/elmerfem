@@ -3380,6 +3380,9 @@ CONTAINS
            ALLOCATE(CM0 % RHS(CM0 % NumberOfRows))
            CM0 % RHS = 0._dp
            CM0 % Cols = Solver % Variable % Perm(CM0 % Cols)
+           IF(ASSOCIATED(CM0 % InvPerm)) THEN
+             CM0 % InvPerm = Solver % Variable % Perm(CM % InvPerm)
+           END IF           
            CM0 % Ordered = .FALSE.
            CALL CRS_SortMatrix(CM0,.TRUE.)
            CM0 => CM0 % ConstraintMatrix

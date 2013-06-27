@@ -3171,17 +3171,7 @@ END SUBROUTINE GetMaxDefs
 
       DEALLOCATE( PMesh ) 
     END DO
-
     DEALLOCATE( InvPerm2 )
-
-    ! The nodal projector retains the InvPerm1 in its structure
-    ! so do not get rid of that.
-    !--------------------------------------------------------------------
-    IF( IntGalerkin ) THEN
-      DEALLOCATE( InvPerm1 ) 
-    ELSE
-      NULLIFY( InvPerm1 )
-    END IF
 
     CALL CheckTimer('PeriodicProjector',Delete=.TRUE.)
     CALL Info('PeriodicProjector','Projector created, now exiting...',Level=8)
