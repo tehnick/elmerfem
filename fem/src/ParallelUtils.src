@@ -275,7 +275,8 @@ CONTAINS
          ALLOCATE(pardofs_in(ParEnv % PEs), pardofs_out(ParEnv % PEs))
          pardofs_in=0; pardofs_out=0;
          pardofs_in(Parenv%mype+1) = Matrix % ParallelDOFs
-         CALL MPI_ALLREDUCE(pardofs_in,pardofs_out,ParEnv % PEs,MPI_MAX, Matrix % Comm,i)
+         CALL MPI_ALLREDUCE(pardofs_in,pardofs_out,ParEnv % PEs, &
+            MPI_INTEGER,MPI_MAX, Matrix % Comm,i)
 
          pardofs_all = SUM(pardofs_out)
          pardofs_bef = SUM(pardofs_out(1:ParEnv % myPE))
