@@ -2434,12 +2434,12 @@ int PartitionSimpleElementsRotational(struct FemType *data,int dimpart[],int dim
 int PartitionConnectedElements1D(struct FemType *data,int partz,int info) {
   int i,j,k,ind,dim;
   int noknots, noelements,nonodes;
-  int IndZ,noconnect;
-  int *cumz,*elemconnect;
+  int IndZ,noconnect,minpartelems,maxpartelems;
+  int *cumz,*elemconnect,*partelems;
   Real z,MaxZ,MinZ; 
 
   if(info) {
-    printf("Making a simple 1D partitioing in z for the %d connected elements only\n",j);
+    printf("Making a simple 1D partitioing in z for the connected elements only\n");
   }
 
   if(!data->nodeconnectexist) {
@@ -2500,7 +2500,7 @@ int PartitionConnectedElements1D(struct FemType *data,int partz,int info) {
     cumz[IndZ] += 1;
   }
 
-  printf("Categories\n");
+  printf("Differential categories\n");
   for(j=0;j<=MAXCATEGORY;j++) {
     if( cumz[j] > 0 ) printf("%d : %d\n",j,cumz[j]);
   }   
@@ -2508,11 +2508,30 @@ int PartitionConnectedElements1D(struct FemType *data,int partz,int info) {
   /* Count the cumulative numbers and map them to number of partitions */
   for(i=1;i<=MAXCATEGORY;i++) 
     cumz[i] = cumz[i] + cumz[i-1];
+
+  if( 0 ) {
+    printf("Cumulative categories\n");
+    for(j=0;j<=MAXCATEGORY;j++) {
+      printf("%d : %d\n",j,cumz[j]);
+    }   
+  }
+
+
   for(i=1;i<=MAXCATEGORY;i++) 
     cumz[i] = ceil( 1.0 * partz * cumz[i] / noconnect );
 
+  if( 0 ) {
+    printf("Partition categories\n");
+    for(j=0;j<=MAXCATEGORY;j++) {
+      printf("%d : %d\n",j,cumz[j]);
+    }   
+  }
+
 
   /* Do it again, now set the partition */
+  partelems = Ivector(1,partz);
+  for(j=1;j<=partz;j++)
+    partelems[j] = 0;
   for(j=1;j<=noelements;j++) {
 
     if( elemconnect[j] >= 0 ) continue;
@@ -2528,12 +2547,22 @@ int PartitionConnectedElements1D(struct FemType *data,int partz,int info) {
     IndZ = MIN( MAX( IndZ, 1 ), MAXCATEGORY );
     IndZ = cumz[IndZ];
 
+    partelems[IndZ] += 1;
+
     elemconnect[j] = -IndZ; 
   } 
+  minpartelems = maxpartelems = partelems[1];
+  for(j=1;j<=partz;j++) {
+    minpartelems = MIN( minpartelems, partelems[j] );
+    maxpartelems = MAX( maxpartelems, partelems[j] );
+  }
+  free_Ivector( partelems, 1, partz );
+    
 
   free_Ivector( cumz,0,MAXCATEGORY);
 
-  if(info) printf("Successfully made a partitioning 1D with %d to %d elements.\n");
+  if(info) printf("Successfully made a partitioning 1D with %d to %d elements.\n",
+		  minpartelems,maxpartelems);
 
   return(0);
 }
