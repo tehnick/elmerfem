@@ -1284,11 +1284,16 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	cp = params;
 	for(i=0;i<=grid->zcells;i++) grid->z[i] = next_real(&cp);
       }
+      else if(strstr(command,"EXTRUDED SIZES")) {
+	cp = params;
+	for(i=1;i<=grid->zcells;i++) grid->z[i] = next_real(&cp);
+	for(i=1;i<=grid->zcells;i++) grid->z[i] = grid->z[i-1] + grid->z[i];
+      }     
       else if(strstr(command,"EXTRUDED ELEMENTS")) {
 	cp = params;
 	for(i=1;i<=grid->zcells;i++) grid->zelems[i] = next_int(&cp);
 	grid->autoratio = FALSE;    
-      }
+      } 
       else if(strstr(command,"EXTRUDED RATIOS")) {
 	cp = params;
 	for(i=1;i<=grid->zcells;i++) grid->zexpand[i] = next_real(&cp);
@@ -1303,6 +1308,9 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	  sscanf(params,"%d %d %d\n",
 		 &grid->zfirstmaterial[i],&grid->zlastmaterial[i],&grid->zmaterial[i]); 
 	}
+      }
+      else if(strstr(command,"EXTRUDED MAX MATERIAL")) {
+	sscanf(params,"%d",&grid->maxmaterial);		
       }
       else if(strstr(command,"EXTRUDED MATERIAL MAPPINGS")) {
 	grid->zmaterialmap = Imatrix(1,grid->zcells,1,grid->maxmaterial);

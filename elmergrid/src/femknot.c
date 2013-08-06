@@ -6049,7 +6049,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 #define MAXNEWBC 200
   int i,j,k,l,m,n,knot0,knot1,knot2,elem0,size,kmax,noknots,origtype;
   int nonodes3d,nonodes2d,bclevel,bcset;
-  int cellk,element,level,side,parent,parent2,layers,elemtype;
+  int cellk,element,level,side,parent,parent2,layers,elemtype,material_too_large;
   int material,material2,ind0,ind1,ind2,*indx,*topo;
   int sideelemtype,sideind[MAXNODESD1],sidetype,minsidetype,maxsidetype,cummaxsidetype,newbounds;
   int refmaterial1[MAXNEWBC],refmaterial2[MAXNEWBC],refsidetype[MAXNEWBC],indxlength;
@@ -6161,6 +6161,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   if(layers == 2) knot2 = dataxy->noknots; 
   elem0 = 0;
   level = 0;
+  material_too_large = 0;
 
   /* Set the element topology of the extruded mesh */
   for(cellk=1;cellk <= grid->zcells ;cellk++) {  
@@ -6175,6 +6176,10 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       for(element=1;element <= dataxy->noelements;element++)  {
 	if( grid->zmaterialmapexists ) {
 	  material = dataxy->material[element];
+	  if(material > grid->maxmaterial ) {
+	    material_too_large += 1;
+	    continue;
+	  }	  
 	  material = grid->zmaterialmap[cellk][material]; 
 	  if(material <= 0 ) continue;
 	}
@@ -6240,7 +6245,15 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   data->noelements = elem0;
   printf("Extruded mesh has %d elements in %d levels.\n",elem0,level);
   printf("Simple extrusion would have %d elements\n",level*dataxy->noelements);
+
+  if( material_too_large > 0 ) {
+    printf("Material index exceeded %d the size of material permutation table (%d)!\n",
+	   material_too_large,grid->maxmaterial);
+    printf("Give the max material with > Extruded Max Material < , if needed\n");
+  }
+
   
+  if(elem0 == 0) bigerror("No use to continue with zero elements!");
 
   /* Set the nodal coordinates of the extruded mesh. */
   knot0 = 0;
