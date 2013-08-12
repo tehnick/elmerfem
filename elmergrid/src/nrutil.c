@@ -60,6 +60,11 @@ int *ivector(int nl,int nh)
 {
   int *v;
 
+  if( nh < nl ) {
+    printf("Allocation impossible in ivector: %d %d\n",nl,nh);
+    exit(1);
+  }
+
   v=(int*) malloc((size_t) (nh-nl+1+1)*sizeof(int));
   if (!v) nrerror("allocation failure in ivector()");
 
@@ -101,6 +106,11 @@ double *dvector(int nl,int nh)
 /* allocate a double vector with subscript range v[nl..nh] */
 {
   double *v;
+
+  if( nh < nl ) {
+    printf("Allocation impossible in dvector: %d %d\n",nl,nh);
+    exit(1);
+  }
 
   v=(double *)malloc((size_t) (nh-nl+1+1)*sizeof(double));
   if (!v) nrerror("allocation failure in dvector()");
@@ -148,6 +158,13 @@ double **dmatrix(int nrl,int nrh,int ncl,int nch)
 {
   int i, nrow=nrh-nrl+1, ncol=nch-ncl+1;
   double **m;
+
+  if( nrh < nrl || nch < ncl ) {
+    printf("Allocation impossible in dmatrix: %d %d %d %d\n",nrl,nrh,ncl,nch);
+    exit(1);
+  }
+
+
   
   /* allocate pointers to rows */
   m=(double **) malloc((size_t) (nrow+1)*sizeof(double*));
@@ -181,6 +198,11 @@ int **imatrix(int nrl,int nrh,int ncl,int nch)
 {
   int i, nrow=nrh-nrl+1, ncol=nch-ncl+1;
   int **m;
+
+  if( nrh < nrl || nch < ncl ) {
+    printf("Allocation impossible in dmatrix: %d %d %d %d\n",nrl,nrh,ncl,nch);
+    exit(1);
+  }
   
   /* allocate pointers to rows */
   m=(int **) malloc((size_t) (nrow+1)*sizeof(int*));
@@ -275,7 +297,7 @@ void free_ivector(int *v,int nl,int nh)
 #endif
 
   free((FREE_ARG) (v+nl-1));
-}
+} 
 
 void free_cvector(unsigned char *v,int nl,int nh)
 {

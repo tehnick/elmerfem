@@ -71,7 +71,6 @@ void Normalize(Real **vf, const Real *b,int sides)
   Real **jac,*rest,*diag,sum;
   int i,j,k,it;
   int *indx;
-  Real evenodd;
 
   printf("Normalization of matrices is currently not supported\n");
   printf("If you want to reactivate it, rewrite the LU decomposition\n");

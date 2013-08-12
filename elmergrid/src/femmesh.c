@@ -159,7 +159,7 @@ void ExampleGrid1D(struct GridType **grids,int *nogrids,int info)
 /* Creates an example grid that might be used to analyze 
    flow trough a step. */
 {
-  int i,j;
+  int j;
   struct GridType *grid;
 
   (*nogrids) = 1;
@@ -215,7 +215,7 @@ void ExampleGrid2D(struct GridType **grids,int *nogrids,int info)
 /* Creates an example grid that might be used to analyze 
    flow trough a step. */
 {
-  int i,j;
+  int j;
   struct GridType *grid;
 
   (*nogrids) = 1;
@@ -967,10 +967,10 @@ int SetCellKnots(struct GridType *grid, struct CellType *cell,int info)
 {
   int i,j,level,center;
   int degree,centernodes,sidenodes,nonodes;
-  int cnew,cup,cleft,cleftup;
+  int cnew=0,cup=0,cleft=0,cleftup=0;
   int elemno,knotno;
   int maxwidth,width,numbering;
-  int xcells,ycells,*yelems,*xelems;
+  int xcells,ycells,*yelems=NULL,*xelems=NULL;
 
   numbering = grid->numbering;
   nonodes = grid->nonodes;
@@ -1173,12 +1173,12 @@ int SetCellKnots(struct GridType *grid, struct CellType *cell,int info)
 
 int SetCellKnots1D(struct GridType *grid, struct CellType *cell,int info)
 {
-  int i,j;
+  int i;
   int degree,nonodes;
-  int cnew,cup,cleft,cleftup;
+  int cnew,cleft;
   int elemno,knotno;
-  int maxwidth,width;
-  int xcells,ycells,*yelems,*xelems;
+  int maxwidth;
+  int xcells,*xelems;
 
   nonodes = grid->nonodes;
   knotno  = 0;
@@ -1283,6 +1283,10 @@ int GetKnotIndex(struct CellType *cell,int i,int j)
     aid = j; j = i; i = aid;
     maxj = cell->xelem;
   }
+  else {
+    maxj = 0;
+    bigerror("GetKnotIndex: Unknown numbering scheme!");
+  }
 
   if(j == 0) 
     ind = cell->left1st;
@@ -1358,7 +1362,7 @@ int GetElementIndices(struct CellType *cell,int i,int j,int *ind)
    requires only the structure CellType.
    */
 {
-  int nonodes,numbering,elemind;
+  int nonodes,numbering,elemind=0;
   
   nonodes = cell->nonodes;
   numbering = cell->numbering;
@@ -1418,7 +1422,7 @@ int GetElementIndices(struct CellType *cell,int i,int j,int *ind)
       printf("GetElementIndices: not implemented for %d nodes.\n",nonodes);    
   }
 
-  else if(numbering == NUMBER_YX) {
+  else if(numbering == NUMBER_YX) { 
     elemind = cell->elem1st+(j-1) + (i-1)*cell->elemwidth;
     
     if(nonodes == 4) return(elemind);
@@ -1493,7 +1497,7 @@ int GetElementIndex(struct CellType *cell,int i,int j)
    requires only the structure CellType.
    */
 {
-  int elemind;
+  int elemind=0;
  
   if(cell->numbering == NUMBER_XY) 
     elemind = cell->elem1st+(i-1) + (j-1)*cell->elemwidth;
@@ -1514,7 +1518,7 @@ int GetElementCoordinates(struct CellType *cell,int i,int j,
    rectangular.
    */
 {
-  int k,nonodes,numbering,elemind;
+  int k,nonodes,numbering,elemind=0;
   Real xrat,yrat;
 
   k = nonodes = cell->nonodes;
@@ -1917,7 +1921,7 @@ void SetElementDivisionCylinder(struct GridType *grid,int info)
     if(dzmax < grid->dz[i]) dzmax = grid->dz[i];
   }
 
-  if(info) printf("Created %d divisions in %d cells for rotation [%.2lg  %.2lg].\n",
+  if(info) printf("Created %d divisions in %d cells for rotation [%.2g  %.2g].\n",
 		  grid->totzelems,grid->zcells,
 		  grid->rotateradius1,grid->rotateradius2);
   grid->dz0 = dzmax;
@@ -1931,7 +1935,6 @@ int InspectElement(struct FemType *data,int idx)
   Real ds,minds,xc,yc,zc;
   Real x0,y0,z0;
   int ii,jj,mini,minj,kk;
-  int *inds;
   
   elemtype = data->elementtypes[idx];
   printf("Inspecting element %d of type %d\n",idx,elemtype);
@@ -1966,7 +1969,8 @@ int InspectElement(struct FemType *data,int idx)
       }
     }      
 
-    printf("k=%d mini=%d minj=%d ds=%.3le\n",k+1,mini+1,minj+1,minds);
+    printf("k=%d mini=%d minj=%d ds=%.3e\n",k+1,mini+1,minj+1,minds);
   }
-  
+
+  return(0);
 }

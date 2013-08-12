@@ -10,8 +10,6 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 		   char *prefix,int info);
 int LoadNastranInput(struct FemType *data,struct BoundaryType *bound,
 		     char *prefix,int info);
-int LoadFemlabMesh(struct FemType *data,struct BoundaryType *bound,
-		   char *prefix,int info);
 int LoadFieldviewInput(struct FemType *data,char *prefix,int info);
 int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
 		      char *prefix,int info);

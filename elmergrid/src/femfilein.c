@@ -115,8 +115,6 @@ static int Comsolrow(char *line1,FILE *io)
   for(i=0;i<MAXLINESIZE;i++) 
     line0[i] = ' ';
 
- newline:
-
   charend = fgets(line0,MAXLINESIZE,io);
   isend = (charend == NULL);
 
@@ -132,7 +130,7 @@ static int Comsolrow(char *line1,FILE *io)
 static void FindPointParents(struct FemType *data,struct BoundaryType *bound,
 			    int boundarynodes,int *nodeindx,int *boundindx,int info)
 {
-  int i,j,k,sideelemtype,elemind,parent,*indx;
+  int i,j,k,sideelemtype,elemind,*indx;
   int boundarytype,minboundary,maxboundary,minnode,maxnode,sideelem,elemtype;
   int sideind[MAXNODESD1],elemsides,side,sidenodes,hit,nohits;
   int *elemhits;
@@ -313,11 +311,10 @@ int LoadAbaqusInput(struct FemType *data,struct BoundaryType *bound,
   int noknots,noelements,elemcode,maxnodes,material;
   int mode,allocated,nvalue,nvalue2,maxknot,nosides;
   int boundarytype,boundarynodes,elsetactive;
-  int *nodeindx,*boundindx;
-  
+  int *nodeindx=NULL,*boundindx=NULL;
   char filename[MAXFILESIZE];
   char line[MAXLINESIZE];
-  int i,j,*ind;
+  int i,j,*ind=NULL;
   FILE *in;
   Real rvalues[MAXDOFS];
   int ivalues[MAXDOFS],ivalues0[MAXDOFS];
@@ -473,7 +470,7 @@ omstart:
       case 4:
 	nvalue = StringToInteger(line,ivalues,MAXNODESD2+1,',');
 
-	if(ivalues[0] == ivalues0[0] & ivalues[1] != ivalues0[1]) continue;
+	if(ivalues[0] == ivalues0[0] && ivalues[1] != ivalues0[1]) continue;
 	ivalues0[0] = ivalues[0];
 	ivalues0[1] = ivalues[1];
 
@@ -655,8 +652,8 @@ int LoadAbaqusOutput(struct FemType *data,char *prefix,int info)
   char buffer[MAXLINESIZE];
   int i,j,prevdog,nodogs;
   int ignored;
-  FILE *in;
-  int *indx;
+  FILE *in=NULL;
+  int *indx=NULL;
 
 
   AddExtension(prefix,filename,"fil");
@@ -843,17 +840,12 @@ int LoadNastranInput(struct FemType *data,struct BoundaryType *bound,
 /* Load the grid from a format that in Nastran format 
    */
 {
-  int noknots,noelements,elemcode,maxnodes,material;
-  int mode,allocated,nvalue,nvalue2,maxknot,minknot,nosides;
-  int boundarytype,boundarynodes,nodes,maxnode;
-  int *nodeindx,*boundindx;
-  
+  int noknots,noelements,maxnodes;
+  int allocated,maxknot,minknot,nodes;
   char filename[MAXFILESIZE];
   char line[MAXLINESIZE],*cp;
-  int i,j,k,l,*ind;
+  int j,k;
   FILE *in;
-  Real rvalues[MAXDOFS];
-  int ivalues[MAXDOFS],ivalues0[MAXDOFS];
 
 
   strcpy(filename,prefix);
@@ -878,16 +870,9 @@ int LoadNastranInput(struct FemType *data,struct BoundaryType *bound,
      second time. */
 omstart:
 
-  mode = 0;
   maxnodes = 0;
   noknots = 0;
   noelements = 0;
-  elemcode = 0;
-  boundarytype = 0;
-  boundarynodes = 0;
-  material = 0;
-  ivalues0[0] = ivalues0[1] = 0;
-
 
   for(;;) {
     /* getline; */
@@ -1018,7 +1003,7 @@ omstart:
 
 static void ReorderFidapNodes(struct FemType *data,int element,int nodes,int typeflag) 
 {
-  int i,j,oldtopology[MAXNODESD2],*topology,elementtype,dim;
+  int i,oldtopology[MAXNODESD2],*topology,dim;
   int order808[]={1,2,4,3,5,6,8,7};
   int order408[]={1,3,5,7,2,4,6,8};
   int order306[]={1,3,5,2,4,6};
@@ -1094,17 +1079,15 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
    Still under implementation
    */
 {
-  int noknots,noelements,dim,novel,elemcode,maxnodes;
-  int mode,allocated,nvalue,maxknot,totelems,entity,maxentity;
+  int noknots,noelements,dim,novel,maxnodes;
+  int mode,maxknot,totelems,entity,maxentity;
   char filename[MAXFILESIZE];
-  char line[MAXLINESIZE],*cp,entityname[MAXNAMESIZE],entitylist[100][MAXNAMESIZE];
+  char line[MAXLINESIZE],entityname[MAXNAMESIZE];
   int i,j,k,*ind,geoflag,typeflag;
   int **topology;
   FILE *in;
-  Real rvalues[MAXDOFS];
   Real *vel,*temp;
-  int ivalues[MAXDOFS];
-  int nogroups,knotno,nonodes,elemno;
+  int nogroups,knotno;
   char *isio;
 
   AddExtension(prefix,filename,"fidap");
@@ -1125,7 +1108,6 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
   noknots = 0;
   noelements = 0;
   dim = 0;
-  elemcode = 0;
   maxnodes = 4;
   totelems = 0;
   maxentity = 0;
@@ -1134,8 +1116,6 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
     isio = getline;
 
     if(!isio) goto end;
-    if(!line) goto end;
-    if(line=="") goto end;
     if(strstr(line,"END")) goto end;
 
     /* Control information */
@@ -1353,13 +1333,14 @@ end:
 static void ReorderAnsysNodes(struct FemType *data,int *oldtopology,
 			      int element,int dim,int nodes) 
 {
-  int i,j,*topology,elementtype;
+  int i,*topology,elementtype;
   int order820[]={1,2,3,4,5,6,7,8,9,10,11,12,17,18,19,20,13,14,15,16};
   int order504[]={1,2,3,5};
   int order306[]={1,2,3,5,6,8};
   int order510[]={1,2,3,5,9,10,12,17,18,19};
   int order613[]={1,2,3,4,5,9,10,11,12,17,18,19,20};
     
+  elementtype = 0;
   if(dim == 3) {
     if(nodes == 20) {
       if(oldtopology[2] == oldtopology[3]) elementtype = 510;
@@ -1459,16 +1440,15 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 		      char *prefix,int info)
 /* This procedure reads the FEM mesh as written by Ansys. */
 {
-  int noknots,noelements,nosides,elemcode,sidetype,currenttype;
-  int elementtypes,sideind[MAXNODESD1],tottypes,elementtype;
+  int noknots=0,noelements=0,nosides,sidetype,currenttype;
   int maxindx,*indx,*revindx,topology[100],ind;
-  int i,j,k,l,imax,grp,dummyint,*nodeindx,*boundindx,boundarynodes,maxnodes;
-  int noansystypes,*ansysdim,*ansysnodes,*ansystypes,boundarytypes;
-  int debug,namesexist,maxside,sides;
-  Real x,y,z,r;
+  int i,j,k,l,imax,*nodeindx,*boundindx,boundarynodes=0;
+  int noansystypes,*ansysdim,*ansysnodes,*ansystypes,boundarytypes=0;
+  int namesexist,maxside,sides;
+  Real x,y,z;
   FILE *in;
   char *cp,line[MAXLINESIZE],filename[MAXFILESIZE],
-    text[MAXNAMESIZE],text2[MAXNAMESIZE],directoryname[MAXFILESIZE];
+    text[MAXNAMESIZE],text2[MAXNAMESIZE];
 
 
   /* ExportMesh.header */
@@ -1708,7 +1688,7 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
   FindPointParents(data,bound,boundarynodes,nodeindx,boundindx,info);
 
   if(namesexist) {
-    int bc,bcind,bcind0,*bctypes,*bctypeused,*bcused,newsides,unused1;
+    int bcind,*bctypes=NULL,*bctypeused=NULL,*bcused=NULL,newsides;
 
     data->bodynamesexist = TRUE;
     if(bound[0].nosides) {
@@ -1804,298 +1784,15 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 }
 
 
-
-static int FindFemlabParents(struct FemType *data,struct BoundaryType *bound,
-			    int nosides,int sidenodes,int *boundindx,int **nodeindx)
-{
-  int i,j,k,l,sideelemtype,elemind,parent,*indx,*twosided;
-  int boundarytype,minboundary,maxboundary,sideelem;
-  int sideind[MAXNODESD1],elemsides,side,hit,sameelem,same,nosame;
-
-  if(nosides < 1) return(0);
-
-  maxboundary = minboundary = boundindx[1];
-
-  for(i=1;i<=nosides;i++) {
-    if(maxboundary < boundindx[i]) maxboundary = boundindx[i];
-    if(minboundary > boundindx[i]) minboundary = boundindx[i];
-  }
-
-  printf("Boundary types are in interval [%d, %d]\n",minboundary,maxboundary);
-
-  twosided = Ivector(1,nosides);
-  indx = Ivector(1,data->noknots);
-  sideelem = 0;
-  sameelem = 0;
-
-  for(boundarytype=minboundary;boundarytype <= maxboundary;boundarytype++) {
-  
-    for(i=1;i<=data->noknots;i++) 
-      indx[i] = 0;
-
-    for(i=1;i<=nosides;i++) {
-      if(boundindx[i] == boundarytype) 
-	for(j=1;j<=sidenodes;j++) 
-	  indx[nodeindx[i][j]] = TRUE; 
-    }
-
-    for(i=1;i<=nosides;i++) 
-      twosided[i] = 0;
-
-    for(elemind=1;elemind<=data->noelements;elemind++) {
-      elemsides = data->elementtypes[elemind] / 100;
-      if(elemsides == 8) elemsides = 6;
-      else if(elemsides == 6) elemsides = 5;
-      else if(elemsides == 5) elemsides = 4;
-      
-      if(0) printf("elem=%d\n",elemind);
- 
-      for(side=0;side<elemsides;side++) {
-	GetElementSide(elemind,side,1,data,&sideind[0],&sideelemtype);
-	if(sidenodes != sideelemtype%100) printf("FindFemlabParents: bug?\n");
-	
-	if(0) printf("sidenodes=%d  side=%d\n",sidenodes,side);
-	
-	hit = TRUE;
-	for(i=0;i<sidenodes;i++) {
-	  if(sideind[i] <= 0) { 
-	    printf("sideind[%d] = %d\n",i,sideind[i]);
-	    hit = FALSE;
-	  }
-	  else if(sideind[i] > data->noknots) { 
-	    printf("sideind[%d] = %d (noknots=%d)\n",
-		   i,sideind[i],data->noknots);
-	    hit = FALSE;
-	  }
-	  else if(!indx[sideind[i]]) hit = FALSE;
-	}
-	
-	if(hit == TRUE) {
-
-	  same = FALSE;
-	  for(i=1;i<=nosides;i++) {
-	    if(boundindx[i] == boundarytype) {
-	      nosame = 0;
-	      for(k=0;k<sidenodes;k++) 
-		for(l=1;l<=sidenodes;l++) 
-		  if(sideind[k] == nodeindx[i][l]) nosame++;
-	      if(nosame == sidenodes) {
-		same = TRUE;
-		goto foundsame;
-	      }
-	    }
-	  }
-
-
-	foundsame:
-
-	  if(same && i<=nosides && twosided[i]) {
-	    sameelem += 1;
-	    bound->parent2[twosided[i]] = elemind;
-	    bound->side2[twosided[i]] = side;		  
-	  }
-	  else {
-	    sideelem += 1;
-	    if(same) twosided[i] = sideelem;
-	    bound->parent[sideelem] = elemind;
-	    bound->side[sideelem] = side;
-	    bound->parent2[sideelem] = 0;
-	    bound->side2[sideelem] = 0;
-	    bound->types[sideelem] = boundarytype;
-	  }
-	  
-	  same = FALSE;
-	}
-      }
-    }    
-  }
-
-  if(sameelem) printf("Found %d side elements that have two parents.\n",sameelem);
-
-  if(sideelem == nosides) 
-    printf("Found correctly %d side elements.\n",sideelem);
-  else {
-    printf("Found %d side elements, should have found %d\n",sideelem,nosides);
-    bound->nosides = sideelem;
-  }
-
-  free_Ivector(indx,1,data->noknots);
-  free_Ivector(twosided,1,nosides);
-
-  return(0);
-}
-
-
-
-
-int LoadFemlabMesh(struct FemType *data,struct BoundaryType *bound,
-		   char *prefix,int info)
-/* This procedure reads the FEM mesh as written by Femlab and 
-   a special Matlab routine . */
-{
-  int noknots,noelements,nosides,elemcode,sideelem,sidetype,currenttype;
-  int elementtypes,sideind[MAXNODESD1],tottypes,elementtype;
-  int i,j,k,l,imax,grp,dummyint,**nodeindx,*boundindx,boundarynodes,maxnodes;
-  int dim,nonodes,sidenodes;
-  Real x,y,z,dummy;
-  FILE *in;
-  char *cp,line[MAXLINESIZE],filename[MAXFILESIZE],
-    text[MAXNAMESIZE],directoryname[MAXFILESIZE];
-
-  sprintf(filename,"%s.header",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadFemlabInput: The opening of the header-file %s failed!\n",
-	   filename);
-    return(1);
-  }
-
-  for(i=0;getline;i++);
-  fclose(in);
-
-  
-  in = fopen(filename,"r");
-  
-  getline;
-  sscanf(line,"%le",&dummy);
-  dim = dummy+0.5;
-
-  getline;
-  sscanf(line,"%le",&dummy);
-  noknots = dummy+0.5;
-  
-  getline;
-  sscanf(line,"%le",&dummy);
-  noelements = dummy+0.5;
-  
-  getline;
-  sscanf(line,"%le",&dummy);
-  nosides = dummy+0.5;
-  
-  getline;
-  sscanf(line,"%le",&dummy);
-  nonodes = dummy+0.5;
-
-  fclose(in);
-
-  printf("Femlab %dD file has %d %d-node elements, %d nodes and %d sides.\n",
-	 dim,noelements,nonodes,noknots,nosides);
-  
-  sprintf(filename,"%s.node",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadFemlabInput: The opening of the nodes-file %s failed!\n",
-	   filename);
-    return(1);
-  }
-
-  InitializeKnots(data);
-
-  /* Even 2D elements may form a 3D object! */
-  data->dim = 3;
-  data->maxnodes = nonodes;
-  data->noknots = noknots;
-  data->noelements = noelements;
-  AllocateKnots(data);
-
-
-  sprintf(filename,"%s.node",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadFemlabInput: The opening of the nodes-file %s failed!\n",
-	   filename);
-    return(3);
-  }
-  else 
-    printf("Loading %d Femlab nodes from %s\n",noknots,filename);
-
-  for(i=1;i<=noknots;i++) {
-    getline; cp=line;
-
-    x = next_real(&cp);
-    y = next_real(&cp);
-    z = next_real(&cp);
-
-    data->x[i] = x;
-    data->y[i] = y;
-    data->z[i] = z;
-  }
-  fclose(in);
-
-
-  sprintf(filename,"%s.elem",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadFemlabInput: The opening of the element-file %s failed!\n",
-	   filename);
-    return(4);
-  }
-  else 
-    printf("Loading %d Femlab elements from %s\n",noelements,filename);
-
-
-  for(j=1;j<=noelements;j++) {
-    getline; cp=line;
-
-    for(i=0;i<nonodes;i++) {
-      dummy = next_real(&cp)+0.5;
-      data->topology[j][i] = (int)(dummy);
-    }
-    dummy = next_real(&cp)+0.5;
-    data->material[j] = (int)(dummy);
-
-    if(nonodes == 3) data->elementtypes[j] = 303;
-    else if(nonodes == 4) data->elementtypes[j] = 504;
-  }      
-  fclose(in);
-
-
-
-  sprintf(filename,"%s.boundary",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadFemlabInput: The opening of the boundary-file %s failed!\n",
-	   filename);
-    return(5);
-  }
-  else printf("Reading Femlab boundaries from file %s\n",filename);
-
-  AllocateBoundary(bound,nosides);
-
-  if(nonodes == 3) 
-    sidenodes = 2;
-  else if(nonodes == 4) 
-    sidenodes = 3;
-
-  nodeindx = Imatrix(1,nosides,1,sidenodes);
-  boundindx = Ivector(1,nosides);
-
-  j = 0;
-  for(j=1;j<=nosides;j++) {
-    getline; cp=line;
-
-    for(i=1;i<=sidenodes;i++) {
-      dummy = next_real(&cp)+0.5;
-      nodeindx[j][i] = (int)(dummy);
-    }
-    dummy = next_real(&cp)+0.5;
-    boundindx[j] = (int)(dummy);
-  }
-  fclose(in);
-
-  FindFemlabParents(data,bound,nosides,sidenodes,boundindx,nodeindx);
-  free_Imatrix(nodeindx,1,nosides,1,sidenodes);
-  free_Ivector(boundindx,1,nosides);
-
-  return(0);
-}
-
-
-
-
 static void ReorderFieldviewNodes(struct FemType *data,int *oldtopology,
 				  int element,int dim,int nodes) 
 {
-  int i,j,*topology,elementtype;
+  int i,*topology,elementtype;
   int order808[]={1,2,4,3,5,6,8,7};
   int order706[]={1,4,6,2,3,5};
   int order404[]={1,2,3,4};
     
+  elementtype = 0;
   if(dim == 3) {
     if(nodes == 8) elementtype = 808;
     if(nodes == 6) elementtype = 706;
@@ -2109,6 +1806,7 @@ static void ReorderFieldviewNodes(struct FemType *data,int *oldtopology,
   if(!elementtype) {
     printf("Unknown elementtype in element %d (%d nodes, %d dim).\n",
 	   element,nodes,dim);
+    bigerror("Cannot continue");
   }
 
   data->elementtypes[element] = elementtype;
@@ -2130,16 +1828,16 @@ int LoadFieldviewInput(struct FemType *data,char *prefix,int info)
    program by PointWise. This is a suitable format to read files created
    by GridGen. */
 {
-  int noknots,noelements,dim,novel,elemcode,maxnodes;
-  int mode,allocated,nvalue,maxknot,totelems,entity,maxentity;
+  int noknots,noelements,maxnodes,mode;
   char filename[MAXFILESIZE];
-  char line[MAXLINESIZE],*cp,entityname[MAXLINESIZE],entitylist[100][MAXLINESIZE];
-  int i,j,k,*ind,geoflag,typeflag;
+  char line[MAXLINESIZE],*cp;
+  int i,j,k;
   FILE *in;
-  Real *vel,*temp,x,y,z;
-  int nogroups,knotno,nonodes,elemno,maxindx,sidenodes;
+  Real x,y,z;
+  int maxindx;
   char *isio;
-  int nobound,nobulk,maxsidenodes,*boundtypes,**boundtopos,*boundnodes,*origtopology;
+  int nobound=0,nobulk=0,maxsidenodes;
+  int *boundtypes=NULL,**boundtopos=NULL,*boundnodes=NULL,*origtopology=NULL;
 
   if ((in = fopen(prefix,"r")) == NULL) {
     AddExtension(prefix,filename,"dat");
@@ -2154,20 +1852,14 @@ int LoadFieldviewInput(struct FemType *data,char *prefix,int info)
   data->dim = 3;
   data->created = TRUE;
 
-  entity = 0;
   mode = 0;
   noknots = 0;
   noelements = 0;
-  elemcode = 0;
-
   maxnodes = 8;
   maxsidenodes = 4;
   maxindx = 0;
-  sidenodes = 0;
 
   data->maxnodes = maxnodes;
-
-  totelems = 0;
 
   for(;;) {
     
@@ -2175,8 +1867,6 @@ int LoadFieldviewInput(struct FemType *data,char *prefix,int info)
       isio = getline;
       
       if(!isio) goto end;
-      if(!line) goto end;
-      if(line=="") goto end;
       if(strstr(line,"END")) goto end;
       
       /* Control information */
@@ -2309,7 +1999,7 @@ int LoadFieldviewInput(struct FemType *data,char *prefix,int info)
 
       printf("Found %d bulk elements\n",nobulk);
       if(nobulk+nobound > noelements) printf("Too few elements (%d) were allocated!!\n",noelements);
-      printf("Allocated %.4lg %% too many elements\n",
+      printf("Allocated %.4g %% too many elements\n",
 	     noelements*100.0/(nobulk+nobound)-100.0);
 
 
@@ -2352,9 +2042,9 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
 /* This procedure reads the mesh assuming Triangle format
    */
 {
-  int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim;
-  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
-  int i,j,k,dummyint,*boundnodes;
+  int noknots,noelements,maxnodes,elematts,nodeatts,dim;
+  int elementtype,bcmarkers,sideelemtype;
+  int i,j,k,*boundnodes;
   FILE *in;
   char *cp,line[MAXLINESIZE],elemfile[MAXFILESIZE],nodefile[MAXFILESIZE], 
     polyfile[MAXLINESIZE];
@@ -2453,10 +2143,11 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
 
   {
     int bcelems,markers,ind1,ind2,bctype,j2,k2,hit;
-    int elemsides,sidelemtype,sideind[2],side,sideelemtype,elemind;
+    int elemsides,sideind[2],side,elemind=0;
 
     bctype = 1;
     elemsides = 3;
+    hit = FALSE;
 
     getline;
     getline;
@@ -2526,11 +2217,10 @@ int LoadMeditInput(struct FemType *data,struct BoundaryType *bound,
 /* This procedure reads the mesh assuming Medit format
    */
 {
-  int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim;
-  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
-  int i,j,k,dummyint,*boundnodes,allocated;
+  int noknots,noelements,maxnodes,dim=0,elementtype;
+  int i,j,allocated;
   FILE *in;
-  char *cp,line[MAXLINESIZE],elemfile[MAXFILESIZE],nodefile[MAXFILESIZE];
+  char *cp,line[MAXLINESIZE],nodefile[MAXFILESIZE];
 
 
   sprintf(nodefile,"%s.mesh",prefix);
@@ -2562,7 +2252,6 @@ allocate:
 
   for(;;) {
     if(Getrow(line,in,TRUE)) goto end;
-    if(!line) goto end;
     if(strstr(line,"END")) goto end;
     
     if(strstr(line,"DIMENSION")) {
@@ -2645,14 +2334,14 @@ int LoadGidInput(struct FemType *data,struct BoundaryType *bound,
 		 char *prefix,int info)
 /* Load the grid from GID mesh format */
 {
-  int noknots,noelements,elemcode,maxnodes,material,foundsame;
-  int mode,allocated,nvalue,maxknot,nosides,sideelemtype;
-  int boundarytype,materialtype,boundarynodes,side,parent,elemsides;
-  int dim, elemnodes, elembasis, elemtype, bulkdone, usedmax,hits;
+  int noknots,noelements,maxnodes,foundsame;
+  int mode,allocated,nosides,sideelemtype;
+  int boundarytype,side,parent,elemsides,materialtype=0;
+  int dim=0, elemnodes=0, elembasis=0, elemtype=0, bulkdone, usedmax=0,hits;
   int minbulk,maxbulk,minbound,maxbound,label,debug;
-  int *usedno, **usedelem;  
+  int *usedno=NULL, **usedelem=NULL;  
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
-  int i,j,k,l,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1];
+  int i,j,k,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1];
   FILE *in;
   Real x,y,z;
 
@@ -2672,7 +2361,6 @@ int LoadGidInput(struct FemType *data,struct BoundaryType *bound,
   InitializeKnots(data);
 
   allocated = FALSE;
-  maxknot = 0;
 
   /* Because the file format doesn't provide the number of elements
      or nodes the results are read twice but registered only in the
@@ -2687,17 +2375,13 @@ omstart:
   maxnodes = 0;
   noknots = 0;
   noelements = 0;
-  elemcode = 0;
   boundarytype = 0;
-  boundarynodes = 0;
-  material = 0;
   nosides = 0;
   bulkdone = FALSE;
 
   for(;;) {
 
     if(Getrow(line,in,FALSE)) goto end;
-    if(!line) goto end;
 
     if(strstr(line,"MESH")) {
       if(debug) printf("MESH\n");
@@ -2972,7 +2656,7 @@ end:
 
 static void ReorderComsolNodes(int elementtype,int *topo) 
 {
-  int i,j,tmptopo[MAXNODESD2];
+  int i,tmptopo[MAXNODESD2];
   int order404[]={1,2,4,3};
   int order808[]={1,2,4,3,5,6,8,7};
  
@@ -3004,16 +2688,12 @@ static void ReorderComsolNodes(int elementtype,int *topo)
 int LoadComsolMesh(struct FemType *data,char *prefix,int info)
 /* Load the grid in Comsol Multiphysics mesh format */
 {
-  int noknots,noelements,elemcode,maxnodes,material,foundsame;
-  int mode,allocated,nvalue,maxknot,nosides,sideelemtype;
-  int boundarytype,materialtype,boundarynodes,side,parent,elemsides;
-  int dim, elemnodes, elembasis, elemtype, bulkdone, usedmax,hits;
-  int label,debug,offset,domains,mindom,minbc,elemdim;
+  int noknots,noelements,maxnodes,material;
+  int allocated,dim=0, elemnodes=0, elembasis=0, elemtype;
+  int debug,offset,domains,mindom,minbc,elemdim=0;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
-  int i,j,k,l,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1];
+  int i,j,k;
   FILE *in;
-  Real x,y,z;
-
 
   strcpy(filename,prefix);
   if ((in = fopen(filename,"r")) == NULL) {
@@ -3040,7 +2720,6 @@ omstart:
   maxnodes = 0;
   noknots = 0;
   noelements = 0;
-  elemcode = 0;
   material = 0;
   domains = 0;
 
@@ -3048,7 +2727,6 @@ omstart:
   for(;;) {
 
     if(Comsolrow(line,in)) goto end;
-    if(!line) goto end;
 
     if(strstr(line,"# sdim")) {
       cp = line;
@@ -3364,10 +3042,10 @@ static void GmshToElmerIndx(int elemtype,int *topology)
 static int LoadGmshInput1(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim;
-  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
-  int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
-  int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype,elemdim;
+  int noknots = 0,noelements = 0,maxnodes,dim;
+  int elemind[MAXNODESD2],elementtype;
+  int i,j,k,allocated,*revindx=NULL,maxindx;
+  int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype;
   FILE *in;
   char *cp,line[MAXLINESIZE];
 
@@ -3406,7 +3084,6 @@ allocate:
 
   for(;;) {
     if(Getrow(line,in,TRUE)) goto end;
-    if(!line) goto end;
     if(strstr(line,"END")) goto end;
 
     if(strstr(line,"$NOD")) {
@@ -3523,14 +3200,13 @@ allocate:
 static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim,notags;
-  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
-  int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
-  int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype,elemdim;
+  int noknots = 0,noelements = 0,maxnodes,dim,notags;
+  int elemind[MAXNODESD2],elementtype;
+  int i,j,k,allocated,*revindx=NULL,maxindx;
+  int elemno, gmshtype, tagphys=0, taggeom=0, tagpart, elemnodes,maxelemtype;
   int usetaggeom,tagmat,verno;
   FILE *in;
   char *cp,line[MAXLINESIZE];
-
 
   if ((in = fopen(filename,"r")) == NULL) {
     printf("LoadElmerInput: The opening of the mesh file %s failed!\n",filename);
@@ -3549,7 +3225,6 @@ omstart:
 
   for(;;) {
     if(Getrow(line,in,FALSE)) goto end;
-    if(!line) goto end;
     if(strstr(line,"$End")) continue;
 
     if(strstr(line,"$MeshFormat")) {
@@ -3763,11 +3438,11 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
 int LoadGeoInput(struct FemType *data,struct BoundaryType *bound,
 		 char *filename,int info)
 {
-  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim,notags;
-  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
-  int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
-  int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype,elemtype0,elemdim;
-  int usetaggeom,tagmat,verno;
+  int noknots = 0,noelements = 0,maxnodes,dim;
+  int elemind[MAXNODESD2],elementtype;
+  int i,j,k,allocated,*revindx=NULL,maxindx;
+  int elemnodes,maxelemtype,elemtype0;
+  int usetaggeom,tagmat;
   FILE *in;
   char *cp,line[MAXLINESIZE];
 
@@ -3790,13 +3465,13 @@ omstart:
 
   for(;;) {
     if(Getrow(line,in,FALSE)) goto end;
-    if(!line) goto end;
+    if(line[0]=='\0') goto end;
     if(strstr(line,"$End")) continue;
 
     if(strstr(line,"TYPES")) {
       if(!strstr(line,"ALL=TET04")) {
 	printf("Only all tets implemnted at the monment!\n");
-	return;
+	return(1);
       }
       elemtype0 = 504;
       getline;
@@ -4080,15 +3755,15 @@ int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,
    fields in FE community are treated. */
 {
   int noknots,totknots,noelements,elemcode,maxnodes;
-  int allocated,maxknot,dim,ind,lines;
+  int allocated,dim,ind,lines;
   int reordernodes,reorderelements,nogroups,maxnodeind,maxelem,elid,unvtype,elmertype;
   int nonodes,group,grouptype,mode,nopoints,nodeind,matind,physind,colorind;
-  int minelemtype,maxelemtype,physoffset;
+  int minelemtype,maxelemtype,physoffset=0;
   int debug,mingroup,maxgroup,minphys,maxphys,nogroup,noentities,dummy;
-  int *u2eind,*u2eelem;
+  int *u2eind=NULL,*u2eelem=NULL;
   int *elementtypes;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
-  int i,j,k,l,n;
+  int i,j,k;
   char entityname[MAXNAMESIZE];
   FILE *in;
 
@@ -4139,6 +3814,7 @@ omstart:
   nogroups = 0;
   nopoints = 0;
   group = 0;
+  mode = 0;
 
 
   for(;;) { 
@@ -4148,7 +3824,7 @@ omstart:
   nextline:
     if( !strncmp(line,"    -1",6)) mode = 0;
     if( Getrow(line,in,FALSE)) goto end;
-    if(!line) goto end;
+    if(line[0]=='\0') goto end;
 
     if( !strncmp(line,"    -1",6)) mode = 0;
     else if( !strncmp(line,"  2411",6)) mode = 2411;
@@ -4550,7 +4226,7 @@ int LoadCGsimMesh(struct FemType *data,char *prefix,int info)
 {
   int noknots,noelements,maxnodes,material,allocated,dim,debug,thismat,thisknots,thiselems;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
-  int i,j,k,l,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1],savedofs;
+  int i,j,inds[MAXNODESD2],savedofs;
   Real dummyreal;
   FILE *in;
 
@@ -4584,13 +4260,11 @@ omstart:
 
   for(;;) {
     
-
     if(Getrow(line,in,FALSE)) goto end;
-    if(!line) goto end;
+    if(line[0]=='\0') goto end;
     
     cp = strstr(line,"ZONE");    
     if(!cp) continue;
-    
 
     thismat += 1;
     cp = strstr(line," N=");

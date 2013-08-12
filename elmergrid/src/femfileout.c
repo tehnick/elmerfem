@@ -76,7 +76,7 @@ int SaveAbaqusInput(struct FemType *data,char *prefix,int info)
   else if(data->coordsystem == COORD_POLAR) fprintf(out,"P\n");
 
   for(i=1; i <= noknots; i++) 
-    fprintf(out,"%8d, %12.4le, %12.4le, 0.0\n",i,data->x[i],data->y[i]);
+    fprintf(out,"%8d, %12.4e, %12.4e, 0.0\n",i,data->x[i],data->y[i]);
 
   fprintf(out,"*ELEMENT,TYPE=");
   if(nonodes == 4) fprintf(out,"DC2D4 ");
@@ -186,7 +186,7 @@ int SaveFidapOutput(struct FemType *data,char *prefix,int info,
 
   fprintf(out,"NODAL COORDINATES\n");
   for(i=1; i <= noknots; i++) 
-    fprintf(out,"%10d%20.10le%20.10le\n",i,data->y[i],data->x[i]);
+    fprintf(out,"%10d%20.10e%20.10e\n",i,data->y[i],data->x[i]);
 
   /* Boundary and initial conditions */
   fprintf(out,"BOUNDARY CONDITIONS\n");
@@ -218,14 +218,14 @@ int SaveFidapOutput(struct FemType *data,char *prefix,int info,
   fprintf(out,"VELOCITY\n");            
   if(vctrs < 2) 
     for(i=1;i<=2*noknots;i++) {
-      fprintf(out,"%16.9le",0.0);
+      fprintf(out,"%16.9e",0.0);
       if(i%5==0) fprintf(out,"\n");
     }  
   else 
     for(i=1;i<=2*noknots;i++) {
-      fprintf(out,"%16.9le",dofs[1][i]);
+      fprintf(out,"%16.9e",dofs[1][i]);
       if((2*i-1)%5 == 0) fprintf(out,"\n");
-      fprintf(out,"%16.9le",dofs[2][i]);
+      fprintf(out,"%16.9e",dofs[2][i]);
       if((2*i)%5 == 0) fprintf(out,"\n");   
   }
   if((2*noknots)%5 != 0) fprintf(out,"\n");
@@ -234,12 +234,12 @@ int SaveFidapOutput(struct FemType *data,char *prefix,int info,
 
   if(vctrs == 2) 
     for(i=1;i<=noknots;i++) {
-      fprintf(out,"%16.9le",0.0);
+      fprintf(out,"%16.9e",0.0);
       if(i%5==0) fprintf(out,"\n");
     }
   else 
     for(i=1;i<=noknots;i++) {
-      fprintf(out,"%16.9le",dofs[vctrs][i]);
+      fprintf(out,"%16.9e",dofs[vctrs][i]);
       if(i%5==0) fprintf(out,"\n");
     }
   if(noknots%5 != 0) fprintf(out,"\n");
@@ -247,122 +247,6 @@ int SaveFidapOutput(struct FemType *data,char *prefix,int info,
 
   fclose(out);
   if(info) printf("Results were saved in FIDAP neutral format to file %s.\n",filename);
-
-  return(0);
-}
-
-
-
-int SaveFastcapInput(struct FemType *data,
-		     struct BoundaryType *bound,char *prefix,int decimals,int info)
-/* Saves the mesh in a form that may be used as input 
-   in Fastcap calculations. 
-   */
-#define MAXELEMENTTYPE 827
-{
-  int noknots,noelements,quads,triangles,elemtype,maxelemtype,fail;
-  int sideelemtype,nodesd1,nodesd2;
-  int i,j,k,l;
-  int ind[MAXNODESD1];
-  FILE *out;
-  char filename[MAXFILESIZE], outstyle[MAXFILESIZE];
-
-  if(!data->created) {
-    printf("You tried to save points that were never created.\n");
-    return(1);
-  }
-
-  noelements = data->noelements;
-  noknots = data->noknots;
-
-  sprintf(filename,"%s%s",prefix,".fc");
-  sprintf(outstyle,"%%.%dlg %%.%dlg %%.%dlg ",decimals,decimals,decimals);
-
-  if(info) printf("Saving mesh in Fastcap format to filename %s.\n",filename);
-
-  out = fopen(filename,"w");
-  if(out == NULL) {
-    printf("opening of file was not successful\n");
-    return(2);
-  }
-
-  quads = 0;
-  triangles = 0;
-  maxelemtype = GetMaxElementType(data);
-  
-  if(maxelemtype < 500) {    
-    if(info) printf("Saving Fastcap mesh using bulk elements.\n");
-
-    fprintf(out,"0 Elmer mesh of %d elements, bulk elements\n",data->noelements);
- 
-    for(i=1;i<=noelements;i++) {
-      elemtype = data->elementtypes[i];
-
-      nodesd2 = elemtype%100;
-      if(nodesd2 == 4) {
-	quads++;
-	fprintf(out,"Q %d ",data->material[i]);
-	for(j=0;j < nodesd2;j++) {
-	  k = data->topology[i][j];
-	  fprintf(out,outstyle,data->x[k],data->y[k],data->z[k]);      
-	}
-	fprintf(out,"\n");
-      }
-      if(nodesd2 == 3) {
-	triangles++;
-	fprintf(out,"T %d ",data->material[i]);
-	for(j=0;j < nodesd2;j++) {
-	  k = data->topology[i][j];
-	  fprintf(out,outstyle,data->x[k],data->y[k],data->z[k]);      
-	}
-	fprintf(out,"\n");
-      }
-    }
-  }
-  else {
-    if(info) printf("Saving Fastcap mesh using boundary elements.\n");
-
-    fprintf(out,"0 Elmer mesh of %d elements, boundary elements\n",data->noelements);
-   
-    for(j=0;j < MAXBOUNDARIES;j++) {
-      
-      if(bound[j].created == FALSE) continue;
-      if(bound[j].nosides == 0) continue;
-      
-      for(i=1; i <= bound[j].nosides; i++) {
-	
-	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
-
-	nodesd2 = sideelemtype%100;
-	if(nodesd2 == 4) {
-	  quads++;
-	  fprintf(out,"Q %d ",bound[j].types[i]);
-	  for(k=0;k < nodesd2;k++) {
-	    l = ind[k];
-	    fprintf(out,outstyle,data->x[l],data->y[l],data->z[l]);      
-	  }
-	  fprintf(out,"\n");
-	}
-	if(nodesd2 == 3) {
-	  triangles++;
-	  fprintf(out,"T %d ",bound[j].types[i]);
-	  for(k=0;k < nodesd2;k++) {
-	    l = ind[k];
-	    fprintf(out,outstyle,data->x[l],data->y[l],data->z[l]);      
-	  }
-	  fprintf(out,"\n");
-	}
-		
-      }	
-    }
-  }
-
-  if(info) {
-    printf("Fastcap mesh saved successfully\n");
-    printf("There are %d quadrilateral and %d triangular panels\n",quads,triangles);
-  }
-
-  fclose(out);
 
   return(0);
 }
@@ -492,11 +376,10 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
 		 int nobound,char *prefix,int decimals,int info)
 /* This procedure saves the mesh in a format understood by Gmsh */
 {
-  int material,noknots,noelements,bulkelems,novctrs,sideelems,gmshtype,elemtype,boundtype;
+  int material,noknots,noelements,bulkelems,sideelems,gmshtype,elemtype,boundtype;
   char filename[MAXFILESIZE],outstyle[MAXFILESIZE];
-  int i,j,k,l,nodesd1,timesteps,nodesd2,elemind;
+  int i,j,k,nodesd2,elemind;
   int ind[MAXNODESD2];
-  Real *rpart;
   FILE *out;
 
   if(!data->created) {
@@ -531,24 +414,24 @@ int SaveMeshGmsh(struct FemType *data,struct BoundaryType *bound,
   }
 
   fprintf(out,"$MeshFormat\n");
-  fprintf(out,"2.2 0 %d\n",sizeof(double));
+  fprintf(out,"2.2 0 %ld\n",sizeof(double));
   fprintf(out,"$EndMeshFormat\n");
 
   if(info) printf("Saving %d node coordinates.\n",noknots);
   fprintf(out,"$Nodes\n");
   fprintf(out,"%d\n",noknots);
   if(data->dim == 1) {
-    sprintf(outstyle,"%%d %%.%dlg 0 0\n",decimals);
+    sprintf(outstyle,"%%d %%.%dg 0 0\n",decimals);
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,data->x[i]);
   }
   else if(data->dim == 2) {
-    sprintf(outstyle,"%%d %%.%dlg %%.%dlg 0\n",decimals,decimals);
+    sprintf(outstyle,"%%d %%.%dg %%.%dg 0\n",decimals,decimals);
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,data->x[i],data->y[i]);
   }
   else if(data->dim == 3) {
-    sprintf(outstyle,"%%d %%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
+    sprintf(outstyle,"%%d %%.%dg %%.%dg %%.%dg\n",decimals,decimals,decimals);
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,data->x[i],data->y[i],data->z[i]);      
   }

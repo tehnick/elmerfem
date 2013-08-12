@@ -72,6 +72,8 @@ int GetElementDimension(int elementtype)
 {
   int elemdim;
 
+  elemdim = 0;
+
   switch (elementtype / 100) {
   case 1:
     elemdim = 0;
@@ -140,7 +142,7 @@ void GetElementSide(int element,int side,int normal,
    elements.
    */
 {
-  int i,j,elemtype,*elemind,sides,ind2[MAXNODESD2];
+  int i,j,elemtype,*elemind=NULL,sides,ind2[MAXNODESD2];
 
   elemtype = data->elementtypes[element];
   elemind = data->topology[element];
@@ -662,7 +664,9 @@ int GetElementFaces(int elemtype)
 
 int GetElementGraph(int element,int edge,struct FemType *data,int *ind)
 {
-  int i,j,elemtype,basetype,elemnodes,*elemind,hit,evenodd,quadratic,side;
+  int elemtype,basetype,elemnodes;
+  int hit,evenodd,quadratic,side;
+  int *elemind=NULL;
 
   elemtype = data->elementtypes[element];
   basetype = elemtype / 100;
@@ -980,7 +984,7 @@ static void MovePointAngle(Real *lim,int points,Real *coords,
 			   Real x,Real y,Real *dx,Real *dz)
 {
   static int i=0;
-  Real c,d,x1,y1,z1,degs;
+  Real x1,z1,degs;
 
   degs = FM_PI/180.0;
   x1 = z1 = 0.0;
@@ -1015,7 +1019,6 @@ static void MovePointAngle(Real *lim,int points,Real *coords,
 static void MovePointSinus(Real *lim,int points,Real *coords,
 			   Real x,Real y,Real *dx,Real *dy)
 {
-  static int i=0;
   Real c,d;
 
   if(y > lim[0]  &&  y < lim[2]) {
@@ -1044,7 +1047,7 @@ static void MovePointPowerSeries(Real *lim,int points,Real *coords,
 				 Real x,Real y,Real *dx,Real *dy)
 {
   int i,n;
-  Real c,d,t,u;
+  Real d,t,u;
 
   if(y > lim[0]  &&  y < lim[2]) {
     t = x;
@@ -1079,7 +1082,7 @@ static void MovePointPowerSeries2(Real *lim,int points,Real *coords,
 				 Real x,Real y,Real *dx,Real *dy)
 {
   int i,j,n;
-  Real c,d,e,t,u,h;
+  Real d,e,t,u,h;
 
   if(y > lim[0]  &&  y < lim[2]) {
     t = x;
@@ -1150,16 +1153,14 @@ static void MovePointPower(Real *lim,int points,Real *coords,
 static void MovePointNACAairfoil(Real *lim,int points,Real *coords,
 				 Real x,Real y,Real *dx,Real *dy)
 {
-  int i,n;
-  Real c,p,d,t,u;
-
+  Real p,d,t,u;
 
   if(y < lim[0]  ||  y > lim[2]) return;
   if(x < coords[0]  ||  x > coords[1]) return;
 
   if(0) {
-    printf("x=%.3le y=%.3le lim0=%.3le lim2=%.3le\n",x,y,lim[0],lim[2]);
-    printf("naca: %.3le %.3le %.3le\n",coords[0],coords[1],coords[2]);
+    printf("x=%.3e y=%.3e lim0=%.3e lim2=%.3e\n",x,y,lim[0],lim[2]);
+    printf("naca: %.3e %.3e %.3e\n",coords[0],coords[1],coords[2]);
   }
 
   t = x;
@@ -1185,7 +1186,7 @@ static void MovePointNACAairfoil(Real *lim,int points,Real *coords,
   }
 
 
-  if(0) printf("d=%.3le p=%.3le u=%.3le dy=%.3le\n",d,p,u,*dy);
+  if(0) printf("d=%.3e p=%.3e u=%.3e dy=%.3e\n",d,p,u,*dy);
 }
 
 
@@ -1237,7 +1238,7 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
   int material,nonodes,elemind,elemtype;
   int mode,level,maplevel,dim;
   int celli,cellj,i,j,k,l,ind[MAXNODESD2];
-  Real x,y,z,dx,dy,dz,size,minsize,maxsize;
+  Real x,y,dx,dy,dz,size,minsize,maxsize;
 
   InitializeKnots(data);
 
@@ -1306,7 +1307,7 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
     maplim[3*k+2] = maplim[3*k+1] + grid->mappinglimits[2*k+1];
   }
 
-
+  mode = 0;
   if(grid->mappings) 
     
     for(level=0;level<10;level++) {
@@ -1442,7 +1443,7 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
   data->maxsize = sqrt(maxsize);
   data->minsize = sqrt(minsize);
 
-  if(info) printf("Maximum elementsize is %.3le and minimum %.3le.\n",
+  if(info) printf("Maximum elementsize is %.3e and minimum %.3e.\n",
 		  data->maxsize,data->minsize);
 }
 
@@ -1811,7 +1812,7 @@ int AllocateBoundary(struct BoundaryType *bound,int size)
 
 int CreateBoundaryChain(struct FemType *data,struct BoundaryType *bound,int info)
 {
-  int i,j,sideind[MAXNODESD1],sideind2[MAXNODESD1]; 
+  int i,sideind[MAXNODESD1],sideind2[MAXNODESD1]; 
   int size,indfirst,indsecond,side,setchain,sideelemtype;
 
   if(bound->created == FALSE) {
@@ -1840,8 +1841,11 @@ restart:
     indfirst = sideind[1];
     indsecond = sideind[0];
   }
-  else 
+  else {
     printf("CreateBoundaryChain: Impossible case!\n");
+    indfirst = sideind[0];
+    indsecond = sideind[1];
+  }
 
   if(setchain) {
     bound->chain[0] = indfirst;
@@ -1975,7 +1979,7 @@ int CreatePoints(struct CellType *cell,struct FemType *data,
 		 struct BoundaryType *bound,
 		 int param1,int param2,int pointmode,int pointtype)
 {
-  int size,i,no,corner,times,elem,node,sideelemtype;
+  int size,i,no,corner,times,elem,node;
 
   bound->created = FALSE;
   bound->nosides = 0;    
@@ -2046,7 +2050,7 @@ omstart:
 
       bound->parent[i] = elem;
       node = data->topology[elem][corner];
-      printf("Found node %d at (%.3lg, %.3lg)\n",node,data->x[node],data->y[node]);
+      printf("Found node %d at (%.3g, %.3g)\n",node,data->x[node],data->y[node]);
     }
   }  
 
@@ -2070,7 +2074,8 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int new)
   int i,j,k,l,lmax,ind;
   int newsize,noknots,nonodes;
   int *neworder;
-  Real *newx,*newy,*newz,*newdofs[MAXDOFS];
+  Real *newx=NULL,*newy=NULL,*newz=NULL;
+  Real *newdofs[MAXDOFS];
 
   noknots = data->noknots;
 
@@ -2170,12 +2175,12 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
    field variables.
    */
 {
-  int i,j,k,bc,ind,sideind[MAXNODESD1];
+  int i,j,bc,ind,sideind[MAXNODESD1];
   int side,parent,new,doublesides,maxtype,newbc;
   int newsuccess,noelements,nonodes,sideelemtype,sidenodes,disconttype;
-  int *order;
+  int *order=NULL;
   int mat1,mat2,par1,par2,mat1old,mat2old,material;
-  static int hitsexist=FALSE,hitslength,*hits;
+  static int hitsexist=FALSE,hitslength,*hits=NULL;
 
 
   if(boundtype < 0) {
@@ -2347,8 +2352,8 @@ int FindPeriodicBoundary(struct FemType *data,struct BoundaryType *bound,
    boundary1, boundary2. 
    */
 {
-  int i,j,k,l,ind,sideind[MAXNODESD1];
-  int side,parent,elemtype;
+  int i,j,k,l;
+  int parent,elemtype;
   int minp[2],maxp[2],bounds[2],dp[2],sumsides[2];
 
   if(bound->created == FALSE) {
@@ -2435,7 +2440,7 @@ int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
 /* Mark node that are related to a boundary condition of a given bctype.
    This may be used to create strong connections in the partitioning process. */
 {
-  int i,j,k,l,bc,sideelemtype,sidenodes;
+  int i,j,k,bc,sideelemtype,sidenodes;
   int sideind[MAXNODESD1],conflicts;
 
   conflicts = 0;
@@ -2467,7 +2472,8 @@ int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
-  if(conflicts) printf("The were %d conflicts in the connectivity set %d\n");
+  if(conflicts) printf("The were %d conflicts in the connectivity set %d\n",
+		       conflicts,connecttype);
 
   return(0);
 }
@@ -2476,7 +2482,7 @@ int SetConnectedNodes(struct FemType *data,struct BoundaryType *bound,
 int SetConnectedElements(struct FemType *data,int info)
 /* Create connected boundary conditions for a given bctype */
 {
-  int i,j,k,l,nonodes,hit,nohits,con;
+  int i,j,k,nonodes,hit,nohits,con;
   int *nodeconnect;
 
   if(!data->nodeconnectexist) {
@@ -2540,8 +2546,8 @@ int SetDiscontinuousPoints(struct FemType *data,struct PointType *point,
    have any previously defined Dirichlet points. 
    */
 {
-  int i,j,ind,corner,*order;
-  int parent,new,unknowns;
+  int i,ind,corner,*order=NULL;
+  int parent,new;
   int newsuccess;
 
   if(point->nopoints == FALSE) {
@@ -2665,7 +2671,7 @@ int SolutionFromMeshToMesh(struct CellType *cell1, struct GridType *grid1,
   int elem1,elem2,mapres,fast;
   Real coord1[DIM*MAXNODESD2],x2,y2,rx,ry;
   Real epsilon=1.0e-20;
-  Real *vector1,*vector2;
+  Real *vector1=NULL,*vector2=NULL;
   
   if(!data1->edofs[variable] || !data2->edofs[variable])
     return(1);
@@ -2819,9 +2825,10 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 			Real critangle,int info)
 /* Make triangles out of rectangular elements */
 {
-  int i,j,k,l,side,elem,i1,i2,isum,foundside,sideelemtype;
-  int noelements,elementtype,triangletype,triangles,noknots,nonodes,newelements,newtype,newmaxnodes;
-  int **newtopo,*newmaterial,*newelementtypes,newnodes,*indx,*needed,*divisions,*division1;
+  int i,j,k,l,side,elem,i1,isum,sideelemtype;
+  int noelements,elementtype,triangles,noknots,nonodes,newelements,newtype,newmaxnodes;
+  int **newtopo=NULL,*newmaterial=NULL,*newelementtypes=NULL;
+  int newnodes,*needed=NULL,*divisions=NULL,*division1=NULL;
   int sideind[MAXNODESD1], sideind2[MAXNODESD1];
   int allocated,maxanglej,evenodd,newelem;
   Real dx1,dx2,dy1,dy2,ds1,ds2;
@@ -3071,6 +3078,8 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 	  continue;
 	}
 	
+	isum = 0;
+	side = 0;
 	if(divisions[k] == 1) {
 	  elem = division1[k]+1;
 	  side = bound[j].side[i];
@@ -3142,8 +3151,8 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 
 int PolarCoordinates(struct FemType *data,Real rad,int info)
 {
-  int i,j,k,l;
-  Real x,y,dx,dy,fii,zet,dr;
+  int i;
+  Real fii,zet,dr;
 
   for(i=1;i<=data->noknots;i++) {
     zet = data->x[i];
@@ -3163,8 +3172,8 @@ int PolarCoordinates(struct FemType *data,Real rad,int info)
 
 int CylinderCoordinates(struct FemType *data,int info)
 {
-  int i,j,k,l;
-  Real x,y,rad,fii;
+  int i;
+  Real rad,fii;
 
   for(i=1;i<=data->noknots;i++) {
     rad = data->x[i];
@@ -3185,10 +3194,10 @@ int UniteMeshes(struct FemType *data1,struct FemType *data2,
 		int info)
 /* Unites two meshes for one larger mesh */
 {
-  int i,j,k,l;
-  int noelements,noknots,nonodes;
-  int **newtopo,*newmaterial,*newelementtypes,maxnodes;
-  Real *newx,*newy,*newz;
+  int i,j,k;
+  int noelements,noknots,nonodes,maxnodes;
+  int **newtopo=NULL,*newmaterial=NULL,*newelementtypes=NULL;
+  Real *newx=NULL,*newy=NULL,*newz=NULL;
 
   noknots = data1->noknots + data2->noknots;
   noelements  = data1->noelements + data2->noelements;
@@ -3203,10 +3212,6 @@ int UniteMeshes(struct FemType *data1,struct FemType *data2,
 
     for(k=j;k < MAXBOUNDARIES;k++)
       if(!bound1[k].created) break;
-
-#if 0
-    printf("k=%d  j=%d\n",k,j);
-#endif     
  
     bound1[k].created = bound2[j].created;
     bound1[k].nosides = bound2[j].nosides;
@@ -3298,13 +3303,14 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
 {
   int i,j,k,l,m;
   int noelements,noknots,nonodes,totcopies,ind;
-  int **newtopo,*newmaterial,*newelementtypes,maxnodes;
+  int **newtopo=NULL,*newmaterial=NULL,*newelementtypes=NULL,maxnodes;
   int maxmaterial,maxtype,ncopy,bndr,nosides;
-  Real *newx,*newy,*newz;
+  Real *newx=NULL,*newy=NULL,*newz=NULL;
   Real maxcoord[3],mincoord[3];
 
-  int *vparent,*vparent2,*vside,*vside2,*vtypes,*vmaterial,*vnormal,*vdiscont;
-  Real *vareas; 
+  int *vparent=NULL,*vparent2=NULL,*vside=NULL,*vside2=NULL;
+  int *vtypes=NULL,*vmaterial=NULL,*vnormal=NULL,*vdiscont=NULL;
+  Real *vareas=NULL; 
   
   printf("CloneMeshes: copying the mesh to a matrix\n");
   if(diffmats) diffmats = 1;
@@ -3496,16 +3502,17 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
 		 int *symmaxis,int diffmats,Real *meshsize,int symmbound,int info)
 /* Makes a mirror image of a mesh and unites it with the original mesh */
 {
-  int i,j,k,l,m,left;
-  int noelements,noknots,nonodes,totcopies,ind;
-  int **newtopo,*newmaterial,*newelementtypes,maxnodes;
-  int maxmaterial,maxtype,ncopy,bndr,nosides;
-  Real *newx,*newy,*newz;
+  int i,j,m;
+  int noelements,noknots,nonodes,totcopies,ind,maxnodes;
+  int **newtopo=NULL,*newmaterial=NULL,*newelementtypes=NULL;
+  int maxtype,bndr,nosides;
+  Real *newx=NULL,*newy=NULL,*newz=NULL;
   Real maxcoord[3],mincoord[3];
-  int ind0,elem0,symm,axis1,axis2,axis3,symmcount;
+  int ind0,elem0,axis1,axis2,axis3,symmcount;
 
-  int *vparent,*vparent2,*vside,*vside2,*vtypes,*vmaterial,*vnormal,*vdiscont;
-  Real *vareas; 
+  int *vparent=NULL,*vparent2=NULL,*vside=NULL,*vside2=NULL;
+  int *vtypes=NULL,*vmaterial=NULL,*vnormal=NULL,*vdiscont=NULL;
+  Real *vareas=NULL; 
   
   printf("MirrorMeshes: making a symmetric mapping of the mesh\n");
 
@@ -3702,10 +3709,10 @@ static void ReorderAutomatic(struct FemType *data,int iterations,
 			     int *origindx,Real corder[],int info)
 {
   int i,j,k,l,nonodes,maxnodes,noelements,noknots,minwidth,indexwidth;
-  int **neighbours,*newrank,*newindx,*oldrank,*oldindx;
-  int nocands,*cands,ind,ind2,cantdo;
-  int elemtype,indready,iter,*localorder,*localtmp,nolocal;
-  Real *localdist,x,y,z,dx,dy,dz,sum;
+  int **neighbours=NULL,*newrank=NULL,*newindx=NULL,*oldrank=NULL,*oldindx=NULL;
+  int nocands,*cands=NULL,ind,ind2,cantdo;
+  int elemtype,indready,iter,*localorder=NULL,*localtmp=NULL,nolocal;
+  Real *localdist=NULL,dx,dy,dz;
 
   iterations = 3;
   iter = 0;
@@ -3756,6 +3763,7 @@ static void ReorderAutomatic(struct FemType *data,int iterations,
   for(j=1;j<=noelements;j++) {
     elemtype = data->elementtypes[j];
     nonodes = elemtype%100;
+    nocands = 0;
 
     for(i=0;i<nonodes;i++) {
       ind = data->topology[j][i];
@@ -3882,8 +3890,6 @@ static void ReorderAutomatic(struct FemType *data,int iterations,
     }
   }
 
-thened:
-
   free_Ivector(cands,1,maxnodes);
   free_Ivector(localorder,1,maxnodes);
   free_Ivector(localtmp,1,maxnodes);
@@ -3902,12 +3908,12 @@ thened:
 void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 		     int manual,Real corder[],int info)
 {
-  int i,j,k,l,side,automatic;
+  int i,j,k;
   int noelements,noknots,nonodes,length;
-  int **newtopology,*newmaterial,*newelementtypes;
-  int *indx,*revindx,*elemindx,*revelemindx;
+  int **newtopology=NULL,*newmaterial=NULL,*newelementtypes=NULL;
+  int *indx=NULL,*revindx=NULL,*elemindx=NULL,*revelemindx=NULL;
   int oldnoknots, oldnoelements;
-  Real *newx,*newy,*newz,*arrange;
+  Real *newx=NULL,*newy=NULL,*newz=NULL,*arrange=NULL;
   Real dx,dy,dz,cx,cy,cz,cbase;
   
   noelements = oldnoelements = data->noelements;
@@ -3936,7 +3942,10 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
     Real xmin,xmax,ymin,ymax,zmin,zmax;
     xmin = xmax = data->x[1];
     ymin = ymax = data->y[1];
-    if(data->dim == 3) zmin = zmax = data->z[1];
+    if(data->dim == 3) 
+      zmin = zmax = data->z[1];
+    else
+      zmin = zmax = 0.0;
     for(i=1;i<=data->noknots;i++) {
       if(xmin > data->x[i]) xmin = data->x[i];
       if(xmax < data->x[i]) xmax = data->x[i];
@@ -3967,7 +3976,7 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
     corder[2] = cz;
   }
 
-  if(info) printf("Ordering with (%.3lg*x + %.3lg*y + %.3lg*z)\n",cx,cy,cz);
+  if(info) printf("Ordering with (%.3g*x + %.3g*y + %.3g*z)\n",cx,cy,cz);
   for(i=1;i<=noknots;i++) {
     arrange[i] = cx*data->x[i] + cy*data->y[i];
     if(data->dim == 3) arrange[i] += cz*data->z[i];  
@@ -3997,7 +4006,7 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 
 #if 0
   for(i=1;i<=noknots;i++) 
-    printf("i=%d  indx=%d  revi=%d  f=%.2lg\n",
+    printf("i=%d  indx=%d  revi=%d  f=%.2g\n",
 	   i,indx[i],revindx[i],arrange[indx[i]]);
 #endif  
 
@@ -4073,7 +4082,7 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 
 int RemoveUnusedNodes(struct FemType *data,int info)
 {
-  int i,j,k;
+  int i,j;
   int noelements,noknots,nonodes,activeknots;
   int *indx;
   
@@ -4130,7 +4139,7 @@ int RemoveUnusedNodes(struct FemType *data,int info)
 void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 			   int renumber, int bcoffset, int info)
 {
-  int i,j,k,l,doinit,isordered;
+  int i,j,doinit,isordered;
   int minbc=0,maxbc=0,*mapbc;
   int elemdim=0,elemtype=0,*mapdim,sideind[MAXNODESD1];
 
@@ -4228,7 +4237,7 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 
 void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info)
 {     
-  int i,j,k,l,noelements,doinit;
+  int i,j,noelements,doinit;
   int minmat=0,maxmat=0,*mapmat;
   
   if(0) printf("Setting new material types\n");
@@ -4289,8 +4298,8 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
 
 int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info)
 {
-  int i,j,k,l,noelements;
-  int elemtype,maxelemtype,maxelemdim,elemdim;
+  int i,j,noelements;
+  int maxelemtype,maxelemdim,elemdim;
   int parent, side, sideind[MAXNODESD1],sideelemtype;
   int nosides, oldnosides,newnosides;
     
@@ -4346,7 +4355,7 @@ int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *b
   
 int RemoveInternalBoundaries(struct FemType *data,struct BoundaryType *bound,int info)
 {
-  int i,j,k,l;
+  int i,j;
   int parent,parent2;
   int nosides,oldnosides,newnosides;
     
@@ -4386,19 +4395,22 @@ int RemoveInternalBoundaries(struct FemType *data,struct BoundaryType *bound,int
 }  
 
 
+#if 0
 static void FindEdges(struct FemType *data,struct BoundaryType *bound,
 		      int material,int sidetype,int info)
 {
-  int i,j,k,l,side,identical,element;
-  int noelements,noknots,nonodes,nomaterials,nosides,newbound;
+  int i,j,side,identical,noelements,element;
+  int noknots,nomaterials,nosides,newbound;
   int maxelementtype,maxedgenodes,elemedges,maxelemedges,edge,dosides;
   int **edgetable,sideind[MAXNODESD1],sideelemtype,allocated;
-  int *indx,*revindx;
+  int *indx;
   Real *arrange;
   
  
+  newbound = 0;
   nomaterials = 0;
   maxelementtype = 0;
+  noelements = data->noelements;
 
   printf("FindEdges: Finding edges of bulk elements of type %d\n",material);
   maxelementtype = GetMaxElementType(data);
@@ -4419,7 +4431,7 @@ static void FindEdges(struct FemType *data,struct BoundaryType *bound,
       edgetable[i][j] = 0;
   
   edge = 0;
-  for(element=1;element<=data->noelements;element++) {
+  for(element=1;element<=noelements;element++) {
     if(data->material[element] != material) continue;
     
     elemedges = data->elementtypes[element]/100;
@@ -4455,18 +4467,6 @@ static void FindEdges(struct FemType *data,struct BoundaryType *bound,
   indx = Ivector(1,noknots);
 
   SortIndex(noknots,arrange,indx);
-
-#if 0
-  printf("noknots = %d\n",noknots);
-  for(i=1;i<=noknots;i++) 
-    printf("indx[%d]=%d  edge=%d  arrange[%d] = %lg  arrange[indx[%d]] = %lg\n",
-	   i,indx[i],edgetable[i][0],i,arrange[i],i,arrange[indx[i]]);
-#endif
-#if 0
-  revindx = Ivector(1,data->noknots);
-  for(i=1;i<=noknots;i++) 
-    revindx[indx[i]] = i;
-#endif
 
   allocated = FALSE;
 
@@ -4511,11 +4511,10 @@ omstart:
     goto omstart;
   }
 
-
   free_Ivector(indx,1,noknots);
   free_Imatrix(edgetable,1,maxelemedges*nomaterials,0,maxedgenodes+1);
 }
-
+#endif
 
 static int CompareIndexes(int elemtype,int *ind1,int *ind2)
 {
@@ -4536,11 +4535,12 @@ static int CompareIndexes(int elemtype,int *ind1,int *ind2)
 int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 		      int *boundnodes,int suggesttype,int dimred,int info)
 {
-  int i,j,k,l,side,identical,element,lowerdim,dim,minedge,maxedge;
-  int noelements,noknots,nonodes,nosides,newbound,elemedges;
+  int i,j,side,identical,element,lowerdim,dim,minedge,maxedge;
+  int noelements,noknots,nonodes,nosides,newbound;
   int sideind[MAXNODESD1],sideind0[MAXNODESD1],sideelemtype,sideelemtype0,allocated;
   int noboundnodes,sameside,newtype,elemtype;
 
+  newtype = 0;
   allocated = FALSE;
   dim = data->dim;
   if(dimred) 
@@ -4548,8 +4548,14 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
   else 
     lowerdim = dim-1;
 
+  noknots = data->noknots;
+  noelements = data->noelements;
   noboundnodes = 0;
-  for(i=1;i<=data->noknots;i++) 
+  newbound = 0;
+  maxedge = 0;
+  minedge = 0;
+
+  for(i=1;i<=noknots;i++) 
     if(boundnodes[i]) noboundnodes++;
   if(!noboundnodes) {
     printf("FindNewBoundaries: no nonzero entries in boundnodes vector!\n");
@@ -4562,7 +4568,7 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
  omstart:
 
   nosides = 0;
-  for(element=1;element<=data->noelements;element++) {
+  for(element=1;element<=noelements;element++) {
     
     elemtype = data->elementtypes[element];
     if(dim == 1) {
@@ -4699,9 +4705,9 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
 		     int *boundnodes,int *noboundnodes,int info)
 {
   int i,j,k;
-  int hits,nonodes,maxnodes,minnodes,material,elemtype;
-  Real ds,xmin,xmax,ymin,ymax,zmin,zmax,eps;
-  int *visited,elemind[MAXNODESD2],elemdim,*ind;
+  int nonodes,maxnodes,minnodes,material;
+  Real ds,xmin=0.0,xmax=0.0,ymin=0.0,ymax=0.0,zmin=0.0,zmax=0.0,eps;
+  int *visited,elemdim,*ind;
   Real *anglesum,dx1,dx2,dy1,dy2,dz1,dz2,ds1,ds2,dotprod;
   
   eps = 1.0e-4;
@@ -4778,7 +4784,7 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
     for(i=1;i<=data->noknots;i++) {    
       anglesum[i] /= 2.0 * FM_PI;
       if(anglesum[i] > 0.99) visited[i] = 0;
-      if(anglesum[i] > 1.01) printf("FindBulkBoundary: surpricingly large angle %.3le in node %d\n",anglesum[i],i);
+      if(anglesum[i] > 1.01) printf("FindBulkBoundary: surpricingly large angle %.3e in node %d\n",anglesum[i],i);
       if(visited[i]) j++;
     }
     if(0) printf("There are %d boundary node candidates\n",j);
@@ -4843,9 +4849,9 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
     for(i=1;i<=data->noknots;i++) 
       if(visited[i]) {
 	if(j) {
-	  xmax = xmin = data->x[k];
-	  if(data->dim >= 2) ymax = ymin = data->y[k];
-	  if(data->dim >= 3) zmax = zmin = data->z[k];
+	  xmax = xmin = data->x[i];
+	  if(data->dim >= 2) ymax = ymin = data->y[i];
+	  if(data->dim >= 3) zmax = zmin = data->z[i];
 	  j = FALSE;
 	}
 	else {
@@ -4914,8 +4920,9 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 {
   int i,j,k,l;
   int hits,nonodes,nocorners,maxnodes,minnodes,elemtype,material,bounddim;
-  Real ds,xmin,xmax,ymin,ymax,zmin,zmax,eps,dx1,dx2,dy1,dy2,dz1,dz2,ds1,ds2,dotprod;
-  Real *anglesum;
+  Real ds,xmin=0.0,xmax=0.0,ymin=0.0,ymax=0.0,zmin=0.0,zmax=0.0;
+  Real eps,dx1,dx2,dy1,dy2,dz1,dz2,ds1,ds2,dotprod;
+  Real *anglesum=NULL;
   int *visited,sideind[MAXNODESD2],elemind[MAXNODESD2];
   
   eps = 1.0e-4;
@@ -5001,7 +5008,7 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
     for(i=1;i<=data->noknots;i++) {
       anglesum[i] /= 2.0 * FM_PI;
       if(anglesum[i] > 0.99) visited[i] = 0;
-      if(anglesum[i] > 1.01) printf("FindBulkBoundary: surpricingly large angle %.3le in node %d\n",anglesum[i],i);
+      if(anglesum[i] > 1.01) printf("FindBulkBoundary: surpricingly large angle %.3e in node %d\n",anglesum[i],i);
     }
     free_Rvector(anglesum,1,data->noknots);
 
@@ -5134,8 +5141,7 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
     printf("FindBoundaryBoundary: unknown option %d for finding a side\n",mat2);
     return(2);
   }
-  
-  
+    
   *noboundnodes = 0;
   for(i=1;i<=data->noknots;i++)
     if(boundnodes[i]) *noboundnodes += 1;
@@ -5151,11 +5157,11 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 
 int IncreaseElementOrder(struct FemType *data,int info)
 {
-  int i,j,k,l,side,element,maxcon,totcon,con,newknots,ind,ind2;
+  int i,j,side,element,maxcon,con,newknots,ind,ind2;
   int noelements,noknots,nonodes,maxnodes,maxelemtype,hit,node;
-  int edge,elemtype;
-  int **newnodetable,inds[2],**newtopo;
-  Real *newx,*newy,*newz;
+  int elemtype;
+  int **newnodetable=NULL,inds[2],**newtopo=NULL;
+  Real *newx=NULL,*newy=NULL,*newz=NULL;
   
   if(info) printf("Trying to increase the element order of current elements\n");
 
@@ -5164,6 +5170,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
   noknots = data->noknots;
   noelements = data->noelements;
   maxcon = data->nodalmaxconnections;
+  maxnodes = 0;
 
   newnodetable = Imatrix(0,maxcon-1,1,noknots);
   for(i=1;i<=noknots;i++) 
@@ -5291,19 +5298,21 @@ int IncreaseElementOrder(struct FemType *data,int info)
 
 int IncreaseElementOrderOld(struct FemType *data,int info)
 {
-  int i,j,k,l,side,element,noedges,elemtype,newnode;
-  int noelements,noknots,nonodes,nosides,newbound,maxnodes;
+  int i,j,side,element,noedges,elemtype,newnode;
+  int noelements,noknots,nosides,maxnodes;
   int maxelementtype,maxedgenodes,elemedges,maxelemedges,edge,dosides;
-  int **edgetable,sideind[MAXNODESD1],sideelemtype,allocated;
-  int *indx,*revindx,*identical,**newtopo;
-  Real *arrange,*newx,*newy,*newz;
+  int **edgetable=NULL,sideind[MAXNODESD1],sideelemtype,allocated;
+  int *indx=NULL,*identical=NULL,**newtopo=NULL;
+  Real *arrange=NULL,*newx=NULL,*newy=NULL,*newz=NULL;
   
   if(info) printf("Trying to increase the element order of current elements\n");
  
   maxelementtype = 0;
+  maxnodes = 0;
+  noedges = 0;
+
   noelements = data->noelements;
   noknots = data->noknots;
-
 
   maxelementtype = GetMaxElementType(data);
 
@@ -5372,7 +5381,7 @@ int IncreaseElementOrderOld(struct FemType *data,int info)
 #if 0
   printf("noknots = %d\n",noknots);
   for(i=1;i<=noknots;i++) 
-    printf("indx[%d]=%d  edge=%d  arrange[%d] = %lg  arrange[indx[%d]] = %lg\n",
+    printf("indx[%d]=%d  edge=%d  arrange[%d] = %g  arrange[indx[%d]] = %g\n",
 	   i,indx[i],edgetable[i][0],i,arrange[i],i,arrange[indx[i]]);
 #endif
 #if 0
@@ -5487,17 +5496,17 @@ int IncreaseElementOrderOld(struct FemType *data,int info)
 static void CylindricalCoordinateTransformation(struct FemType *data,Real r1,Real r2,
 						int rectangle)
 {
-  int i,j,k,i2,j2,ind1,ind2,nonodes1,nonodes2;
+  int i,j,j2,ind1,ind2,nonodes1;
   Real x,y,r,f,z,q,x2,y2,z2,dx,dy,dz,eps,mult;
   int hits,trials,tests;
-  int candidates,*candidatelist,*indx;
+  int candidates,*candidatelist=NULL,*indx=NULL;
 
   if(rectangle) {
-    printf("Rectangular geometry with r1=%.4lg for %d nodes.\n",
+    printf("Rectangular geometry with r1=%.4g for %d nodes.\n",
 	   r1,data->noknots);
   }
   else {
-    printf("Cylindrical geometry with r1=%.4lg r2=%.4lg for %d nodes.\n",
+    printf("Cylindrical geometry with r1=%.4g r2=%.4g for %d nodes.\n",
 	 r1,r2,data->noknots);
   }
   
@@ -5642,7 +5651,7 @@ static void CylindricalCoordinateImprove(struct FemType *data,Real factor,
   int i;
   Real x,y,r,q,q2,c,cmin,cmax,eps;
 
-  printf("Cylindrical coordinate for r1=%.4lg and r2=%.4lg.\n",r1,r2);
+  printf("Cylindrical coordinate for r1=%.4g and r2=%.4g.\n",r1,r2);
 
   eps = 1.0e-10;
  
@@ -5656,7 +5665,7 @@ static void CylindricalCoordinateImprove(struct FemType *data,Real factor,
 
   if(fabs(c-1.0) < eps) return;
 
-  printf("Improving cylindrical mesh quality r1=%.4lg, r2=%.4lg and c=%.4lg\n",r1,r2,c);
+  printf("Improving cylindrical mesh quality r1=%.4g, r2=%.4g and c=%.4g\n",r1,r2,c);
 
   for(i=1;i<=data->noknots;i++) {
     x = data->x[i];
@@ -5701,9 +5710,9 @@ void CylindricalCoordinateCurve(struct FemType *data,
 {
   int i;
   Real x,y,z;
-  Real z0,z1,f,f0,f1,x0,x1,z2,x2,r0;
+  Real z0,z1,f,f0,z2,x2,r0;
   
-  printf("Cylindrical coordinate curve, zet=%.3lg  rad=%.3lg  angle=%.3lg\n",
+  printf("Cylindrical coordinate curve, zet=%.3g  rad=%.3g  angle=%.3g\n",
 	 zet,rad,angle);
   
   r0 = rad;
@@ -5752,7 +5761,6 @@ void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound
 {
   int i,j,k,l,type,maxtype,addtype,elemsides,totsides,used,hit;
   int sideelemtype,sideind[MAXBOUNDARIES];
-  int axissum,axismax,done;
   Real x,y,z,sx,sy,sz,sxx,syy,szz,dx,dy,dz;
   Real bclim[MAXBOUNDARIES];
   int bc[MAXBOUNDARIES],bcdim[MAXBOUNDARIES];
@@ -5891,13 +5899,15 @@ void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound
 
 void SeparateMainaxisBoundaries(struct FemType *data,struct BoundaryType *bound)
 {
-  int i,j,k,l,type,maxtype,addtype,elemsides;
+  int i,j,k,l,maxtype,addtype,elemsides;
   int sideelemtype,sideind[MAXNODESD1];
   int axistype[4],axishit[4],axissum,axismax,done;
   Real x,y,z,sx,sy,sz,sxx,syy,szz,dx,dy,dz;
   Real eps=1.0e-6;
 
   maxtype = 0;
+  addtype = 0;
+
   for(j=0;j<data->noboundaries;j++) {
 
     if(!bound[j].created) continue;
@@ -6002,7 +6012,6 @@ void SeparateMainaxisBoundaries(struct FemType *data,struct BoundaryType *bound)
     if(!done) {
       axissum = 0;
       axismax = 0;
-      addtype = 0;
       
       for(k=0;k<4;k++) {
 	axissum += axishit[k];
@@ -6050,11 +6059,12 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   int i,j,k,l,m,n,knot0,knot1,knot2,elem0,size,kmax,noknots,origtype;
   int nonodes3d,nonodes2d,bclevel,bcset;
   int cellk,element,level,side,parent,parent2,layers,elemtype,material_too_large;
-  int material,material2,ind0,ind1,ind2,*indx,*topo;
+  int material,material2,ind1,ind2;
+  int *indx=NULL,*topo=NULL;
   int sideelemtype,sideind[MAXNODESD1],sidetype,minsidetype,maxsidetype,cummaxsidetype,newbounds;
   int refmaterial1[MAXNEWBC],refmaterial2[MAXNEWBC],refsidetype[MAXNEWBC],indxlength;
-  Real z,*newx,*newy,*newz,corder[3];
-  Real meanx,meany,absx,absy;
+  Real z,*newx=NULL,*newy=NULL,*newz=NULL,corder[3];
+  Real meanx,meany;
   int layerbcoffset;
 
   if(grid->rotate)
@@ -6158,7 +6168,10 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 
   knot0 = 0;
   knot1 = layers*dataxy->noknots;
-  if(layers == 2) knot2 = dataxy->noknots; 
+  if(layers == 2) 
+    knot2 = dataxy->noknots; 
+  else 
+    knot2 = 0;
   elem0 = 0;
   level = 0;
   material_too_large = 0;
@@ -6610,6 +6623,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 
 	meanrad = 0.0;
 	maxrad = 0.0;
+	maxradi = 0;
 
 	for(i=0;i<4;i++) {
 	  xc = data->x[sideind[i]];
@@ -6775,7 +6789,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       data->x[i] = cos(fii)*x - sin(fii)*y;
       data->y[i] = sin(fii)*x + cos(fii)*y;
     }
-    if(info) printf("Applied helicity of %12.5le degrees\n",grid->zhelicity);
+    if(info) printf("Applied helicity of %12.5e degrees\n",grid->zhelicity);
   }
 
 }
@@ -6785,8 +6799,9 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 void ReduceElementOrder(struct FemType *data,int matmin,int matmax)
 /* Reduces the element order at material interval [matmin,matmax] */
 {
-  int i,j,element,material,elemcode1,elemcode2,maxnode,*indx,reduced;
-  Real *newx,*newy,*newz;
+  int i,j,element,material,elemcode1,elemcode2,maxnode,reduced;
+  int *indx=NULL;
+  Real *newx=NULL,*newy=NULL,*newz=NULL;
 
   indx = Ivector(0,data->noknots);
   for(i=0;i<=data->noknots;i++)
@@ -6856,8 +6871,8 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 {
   int i,j,k,l;
   int noelements,noknots,newnoknots,nonodes;
-  int *mergeindx,*doubles;
-  Real *newx,*newy,*newz;
+  int *mergeindx=NULL,*doubles=NULL;
+  Real *newx=NULL,*newy=NULL,*newz=NULL;
   Real cx,cy,cz,dx,dy,dz,cdist,dist;
   
   ReorderElements(data,bound,manual,corder,TRUE);
@@ -6887,7 +6902,7 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=noknots;i++)
     doubles[i] = 0;
 
-  if(info) printf("Merging nodes close (%.3lg) to one another.\n",eps);
+  if(info) printf("Merging nodes close (%.3g) to one another.\n",eps);
 
   dz = 0.0;
   for(i=1;i<noknots;i++) {
@@ -6975,7 +6990,7 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *doubles,int info)
 {
   int i,i2,j,k,l,totsides,newsides,sidenodes,sideelemtype,side;
-  int parent,parent2,newind,sideind[MAXNODESD1];
+  int parent,sideind[MAXNODESD1];
 
   totsides = 0;
   newsides = 0;
@@ -7028,11 +7043,11 @@ void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *double
 void IsoparametricElements(struct FemType *data,struct BoundaryType *bound,
 			   int bcstoo,int info)
 {
-  int i,j,k,l;
-  int noelements,noknots,newnoknots,nonodes;
+  int i,j,k;
+  int noelements,noknots;
   int element,side,sideelemtype,sidenodes,elemtype;
-  int *bcindx,*topo,sideind[MAXNODESD1];
-  Real *x,*y,*z;
+  int *bcindx=NULL,*topo=NULL,sideind[MAXNODESD1];
+  Real *x=NULL,*y=NULL,*z=NULL;
   
   noelements  = data->noelements;
   noknots = data->noknots;
@@ -7129,13 +7144,13 @@ void IsoparametricElements(struct FemType *data,struct BoundaryType *bound,
 void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int retainorphans,int info)
 {
-  int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,parent,sideelem,sameelem;
+  int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,sideelem,sameelem;
   int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same,minelemtype;
   int sidenodes,sidenodes2,maxelemtype,elemtype,elemdim,sideelements,material;
-  int *moveelement,*parentorder,*possible,**invtopo;
+  int *moveelement=NULL,*parentorder=NULL,*possible=NULL,**invtopo=NULL;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
   int debug,unmoved,removed,elemhits;
-  int notfound,*notfounds;
+  int notfound,*notfounds=NULL;
 
 
   if(info) printf("Moving bulk elements to boundary elements\n");
@@ -7444,12 +7459,12 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 {
-  int i,j,k,l,i2,j2,dim,jmin;
-  int noelements,noknots,hit,tothits;
-  int *topbot,*indxper;
-  int botn,topn,*indbot,*revindtop,*revindbot;
-  Real eps,dist,dx,dy,dz,coordmax,coordmin,ds;
-  Real *coord,*toparr,*botarr,epsmin;
+  int i,j,i2,j2,dim;
+  int noknots,hit,tothits;
+  int *topbot=NULL,*indxper=NULL;
+  int botn,topn,*revindtop=NULL,*revindbot=NULL;
+  Real eps,dist,dx,dy,dz,coordmax,coordmin;
+  Real *coord=NULL,*toparr=NULL,*botarr=NULL,epsmin;
 
 
   if(data->dim < 3) periodicdim[2] = 0;
@@ -7475,11 +7490,11 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
   for(dim=1;dim<=3;dim++) {
     if(!periodicdim[dim-1]) continue;
 
-    if(info) printf("Finding periodic nodes in dim=%d\n",dim);
+    if(info) printf("Finding periodic nodes in direction %d\n",dim);
     
     if(dim==1) coord = data->x;
     else if(dim==2) coord = data->y;
-    else if(dim==3) coord = data->z;
+    else coord = data->z;
     
     coordmax = coordmin = coord[1];
     
@@ -7488,7 +7503,7 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
       if(coordmin > coord[i]) coordmin = coord[i];
     }
 
-    if(info) printf("Coordinate in dimension %d is at the interval [%.3lg, %.3lg]\n",
+    if(info) printf("Coordinate in dimension %d is at the interval [%.3g, %.3g]\n",
 		    dim,coordmin,coordmax);
 
     if(coordmax-coordmin < 1.0e-10) continue;
@@ -7542,8 +7557,10 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	hit = FALSE;
 	for(i2=1;i2<=topn;i2++) {
 	  j2 = revindtop[i2];
-	  if(dim == 1) dist = fabs(data->y[j] - data->y[j2]);
-	  else if(dim == 2) dist = fabs(data->x[j] - data->x[j2]);
+	  if(dim == 1) 
+	    dist = fabs(data->y[j] - data->y[j2]);
+	  else 
+	    dist = fabs(data->x[j] - data->x[j2]);
 	  if(dist < eps) {
 	    hit = TRUE;
 	    goto hit2d;
@@ -7562,7 +7579,7 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	  }
 	}
 	else {
-	  printf("Couldn't find a periodic counterpart for node %d at [%.3lg %.3lg]]\n",
+	  printf("Couldn't find a periodic counterpart for node %d at [%.3g %.3g]]\n",
 		 j,data->x[j],data->y[j]);
 	}
       }
@@ -7584,7 +7601,7 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	    dx = data->x[j] - data->x[j2];
 	    dz = data->z[j] - data->z[j2];
 	  }
-	  else if(dim == 3) {
+	  else {
 	    dx = data->x[j] - data->x[j2];
 	    dy = data->y[j] - data->y[j2];
 	  }
@@ -7613,7 +7630,6 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 
   if(info) printf("Found all in all %d periodic nodes.\n",tothits);
 
- dealloc:
   free_Ivector(topbot,1,noknots);
 
   return(0);
@@ -7624,14 +7640,15 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 
 int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info)
 {
-  int i,i2,j,k,k2,l,l2,totsides,newsides,sidenodes,sideelemtype,side;
+  int i,j,k,k2,l,l2,totsides,newsides,sidenodes,sideelemtype,side;
   int noknots,maxhits,nodes,hits,hits2,targets,mappings,targetnode;
-  int parent,parent2,newind,sideind[MAXNODESD1],sideind2[MAXNODESD1];
-  int **periodicparents, *periodichits,*periodictarget,*indexper;
+  int parent,parent2,sideind[MAXNODESD1],sideind2[MAXNODESD1];
+  int **periodicparents=NULL, *periodichits=NULL,*periodictarget=NULL,*indexper=NULL;
   
   totsides = 0;
   newsides = 0;
   targets = 0;
+  parent2 = 0;
   
   if(info) printf("Finding secondary periodic parents for boundary elements\n");
   
@@ -7807,26 +7824,27 @@ int CreateBoundaryLayer(struct FemType *data,struct BoundaryType *bound,
   int oldnoknots,oldnoelements,maxelemtype,oldmaxnodes;
   int nonewnodes,nonewelements,dolayer,dim,order,midpoints;
   int checkmaterials,parent,parent2,use2,second;
-  Real dx,dy,dz,ds,ratio,q,p,rectfactor;
-  Real *newx,*newy,*newz,corder[3],*oldx,*oldy,*oldz,*elemwidth;
+  Real dx,dy,ds,ratio,q,p,rectfactor;
+  Real *newx=NULL,*newy=NULL,*newz=NULL,*oldx=NULL,*oldy=NULL,*elemwidth=NULL;
   Real e1x,e1y,e2x,e2y;
-  int sideelemtype,sideind[MAXNODESD1],ind[MAXNODESD2],sidebc[MAXNODESD1];
-  int *layernode,*newelementtypes,**newtopo,**oldtopo;
-  int *topomap,*newmaterial,*herit,*inside,*nonlin;
-  int endbcs, *endparents, *endtypes, *endnodes, *endnodes2, *endneighbours;
+  int sideelemtype,ind[MAXNODESD2],sidebc[MAXNODESD1];
+  int *layernode=NULL,*newelementtypes=NULL,**newtopo=NULL,**oldtopo=NULL;
+  int *topomap=NULL,*newmaterial=NULL,*herit=NULL,*inside=NULL,*nonlin=NULL;
+  int endbcs, *endparents=NULL, *endtypes=NULL, *endnodes=NULL, *endnodes2=NULL, *endneighbours=NULL;
 
-  printf("maxfilters=%d layereps=%.3le\n",maxfilters,layereps);
+  printf("maxfilters=%d layereps=%.3e\n",maxfilters,layereps);
 
   if(!maxfilters) maxfilters = 1000;
   if(layereps < 1.0e-20) layereps = 1.0e-3;
   rectfactor = 1.0e2;
-
+  midpoints = FALSE;
+  order = 1;
   dim = data->dim;
   
   maxelemtype = GetMaxElementType(data);
   if(maxelemtype > 409) {
-    printf("Subroutine implemented only up to 2nd degree!\n");
-    return(2);
+    printf("Subroutine implemented only up to 2nd degree in 2D!\n");
+    bigerror("Cannot continue");
   }
 
   if(info) printf("Largest elementtype is %d\n",maxelemtype);
@@ -8418,10 +8436,10 @@ omstart:
 
 
   if(maxfilters) {
-    int hit,method,iter;
-    int ind1,ind2,ind3,*fixedx,*fixedy;
-    Real *aidx,*aidy,*weights;
-    Real maxerror,minds,dx2,dy2,ds2,fii;
+    int method,iter;
+    int ind1,ind2,ind3,*fixedx=NULL,*fixedy=NULL;
+    Real *aidx=NULL,*aidy=NULL,*weights=NULL;
+    Real maxerror=0.0,minds,dx2,dy2,ds2,fii;
     
     /* There are three methods how to put the weight in the filter,
        1) 1/s, 2) fii/s, 3) sin(fii)/s, the second option seems to be best. */
@@ -8634,8 +8652,8 @@ omstart:
 	  
 	  if(j <= oldnoelements && ds * ds2 < 1.0e-50) {
 	    printf("problem elem %d and nodes %d (%d %d)\n",j,i2,i,i3);
-	    printf("dist ds=%.3le ds2=%.3le\n",ds,ds2);
-	    printf("coord: %.3le %.3le\n",oldx[oldtopo[j][i2]], oldy[oldtopo[j][i2]]);
+	    printf("dist ds=%.3e ds2=%.3e\n",ds,ds2);
+	    printf("coord: %.3e %.3e\n",oldx[oldtopo[j][i2]], oldy[oldtopo[j][i2]]);
 	    continue;
 	  }
 	  
@@ -8725,7 +8743,7 @@ omstart:
     }
 
     if(info) {
-      printf("Filtered the new node coordinates %d times with final error %.3le.\n",
+      printf("Filtered the new node coordinates %d times with final error %.3e.\n",
 	     iter-1,maxerror);
     }
     
@@ -8859,12 +8877,13 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 {
   int i,j,k,l,dim,maxbc,maxelemtype,dolayer,parent,nlayer,sideelemtype,elemind,side;
   int noelements,noknots,oldnoknots,oldnoelements,oldmaxnodes,nonewnodes,nonewelements;
-  int maxcon,elemsides,elemdone,midpoints,order,bcnodes,elemhits,elemtype,second,goforit;
+  int maxcon,elemsides,elemdone,midpoints,order,bcnodes,elemhits,elemtype,goforit;
   int ind[MAXNODESD2],baseind[2],topnode[2],basenode[2];
-  int *layernode,*newelementtypes,**newtopo,**oldtopo,*newmaterial,**edgepairs,*sharednode;
-  Real dx[2],dy[2],dz[2],x0[2],y0[2],z0[2];
-  Real *newx,*newy,*newz,*oldx,*oldy,*oldz;
-  Real slayer,qlayer,ratio,qratio,q;
+  int *layernode=NULL,*newelementtypes=NULL,**newtopo=NULL,**oldtopo=NULL;
+  int *newmaterial=NULL,**edgepairs=NULL,*sharednode=NULL;
+  Real dx[2],dy[2],x0[2],y0[2];
+  Real *newx=NULL,*newy=NULL,*newz=NULL,*oldx=NULL,*oldy=NULL,*oldz=NULL;
+  Real slayer,qlayer,ratio,q;
 
 
   dim = data->dim;
@@ -8895,6 +8914,9 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
      the numbder of nodes at the surface. */
 
   maxbc = 0;
+  qlayer = 0.0;
+  slayer = 0.0;
+  nlayer = 0;
 
   /* Go through the layers and check which ones are active */
   for(j=0;j<MAXBOUNDARIES;j++) {
@@ -9318,12 +9340,12 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 
 int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
 {
-  int i,j,k;
+  int i;
   Real x,y,z,xz,yz,yx,zx,zy,xy,cx,cy,cz;
   Real xmin, xmax, ymin, ymax, zmin, zmax;
 
   if(eg->scale) {
-    if(info) printf("Scaling mesh with vector [%.3lg %.3lg %.3lg]\n",
+    if(info) printf("Scaling mesh with vector [%.3g %.3g %.3g]\n",
 	   eg->cscale[0],eg->cscale[1],eg->cscale[2]);
     for(i=1;i<=data->noknots;i++) {
       data->x[i] *= eg->cscale[0]; 
@@ -9334,7 +9356,7 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
   }
   
   if(eg->rotate) {
-    if(info) printf("Rotating mesh with degrees [%.3lg %.3lg %.3lg]\n",
+    if(info) printf("Rotating mesh with degrees [%.3g %.3g %.3g]\n",
 		    eg->crotate[0],eg->crotate[1],eg->crotate[2]);
     cx = FM_PI * eg->crotate[0]/180.0;
     cy = FM_PI * eg->crotate[1]/180.0;
@@ -9371,7 +9393,7 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
   }
 
   if(eg->translate) {
-    if(info) printf("Translating the mesh with vector [%.3lg %.3lg %.3lg]\n",
+    if(info) printf("Translating the mesh with vector [%.3g %.3g %.3g]\n",
 		    eg->ctranslate[0],eg->ctranslate[1],eg->ctranslate[2]);
     for(i=1;i<=data->noknots;i++) {
       data->x[i] += eg->ctranslate[0];
@@ -9384,7 +9406,10 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
   if(eg->center) {
     xmin = xmax = data->x[1];
     ymin = ymax = data->y[1];
-    if(data->dim == 3) zmin = zmax = data->z[1];
+    if(data->dim == 3) 
+      zmin = zmax = data->z[1];
+    else
+      zmin = zmax = 0.0;
 
     for(i=1;i<=data->noknots;i++) {
       xmax = MAX( xmax, data->x[i] );
@@ -9398,9 +9423,12 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
     }
     cx = 0.5 * (xmin + xmax);
     cy = 0.5 * (ymin + ymax);
-    if(data->dim == 3) cz = 0.5 * (zmin + zmax);
-    
-    if(info) printf("Setting new center to %.3le %.3le %.3le\n",cx,cy,cz);
+    if(data->dim == 3) 
+      cz = 0.5 * (zmin + zmax);
+    else
+      cz = 0.0;
+
+    if(info) printf("Setting new center to %.3e %.3e %.3e\n",cx,cy,cz);
 
     for(i=1;i<=data->noknots;i++) {
       data->x[i] -= cx;
@@ -9571,7 +9599,7 @@ int DestroyNodalGraph(struct FemType *data,int info)
 
 int CreateInverseTopology(struct FemType *data,int info)
 {
-  int i,j,k,l,m,totcon,noelements,noknots,elemtype,nonodes,hit,ind,maxcon,percon;
+  int i,j,l,m,noelements,noknots,elemtype,nonodes,ind,maxcon;
   int *neededby,minneeded,maxneeded;
 
   printf("Creating an inverse topology of the finite element mesh\n");  
@@ -9754,12 +9782,15 @@ int CreateDualGraph(struct FemType *data,int unconnected,int info)
   /* Inverse topology is created for partitioning only and then the direct
      topology is needed elsewhere as well. Do do not destroy it. */ 
   if(0) DestroyInverseTopology(data,info);
+
+  return(0);
 }
 
 
 int MeshTypeStatistics(struct FemType *data,int info)
 {
-  int i,elemtype,maxelemtype,minelemtype,*elemtypes;
+  int i,elemtype,maxelemtype,minelemtype;
+  int *elemtypes=NULL;
 
   maxelemtype = minelemtype = data->elementtypes[1];
 

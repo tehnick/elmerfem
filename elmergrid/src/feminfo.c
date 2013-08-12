@@ -907,8 +907,8 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
   char filename[MAXFILESIZE];
   char command[MAXLINESIZE],params[MAXLINESIZE],*cp;
 
-  FILE *in;
-  int i,j,k,l,error=0;
+  FILE *in=NULL;
+  int i,j;
 
   iodebug = FALSE;
 
@@ -956,11 +956,11 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
     if(mode <= 1) {
       if(strstr(command,"INPUT FILE")) {
-	sscanf(params,"%s",&eg->filesin[0]);
+	sscanf(params,"%s",eg->filesin[0]);
       }
 
       else if(strstr(command,"OUTPUT FILE")) {
-	sscanf(params,"%s",&eg->filesout[0]);
+	sscanf(params,"%s",eg->filesout[0]);
       }
 
       else if(strstr(command,"INPUT MODE")) {
@@ -1375,7 +1375,7 @@ int SaveBoundary(struct FemType *data,struct BoundaryType *bound,
    The data is saved in format [x1 x2 y1 y2 v1 v2].
    */
 {
-  int i,j,k,sideelemtype;
+  int i,k,sideelemtype;
   FILE *out;
   char filename[MAXFILESIZE];
   int sideind[MAXNODESD1]; 
@@ -1393,13 +1393,13 @@ int SaveBoundary(struct FemType *data,struct BoundaryType *bound,
 
     GetElementSide(bound->parent[i],bound->side[i],bound->normal[i],data,sideind,&sideelemtype);
 
-    fprintf(out,"%-12.4le %-12.4le %-12.4le %-12.4le ",
+    fprintf(out,"%-12.4e %-12.4e %-12.4e %-12.4e ",
 	    data->x[sideind[0]],data->x[sideind[1]],
 	    data->y[sideind[0]],data->y[sideind[1]]);
     for(k=0;k<MAXVARS;k++) 
       if(bound->evars[k]) {
 	if(bound->points[k] == 1) 
-	  fprintf(out,"%-10.4le ",bound->vars[k][i]);
+	  fprintf(out,"%-10.4e ",bound->vars[k][i]);
       }		
     fprintf(out,"\n");
   }
@@ -1432,33 +1432,33 @@ int SaveBoundariesChain(struct FemType *data,struct BoundaryType *bound,
       length = bound[j].chainsize;
       if(length < 2) continue;
 
-      sprintf(filename,"%s%d%s\0",prefix,j,".side");
+      sprintf(filename,"%s%d%s",prefix,j,".side");
       out = fopen(filename,"w");
 
       for(i=0;i<=length;i++) {
 	ind = bound[j].chain[i];
-	fprintf(out,"%-10.4le %-10.4le %-6d ",
+	fprintf(out,"%-10.4e %-10.4e %-6d ",
 		data->x[ind],data->y[ind],ind);
 	for(k=0;k<MAXVARS;k++) 
 	  if(bound[j].evars[k]) {
 	    if(bound[j].points[k] == 0)
-	      fprintf(out,"%-10.4le ",bound[j].vars[k][i]);
+	      fprintf(out,"%-10.4e ",bound[j].vars[k][i]);
 	    else if(bound[j].points[k] == 1) {
 	      if(i==0)
-		fprintf(out,"%-10.4le ",bound[j].vars[k][1]);		
+		fprintf(out,"%-10.4e ",bound[j].vars[k][1]);		
 	      else if(i==length)
-		fprintf(out,"%-10.4le ",bound[j].vars[k][length]);		
+		fprintf(out,"%-10.4e ",bound[j].vars[k][length]);		
 	      else
-		fprintf(out,"%-10.4le ",
+		fprintf(out,"%-10.4e ",
 			0.5*(bound[j].vars[k][i]+bound[j].vars[k][i+1]));	
 	    }
 	  }
 
 	for(k=0;k<MAXDOFS;k++) {
 	  if(data->edofs[k] == 1) 
-	    fprintf(out,"%-10.4le  ",data->dofs[k][ind]);
+	    fprintf(out,"%-10.4e  ",data->dofs[k][ind]);
 	  if(data->edofs[k] == 2) 
-	    fprintf(out,"%-10.4le  %-10.4le  ",
+	    fprintf(out,"%-10.4e  %-10.4e  ",
 		    data->dofs[k][2*ind-1],data->dofs[k][2*ind]);
 	}
 	
@@ -1466,7 +1466,7 @@ int SaveBoundariesChain(struct FemType *data,struct BoundaryType *bound,
       }
       fclose(out);
 
-      sprintf(filename2,"%s%d%s\0",prefix,j,".sidetxt");
+      sprintf(filename2,"%s%d%s",prefix,j,".sidetxt");
       out = fopen(filename2,"w");
       fprintf(out,"Degrees of freedom in file %s are as follows:\n",filename);
       if(bound->coordsystem == COORD_CART2) {
@@ -1538,7 +1538,7 @@ int SaveBoundaryForm(struct FemType *data,struct CellType *cell,
           more = GetSideInfo(cell,no,side,elemno,elemind);
 	  GetElementSide(elemind[0],side,1,data,sideind,&sideelemtype);
 	  
-	  fprintf(out,"%-12.4le %-12.4le %-12.4le %-12.4le\n",
+	  fprintf(out,"%-12.4e %-12.4e %-12.4e %-12.4e\n",
 		  data->x[sideind[0]],data->x[sideind[1]],
 		  data->y[sideind[0]],data->y[sideind[1]]);
         } while(more);
@@ -1592,21 +1592,21 @@ int SaveBoundaryLine(struct FemType *data,int direction,
       c = data->y[no];
     if(fabs(c-c1) < eps) {
       if(direction > 0) 
-	fprintf(out,"%-12.7le %-12.7le ",c,data->y[no]);
+	fprintf(out,"%-12.7e %-12.7e ",c,data->y[no]);
       else 
-	fprintf(out,"%-12.7le %-12.7le ",data->x[no],c);	
+	fprintf(out,"%-12.7e %-12.7e ",data->x[no],c);	
       for(k=0;k<MAXDOFS;k++) {
 	if(data->edofs[k] == 1) 
-	  fprintf(out,"%-12.7le ",data->dofs[k][no]);
+	  fprintf(out,"%-12.7e ",data->dofs[k][no]);
 	if(data->edofs[k] == 2) 
-	  fprintf(out,"%-12.7le %-12.7le ",
+	  fprintf(out,"%-12.7e %-12.7e ",
 		  data->dofs[k][2*no-1],data->dofs[k][2*no]);
       }	
       fprintf(out,"\n");
       points++;
     }
   }
-  if(info) printf("Line (c=%.3lg) with %d nodes was saved to file %s.\n",
+  if(info) printf("Line (c=%.3g) with %d nodes was saved to file %s.\n",
 		  c1,points,filename);
   
   fclose(out);
@@ -1649,7 +1649,7 @@ int SaveSubcellForm(struct FemType *data,struct CellType *cell,
 	  GetElementSide(elemind[0],side,1,data,sideind,&sidelemtype);
 	  nosidenodes = sidelemtype%100;
 	  for(i=0;i<nosidenodes;i++) 
-	    fprintf(out,"%-12.4le %-12.4le %-8d\n",
+	    fprintf(out,"%-12.4e %-12.4e %-8d\n",
 		    data->x[sideind[i]],data->y[sideind[i]],sideind[i]);
         } while(more);
       }
@@ -1665,7 +1665,7 @@ int SaveSubcellForm(struct FemType *data,struct CellType *cell,
 
 int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
 {
-  int res,sameline,maxsameline;
+  int sameline,maxsameline;
   int i,j,dim;
   FILE *out;
   char filename[MAXFILESIZE];
@@ -1701,20 +1701,20 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
 
   fprintf(out,"Subcell Limits 1 %s",sameline ? "= ":"\n  ");
   for(i=0;i <= grid->xcells;i++) 
-    fprintf(out,"%.5lg ",grid->x[i]); 
+    fprintf(out,"%.5g ",grid->x[i]); 
   fprintf(out,"\n");
     
   if(dim >= 2) {
     fprintf(out,"Subcell Limits 2 %s",sameline ? "= ":"\n  ");
     for(i=0;i <= grid->ycells;i++) 
-      fprintf(out,"%.5lg ",grid->y[i]); 
+      fprintf(out,"%.5g ",grid->y[i]); 
     fprintf(out,"\n");
   }
   
   if(dim >= 3) {
     fprintf(out,"Subcell Limits 3 %s",sameline ? "= ":"\n  ");
     for(i=0;i <= grid->zcells;i++) 
-      fprintf(out,"%.5lg ",grid->z[i]); 
+      fprintf(out,"%.5g ",grid->z[i]); 
     fprintf(out,"\n");
   }  
 
@@ -1731,12 +1731,12 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
     fprintf(out,"Geometry Mappings\n");
     fprintf(out,"# mode  line  limits(2)   Np  params(Np)\n");
     for(i=0;i<grid->mappings;i++) {
-      fprintf(out,"  %-5d %-5d %-7.5lg %-7.5lg %-3d ",
+      fprintf(out,"  %-5d %-5d %-7.5g %-7.5g %-3d ",
 	      grid->mappingtype[i],grid->mappingline[i],
 	      grid->mappinglimits[2*i],grid->mappinglimits[2*i+1],
 	      grid->mappingpoints[i]);
       for(j=0;j<grid->mappingpoints[i];j++) 
-	fprintf(out,"%.4lg ",grid->mappingparams[i][j]);
+	fprintf(out,"%.4g ",grid->mappingparams[i][j]);
       fprintf(out,"\n");
     }
     fprintf(out,"End\n");
@@ -1745,19 +1745,19 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
   j = 0;
   if(grid[j].rotate) {
     fprintf(out,"Revolve Blocks = %d\n",grid[j].rotateblocks);
-    fprintf(out,"Revolve Radius = %-8.3lg\n",grid[j].rotateradius2);
+    fprintf(out,"Revolve Radius = %-8.3g\n",grid[j].rotateradius2);
     if(fabs(grid[j].rotateimprove-1.0) > 1.0e-10)
-      fprintf(out,"Revolve Improve = %-8.3lg\n",grid[j].rotateimprove);
+      fprintf(out,"Revolve Improve = %-8.3g\n",grid[j].rotateimprove);
     
   }
   if(grid[j].rotatecurve) {
-    fprintf(out,"Revolve Curve Direct = %-8.3lg\n",grid[j].curvezet);
-    fprintf(out,"Revolve Curve Radius = %-8.3lg\n",grid[j].curverad);
-    fprintf(out,"Revolve Curve Angle = %-8.3lg\n",grid[j].curveangle);
+    fprintf(out,"Revolve Curve Direct = %-8.3g\n",grid[j].curvezet);
+    fprintf(out,"Revolve Curve Radius = %-8.3g\n",grid[j].curverad);
+    fprintf(out,"Revolve Curve Angle = %-8.3g\n",grid[j].curveangle);
   }
 
   if(grid[j].coordsystem == COORD_POLAR) {
-    fprintf(out,"Polar Radius = %.3lg\n",grid[j].polarradius);
+    fprintf(out,"Polar Radius = %.3g\n",grid[j].polarradius);
   } 
 
   for(j=0;j<nogrids;j++) {
@@ -1803,9 +1803,9 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
       fprintf(out,"Volume Nodes = %d\n",grid[j].wantednodes3d);
 
     if(dim == 2)
-      fprintf(out,"Coordinate Ratios = %-8.3lg\n",grid[j].xyratio);
+      fprintf(out,"Coordinate Ratios = %-8.3g\n",grid[j].xyratio);
     if(dim == 3)
-      fprintf(out,"Coordinate Ratios = %-8.3lg %-8.3lg\n",
+      fprintf(out,"Coordinate Ratios = %-8.3g %-8.3g\n",
 	      grid[j].xyratio,grid[j].xzratio);
  
     fprintf(out,"Minimum Element Divisions = %d",grid[j].minxelems);
@@ -1815,36 +1815,36 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
 
     fprintf(out,"Element Ratios 1 %s",sameline ? "= ":"\n  ");
     for(i=1;i<=grid[j].xcells;i++) 
-      fprintf(out,"%.3lg ",grid[j].xexpand[i]); 
+      fprintf(out,"%.3g ",grid[j].xexpand[i]); 
     fprintf(out,"\n");
     if(dim >= 2) {
       fprintf(out,"Element Ratios 2 %s",sameline ? "= ":"\n  ");
       for(i=1;i<=grid[j].ycells;i++) 
-	fprintf(out,"%.3lg ",grid[j].yexpand[i]); 
+	fprintf(out,"%.3g ",grid[j].yexpand[i]); 
       fprintf(out,"\n");
     }
     if(dim >= 3) {
       fprintf(out,"Element Ratios 3 %s",sameline ? "= ":"\n  ");
       for(i=1;i<=grid[j].zcells;i++) 
-	fprintf(out,"%.3lg ",grid[j].zexpand[i]); 
+	fprintf(out,"%.3g ",grid[j].zexpand[i]); 
       fprintf(out,"\n");
     }
 
     if(grid[j].autoratio) {
       fprintf(out,"Element Densities 1 %s",sameline ? "= ":"\n  ");
       for(i=1;i<=grid[j].xcells;i++) 
-	fprintf(out,"%.3lg ",grid[j].xdens[i]); 
+	fprintf(out,"%.3g ",grid[j].xdens[i]); 
       fprintf(out,"\n");
       if(dim >= 2) {
 	fprintf(out,"Element Densities 2 %s",sameline ? "= ":"\n  ");
 	for(i=1;i<=grid[j].ycells;i++) 
-	  fprintf(out,"%.3lg ",grid[j].ydens[i]); 
+	  fprintf(out,"%.3g ",grid[j].ydens[i]); 
 	fprintf(out,"\n");
       }
       if(dim >= 3) {       
 	fprintf(out,"Element Densities 3 %s",sameline ? "= ":"\n  ");
 	for(i=1;i<=grid[j].zcells;i++) 
-	  fprintf(out,"%.3lg ",grid[j].zdens[i]); 
+	  fprintf(out,"%.3g ",grid[j].zdens[i]); 
 	fprintf(out,"\n");
       }
     }
@@ -1884,7 +1884,6 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
   char filename[MAXFILESIZE];
   FILE *in;
   int i,j,k,l,error=0;
-  struct GridType grid0;
   Real scaling;
   char *cp;
   int mode,noknots,noelements,dim,axisymmetric;
@@ -1920,7 +1919,8 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
   Getline(line,in);
   for(;;) {
     if(Getline(line,in)) goto end;
-    if(!line) goto end;
+    if(line[0]=='\0') goto end;
+
     if(strstr(line,"END")) goto end;
     if(strstr(line,"RESULTS")) goto end;
 
@@ -2052,6 +2052,8 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
     case 31:
     case 32:
 
+      /* I dont know how to set this, luckily this piece of code should be obsolite */
+      l = 1;
       for(i=grid[k]->mappings;i<grid[k]->mappings+l;i++) {
 	Getline(line,in);
 	cp=line; 
@@ -2340,8 +2342,7 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
   char filename[MAXFILESIZE];
   char command[MAXLINESIZE],params[MAXLINESIZE];
   FILE *in;
-  int i,j,k,l,error=0;
-  struct GridType grid0;
+  int i,j,k;
   char *cp;
   int noknots,noelements,dim,axisymmetric;
   int elemcode,maxnodes,totelems,nogrids0,minmat,maxmat;
@@ -2469,12 +2470,16 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
     
     else if(strstr(command,"MINIMUM ELEMENT DIVISION")) {
       printf("Loading minimum number of elements\n");
+
       if((*grid)[k].dimension == 1) 
-	sscanf(params,"%d",&(*grid)[k].minxelems);
-      if((*grid)[k].dimension == 2) 
+	sscanf(params,"%d",&(*grid)[k].minxelems); 
+
+      if((*grid)[k].dimension == 2)  
 	sscanf(params,"%d %d",&(*grid)[k].minxelems,&(*grid)[k].minyelems);
+
       if((*grid)[k].dimension == 3) 
-	sscanf(params,"%d %d %d",&(*grid)[k].minxelems,&(*grid)[k].minyelems,&(*grid)[k].minzelems);
+	sscanf(params,"%d %d %d",&(*grid)[k].minxelems,
+	       &(*grid)[k].minyelems,&(*grid)[k].minzelems);
     }      
     
     else if(strstr(command,"SUBCELL LIMITS 1")) {
@@ -2845,7 +2850,7 @@ end:
   }
 
   fclose(in);
-  return(error);
+  return(0);
 }
 
 
@@ -2866,7 +2871,7 @@ int ShowCorners(struct FemType *data,int variable,Real offset)
   for(i=1;i<=data->nocorners;i++) {
     ind = data->topology[data->corners[2*i-1]][data->corners[2*i]];
     if(data->order[variable][(ind-1)*unknowns+1])
-       printf("\t%-2d: %-7.1lf  at (%.1lf , %.1lf )\n",
+       printf("\t%-2d: %-7.1f  at (%.1f , %.1f )\n",
 	      i,solution[(ind-1)*unknowns+1]-offset,
 	      data->x[ind],data->y[ind]);
   }

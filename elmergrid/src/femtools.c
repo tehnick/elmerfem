@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include "common.h"
 #include "femdef.h"
 #include "femtools.h"
 
@@ -208,9 +209,9 @@ int LocalToGlobalD2(Real *globalcoord,Real *shapeder,
   /* Inverse the jacobian */
   (*det) = jacob11*jacob00 - jacob01*jacob10;
   if((*det) < 0) {
-    printf("nodesd2 = %d\n  gauss=[%.4lg  %.4lg]\n",nodesd2,*xgauss,*ygauss);
+    printf("nodesd2 = %d\n  gauss=[%.4g  %.4g]\n",nodesd2,*xgauss,*ygauss);
     for(i=0;i<2*nodesd2;i++)
-      printf("%.5lg  ",globalcoord[i]);
+      printf("%.5g  ",globalcoord[i]);
     printf("\n");       
     bigerror("Isoparametric transformation is not possible.");
   }
@@ -291,7 +292,7 @@ int GlobalToLocalD2(Real *coord,Real xglobal,Real yglobal,
   int hit;
   int nodesd2;
   Real a0,a1,a2,a3,b0,b1,b2,b3;
-  Real ratio=1.0e-2,small=1.0e-8;
+  Real ratio=1.0e-2;
  
   nodesd2 = 4;
 
@@ -334,7 +335,7 @@ int GlobalToLocalD2(Real *coord,Real xglobal,Real yglobal,
       hit = FALSE;
   }
 
-  if(0) printf("(x,y)=(%.2lg,%.2lg)\n",(*xlocal),(*ylocal));
+  if(0) printf("(x,y)=(%.2g,%.2g)\n",(*xlocal),(*ylocal));
   return(hit);
 }
 
@@ -348,10 +349,9 @@ int GlobalToLocalD2Complicated(Real *coord,Real xglobal,Real yglobal,
    */
 {
   int hit;
-  int i,j,nodesd2;
+  int nodesd2;
   Real a0,a1,a2,a3,b0,b1,b2,b3;
-  Real a,b,c,d,xtest[2],ytest;
-  Real ratio=1.0e-2,small=1.0e-8,tiny=1.0e-20;
+  Real ratio=1.0e-2;
  
   nodesd2 = 4;
 
@@ -412,7 +412,7 @@ int GlobalToLocalD2Complicated(Real *coord,Real xglobal,Real yglobal,
 
   }
 
-  if(hit) printf("(x,y)=(%.2lg,%.2lg)\n",(*xlocal),(*ylocal));
+  if(hit) printf("(x,y)=(%.2g,%.2g)\n",(*xlocal),(*ylocal));
   return(hit);
 }
 

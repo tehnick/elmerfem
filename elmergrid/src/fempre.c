@@ -197,7 +197,7 @@ static void Goodbye()
 
 int main(int argc, char *argv[])
 {
-  int i,j,k,l,inmethod,outmethod,info,errorstat,sides;
+  int i,j,k,l,inmethod,outmethod,info,errorstat;
   int nogrids,nomeshes,nofile,dim,elementsredone=0;
   int nodes3d,elements3d,showmem;
   Real mergeeps;
@@ -207,7 +207,6 @@ int main(int argc, char *argv[])
   struct FemType data[MAXCASES];
   struct BoundaryType *boundaries[MAXCASES];
   struct ElmergridType eg;
-  long ii;
 
   showmem = TRUE;
 
@@ -368,16 +367,8 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].nosides = 0;
     }
    
-    if(LoadComsolMesh(&(data[nofile]),eg.filesin[nofile],info)) {
-      printf("\n***********************************************************************************\n");
-      printf("The reading of Comsol mesh file seems to have failed\n");
-      printf("Trying out a previous version that requires the use of savemesh.m utility in Matlab\n");
-      printf("The recommended way to export meshes from Femlab to Elmer is the .mphtxt format\n"); 
-      printf("***********************************************************************************\n\n");
-
-      if(LoadFemlabMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info)) 
-	Goodbye();
-    }
+    if(LoadComsolMesh(&(data[nofile]),eg.filesin[nofile],info)) 
+      Goodbye();
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],FALSE,TRUE);
     nomeshes++;
     break;
@@ -1006,12 +997,6 @@ int main(int argc, char *argv[])
     EasymeshSave();
     break;
 #endif
-
-  case 18:    
-    for(k=0;k<nomeshes;k++) 
-      SaveFastcapInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,info);
-    break;
-
 
     
     /* Some obsolite special formats related to mapping, view factors etc. */

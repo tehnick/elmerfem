@@ -62,7 +62,7 @@ void timer_activate(const char *prefix)
 
   AddExtension(prefix,timer_filename,"time");
 
-  printf("Activating timer (s): %.2lf\n",time);
+  printf("Activating timer (s): %.2f\n",time);
   printf("Saving timer info to file %s\n",timer_filename);
 
   timer_dt = time;
@@ -74,7 +74,6 @@ void timer_show()
 {
   static int visited = 0;
   Real time;
-  char filename[512];
   FILE *out;
 #if MEM_USAGE
   int who,ret;
@@ -85,7 +84,7 @@ void timer_show()
   if(!timer_active) return;
 
   time = clock() / (double)CLOCKS_PER_SEC;
-  printf("Elapsed time (s): %.2lf %.2lf\n",time-timer_t0,time-timer_dt);
+  printf("Elapsed time (s): %.2f %.2f\n",time-timer_t0,time-timer_dt);
 
 #if MEM_USAGE
   who = RUSAGE_SELF;
@@ -113,9 +112,9 @@ void timer_show()
   }
 
 #if MEM_USAGE
-  fprintf(out,"%3d %12.4le %12.4le %12.4le\n",visited,time-timer_t0,time-timer_dt,memusage);
+  fprintf(out,"%3d %12.4e %12.4e %12.4e\n",visited,time-timer_t0,time-timer_dt,memusage);
 #else
-  fprintf(out,"%3d %12.4le %12.4le\n",visited,time-timer_t0,time-timer_dt);
+  fprintf(out,"%3d %12.4e %12.4e\n",visited,time-timer_t0,time-timer_dt);
 #endif
 
   fclose(out);
@@ -178,6 +177,7 @@ int Minimi(Real *vector,int first,int last)
   Real min;
   int i,mini;
 
+  mini=-1;
   min=vector[first];
   for(i=first+1;i<=last;i++)
     if(min>vector[i]) 
@@ -207,6 +207,7 @@ int Maximi(Real *vector,int first,int last)
   Real max;
   int i,maxi;
 
+  maxi=-1;
   max=vector[first];
   for(i=first+1;i<=last;i++) 
     if(max<vector[i]) 
@@ -246,8 +247,9 @@ int Steepest(Real *vector,int first,int last)
 /* Finds the position where vector is at its steepest */
 {
   int i,steep;
-  Real aid,sub=0;
+  Real aid,sub=0.0;
 
+  steep = -1;
   for(i=first;i<last;i++) {
     aid=fabs(vector[i+1]-vector[i]);
     if ( aid > sub) {
@@ -371,7 +373,7 @@ void SaveRealVector(Real *vector,int first,int last,char *filename)
 
   out = fopen(filename,"w");
   for (i=first;i<=last;i++) {
-    fprintf(out,"%6le",vector[i]);
+    fprintf(out,"%6e",vector[i]);
     fprintf(out,"\n");
     }
   fclose(out);
@@ -449,7 +451,7 @@ void SaveRealMatrix(Real **matrix,int row_first,int row_last,
   out = fopen(filename,"w");
   for (j=row_first;j<=row_last;j++) {
     for (i=col_first;i<=col_last;i++) {
-      fprintf(out,"%-14.6lg",matrix[j][i]);
+      fprintf(out,"%-14.6g",matrix[j][i]);
       fprintf(out,"\t");
     }
     fprintf(out,"\n");
@@ -539,7 +541,7 @@ void SaveNonZeros(Real **matrix,int row_first,int row_last,
   for (j=row_first;j<=row_last;j++) 
     for (i=col_first;i<=col_last;i++) 
       if (fabs(matrix[j][i]) > nearzero) 
-        fprintf(out,"%d\t %d\t %-12.6le\n",j,i,matrix[j][i]);
+        fprintf(out,"%d\t %d\t %-12.6e\n",j,i,matrix[j][i]);
   
   fclose(out);
 }
