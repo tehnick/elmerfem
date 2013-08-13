@@ -61,7 +61,7 @@ SUBROUTINE OutletCompute_Init( Model,Solver,dt,TransientSimulation )
 
   Params => Solver % Values
   IF( GetLogical( Params,'1D Mesh Create') ) THEN
-    CALL Info('OutletCompute_Init','Creating interna 1D mesh')
+    CALL Info('OutletCompute_Init','Creating internal 1D mesh')
 
     Mesh => CreateLineMesh( Params )
     Solver % Mesh => Mesh 
@@ -259,6 +259,7 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
   !---------------------------------------------------------------------------------------
   
   ! Check which boundaries should be lumped and mark them with the corresponding 1D dof
+  ! This is the old obsolite method!
   LumpedBoundaries = 0
   SolidEndBoundaries = 0
   
@@ -622,22 +623,16 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       
       IF(Connections == 1) THEN
         Name = 'res: pout'
-      ELSE IF(bc < 10) THEN
-        WRITE(Name,'(A,I1)') 'res: pout',bc
       ELSE
-        WRITE(Name,'(A,I2)') 'res: pout',bc
+        WRITE(Name,'(A,I0)') 'res: pout',bc
       END IF
-
       CALL ListAddConstReal( Model % Simulation, Name, pres2dout )
       
       IF(Connections == 1) THEN
         Name = 'res: dRout'
-      ELSE IF(bc < 10) THEN
-        WRITE(Name,'(A,I1)') 'res: dRout',bc
-      ELSE
-        WRITE(Name,'(A,I2)') 'res: dRout',bc
+      ELSE 
+        WRITE(Name,'(A,I0)') 'res: dRout',bc
       END IF
-
       CALL ListAddConstReal( Model % Simulation, Name, dR )                 
 
     END IF
