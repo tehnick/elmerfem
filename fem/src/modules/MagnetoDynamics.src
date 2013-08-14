@@ -335,7 +335,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 
   TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp), POINTER :: VecPot(:)
-  REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:)
+  REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:), GapLength(:), AirGapMu(:)
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
 
   INTEGER, POINTER :: Perm(:)
@@ -352,7 +352,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   INTEGER, POINTER :: Vperm(:), Aperm(:)
   REAL(KIND=dp), POINTER :: Avals(:), Vvals(:)
 
-  SAVE STIFF, LOAD, MASS, FORCE, Tcoef, Acoef, AllocationsDone
+  SAVE STIFF, LOAD, MASS, FORCE, Tcoef, GapLength, AirGapMu, Acoef, AllocationsDone
 !------------------------------------------------------------------------------
 
   !Allocate some permanent storage, this is done first time only:
@@ -365,7 +365,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   IF ( .NOT. AllocationsDone ) THEN
      N = Mesh % MaxElementDOFs  ! just big enough
      ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
-          MASS(N,N), Tcoef(N), Acoef(N), STAT=istat )
+          MASS(N,N), Tcoef(N), GapLength(N), AirGapMu(N), Acoef(N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'WhitneyAVSolver', 'Memory allocation error.' )
      END IF
@@ -527,7 +527,16 @@ CONTAINS
           Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )       
      Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
 
-     CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
+     !If air gap length keyword is detected, use air gap boundary condition
+     GapLength=GetConstReal( BC, 'Air Gap Length', Found)
+     IF (Found) THEN
+       AirGapMu=GetConstReal( BC, 'Air Gap Relative Permeability', Found)
+       IF (.NOT. Found) AirGapMu=1d0 ! if not found default to "air" property
+       CALL LocalMatrixAirGapBC(STIFF,FORCE,LOAD,GapLength,AirGapMu,Element,n,nd )
+     ELSE
+       CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
+     END IF
+
      CALL DefaultUpdateEquations( STIFF,FORCE,Element)
   END DO
 
@@ -1234,6 +1243,57 @@ CONTAINS
   END FUNCTION LocalFluxBC
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrixAirGapBC(  STIFF, FORCE, LOAD, GapLength, AirGapMu, Element, n, nd )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: LOAD(:,:), GapLength(:), AirGapMu(:)
+    REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element, Parent, Edge
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,Normal(3)
+    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), localGapLength, muAir, muVacuum
+    LOGICAL :: Stat
+    INTEGER, POINTER :: EdgeMap(:,:)
+    TYPE(GaussIntegrationPoints_t) :: IP
+    INTEGER :: t, i, j, np, p, q
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+    MASS  = 0.0_dp
+
+    muVacuum = 4 * PI * 1d-7
+
+    ! Numerical integration:
+    !-----------------------
+    IP = GaussPoints(Element)
+
+    np = n*MAXVAL(Solver % Def_Dofs(:,1))
+    DO t=1,IP % n
+       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                  IP % W(t), detJ, Basis, dBasisdx )
+
+       CALL GetEdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
+
+       localGapLength  = SUM(Basis(1:n) * GapLength(1:n))
+       muAir  = SUM(Basis(1:n) * AirGapMu(1:n))
+ 
+       DO i = 1,nd-np
+         p = i+np
+         DO j = 1,nd-np
+           q = j+np
+           STIFF(p,q) = STIFF(p,q) + localGapLength / (muAir*muVacuum) * &
+              SUM(RotWBasis(i,:)*RotWBasis(j,:))*detJ*IP%s(t)
+         END DO
+       END DO  
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrixAirGapBC
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   SUBROUTINE DirichletAfromB()
