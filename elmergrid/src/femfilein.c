@@ -2752,9 +2752,13 @@ omstart:
       else if(strstr(line,"tri")) elembasis = 300;
       else if(strstr(line,"quad")) elembasis = 400;
       else if(strstr(line,"tet")) elembasis = 500;
+      else if(strstr(line,"pyr")) elembasis = 600;
       else if(strstr(line,"prism")) elembasis = 700;
       else if(strstr(line,"hex")) elembasis = 800;
-      else printf("unknown element type = %s",line);
+      else {
+	printf("unknown element type = %s",line);
+	bigerror("Cannot continue!\n");
+      }
     }
 
     else if(strstr(line,"# number of nodes per element")) {
