@@ -9,6 +9,7 @@ int GetElementDimension(int elementtype);
 int GetMaxElementType(struct FemType *data);
 int GetMinElementType(struct FemType *data);
 int GetMaxElementDimension(struct FemType *data);
+int GetCoordinateDimension(struct FemType *data,int info);
 void GetElementInfo(int element,struct FemType *data,
 		    Real *globalcoord,int *ind,int *material);
 void GetBoundaryElement(int sideind,struct BoundaryType *bound,struct FemType *data,int *ind,int *sideelemtype);

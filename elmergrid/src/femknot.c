@@ -98,6 +98,7 @@ int GetElementDimension(int elementtype)
   return(elemdim);
 }
 
+
 int GetMaxElementType(struct FemType *data)
 {
   int i,maxelementtype;
@@ -131,6 +132,41 @@ int GetMaxElementDimension(struct FemType *data)
   maxelementtype = GetMaxElementType(data);
   elemdim = GetElementDimension(maxelementtype);
   return(elemdim);
+}
+
+
+int GetCoordinateDimension(struct FemType *data,int info)
+{
+  int i,j,noknots,coorddim;
+  int coordis;
+  Real *coord;
+  Real epsilon = 1.0e-20;
+
+  noknots = data->noknots;
+  coorddim = 0;
+
+  for(j=3;j>=1;j--) {
+    coordis = FALSE;
+    if( j==1 ) 
+      coord = data->x;
+    else if( j==2 ) 
+      coord = data->y;
+    else
+      coord = data->z;
+    
+    for(i=1;i<=noknots;i++) 
+      if( fabs( coord[i] ) > epsilon ) {
+	coordis = TRUE; 
+	break;
+      }
+    if( coordis ) 
+      coorddim = MAX( coorddim, j ); 
+    else 
+      printf("Dimension %d not active but higher dimensions are?\n",j);
+  }
+  if(info) printf("Coordinates defined in %d dimensions\n",coorddim);
+
+  return(coorddim);
 }
 
 

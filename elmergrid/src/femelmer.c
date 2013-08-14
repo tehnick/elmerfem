@@ -650,13 +650,17 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
       i--;
     }
   }
-  
+
   bound->nosides = i;
   fclose(in); 
 
   if(!cdstat) chdir("..");
 
-  printf("All done\n");
+  if( data->dim < 3 ) {
+    data->dim = GetCoordinateDimension(data,info);
+  }
+
+  if(info) printf("Elmer mesh loaded succesfully\n");
 
   return(0);
 }
