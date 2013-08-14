@@ -656,10 +656,6 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 
   if(!cdstat) chdir("..");
 
-  if( data->dim < 3 ) {
-    data->dim = GetCoordinateDimension(data,info);
-  }
-
   if(info) printf("Elmer mesh loaded succesfully\n");
 
   return(0);

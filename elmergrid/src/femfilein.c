@@ -3762,13 +3762,14 @@ int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,
   int allocated,dim,ind,lines;
   int reordernodes,reorderelements,nogroups,maxnodeind,maxelem,elid,unvtype,elmertype;
   int nonodes,group,grouptype,mode,nopoints,nodeind,matind,physind,colorind;
-  int minelemtype,maxelemtype,physoffset=0;
+  int minelemtype,maxelemtype,physoffset=0,doscaling=FALSE;
   int debug,mingroup,maxgroup,minphys,maxphys,nogroup,noentities,dummy;
   int *u2eind=NULL,*u2eelem=NULL;
   int *elementtypes;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
   int i,j,k;
   char entityname[MAXNAMESIZE];
+  Real scaling[4];
   FILE *in;
 
 
@@ -3833,10 +3834,12 @@ omstart:
     if( !strncmp(line,"    -1",6)) mode = 0;
     else if( !strncmp(line,"  2411",6)) mode = 2411;
     else if( !strncmp(line,"  2412",6)) mode = 2412;
+    else if( !strncmp(line,"  2420",6)) mode = 2420;
     else if( !strncmp(line,"  2467",6)) mode = 2467;
     else if( !strncmp(line,"  2435",6)) mode = 2435;
     else if( !strncmp(line,"   781",6)) mode = 781;
     else if( !strncmp(line,"   780",6)) mode = 780;
+    else if( !strncmp(line,"   164",6)) mode = 164;
     else if( allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
 
 
@@ -3968,6 +3971,65 @@ omstart:
       }
     }
 
+    if( mode == 2420 ) {
+      int partuid,coordlabel,coordtype;
+      Real coeff;
+      if(allocated && info) printf("Reading Coordinate system information\n");
+
+      Getrow(line,in,FALSE);
+      if( !allocated ) {
+	cp = line;
+	partuid = next_int(&cp);
+	printf("Part UID = %d\n",partuid);
+      }	
+      Getrow(line,in,FALSE);
+      if(!allocated ) {
+	sscanf(line,"%s",entityname);
+	printf("Part name = %s\n",entityname);
+      }      
+      Getrow(line,in,FALSE);
+      if( !allocated ) {
+	cp = line;
+	coordlabel = next_int(&cp);
+	coordtype = next_int(&cp);
+	if( coordtype != 0 ) {
+	  printf("Coordinate system is not cartesian: %d\n",coordtype);
+	  printf("Code some more if you want to consider this!\n");
+	}
+      }      
+
+      Getrow(line,in,FALSE);
+      if(!allocated ) {
+	sscanf(line,"%s",entityname);
+	printf("Coord system name = %s\n",entityname);
+      }      
+      for(i=1;i<=4;i++) {
+	Getrow(line,in,FALSE);
+	if( !allocated ) {
+	  cp = line;
+	  for(j=1;j<= 3;j++) {
+	    coeff = next_real(&cp);
+	    if( i == j ) {
+	      scaling[i] = coeff;
+	      if( fabs(coeff-1.0) > 1.0e-20) {
+		doscaling = TRUE;
+		printf("Scaling component %d by %e\n",i,coeff);
+	      }
+	    }
+	    else {
+	      if(fabs(coeff) > 1.0e-20 ) {
+		printf("Transformation matrix is not diagonal %d%d: %e\n",i,j,coeff);
+		smallerror("Code some more...");
+	      }
+	    }
+	  }	  
+	}      
+      }
+      Getrow(line,in,FALSE);
+      if( strncmp(line,"    -1",6)) 
+	printf("Field 2420 should already be ending: %s\n",line); 
+      goto nextline;
+    }
 
     if( mode == 780 ) {
       int physind2,matind2;
@@ -4118,6 +4180,15 @@ omstart:
       }
     }
 
+    if( mode == 164 ) {
+      if(!allocated) printf("Units dataset content is currently omitted!\n");
+      for(;;) {
+	Getrow(line,in,FALSE);
+	if( !strncmp(line,"    -1",6)) 
+	goto nextline;
+      }
+    }
+
   }
 
 end:
@@ -4210,6 +4281,24 @@ end:
   }
   if(reorderelements) {
     free_Ivector(u2eelem,1,maxelem);
+  }
+
+  /* Do scaling if requested */
+  if( doscaling ) {
+    Real *coord;
+    for(j=1;j<=3;j++) {
+      if( j == 1 ) 
+	coord = data->x;
+      else if( j == 2 ) 
+	coord = data->y;
+      else 
+	coord = data->z;
+      
+      if( fabs(scaling[j]-1.0) >= 1.0e-20 ) {
+	for(i=1;i<=noknots;i++)
+	  coord[i] *= scaling[j];
+      }
+    }
   }
 
   /* Until this far all elements have been listed as bulk elements. 

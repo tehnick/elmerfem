@@ -557,6 +557,13 @@ int main(int argc, char *argv[])
     }
   }
 
+  /* In some formats the dimension for curved 2D meshes seems to be set to 2.
+     This should fix the problem for all input types. */
+  if( data->dim < 3 ) {
+    data->dim = GetCoordinateDimension(data,info);
+  }
+
+ 
   /* Make the discontinous boundary needed, for example, in poor thermal conduction */
   for(k=0;k<nomeshes;k++) {
     if(!eg.discont) {
