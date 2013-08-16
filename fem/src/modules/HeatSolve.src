@@ -94,7 +94,7 @@
         PhaseChange=.FALSE., CheckLatentHeatRelease=.FALSE., FirstTime, &
         SmartHeaterControl, IntegralHeaterControl, HeaterControlLocal, SmartTolReached=.FALSE., &
         TransientHeaterControl, SmartHeaterAverage, ConstantBulk, SaveBulk, &
-	TransientAssembly
+	TransientAssembly, Converged
      LOGICAL, POINTER :: SmartHeaters(:), IntegralHeaters(:)
 
      TYPE(Variable_t), POINTER :: TempSol,FlowSol,HeatSol,CurrentSol, MeshSol, DensitySol
@@ -588,7 +588,7 @@
        CALL Info( 'HeatSolve', ' ', Level=4 )
        CALL Info( 'HeatSolve', 'Starting Assembly...', Level=4 )
 
-       IF ( ConstantBulk .AND. ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
+500    IF ( ConstantBulk .AND. ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
          Solver % Matrix % Values = Solver % Matrix % BulkValues
          Solver % Matrix % RHS = Solver % Matrix % BulkRHS
          GOTO 1000
@@ -1040,8 +1040,6 @@
       CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
       at = CPUTime() - at
@@ -1125,6 +1123,12 @@
           END IF
         END IF
       ELSE
+!------------------------------------------------------------------------------
+!     Check stepsize for nonlinear iteration
+!------------------------------------------------------------------------------
+        IF( DefaultLinesearch( Converged ) ) GOTO 500
+        IF( Converged ) EXIT
+
         Norm = DefaultSolve()
       END IF
 
@@ -1209,8 +1213,9 @@
 
       IF ( RelativeChange < NewtonTol .OR. iter >= NewtonIter ) &
                NewtonLinearization = .TRUE.
-      IF ( RelativeChange < NonlinearTol .AND. &
-          (.NOT. SmartHeaterControl .OR. SmartTolReached)) EXIT
+      Converged =  ( Solver % Variable % NonlinConverged == 1 ) .AND. &
+          ( .NOT. SmartHeaterControl .OR. SmartTolReached )
+      IF( Converged ) EXIT
 
       IF(SmartHeaterControl) THEN
         IF ( RelativeChange < SmartTol ) THEN

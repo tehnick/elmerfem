@@ -1895,7 +1895,7 @@ CONTAINS
     TYPE(Solver_t), POINTER :: PSolver, PSolver2
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t),POINTER :: Element
-    INTEGER :: i,j,k,l,t,n,nd,NoIterations,NoTests,iter,istat,tests
+    INTEGER :: i,j,k,l,t,n,nd,NoIterations,iter,istat
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint, &
         IsCoupledSolver, IsAssemblySolver, IsProcedure, IsListMatrix
@@ -1905,11 +1905,10 @@ CONTAINS
     INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id
     INTEGER, POINTER :: VarPerm(:), ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: ConsValues(:)
-    REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume, &
-        Residual, PrevResidual
+    REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
     LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric, &
-        AllDirFlag, Robust, ErrorReduced
+        AllDirFlag, Robust, ReduceStep
     INTEGER, POINTER :: Rows(:),Cols(:),Indexes(:),AllPerm(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
     REAL(KIND=dp), POINTER :: ForceVector(:),AllValues(:)
@@ -1988,7 +1987,7 @@ CONTAINS
       MaxDofs = VarDofs(1)
     ELSE
 
-      DO i = 1,9
+      DO i = 1,100
         WRITE (str,'(A,I0)') 'Variable ',i
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         IF(.NOT. GotIt) EXIT
@@ -2011,7 +2010,7 @@ CONTAINS
       ! might be better to create special solvers somewhere else.
       ! The size of constraint is deduced directly from its type.
       !-------------------------------------------------------------------------------------
-      DO i = 1,9
+      DO i = 1,100
         WRITE (str,'(A,I0)') 'Constraint ',i
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         IF(.NOT. GotIt) EXIT
@@ -2117,7 +2116,7 @@ CONTAINS
         END IF
       END IF
 
-    END IF
+    END IF  ! IsProcedure
       
 
 !------------------------------------------------------------------------------
@@ -2138,13 +2137,6 @@ CONTAINS
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',gotIt)
     Robust = ListGetLogical(SolverParams,'Nonlinear System Linesearch',GotIt)
-    IF( Robust ) THEN
-      NoTests = GetInteger( SolverParams,'Nonlinear System Linesearch Iterations',GotIt)
-      IF(.NOT. GotIt) NoTests = NoIterations
-      CALL ListAddString(SolverParams,'Nonlinear System Convergence Measure','residual')
-      CALL ListAddLogical(SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
-    END IF
-       
     Amat => GetMatrix()
     ForceVector => Amat % Rhs
     IF( AllDirFlag ) ALLOCATE( AllDir(TotSize) ) 
@@ -2153,30 +2145,34 @@ CONTAINS
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
     CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
-    Residual = -1.0_dp
-    PrevResidual = -1.0_dp
+
     IsListMatrix = ( Amat % FORMAT == MATRIX_LIST )
     
     DO iter = 1,NoIterations
-      
+
       WRITE(Message,'(A,T35,I5)') 'Coupled iteration:',iter
       CALL Info('CoupledSolver',Message,Level=5)
    
-      tests = 0
 100   IF( IsProcedure ) THEN
 
         ! Perform the normal solver procedure with just one iteration 
         ! linear system solver being disabled i.e. just do the assembly.
+        ! Also the possible internal linesearch is disabled.
         !---------------------------------------------------------------------
         CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',1)
         CALL ListAddLogical( SolverParams,'Linear System Solver Disabled',.TRUE.)
         CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
+        IF( Robust ) THEN
+          CALL ListRemove( SolverParams,'Nonlinear System Linesearch')
+        END IF
 
         CALL SingleSolver( Model, PSolver, dt, Transient )
 
         CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',NoIterations)
         CALL ListRemove( SolverParams,'Linear System Solver Disabled')
-        IF(.NOT. Robust ) THEN
+        IF(Robust ) THEN
+          CALL ListAddLogical(SolverParams,'Nonlinear System Linesearch',.TRUE.)
+        ELSE
           CALL ListAddLogical(SolverParams,'Skip Compute Nonlinear Change',.FALSE.)
         END IF          
      
@@ -2225,31 +2221,16 @@ CONTAINS
         END IF
       END IF
 
-
 !------------------------------------------------------------------------------
 !    Check the stepsize of nonlinear iteration using the Armijo-GoldStein 
 !    criterion for the stepsize.
 !------------------------------------------------------------------------------          
       IF( Robust  ) THEN   
-        ErrorReduced = CheckStepSize(Solver,tests==0,PrevResidual,Residual)
-        tests = tests + 1
-        
-        IF( tests >  NoTests ) THEN
-          CALL Warn('CoupledSolver','Maximum number of linesearch steps exceeded')
-          ErrorReduced = .TRUE.
-        END IF
-        
-        ! Update the reference residual only when new step is accepted
-        IF( iter == 1 ) THEN
-          PrevResidual = Residual
+        IF( CheckStepSize( Solver, iter == 1) ) THEN
+          IF( IsCoupledSolver ) CALL CoupledToSingleVector()
+          GOTO 100
         ELSE
-          IF( ErrorReduced ) THEN 
-            PrevResidual = Residual
-            IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
-          ELSE
-            IF( IsCoupledSolver ) CALL CoupledToSingleVector()
-            GOTO 100
-          END IF
+          IF(Solver % Variable % NonlinConverged == 1) EXIT
         END IF
       END IF
 
@@ -2259,7 +2240,9 @@ CONTAINS
       Norm = DefaultSolve()     
       CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
 
-      IF( .NOT. IsAssemblySolver .AND. .NOT. IsProcedure ) CALL CoupledToSingleVector()
+      IF( .NOT. ( IsAssemblySolver .OR. IsProcedure ) ) THEN
+        CALL CoupledToSingleVector()
+      END IF
 
       ! The non-robust solver will use one assembly routine less 
       IF(.NOT. Robust) THEN
@@ -2696,7 +2679,7 @@ CONTAINS
         TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm, &
         Coeff
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
-    LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,&
+    LOGICAL :: Robust, LinearSearch, AcceptStep, IsProcedure, ScaleSystem,&
         ReuseMatrix, LS, InitDone
     INTEGER, POINTER :: VarPerm(:)
     
@@ -2905,7 +2888,8 @@ CONTAINS
 !    criterion for the stepsize, if requested
 !------------------------------------------------------------------------------          
       IF( Robust  ) THEN   
-200     ErrorReduced = CheckStepSizeBlock(TotMatrix,tests==0,PrevResidual,Residual)
+
+200     AcceptStep = CheckStepSizeBlock(TotMatrix,tests==0,PrevResidual,Residual)
         tests = tests + 1
         
         IF( tests >  NoTests ) THEN
@@ -2916,7 +2900,7 @@ CONTAINS
         IF( iter == 1 ) THEN
           PrevResidual = Residual
         ELSE
-          IF( ErrorReduced ) THEN 
+          IF( AcceptStep ) THEN 
             PrevResidual = Residual
             IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
           ELSE
@@ -3361,7 +3345,7 @@ CONTAINS
      ! -----------------------------------
      FoundMortar = .FALSE.
      IF (GetLogical(Solver % Values,'Apply Mortar BCs',Found)) THEN
-       CM => Null()
+       CM => NULL()
        DO i=1,Model % NumberOFBCs
          j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
          IF(FoundMortar) THEN
@@ -3410,7 +3394,7 @@ CONTAINS
       DO WHILE(.NOT.ASSOCIATED(CM,CM0 % ConstraintMatrix))
         CM0 => CM0 % ConstraintMatrix
       END DO
-      CM0 % ConstraintMatrix => Null()
+      CM0 % ConstraintMatrix => NULL()
       CALL FreeMatrix(CM)
     END IF
 !------------------------------------------------------------------------------

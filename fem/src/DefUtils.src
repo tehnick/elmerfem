@@ -2336,6 +2336,60 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+!------------------------------------------------------------------------------
+  FUNCTION DefaultLinesearch( Converged, USolver, FirstIter, nsize, values, values0 ) RESULT( ReduceStep ) 
+!------------------------------------------------------------------------------
+    LOGICAL, OPTIONAL :: Converged
+    TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+    LOGICAL, OPTIONAL :: FirstIter 
+    INTEGER, OPTIONAL :: nsize
+    REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
+    LOGICAL :: ReduceStep
+
+    LOGICAL :: stat, First
+    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Variable_t), POINTER :: iterV
+    INTEGER :: iter, previter
+
+    SAVE :: previter
+
+    IF ( PRESENT( USolver ) ) THEN
+      Solver => USolver
+    ELSE
+      Solver => CurrentModel % Solver
+    END IF
+
+    ! This routine might be called for convenience also without checking 
+    ! first whether it is needed.
+    IF( .NOT. ListGetLogical( Solver % Values,'Nonlinear System Linesearch',Stat) ) THEN
+      ReduceStep = .FALSE.
+      IF( PRESENT( Converged ) ) Converged = .FALSE.
+      RETURN
+    END IF
+    
+    IF( PRESENT( FirstIter ) ) THEN
+      First = FirstIter
+    ELSE
+      ! This is the first trial if we are the first nonlinear iteration
+      ! for the first time. 
+      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      iter = NINT(iterV % Values(1))
+      First = (iter == 1 ) .AND. (iter /= previter)
+      previter = iter
+    END IF
+
+    ReduceStep = CheckStepSize(Solver,First,&
+        nsize,values,values0) 
+
+    IF( PRESENT( Converged ) ) THEN
+      Converged = ( Solver % Variable % NonlinConverged == 1 ) 
+    END IF
+
+  END FUNCTION DefaultLinesearch
+
+
+
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultUpdateEquationsR( G, F, UElement, USolver, BulkUpdate ) 
 !------------------------------------------------------------------------------

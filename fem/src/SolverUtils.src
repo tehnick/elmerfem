@@ -4458,28 +4458,38 @@ END FUNCTION SearchNodeL
 
 !------------------------------------------------------------------------------
 !> Checks stepsize of a linear system so that the error has decreased.
+!> Armijo-Golstein criterion is used to ensure this.
 !------------------------------------------------------------------------------
-  FUNCTION CheckStepSize(Solver,FirstTrial,PrevResidual,Residual,&
-      nsize,values,values0) RESULT (Success) 
+  FUNCTION CheckStepSize(Solver,FirstIter,&
+      nsize,values,values0) RESULT ( ReduceStep ) 
 !------------------------------------------------------------------------------
-    TYPE(Solver_t), TARGET :: Solver
-    REAL(KIND=dp) :: PrevResidual, Residual
+    TYPE(Solver_t) :: Solver
+    LOGICAL :: FirstIter
     INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
-    LOGICAL :: FirstTrial,Success
+    LOGICAL :: ReduceStep
 !------------------------------------------------------------------------------
+    LOGICAL :: FirstTrial = .TRUE.
+    INTEGER :: MaxTests=0,tests
+    REAL(KIND=dp) :: PrevResidual, Residual
     INTEGER :: i,n
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:)
-    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy, Tol
     INTEGER, POINTER :: Indexes(:)
     TYPE(Variable_t), POINTER :: iterV
-    LOGICAL :: Stat
+    LOGICAL :: Stat, Init
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
     TYPE(ValueList_t), POINTER :: SolverParams
 
 
-    SAVE Alpha, Myy, Relaxation
+    SAVE SolverParams, FirstTrial, Alpha, Myy, Relaxation, MaxTests, tests, &
+        PrevResidual, Residual, Tol
+
+    SolverParams => Solver % Values
+
+    Solver % Variable % NonlinConverged = 0
+    Solver % Variable % NonlinChange = 1.0_dp
 
     IF(PRESENT(values)) THEN
       x => values
@@ -4494,7 +4504,7 @@ END FUNCTION SearchNodeL
     END IF
 
     !--------------------------------------------------------------------------
-    ! This is the real residual r=b-Ax
+    ! This is the real residual: r=b-Ax
     !--------------------------------------------------------------------------
     A => Solver % Matrix
     b => Solver % Matrix % rhs
@@ -4507,50 +4517,70 @@ END FUNCTION SearchNodeL
     Residual = ComputeNorm(Solver, n, r)
     DEALLOCATE(r)
 
-    ! Negative (impossible) value may be used as indicator that's its the 1st step
+    ! At first iteration we cannot really do anything but go further 
+    ! and save the reference residual for comparison.
+    ! Also at first time get the line search parameters.
     !-----------------------------------------------------------------------------
-    IF( PrevResidual < 0.0 ) THEN
-      Success = .FALSE.
-      RETURN
-    END IF
 
-    SolverParams => Solver % Values
+    IF( FirstIter ) THEN
+      FirstTrial = .TRUE.
+      MaxTests = ListGetInteger( SolverParams,&
+          'Nonlinear System Linesearch Iterations',Stat)
+      IF( .NOT. Stat ) THEN
+        MaxTests = ListGetInteger( SolverParams,&
+            'Nonlinear System Max Iterations',Stat)
+      END IF
 
-    ! At firs time set the line search parameters
-    !-----------------------------------------------------------------------------
-    IF( FirstTrial ) THEN
-      Alpha = 1.0_dp
       Myy = ListGetConstReal( SolverParams, &
           'Nonlinear System Linesearch Limit', Stat )
       IF(.NOT. Stat) Myy = 0.5_dp
+
       Relaxation = ListGetConstReal( SolverParams, &
           'Nonlinear System Linesearch Factor', Stat )
       IF(.NOT. Stat) Relaxation = 0.5_dp
+
+      Tol = ListGetConstReal( SolverParams, &
+          'Nonlinear System Convergence Tolerance', Stat )
+
+      ! Only this norm makes sense with the step-size control
+      CALL ListAddString(SolverParams, &
+          'Nonlinear System Convergence Measure','residual')
+
+      ! Computation of nonlinear change is now done with this routine
+      CALL ListAddLogical(SolverParams,&
+          'Skip Compute Nonlinear Change',.TRUE.)
+
+      PrevResidual = Residual
+      Tests = 0
+      ReduceStep = .FALSE.
+
+      IF( .NOT. PRESENT( values0 ) ) THEN
+        IF(.NOT. ASSOCIATED(Solver % Variable % NonlinValues) ) THEN
+          ALLOCATE( Solver % Variable % NonlinValues(SIZE(x)) )
+          Solver % Variable % NonlinValues = x
+        END IF
+      END IF
+
+      RETURN
     END IF
 
-    ! Armijo GoldStein Criterion for accepting stepsize
+    ! Start with no relaxation 
+    !-----------------------------------------------------------------------------
+    IF( FirstTrial ) Alpha = 1.0_dp
+
+    ! Armijo-GoldStein Criterion for accepting stepsize
     !-----------------------------------------------------------------
-    Success = ( PrevResidual - Residual > Myy * Alpha * PrevResidual)
+    Tests = Tests + 1
+    ReduceStep = ( PrevResidual - Residual < Myy * Alpha * PrevResidual)
 
-    IF( Success ) THEN      
+    IF( Tests >= MaxTests .AND. ReduceStep ) THEN
+      CALL Warn('CheckStepSize','Maximum number of linesearch steps taken without success!')
+      ReduceStep = .FALSE.
+    END IF
 
-      bNorm = ComputeNorm(Solver, n, b)
-      Solver % Variable % NonlinChange = Residual / bNorm
-      
-      Norm = ComputeNorm(Solver, n, x)
-      Solver % Variable % Norm = Norm
+    IF( ReduceStep ) THEN      
+      FirstTrial = .FALSE.
 
-      SolverName = ListGetString( SolverParams, 'Equation',Stat)
-      IF(.NOT. Stat) SolverName = Solver % Variable % Name
-      
-      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
-      n = NINT(iterV % Values(1))
-      WRITE( Message, '(a,g15.8,g15.8,a)') &
-          'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Residual / bNorm,&
-          ' ) :: '// TRIM(SolverName)
-      CALL Info( 'CheckStepSize', Message, Level=3 )       
-      iterV % Values(1) = n + 1 
-    ELSE
       IF(PRESENT(values0)) THEN
         x0 => values0
       ELSE
@@ -4563,7 +4593,39 @@ END FUNCTION SearchNodeL
       x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)      
       Alpha = Alpha * Relaxation
 
-      CALL Info( 'CheckStepSize','Step rejected, increasing relaxation', Level=3 )      
+      WRITE(Message,'(A,I0,g15.8)') 'Step rejected, increasing relaxation: ',&
+          Tests,Alpha
+      CALL Info( 'CheckStepSize',Message,Level=5 )
+    ELSE ! accept step
+      bNorm = ComputeNorm(Solver, n, b)
+      Solver % Variable % NonlinChange = Residual / bNorm
+
+      IF( Solver % Variable % NonlinChange <  Tol ) THEN
+        Solver % Variable % NonlinConverged = 1
+      END IF
+      
+      Norm = ComputeNorm(Solver, n, x)
+      Solver % Variable % Norm = Norm
+
+      SolverName = ListGetString( SolverParams, 'Equation',Stat)
+      IF(.NOT. Stat) SolverName = Solver % Variable % Name
+      
+      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      n = NINT(iterV % Values(1))
+
+      ! This replaces the standard error output usually written by the ComputeChange
+      WRITE( Message, '(a,g15.8,g15.8,a)') &
+          'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Residual / bNorm,&
+          ' ) :: '// TRIM(SolverName)
+      CALL Info( 'CheckStepSize', Message, Level=3 )       
+      iterV % Values(1) = n + 1 
+
+      WRITE(Message,'(A,I0,A)') 'Step accepted after ',tests,' trials'
+      CALL Info( 'CheckStepSize',Message,Level=5 )
+
+      FirstTrial = .TRUE.
+      Tests = 0
+      PrevResidual = Residual
     END IF
 
 !------------------------------------------------------------------------------
