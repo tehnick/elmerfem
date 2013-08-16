@@ -401,6 +401,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
   int *globaldofs, int *owner,
   int *ILUn, int *BILU,
   int *hypre_method, int *hypre_intpara, double *hypre_dppara,
+  int *Rounds, double *TOL,
   int *verbosityPtr,
   int** ContainerPtr,
   int *fcomm
@@ -652,9 +653,11 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 
      /* Set some parameters (See Reference Manual for more parameters) */
      HYPRE_ParCSRBiCGSTABSetStopCrit(solver, 0);     /* use the two norm as the stopping criteria */
+     HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
+     HYPRE_ParCSRBiCGSTABSetTol(solver, *TOL);       /* conv. tolerance */
+
      i = 2*(verbosity >= 6);
      HYPRE_ParCSRBiCGSTABSetPrintLevel(solver, i);   /* print solve info */
-
      i = (verbosity >= 6);
      HYPRE_ParCSRBiCGSTABSetLogging(solver, i);      /* needed to get run info later */
 
@@ -685,6 +688,8 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      if (myid==0 && verbosity >= 5 ) {
        fprintf(stdout,"construct BoomerAMG solver");
      }
+     HYPRE_BoomerAMGSetTol(solver, *TOL);      /* conv. tolerance */
+     HYPRE_BoomerAMGSetMaxIter(solver, *Rounds); /* iteration rounds */
      HYPRE_BoomerAMGSetup(solver, parcsr_A, par_b, par_x);
    }
 
@@ -692,6 +697,9 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      /* Create solver */
      HYPRE_ParCSRPCGCreate(comm, &solver);
      
+     HYPRE_ParCSRPCGSetMaxIter(solver, *Rounds); /* max iterations */
+     HYPRE_ParCSRPCGSetTol(solver, *TOL);       /* conv. tolerance */
+
      /* Set some parameters (See Reference Manual for more parameters) */
      HYPRE_ParCSRPCGSetTwoNorm(solver, 1);     /* use the two norm as the stopping criteria */
      i = 2*(verbosity >= 6);
@@ -719,6 +727,8 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    else if ( hypre_sol == 3) { /* GMRES */
      /* Create solver */
      HYPRE_ParCSRGMRESCreate(comm, &solver);
+     HYPRE_GMRESSetMaxIter(solver, *Rounds); /* max GMRES iterations */
+     HYPRE_GMRESSetTol(solver, *TOL);        /* GMRES conv. tolerance */
     
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
@@ -755,6 +765,8 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    else if ( hypre_sol == 4) { /* FlexGMRes */
      /* Create solver */
      HYPRE_ParCSRFlexGMRESCreate(comm, &solver);
+     HYPRE_ParCSRFlexGMRESSetMaxIter(solver, *Rounds); /* max iterations */
+     HYPRE_ParCSRFlexGMRESSetTol(solver, *TOL);       /* conv. tolerance */
      
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
@@ -784,6 +796,8 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
    else if ( hypre_sol == 5) { /* LGMRes */
      /* Create solver */
      HYPRE_ParCSRLGMRESCreate(comm, &solver);
+     HYPRE_ParCSRLGMRESSetMaxIter(solver, *Rounds); /* max iterations */
+     HYPRE_ParCSRLGMRESSetTol(solver, *TOL);       /* conv. tolerance */
      
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
@@ -925,8 +939,8 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
    
    /* Now setup and solve! */
    if ( hypre_sol == 0) {
-     HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
-     HYPRE_ParCSRBiCGSTABSetTol(solver, *TOL);       /* conv. tolerance */
+//     HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
+//     HYPRE_ParCSRBiCGSTABSetTol(solver, *TOL);       /* conv. tolerance */
      HYPRE_ParCSRBiCGSTABSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 
@@ -934,8 +948,6 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
      int num_iterations;
      double final_res_norm;
      
-     HYPRE_BoomerAMGSetTol(solver, *TOL);      /* conv. tolerance */
-     HYPRE_BoomerAMGSetMaxIter(solver, *Rounds); /* iteration rounds */
      HYPRE_BoomerAMGSolve(Container->solver, parcsr_A, par_b, par_x);
      
      /* Run info - needed logging turned on */
@@ -950,27 +962,27 @@ void STDCALLBULL FC_FUNC(solvehypre2,SOLVEHYPRE2)
    }
  
    else if ( hypre_sol == 2) {
-     HYPRE_ParCSRPCGSetMaxIter(solver, *Rounds); /* max iterations */
-     HYPRE_ParCSRPCGSetTol(solver, *TOL);       /* conv. tolerance */
+//     HYPRE_ParCSRPCGSetMaxIter(solver, *Rounds); /* max iterations */
+//     HYPRE_ParCSRPCGSetTol(solver, *TOL);       /* conv. tolerance */
      HYPRE_ParCSRPCGSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 
    else if ( hypre_sol == 3) {
-     HYPRE_GMRESSetMaxIter(solver, *Rounds); /* max GMRES iterations */
-     HYPRE_GMRESSetTol(solver, *TOL);        /* GMRES conv. tolerance */
+//     HYPRE_GMRESSetMaxIter(solver, *Rounds); /* max GMRES iterations */
+//     HYPRE_GMRESSetTol(solver, *TOL);        /* GMRES conv. tolerance */
      HYPRE_ParCSRGMRESSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 
 #if HAVE_GMRES
    else if ( hypre_sol == 4) {
-     HYPRE_ParCSRFlexGMRESSetMaxIter(solver, *Rounds); /* max iterations */
-     HYPRE_ParCSRFlexGMRESSetTol(solver, *TOL);       /* conv. tolerance */
+//     HYPRE_ParCSRFlexGMRESSetMaxIter(solver, *Rounds); /* max iterations */
+//     HYPRE_ParCSRFlexGMRESSetTol(solver, *TOL);       /* conv. tolerance */
      HYPRE_ParCSRFlexGMRESSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 
    else if ( hypre_sol == 5) {
-     HYPRE_ParCSRLGMRESSetMaxIter(solver, *Rounds); /* max iterations */
-     HYPRE_ParCSRLGMRESSetTol(solver, *TOL);       /* conv. tolerance */
+//     HYPRE_ParCSRLGMRESSetMaxIter(solver, *Rounds); /* max iterations */
+//     HYPRE_ParCSRLGMRESSetTol(solver, *TOL);       /* conv. tolerance */
      HYPRE_ParCSRLGMRESSolve(Container->solver, parcsr_A, par_b, par_x);
    }
 #endif
