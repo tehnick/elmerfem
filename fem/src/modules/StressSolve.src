@@ -54,8 +54,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
     INTEGER :: dim,i
     TYPE(ValueList_t), POINTER :: SolverParams
     LOGICAL :: Found, CalculateStrains, CalcPrincipalAngle, CalcPrincipalAll, &
-        CalcStressAll, CalcStress
-    CHARACTER(LEN=MAX_NAME_LEN) :: eqname
+        CalcStressAll
 !------------------------------------------------------------------------------
 
     SolverParams => GetSolverParams()
@@ -75,21 +74,14 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
     IF(CalcPrincipalAll)   CalcStressAll = .TRUE. ! can't calculate principal without components
     IF(CalculateStrains)   CalcStressAll = .TRUE. ! can't calculate principal without components
     
-    eqname = GetString( SolverParams, 'Equation' )
-    CalcStress = .FALSE.
-    DO i=1,Model % NumberOfEquations
-      IF ( .NOT. GetLogical(Model % Equations(i) % Values,eqname,Found) ) CYCLE
-      
-      CalcStress = CalcStress .OR. GetLogical( &
-          Model % Equations(i) % Values, 'Calculate Stresses', Found )
-      
-      IF ( .NOT. Found .AND. CalcStressAll ) THEN
-        CALL ListAddLogical( &
-            Model % Equations(i) % Values, 'Calculate Stresses', .TRUE. )
-      END IF
-    END DO
+    ! If stress computation is requested somewhere then enforce it 
+    IF( .NOT. ( CalcStressAll .OR. CalculateStrains) ) THEN
+      CalcStressAll = ListGetLogicalAnyEquation( Model,'Calculate Stresses')
+      IF( CalcStressAll ) CALL ListAddLogical( SolverParams,'Calculate Stresses',.TRUE.)
+    END IF
 
-    IF ( CalcStress .OR. CalcStressAll ) THEN
+
+    IF ( CalcStressAll ) THEN
       CALL ListAddString( SolverParams,&
           NextFreeKeyword('Exported Variable ',SolverParams), &
           'Stress[Stress_xx:1 Stress_yy:1 Stress_zz:1 Stress_xy:1 Stress_yz:1 Stress_xz:1]' )
@@ -111,7 +103,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
               '-dofs 9 Principal Angle' )
         END IF ! PrincipalAngle
       END IF !CalcPrincipalAll      
-    END IF ! CalcStress or CalcStressAll
+    END IF ! CalcStressAll
     
     IF(CalculateStrains) THEN
       CALL ListAddString( SolverParams,&
@@ -172,7 +164,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
      INTEGER ::  MaxIter, MinIter, NoModes, Nsize, Dofs
      TYPE(Variable_t), POINTER :: StressSol, iVar, Var, TimeVar
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: eqname, VarName
+     CHARACTER(LEN=MAX_NAME_LEN) :: VarName
 
      REAL(KIND=dp), POINTER :: Temperature(:),Work(:,:,:), &
        VonMises(:), NodalStress(:), NodalStrain(:), StressComp(:), StrainComp(:), ContactPressure(:), &
@@ -367,24 +359,10 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
        CalcPrincipalAngle = GetLogical(SolverParams, 'Calculate PAngle', Found)
        CalcPrincipalAll = GetLogical(SolverParams, 'Calculate Principal', Found)
        CalcStressAll = GetLogical( SolverParams, 'Calculate Stresses',Found )
-       eqname = GetString( SolverParams, 'Equation' )
        IF(CalcPrincipalAngle) CalcPrincipalAll = .TRUE. ! can't calculate angle without principal
        IF(CalcPrincipalAll)   CalcStressAll = .TRUE. ! can't calculate principal without components
        IF(CalculateStrains)   CalcStressAll = .TRUE. ! can't calculate principal without components
        
-       CalcStress = .FALSE.
-       DO i=1,Model % NumberOfEquations
-         IF ( .NOT. GetLogical(Model % Equations(i) % Values,eqname,Found) ) CYCLE
-         
-         CalcStress = CalcStress .OR. GetLogical( &
-             Model % Equations(i) % Values, 'Calculate Stresses', Found )
-         
-         IF ( .NOT. Found .AND. CalcStressAll ) THEN
-           CALL ListAddLogical( &
-               Model % Equations(i) % Values, 'Calculate Stresses', .TRUE. )
-         END IF
-       END DO
-
        Contact = GetLogical( SolverParams, 'Contact', Found )
        IF( Contact ) THEN
          n = SIZE( Displacement ) / STDOFs
@@ -418,7 +396,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
 
-     IF ( CalcStress .OR. CalcStressAll ) THEN
+     IF ( CalcStressAll ) THEN
        Var => VariableGet( Mesh % Variables, 'Stress',.TRUE. )
        IF ( ASSOCIATED( Var ) ) THEN
          StressPerm  => Var % Perm
@@ -583,7 +561,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
          WRITE( Message, * ) 'Displacemet iteration: ', iter
          CALL Info( 'StressSolve', Message,Level=4 )
        END IF
-       CALL Info( 'StressSolve', 'Starting assembly...',Level=4 )
+       CALL Info( 'StressSolve', 'Starting assembly...',Level=5 )
 !------------------------------------------------------------------------------
 
        ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
@@ -610,7 +588,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
 
 1000   CALL BulkAssembly()
        CALL DefaultFinishBulkAssembly()
-       CALL Info( 'StressSolve', 'Bulk assembly done', Level=4 )
+       CALL Info( 'StressSolve', 'Bulk assembly done', Level=5 )
 
 2000   CALL BCAssembly()
        CALL DefaultFinishBoundaryAssembly()
@@ -623,7 +601,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
        IF( ModelLumping .AND. FixDisplacement) THEN
          CALL LumpedDisplacements( Model, iter, LumpedArea, LumpedCenter)
        END IF
-       CALL Info( 'StressSolve', 'Set boundaries done', Level=4 )
+       CALL Info( 'StressSolve', 'Set boundaries done', Level=5 )
 
        ! Solve the system and check for convergence:
        !--------------------------------------------
@@ -654,7 +632,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
 
        IF ( Iter > MinIter .AND. Solver % Variable % NonlinConverged == 1 ) EXIT
 
-       IF ( ( CalcStress .OR. CalcStressAll ) .AND. StabilityAnalysis ) THEN
+       IF ( ( CalcStressAll ) .AND. StabilityAnalysis ) THEN
          IF( Iter == 1 ) THEN
            CALL ComputeStress( Displacement, NodalStress,  &
                VonMises, DisplPerm, StressPerm, &
@@ -677,7 +655,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
      END DO ! of nonlinear iter
 !------------------------------------------------------------------------------
 
-     IF ( (CalcStress .OR. CalcStressAll) .AND. .NOT. StabilityAnalysis ) THEN
+     IF ( CalcStressAll .AND. .NOT. StabilityAnalysis ) THEN
          
        IF ( EigenAnalysis ) THEN
          
@@ -1335,7 +1313,7 @@ CONTAINS
      TYPE(Element_t), POINTER :: Element
 
      INTEGER :: i,j,k,l,p,q, t, dim,sdim,elem, IND(9), BodyId,EqId
-     LOGICAL :: stat, CSymmetry, Isotropic(2), ComputeFlag
+     LOGICAL :: stat, CSymmetry, Isotropic(2), UseMask
      INTEGER, POINTER :: Visited(:), Indexes(:), Permutation(:)
      REAL(KIND=dp) :: u,v,w,x,y,z,Strain(3,3),Stress(3,3),LGrad(3,3),detJ, &
           Young, Poisson, Ident(3,3), C(6,6), S(6), weight, st, Work(9), Principal(3), Relax
@@ -1348,8 +1326,9 @@ CONTAINS
           Factorize, FoundFactorize, FreeFactorize, FoundFreeFactorize
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+     CHARACTER(LEN=MAX_NAME_LEN) :: eqname
 
-     SAVE Nodes, StSolver, ForceG, Permutation, SForceG
+     SAVE Nodes, StSolver, ForceG, Permutation, SForceG, Eqname
 
      ! These variables are needed for Principal stress calculation
      ! they are quite small and allocated even if principal stress calculation
@@ -1397,8 +1376,16 @@ CONTAINS
        GlobalBubbles = GetLogical(SolverParams,'Bubbles in Global System',Found )
        IF (.NOT.Found ) GlobalBubbles = .TRUE.
 
+       IF( ListGetLogicalAnyEquation( Model,'Calculate Stresses' ) ) THEN
+         UseMask = .TRUE.
+         eqname = 'Calculate Stresses'
+       ELSE
+         UseMask = .FALSE.
+         eqname = TRIM( ListGetString( StSolver % Values,'Equation') )
+       END IF
        StSolver % Matrix => CreateMatrix( Model, Solver, Mesh, Permutation, &
-        1, MATRIX_CRS, OptimizeBW, 'Calculate Stresses', GlobalBubbles=GlobalBubbles )
+           1, MATRIX_CRS, OptimizeBW, eqname, GlobalBubbles=GlobalBubbles )
+
        ALLOCATE( StSolver % Matrix % RHS(StSolver % Matrix % NumberOfRows) )
        StSolver % Matrix % Comm = Solver % Matrix % Comm
 
@@ -1450,10 +1437,9 @@ CONTAINS
 
         ! Check if stresses wanted for this body:
         ! ---------------------------------------
-        ComputeFlag = GetLogical( Equation, 'Calculate Stresses', Found )
-
-        IF ( Found .AND. .NOT. ComputeFlag .OR. &
-                 .NOT. Found .AND. .NOT. CalcStressAll ) CYCLE
+        IF( UseMask ) THEN
+          IF(.NOT. GetLogical( Equation, eqname, Found )) CYCLE
+        END IF
 
         ! Get material parameters:
         ! ------------------------
