@@ -52,10 +52,11 @@ MODULE ModelDescription
 
     INTERFACE
       FUNCTION LoadFunction( Quiet,Abort_not_found,Libname,Procname ) RESULT(Proc)
+        USE, INTRINSIC :: ISO_C_BINDING
         USE Types
-        CHARACTER :: Libname(*),Procname(*)
-        INTEGER :: Quiet, Abort_not_found
+        CHARACTER(C_CHAR) :: Libname(*),Procname(*)
         INTEGER(KIND=AddrInt) :: Proc
+        INTEGER(C_INT) :: Quiet, Abort_not_found
       END FUNCTION LoadFunction
     END INTERFACE
 
@@ -997,7 +998,7 @@ CONTAINS
        CHARACTER(LEN=MAX_STRING_LEN) :: str
 #endif
        CHARACTER(LEN=MAX_STRING_LEN) :: str1
-       EXTERNAL ENVIR
+!       EXTERNAL ENVIR
 
        IF ( PRESENT( ReturnType ) ) ReturnType = .FALSE.
 

@@ -285,6 +285,15 @@ END SUBROUTINE GetMaxDefs
     TYPE(Mesh_t),  POINTER :: Mesh
     TYPE(Model_t) :: Model
 !------------------------------------------------------------------------------
+  
+    INTERFACE
+      SUBROUTINE eio_open_mesh(dir,info)
+        USE, INTRINSIC :: ISO_C_BINDING
+        INTEGER(C_INT) :: info
+        CHARACTER(C_CHAR) :: dir(*)
+      END SUBROUTINE eio_open_mesh
+    END INTERFACE
+
 
     INTEGER :: eio_info
  

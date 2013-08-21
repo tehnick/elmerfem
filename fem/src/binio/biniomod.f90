@@ -50,8 +50,39 @@ MODULE BinIO
         END SUBROUTINE BinFSeek
 
         SUBROUTINE BinEndianess(e)
-            CHARACTER(len=1), INTENT(OUT) :: e
+          USE, INTRINSIC :: ISO_C_BINDING
+          CHARACTER(C_CHAR), INTENT(OUT) :: e(*)
         END SUBROUTINE BinEndianess
+
+        SUBROUTINE BinOpen_(Unit,File,FileLen,Action,Status_)
+          USE, INTRINSIC :: ISO_C_BINDING
+          CHARACTER(C_CHAR) :: File(*), Action(*)
+          INTEGER(C_INT) :: Unit,FileLen,Status_
+        END SUBROUTINE BinOpen_
+
+        SUBROUTINE BinWriteChar_( Unit, c, Status_ )
+          USE, INTRINSIC :: ISO_C_BINDING
+          CHARACTER(C_CHAR) :: c(*)
+          INTEGER(C_INT) :: Unit,Status_
+        END SUBROUTINE BinWriteChar_
+
+        SUBROUTINE BinWriteString_( Unit, s, len,Status_ )
+          USE, INTRINSIC :: ISO_C_BINDING
+          CHARACTER(C_CHAR) :: s(*)
+          INTEGER(C_INT) :: Unit,len,Status_
+        END SUBROUTINE BinWriteString_
+
+        SUBROUTINE BinReadString_( Unit, s, len,Status_ )
+          USE, INTRINSIC :: ISO_C_BINDING
+          CHARACTER(C_CHAR) :: s(*)
+          INTEGER(C_INT) :: Unit,len,Status_
+        END SUBROUTINE BinReadString_
+
+        SUBROUTINE StrErrorF_( e,s,len)
+          USE, INTRINSIC :: ISO_C_BINDING
+          CHARACTER(C_CHAR) :: s(*)
+          INTEGER(C_INT) :: e,len
+        END SUBROUTINE StrErrorF_
     END INTERFACE
 
     PRIVATE :: HandleStatus
@@ -84,7 +115,8 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(OUT) :: Status
         INTEGER :: Status_
 
-        CALL BinOpen_( Unit,TRIM(File),LEN_TRIM(File),Action,Status_ )
+
+        CALL BinOpen_( Unit,TRIM(File)//char(0),LEN_TRIM(File),Action,Status_ )
         CALL HandleStatus( Status, Status_, "BINIO: Can't open file " &
                                             // TRIM(File) )
     END SUBROUTINE BinOpen

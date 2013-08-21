@@ -89,7 +89,7 @@ void STDCALLBULL FC_FUNC_(set_stdio_bufs,SET_STDIO_BUFS) ()
   This routine will return the home directory of elmer solver.
   -------------------------------------------------------------------------*/
 void STDCALLBULL FC_FUNC(getsolverhome,GETSOLVERHOME) 
-     ( FC_CHAR_PTR(solverDir, l1), int *len )
+     ( char *solverDir, int *len)
 {
   *len = 0;
 
@@ -142,7 +142,7 @@ void STDCALLBULL FC_FUNC(getsolverhome,GETSOLVERHOME)
   This routine will create a directory given name of the directory.
   -------------------------------------------------------------------------*/
 void STDCALLBULL FC_FUNC(makedirectory,MAKEDIRECTORY) 
-     ( FC_CHAR_PTR(Name,len) )
+     (char *Name)
 {
 #if defined(WIN32) || defined(MINGW32)
     if ( _mkdir( Name ) != 0 ) {
@@ -156,7 +156,7 @@ void STDCALLBULL FC_FUNC(makedirectory,MAKEDIRECTORY)
 /*--------------------------------------------------------------------------
   This routine execute a operating system command.
   -------------------------------------------------------------------------*/
-void STDCALLBULL FC_FUNC(systemc,SYSTEMC) ( FC_CHAR_PTR(str,l1) )
+void STDCALLBULL FC_FUNC(systemc,SYSTEMC) ( char *str )
 {
    system( str );
 }
@@ -165,7 +165,7 @@ void STDCALLBULL FC_FUNC(systemc,SYSTEMC) ( FC_CHAR_PTR(str,l1) )
   This routine will return value of a environment variable to a
   given string variable.
   -------------------------------------------------------------------------*/
-void STDCALLBULL FC_FUNC(envir,ENVIR) ( FC_CHAR_PTR(Name,l1), FC_CHAR_PTR(Value,l2), int *len )
+void STDCALLBULL FC_FUNC(envir,ENVIR) (char *Name, char *Value, int *len)
 {
     if ( getenv( Name ) ) {
       strncpy( Value,(char *)getenv(Name), MAX_PATH_LEN );
@@ -229,7 +229,7 @@ static void fortranMangle(char *orig, char *mangled)
   loaded library and name of the routine.
   -------------------------------------------------------------------------*/
 void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
-      int *abort_not_found, FC_CHAR_PTR(Library,l1), FC_CHAR_PTR(Name,l2) )
+      int *abort_not_found, char *Library, char *Name )
 {
 /*--------------------------------------------------------------------------*/
    void (*Function)(),*Handle;
@@ -558,7 +558,7 @@ void mtc_init(FILE *,FILE *, FILE *);
 /*--------------------------------------------------------------------------
   This routine will call matc and return matc result
   -------------------------------------------------------------------------*/
-void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2), int *len )
+void STDCALLBULL FC_FUNC(matc,MATC) ( char *cmd, char *Value, int *len )
 {
 #define MAXLEN 8192
 

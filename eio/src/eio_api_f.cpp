@@ -94,13 +94,13 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_close,EIO_CLOSE)
 }
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_create_model,EIO_CREATE_MODEL)
-  (const FC_CHAR_PTR(directory,dir_len), int& info)
+  (const char *directory, int& info)
 {
   info = modelManager->createModel(directory);
 }
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_open_model,EIO_OPEN_MODEL)
-  (const FC_CHAR_PTR(directory,dir_len), int& info)
+  (const char *directory, int& info)
 {
   info = modelManager->openModel(directory);
 }
@@ -266,7 +266,7 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_boundary,EIO_GET_GEOMETRY_
 }
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_create_mesh,EIO_CREATE_MESH)
-  (const FC_CHAR_PTR(directory,dir_len), int& info)
+  (const char *directory, int& info)
 {
   if(meshAgent = new EIOMeshAgent(modelManager))
     {
@@ -279,7 +279,7 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_create_mesh,EIO_CREATE_MESH)
 }
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_open_mesh,EIO_OPEN_MESH)
-  (const FC_CHAR_PTR(directory,directory_len), int& info)
+  (const char *directory, int& info)
 {
   if(paraState.isParallel)
     meshAgent = new EIOMeshAgent(modelManager, paraState.numProc,
@@ -399,7 +399,7 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_nodes,EIO_GET_MESH_NODES)
 
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_create_dual_mesh,EIO_CREATE_DUAL_MESH)
-  (const FC_CHAR_PTR(dir,dir_len), int& info)
+  (const char *dir, int& info)
 {
   if(dualMeshAgent = new EIODualMeshAgent(modelManager))
     {
@@ -412,7 +412,7 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_create_dual_mesh,EIO_CREATE_DUAL_MESH)
 }
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_open_dual_mesh,EIO_OPEN_DUAL_MESH)
-  (const FC_CHAR_PTR(dir,dir_len), int& info)
+  (const char *dir, int& info)
 {
   if(dualMeshAgent = new EIODualMeshAgent(modelManager))
     {
@@ -450,7 +450,7 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_get_dual_mesh_element_conns,EIO_GET_DUA
 
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_create_part,EIO_CREATE_PART)
-  (const FC_CHAR_PTR(dir,dir_len), int& parts, int& info)
+  (const char *dir, int& parts, int& info)
 {
   if(partitioningWriter = new EIOPartWriter(parts, modelManager))
     {

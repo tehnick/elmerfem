@@ -70,7 +70,7 @@ static char endianess()
 }
 
 
-void FC_FUNC(binendianess,BINENDIANESS)(FC_CHAR_PTR(e,ln))
+void FC_FUNC(binendianess,BINENDIANESS)(char *e)
 {
     *e = endianess();
 }
@@ -93,16 +93,16 @@ static void swap_bytes(void *o, size_t n)
 
 
 void FC_FUNC(binsetinputendianess,BINSETINPUTENDIANESS)(const int *unit,
-                                                        const FC_CHAR_PTR(e,ln))
+                                                        const char *e )
 {
     assert(units[*unit].fd);
     units[*unit].convert = (*e == endianess()) ? 0 : 1;
 }
 
 
-void FC_FUNC_(binopen_,BINOPEN_)(const int *unit, const FC_CHAR_PTR(file,flen),
+void FC_FUNC_(binopen_,BINOPEN_)(const int *unit, const char *file,
                                  const int *file_len,
-                                 const FC_CHAR_PTR(action,alen),
+                                 const char *action,
                                  int *status)
 {
     char *fname;
@@ -216,7 +216,7 @@ void FC_FUNC_(binreaddouble_,BINREADDOUBLE_)(const int *unit, double *a,
 
 
 void FC_FUNC_(binwritestring_,BINWRITESTRING_)(const int *unit,
-                                               const FC_CHAR_PTR(s,len),
+                                               const char *s,
                                                const int *s_len,
                                                int *status)
 {
@@ -231,7 +231,7 @@ void FC_FUNC_(binwritestring_,BINWRITESTRING_)(const int *unit,
 }
 
 
-void FC_FUNC_(binreadstring_,BINREADSTRING_)(const int *unit,FC_CHAR_PTR(s,len),
+void FC_FUNC_(binreadstring_,BINREADSTRING_)(const int *unit,char *s,
                                              const int *s_len, int *status)
 {
     int i, c;
@@ -251,7 +251,7 @@ void FC_FUNC_(binreadstring_,BINREADSTRING_)(const int *unit,FC_CHAR_PTR(s,len),
 }
 
 
-void FC_FUNC_(binwritechar_,BINWRITECHAR_)(const int *unit,FC_CHAR_PTR(c,len),
+void FC_FUNC_(binwritechar_,BINWRITECHAR_)(const int *unit,char *c,
                                            int *status)
 {
     assert(units[*unit].fd);
@@ -308,7 +308,7 @@ void FC_FUNC(binfseek,BINFSEEK)(const int *unit, const long *offset,
 #endif
 
 
-void FC_FUNC_(strerrorf_,STRERRORF_)(const int *e, FC_CHAR_PTR(s,len),
+void FC_FUNC_(strerrorf_,STRERRORF_)(const int *e, char *s,
                                      const int *s_len)
 {
     char *t;
