@@ -88,8 +88,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
   SAVE ElementNodes, Viscosity, GapHeight, Velocity, NormalVelocity, &
       Admittance, FORCE, STIFF, MASS, TimeForce, ElemPressure, AllocationsDone, &
-!      PeriodicNodes, &
-	CavitationValues, LoadValues
+      CavitationValues, LoadValues
 
 
   CALL Info('ReynoldsSolver','---------------------------------------',Level=5)
@@ -418,9 +417,6 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
     removed = 0
     IF(Cavitation) THEN
       DO i=1,SIZE(Pressure)
-!        IF( PeriodicNodes(i)) THEN
-!          CavitationValues(i) = -1.0
-!        ELSE IF( CavitationValues(i) > 0.0 ) THEN
         IF( CavitationValues(i) > 0.0 ) THEN
           IF( LoadValues(i) > CavLoadTol ) THEN
             removed = removed + 1
@@ -1052,11 +1048,15 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
       DO i=1,3
         WRITE(Message,'(A,I1,A,T35,ES15.4)') 'Pressure force ',i,' (N):',Pforce(i)
         CALL Info('ReynoldsPostprocess',Message,Level=5)
-      END DO
+        CALL ListAddConstReal( Model % Simulation,'res: Pressure force '&
+            //TRIM(I2S(i)),Pforce(i))
+     END DO
       DO i=1,3
         WRITE(Message,'(A,I1,A,T35,ES15.4)') 'Sliding force ',i,' (N):',Vforce(i)
         CALL Info('ReynoldsPostprocess',Message,Level=5)
-      END DO
+        CALL ListAddConstReal( Model % Simulation,'res: Sliding force '&
+            //TRIM(I2S(i)),Vforce(i))
+     END DO
       TotForce = SQRT( SUM((Pforce + Vforce)**2) )
       WRITE(Message,'(A,T35,ES15.4)') 'Reynolds force (N): ',TotForce
       CALL Info('ReynoldsPostprocess',Message,Level=5)
@@ -1143,12 +1143,13 @@ CONTAINS
 !      Parameters at integration point
 !------------------------------------------------------------------------------
 
-      IF(UseVelocity) THEN
-        IF( ASSOCIATED( Element % BoundaryInfo)) THEN
-          Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
-        ELSE
-          Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
-        END IF
+      IF( ASSOCIATED( Element % BoundaryInfo)) THEN
+        Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
+      ELSE
+        Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
+      END IF
+
+      IF( UseVelocity ) THEN
         DO i=1,3
           Velo(i) = SUM( Basis(1:n) * Velocity(i,1:n) )
         END DO
@@ -1189,7 +1190,6 @@ CONTAINS
 
       IF( Mode == 1 ) THEN
         ! Forces resulting from pressure and shear
-        
         Spres = -TotPres * Normal( Component ) 
         IF( OpposingWall ) Spres = -Spres
         Spres = Spres - Gap * GradPres( Component ) / 2
@@ -1262,7 +1262,7 @@ CONTAINS
     IF( Calculate ) THEN
       CALL ListAddString( Params,'Variable', &
           'FilmPressure Heating' )
-    ELSE
+    ELSE IF( .NOT. ListCheckPresent( Params,'Variable') ) THEN
       CALL ListAddString( Params,'Variable', &
           '-nooutput ReynoldsPost' )      
     END IF
