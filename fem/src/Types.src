@@ -104,10 +104,10 @@ INTERFACE
      CHARACTER(C_CHAR) :: str(*)
   END SUBROUTINE MakeDirectory
 
-  SUBROUTINE Matc(cmd,value,len)
+  SUBROUTINE Matc(cmd,VALUE,len)
      USE, INTRINSIC :: ISO_C_BINDING
      INTEGER(C_INT) :: len
-     CHARACTER(C_CHAR) :: cmd(*), value(*)
+     CHARACTER(C_CHAR) :: cmd(*), VALUE(*)
   END SUBROUTINE Matc
 END INTERFACE
 
@@ -370,13 +370,16 @@ END INTERFACE
      TYPE(Nodes_t), POINTER :: Nodes
      INTEGER, POINTER :: Indexes
      INTEGER :: n 
-     REAL(KIND=dp), POINTER :: Values(:)
+     REAL(KIND=dp), POINTER :: Values(:) => NULL()
+     REAL(KIND=dp), POINTER :: ParValues(:,:) => NULL()
+     INTEGER :: ParNo = 0
      REAL(KIND=dp) :: ConstantValue      
      CHARACTER(LEN=MAX_NAME_LEN) :: Name
      LOGICAL :: Initialized = .FALSE.
      LOGICAL :: AllocationsDone = .FALSE.
      LOGICAL :: ConstantEverywhere = .FALSE.
      LOGICAL :: ConstantInList = .FALSE.
+     LOGICAL :: EvaluateAtIP = .FALSE.
    END TYPE ValueHandle_t
 
 !------------------------------------------------------------------------------
