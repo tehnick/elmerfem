@@ -52,6 +52,14 @@ SUBROUTINE MagnetoDynamics2D_Init( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: dt            !< Timestep size for time dependent simulations
   LOGICAL :: TransientSimulation !< Steady state or transient simulation
 !------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: Params
+
+  Params => Solver % Values
+  CALL ListAddInteger( Params, 'Variable Dofs',1 )
+  IF( .NOT. ListCheckPresent(  Params,'Variable') ) THEN
+    CALL ListAddString( Params,'Variable','Potential')
+  END IF
+
   CALL ListAddLogical( Solver % Values, 'Apply Mortar BCs',.TRUE.)
 !------------------------------------------------------------------------------
 END SUBROUTINE MagnetoDynamics2D_Init
@@ -607,6 +615,31 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 END SUBROUTINE MagnetoDynamics2D
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE MagnetoDynamics2DHarmonic_Init( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver       !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model         !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt            !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation !< Steady state or transient simulation
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: Params
+
+  Params => Solver % Values
+  CALL ListAddInteger( Params, 'Variable Dofs',2 )
+  IF( .NOT. ListCheckPresent(  Params,'Variable') ) THEN
+    CALL ListAddString( Params,'Variable',&
+        'Potential[Potential re:1 Potential im:1]')
+  END IF
+
+!------------------------------------------------------------------------------
+END SUBROUTINE MagnetoDynamics2DHarmonic_Init
 !------------------------------------------------------------------------------
 
 
@@ -1287,7 +1320,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   SolverParams => GetSolverParams()
 
   VarName = GetString(GetSolverParams(),'Target Variable',GotIt)
-  IF(.NOT. GotIt) VarName = 'Az'
+  IF(.NOT. GotIt) VarName = 'Potential'
   AzSol => VariableGet( Solver % Mesh % Variables, VarName ) 
   IF( .NOT. ASSOCIATED( AzSol ) ) THEN
     CALL Fatal('BSolver','Target field not present: '//TRIM(VarName) )
@@ -1335,6 +1368,9 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
     END IF
   END IF
 
+  !------------------------------------------------------------------------------
+  ! In the case of time-harmonic analysis losses may be estimated in terms of B
+  !------------------------------------------------------------------------------ 
   LossEstimation = GetLogical(SolverParams,'Loss Estimation',GotIt)
   IF( LossEstimation .AND. FluxDofs /= 4) THEN
     CALL Fatal( 'BSolver', 'Real solution, loss estimation omitted' )
@@ -1410,17 +1446,6 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   WRITE( Message, * ) 'Result Norm: ',TotNorm
   CALL Info( 'BSolver', Message, Level=4 )
 
-!------------------------------------------------------------------------------
-! In the case of time-harmonic analysis losses may be estimated in terms of B
-!------------------------------------------------------------------------------ 
-  IF ( GetLogical(SolverParams,'Loss Estimation',GotIt) ) THEN
-     IF (FluxDofs /= 4) THEN
-        CALL Info( 'BSolver', 'Real solution, loss estimation omitted', Level=5 )
-     ELSE
-        Omega = GetAngularFrequency()
-        CALL LossBulkAssembly(Omega)
-     END IF
-  END IF
 
 CONTAINS
 
