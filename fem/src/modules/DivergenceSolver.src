@@ -154,7 +154,7 @@ CONTAINS
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element
-    REAL(KIND=dp) :: weight,grad(3),C(3,3),detJ,Source
+    REAL(KIND=dp) :: weight,grad(3),C(3,3),detJ,Source,x
     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
     REAL(KIND=dp), ALLOCATABLE :: Vx(:), Vy(:), Vz(:), Coeff(:)
     LOGICAL :: Found
@@ -195,7 +195,10 @@ CONTAINS
                 IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
         
         Weight = IntegStuff % s(t) * detJ
-        IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
+        IF ( CSymmetry ) THEN
+          x = SUM( Basis(1:n) * Nodes % x(1:n) ) 
+          Weight = Weight * x
+        END IF
         
         IF ( .NOT. ConstantBulkMatrixInUse ) THEN
           DO p=1,nd
@@ -208,6 +211,10 @@ CONTAINS
         Source = SUM( dBasisdx(1:nd,1) * Vx(1:nd) )
         Source = Source + SUM( dBasisdx(1:nd,2) * Vy(1:nd) )
         IF(DIM == 3) Source = Source + SUM( dBasisdx(1:nd,3) * Vz(1:nd) )
+
+	IF( CSymmetry ) THEN
+          Source = Source + SUM( Basis(1:nd) * Vx(1:nd) ) / x
+        END IF
 
         FORCE(1:nd) = FORCE(1:nd) + Basis(1:nd) * Weight * Source
       END DO

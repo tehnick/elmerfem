@@ -23,9 +23,11 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for solving magnetic vector potential in cartesian 2D case.
+! *  Module for solving magnetic vector potential in cartesian and
+! *  cylindrically symmetric 2D case. In both cases the vector potential
+! *  is reduced to a single component. 
 ! *
-! *  Authors: Juha Ruokolainen, Antero Arkkio
+! *  Authors: Juha Ruokolainen, Mika Malinen, Peter Råback
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -35,6 +37,8 @@
 ! *  Original Date: 30.11.2012
 ! *
 ! *****************************************************************************/
+
+
 !> \ingroup Solvers
 !> \{
 !------------------------------------------------------------------------------
@@ -73,10 +77,10 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
-  LOGICAL :: AllocationsDone = .FALSE., Found,FoundMortar
+  LOGICAL :: AllocationsDone = .FALSE., Found
   TYPE(Element_t), POINTER :: Element
 
-  REAL(KIND=dp) :: NonlinTol, Norm, PrevNorm, RelC
+  REAL(KIND=dp) :: Norm
   INTEGER :: i,j,k,n, nb, nd, t, istat, Active, NonlinIter, iter
 
   TYPE(ValueList_t), POINTER :: BC
@@ -85,13 +89,18 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 
   TYPE(Mesh_t),   POINTER :: Mesh
 
-  LOGICAL :: NewtonRaphson = .FALSE.
+  LOGICAL :: NewtonRaphson = .FALSE., CSymmetry
   INTEGER :: CoupledIter
   TYPE(Variable_t), POINTER :: IterV, CoordVar
 
   TYPE(Matrix_t),POINTER::A,B,CM,S
 
 !------------------------------------------------------------------------------
+
+  CALL Info( 'MagnetoDynamics2D','------------------------------------------------', Level=4 )
+  CALL Info( 'MagnetoDynamics2D', 'Solving equation for magnetic vector potential', Level=4 )
+  CALL Info( 'MagnetoDynamics2D','------------------------------------------------', Level=4 )
+
 
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
@@ -100,33 +109,13 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
 
   IF(GetCoupledIter()>1) NewtonRaphson=.TRUE.
 
-! S=>Solver % Matrix
-! DO i=1,Model % NumberOFBCs
-!   j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
-!   IF(FoundMortar) THEN
-!     CM => PeriodicProjector(Model,Mesh,i,j,2,.TRUE.)
-!     FoundMortar = ASSOCIATED(CM)
-!     EXIT
-!   END IF
-! END DO
-!
-! IF(FoundMortar) THEN
-!   ALLOCATE(CM % RHS(CM % NumberOfRows))
-!   CM % RHS = 0._dp
-!   S % ConstraintMatrix => CM
-!   CM % Cols = Solver % Variable % Perm(CM % Cols)
-!   CM % Ordered = .FALSE.
-!   CALL CRS_SortMatrix(CM,.TRUE.)
-! END IF
-
   NonlinIter = GetInteger(GetSolverParams(), &
            'Nonlinear System Max Iterations',Found)
   IF(.NOT.Found) NonlinIter=1
 
-  NonlinTol = GetCReal(GetSolverParams(), &
-           'Nonlinear System Convergence Tolerance',Found)
+  CSymmetry = ( CurrentCoordinateSystem() == AxisSymmetric .OR. &
+      CurrentCoordinateSystem() == CylindricSymmetric )
 
-  PrevNorm=SQRT(SUM(Solver % Variable % Values**2))
   DO iter=1,NonlinIter
     IF(Iter>1) NewtonRaphson=.TRUE.
     ! System assembly:
@@ -165,18 +154,13 @@ SUBROUTINE MagnetoDynamics2D( Model,Solver,dt,TransientSimulation )
     CALL DefaultDirichletBCs()
     Norm = DefaultSolve()
  
-    Norm=SQRT(ParallelReduction(SUM(Solver % Variable % Values**2)))
-    Relc = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)
-    IF(relc<NonlinTOL) EXIT
-    PrevNorm=Norm
+    IF( Solver % Variable % NonlinConverged == 1 ) EXIT
   END DO
 
-! IF(FoundMortar) THEN
-!   CALL FreeMatrix(CM)
-!   S % ConstraintMatrix => NULL()
-! END IF
-
-  CALL CalculateLumped(Model % NumberOfBodyForces)
+  ! For cylindrical symmetry the model lumping has not been implemented
+  IF( .NOT. CSymmetry ) THEN
+    CALL CalculateLumped(Model % NumberOfBodyForces)
+  END IF
 
   CoordVar => VariableGet(Mesh % Variables,'Coordinates')
   IF(ASSOCIATED(CoordVar)) THEN
@@ -393,7 +377,7 @@ CONTAINS
 
     REAL(KIND=dp) :: MASS(nd,nd), STIFF(nd,nd), FORCE(nd), &
       LOAD(nd),R(n),C(n), mu,muder,Babs,POT(nd), &
-        JAC(nd,nd),Agrad(3),C_ip,M(2,n),M_ip(2)
+        JAC(nd,nd),Agrad(3),C_ip,M(2,n),M_ip(2),x
 
     LOGICAL :: Cubic, HBcurve, Found, Stat
 
@@ -419,7 +403,6 @@ CONTAINS
       Bval => Lst % TValues
       Hval => Lst % FValues(1,1,:)
     ELSE
-      ! CALL GetReluctivity(Material,R,n)
       CALL GetReluctivity(Material,R,n,Element)
     END IF
 
@@ -442,6 +425,12 @@ CONTAINS
       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
               IP % W(t), detJ, Basis, dBasisdx )
 
+      IF( CSymmetry ) THEN
+        x = SUM( Basis(1:n) * Nodes % x(1:n) )
+        detJ = detJ * x
+      END IF
+
+
       ! The source term at the integration point:
       !------------------------------------------
       LoadAtIP = SUM( Basis(1:n) * LOAD(1:n) )
@@ -462,7 +451,7 @@ CONTAINS
 
       ! Finally, the elemental matrix & vector:
       !----------------------------------------
-      IF(TransientSimulation.AND.C_ip/=0._dp) THEN
+      IF(TransientSimulation .AND. C_ip/=0._dp) THEN
         DO p=1,nd
           DO q=1,nd
             MASS(p,q) = MASS(p,q) + IP % s(t) * detJ * C_ip * Basis(q)*Basis(p)
@@ -473,7 +462,16 @@ CONTAINS
       STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + IP % s(t) * DetJ * &
              mu*MATMUL(dBasisdx, TRANSPOSE(dBasisdx))
 
-      IF (HBcurve.AND.NewtonRaphson) THEN
+      IF( Csymmetry ) THEN
+        DO p = 1,nd
+          DO q = 1,nd
+            STIFF(p,q) = STIFF(p,q) + IP % s(t) * DetJ * &
+                (mu/x)*Basis(p)*dBasisdx(q,1)
+          END DO
+        END DO
+      END IF
+
+      IF (HBcurve .AND. NewtonRaphson) THEN
         DO p=1,nd
           DO q=1,nd
             JAC(p,q) = JAC(p,q) + IP % s(t) * DetJ * &
@@ -486,7 +484,7 @@ CONTAINS
            (M_ip(1)*dBasisdx(1:nd,2)-M_ip(2)*dBasisdx(1:nd,1)))
     END DO
 
-    IF (HBcurve.AND.NewtonRaphson) THEN
+    IF (HBcurve .AND. NewtonRaphson) THEN
       STIFF = STIFF + JAC
       FORCE = FORCE + MATMUL(JAC,POT)
     END IF
@@ -529,7 +527,6 @@ CONTAINS
       Parent=>Element % BoundaryInfo % Right
     END IF
     Material => GetMaterial(Parent)
-    ! CALL GetReluctivity(Material,R,n)
     CALL GetReluctivity(Material,R,n,Element)
 
     !Numerical integration:
@@ -541,12 +538,18 @@ CONTAINS
       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
                  IP % W(t), detJ, Basis )
 
+
       mu = SUM(Basis(1:n)*R(1:n))
 
       Normal = NormalVector( Element, Nodes, u, v, .TRUE. )
       Coord(1) = SUM(Basis(1:n) * Nodes % x(1:n))
       Coord(2) = SUM(Basis(1:n) * Nodes % y(1:n))
       Coord(3) = SUM(Basis(1:n) * Nodes % z(1:n))
+
+      IF( CSymmetry ) THEN
+        detJ = detJ * Coord(1)
+      END IF
+
       Inf_ip = mu * SUM(Coord*Normal)/SUM(Coord*Coord)
 
       DO p=1,nd
@@ -593,6 +596,12 @@ CONTAINS
     ELSE
       Acoef(1:n) = GetReal( Material, 'Reluctivity', Found,Element )
     END IF
+
+    IF( .NOT. Found ) THEN
+      CALL Warn('GetReluctivity',&
+          'Could not get either > Reluctivity > or > Relative Permeability < !')
+    END IF
+
 !------------------------------------------------------------------------------
   END SUBROUTINE GetReluctivity
 !------------------------------------------------------------------------------
@@ -621,7 +630,7 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Found,FoundMortar
   TYPE(Element_t),POINTER :: Element
 
-  REAL(KIND=dp) :: Norm,  PrevNorm, NonlinTOL, RelC
+  REAL(KIND=dp) :: Norm
   INTEGER :: i,j,k,ip,jp,n, nb, nd, t, istat, Active, iter, NonlinIter
 
   TYPE(ValueList_t), POINTER :: BC
@@ -629,13 +638,25 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
   COMPLEX(KIND=dp), PARAMETER :: im=(0._dp,1._dp)
 
 
-  LOGICAL, SAVE :: NewtonRaphson = .FALSE.
+  LOGICAL, SAVE :: NewtonRaphson = .FALSE., CSymmetry
   INTEGER :: CoupledIter
   TYPE(Variable_t), POINTER :: IterV, CoordVar
 
   TYPE(Matrix_t),POINTER::A,B,CM,S
 
 !------------------------------------------------------------------------------
+
+
+  CALL Info( 'MagnetoDynamics2DHarmonic',&
+      '------------------------------------------------', Level=4 )
+  CALL Info( 'MagnetoDynamics2DHarmonic', &
+      'Solving equation for magnetic vector potential', Level=4 )
+  CALL Info( 'MagnetoDynamics2DHarmonic',&
+      '------------------------------------------------', Level=4 )
+
+
+  CSymmetry = ( CurrentCoordinateSystem() == AxisSymmetric .OR. &
+      CurrentCoordinateSystem() == CylindricSymmetric )
 
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
@@ -680,11 +701,10 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
            'Nonlinear system max iterations',Found)
   IF(.NOT.Found) NonlinIter=1
 
-  NonlinTol = GetCReal(GetSolverParams(), &
-           'Nonlinear system Convergence Tolerance',Found)
-
-  PrevNorm=SQRT(SUM(Solver % Variable % Values**2))
   DO iter=1,NonlinIter
+    PRINT *,'iter:',iter
+
+
     IF(Iter>1) NewtonRaphson=.TRUE.
     ! System assembly:
     ! ----------------
@@ -719,18 +739,17 @@ SUBROUTINE MagnetoDynamics2DHarmonic( Model,Solver,dt,TransientSimulation )
     CALL DefaultDirichletBCs()
     Norm = DefaultSolve()
  
-     Norm=SQRT(ParallelReduction(SUM(Solver % Variable % Values**2)))
-     Relc = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)
-     IF(RelC<NonlinTOL) EXIT
-     PrevNorm=Norm
-   END DO
+    IF( Solver % Variable % NonlinConverged == 1 ) EXIT
+  END DO
 
    IF(FoundMortar) THEN
      CALL FreeMatrix(CM)
      S % ConstraintMatrix => NULL()
    END IF
 
-   CALL CalculateLumped(Model % NumberOfBodyForces)
+   IF(.NOT. CSymmetry ) THEN
+     CALL CalculateLumped(Model % NumberOfBodyForces)
+   END IF
 
    CoordVar => VariableGet(Mesh % Variables,'Coordinates')
    IF(ASSOCIATED(CoordVar)) THEN
@@ -929,7 +948,7 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ,x
     INTEGER :: i,p,q,t,siz
     TYPE(GaussIntegrationPoints_t) :: IP
     COMPLEX(KIND=dp) :: MASS(nd,nd), STIFF(nd,nd), FORCE(nd), LoadAtIp,&
@@ -963,7 +982,6 @@ CONTAINS
       Bval => Lst % TValues
       Hval => Lst % FValues(1,1,:)
     ELSE
-      ! CALL GetReluctivity(Material,R,n)
       CALL GetReluctivity(Material,R,n,Element)
     END IF
 
@@ -992,6 +1010,11 @@ CONTAINS
       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
        IP % W(t), detJ, Basis, dBasisdx )
 
+      IF( CSymmetry ) THEN
+        x = SUM( Basis(1:n) * Nodes % x(1:n) )
+        detJ = detJ * x
+      END IF
+
       ! The source term at the integration point:
       !------------------------------------------
       LoadAtIP = SUM( LOAD(1:n)*Basis(1:n) )
@@ -1017,6 +1040,15 @@ CONTAINS
 
       STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + IP % s(t) * DetJ * &
              mu*MATMUL(dBasisdx, TRANSPOSE(dBasisdx))
+
+      IF( Csymmetry ) THEN
+        DO p = 1,nd
+          DO q = 1,nd
+            STIFF(p,q) = STIFF(p,q) + IP % s(t) * DetJ * &
+                (mu/x)*Basis(p)*dBasisdx(q,1)
+          END DO
+        END DO
+      END IF
 
       IF (HBcurve.AND.NewtonRaphson) THEN
         DO p=1,nd
@@ -1076,7 +1108,6 @@ CONTAINS
       Parent=>Element % BoundaryInfo % Right
     END IF
     Material => GetMaterial(Parent)
-    ! CALL GetReluctivity(Material,R,n)
     CALL GetReluctivity(Material,R,n,Element)
 
     !Numerical integration:
@@ -1094,6 +1125,11 @@ CONTAINS
       Coord(1) = SUM(Basis(1:n) * Nodes % x(1:n))
       Coord(2) = SUM(Basis(1:n) * Nodes % y(1:n))
       Coord(3) = SUM(Basis(1:n) * Nodes % z(1:n))
+      
+      IF( CSymmetry ) THEN
+        detJ = detJ * Coord(1)
+      END IF
+
       Inf_ip = mu * SUM(Coord*Normal)/SUM(Coord*Coord)
 
       DO p=1,nd
@@ -1118,7 +1154,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     LOGICAL :: Found
     REAL(KIND=dp), SAVE :: Avacuum
-	LOGICAL, SAVE :: FirstTime = .TRUE.
+    LOGICAL, SAVE :: FirstTime = .TRUE.
 
     !$OMP THREADPRIVATE(FirstTime, Avacuum)
 
@@ -1140,6 +1176,12 @@ CONTAINS
     ELSE
       Acoef(1:n) = GetReal( Material, 'Reluctivity', Found, Element )
     END IF
+    
+    IF( .NOT. Found ) THEN
+      CALL Warn('GetReluctivity',&
+          'Could not get either > Reluctivity > or > Relative Permeability < !')
+    END IF
+
 !------------------------------------------------------------------------------
   END SUBROUTINE GetReluctivity
 !------------------------------------------------------------------------------
@@ -1171,16 +1213,24 @@ SUBROUTINE Bsolver_init( Model,Solver,dt,Transient )
   IF( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
     CALL ListAddString( SolverParams, 'Variable','-nooutput bsolver_temp' )
   END IF
-  IF( .NOT. ListCheckPresent( SolverParams,'Exported Variable 1') ) THEN
-    IF( GetLogical( SolverParams,'Target Variable Complex',Found ) ) THEN
-      CALL ListAddString( SolverParams,&
-          NextFreeKeyword('Exported Variable',SolverParams),'B[B re:2 B im:2]')
-    ELSE
-      CALL ListAddString( SolverParams,&
-          NextFreeKeyword('Exported Variable',SolverParams),'B[B:2]')
-    END IF
+  IF( GetLogical( SolverParams,'Target Variable Complex',Found ) ) THEN
+    CALL ListAddString( SolverParams,&
+        NextFreeKeyword('Exported Variable',SolverParams),'B[B re:2 B im:2]')
+  ELSE
+    CALL ListAddString( SolverParams,&
+        NextFreeKeyword('Exported Variable',SolverParams),'B[B:2]')
   END IF
   
+  IF( ListGetLogical( SolverParams, 'Calculate Joule Heating', Found ) ) THEN
+    CALL ListAddString( SolverParams, &
+        NextFreeKeyword('Exported Variable',SolverParams), &
+        'Joule Heating' )
+    CALL ListAddString( SolverParams, &
+        NextFreeKeyword('Exported Variable',SolverParams), &
+        'Joule Field' )
+  END IF
+
+
 END SUBROUTINE Bsolver_init
 
 
@@ -1204,7 +1254,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
   TYPE(ValueList_t),POINTER :: SolverParams
   CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CondName
-  INTEGER :: i,j,k,dim,DOFs,firstmag
+  INTEGER :: i,j,k,dim,FluxDofs,firstmag,TotDofs
   LOGICAL :: ConstantBulkMatrix, ConstantBulkMatrixInUse
   LOGICAL :: GotIt, Visited = .FALSE.
   REAL(KIND=dp) :: Unorm, Totnorm, val
@@ -1212,11 +1262,9 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   
-  TYPE(Variable_t), POINTER :: FluxSol, AzSol
-  LOGICAL ::  FoundMortar
+  TYPE(Variable_t), POINTER :: FluxSol, HeatingSol, JouleSol, AzSol
+  LOGICAL ::  FoundMortar, CSymmetry, LossEstimation, JouleHeating
   TYPE(Matrix_t),POINTER::A,B,CM,S
-
-  LOGICAL :: LossEstimation
   REAL(KIND=dp) :: Omega
   
   SAVE Visited
@@ -1226,6 +1274,10 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   CALL Info( 'BSolver', '-------------------------------------',Level=4 )
 
   dim = CoordinateSystemDimension()
+
+  CSymmetry = ( CurrentCoordinateSystem() == AxisSymmetric .OR. &
+      CurrentCoordinateSystem() == CylindricSymmetric )
+
 !------------------------------------------------------------------------------
 !  Check what needs to be computed
 !------------------------------------------------------------------------------
@@ -1242,7 +1294,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   END IF
 
   FluxSol => VariableGet(Solver % Mesh % Variables, 'B')
-  IF( .NOT. ASSOCIATED( AzSol ) ) THEN
+  IF( .NOT. ASSOCIATED( FluxSol ) ) THEN
     CALL Fatal('BSolver','Solution field not present: B' )
   END IF
 
@@ -1252,7 +1304,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
   END IF
 
 
-  Dofs = FluxSol % Dofs
+  FluxDofs = FluxSol % Dofs
   ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', GotIt )
   ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
       ASSOCIATED(Solver % Matrix % BulkValues)
@@ -1264,7 +1316,32 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
     CALL DefaultInitialize()
   END IF
   
-  ALLOCATE(ForceVector(SIZE(Solver % Matrix % RHS),DOFs))  
+  TotDofs = FluxDofs
+  JouleHeating = ListGetLogical( SolverParams, 'Calculate Joule Heating', GotIt )
+
+  IF( JouleHeating ) THEN
+    IF( FluxDofs /= 4 ) THEN
+      CALL Fatal('BSolver','Joule heating can only be computed for complex problems!')
+    ELSE
+      TotDofs = TotDofs + 2
+      HeatingSol => VariableGet(Solver % Mesh % Variables, 'Joule Heating')
+      IF( .NOT. ASSOCIATED( HeatingSol ) ) THEN
+        CALL Fatal('BSolver','Solution field not present: Joule Heating' )
+      END IF
+      JouleSol => VariableGet(Solver % Mesh % Variables, 'Joule Field')
+      IF( .NOT. ASSOCIATED( JouleSol ) ) THEN
+        CALL Fatal('BSolver','Solution field not present: Joule Field' )
+      END IF
+    END IF
+  END IF
+
+  LossEstimation = GetLogical(SolverParams,'Loss Estimation',GotIt)
+  IF( LossEstimation .AND. FluxDofs /= 4) THEN
+    CALL Fatal( 'BSolver', 'Real solution, loss estimation omitted' )
+  END IF
+
+
+  ALLOCATE(ForceVector(SIZE(Solver % Matrix % RHS),TotDOFs))  
   ForceVector = 0.0_dp
   SaveRHS => Solver % Matrix % RHS
 
@@ -1301,11 +1378,17 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
    CALL DefaultDirichletBCs()
       
    TotNorm = 0.0_dp
-   DO i=1,Dofs
+   DO i=1,TotDofs
      Solver % Matrix % RHS => ForceVector(:,i)
      UNorm = DefaultSolve()
      TotNorm = TotNorm + SUM(Solver % Variable % Values**2)
-     FluxSol % Values(i::Dofs) = Solver % Variable % Values
+     IF( i <= FluxDofs ) THEN
+       FluxSol % Values(i::FluxDofs) = Solver % Variable % Values
+     ELSE IF( i == FluxDofs + 1 ) THEN
+       JouleSol % Values = Solver % Variable % Values
+     ELSE
+       HeatingSol % Values = Solver % Variable % Values
+     END IF
    END DO
    DEALLOCATE( ForceVector )  
 
@@ -1331,7 +1414,7 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
 ! In the case of time-harmonic analysis losses may be estimated in terms of B
 !------------------------------------------------------------------------------ 
   IF ( GetLogical(SolverParams,'Loss Estimation',GotIt) ) THEN
-     IF (Dofs /= 4) THEN
+     IF (FluxDofs /= 4) THEN
         CALL Info( 'BSolver', 'Real solution, loss estimation omitted', Level=5 )
      ELSE
         Omega = GetAngularFrequency()
@@ -1346,23 +1429,50 @@ CONTAINS
   SUBROUTINE BulkAssembly()
 !------------------------------------------------------------------------------
        
-    INTEGER :: elem,t,i,j,k,p,q,n,nd, Rank
+    INTEGER :: elem,t,i,j,k,p,q,n,nd, Rank, BodyId
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element
-    REAL(KIND=dp) :: weight,coeff,detJ,BAtIp(4)
-    LOGICAL :: Found
+    REAL(KIND=dp) :: weight,coeff,detJ,BAtIp(6),PotAtIp(2),CondAtIp,&
+        Omega,TotalHeating, DesiredHeating, HeatingCoeff
+    REAL(KIND=dp) :: Freq, FreqPower, FieldPower, ComponentLoss(2), LossCoeff, &
+        ValAtIp, TotalLoss, x
+    LOGICAL :: Found, SetHeating
     TYPE(ValueList_t), POINTER :: Material
 
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:)
     REAL(KIND=dp), ALLOCATABLE :: POT(:,:)
     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
-    
+    REAL(KIND=dp), ALLOCATABLE :: Cond(:)
+    REAL(KIND=dp), ALLOCATABLE :: BodyLoss(:)
+
     SAVE Nodes
 
     n = 2*MAX(Solver % Mesh % MaxElementDOFs,Solver % Mesh % MaxElementNodes)
-    ALLOCATE( STIFF(n,n), FORCE(dofs,n) )
+    ALLOCATE( STIFF(n,n), FORCE(Totdofs,n) )
     ALLOCATE( POT(2,n), Basis(n), dBasisdx(n,3) )
+    
+    IF( JouleHeating ) THEN
+      ALLOCATE( Cond(n) ) 
+      Omega = GetAngularFrequency()
+      TotalHeating = 0.0_dp
+    END IF
+
+    IF( LossEstimation ) THEN
+      ALLOCATE( BodyLoss(Model % NumberOfBodies) )
+      Freq = Omega / (2*PI)
+      
+      FreqPower = GetCReal( SolverParams,'Fourier Loss Frequency Exponent',Found )
+      IF( .NOT. Found ) FreqPower = 2.0_dp
+      
+      FieldPower = GetCReal( SolverParams,'Fourier Loss Field Exponent',Found ) 
+      IF( .NOT. Found ) FieldPower = 2.0_dp
+      FieldPower = FieldPower / 2.0_dp
+
+      ComponentLoss = 0.0_dp
+      BodyLoss = 0.0_dp
+    END IF
+
 
     DO elem = 1,GetNOFActive()
          
@@ -1381,11 +1491,26 @@ CONTAINS
 
       CALL GetLocalSolution( POT, VarName )
 
+      IF( JouleHeating ) THEN
+        Material => GetMaterial()
+        Cond(1:n) = GetReal( Material, 'Electric Conductivity', Found, Element)
+      END IF
+
+      IF( LossEstimation ) THEN
+        BodyId = GetBody() 
+        LossCoeff = ListGetFun( Material,'Fourier Loss Coefficient',Freq,Found ) 
+      END IF
+
       DO t=1,IntegStuff % n
         Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
             IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
         
         Weight = IntegStuff % s(t) * detJ
+        IF( CSymmetry ) THEN
+          x = SUM( Basis(1:n) * Nodes % x(1:n) )
+          Weight = Weight * x
+        END IF
+
         IF ( .NOT. ConstantBulkMatrixInUse ) THEN
           DO p=1,nd
             DO q=1,nd
@@ -1393,15 +1518,39 @@ CONTAINS
             END DO
           END DO
         END IF
-        
+
+        ! magnetic flux density components
+        ! curl in cylindrically symmetric case has really different sign convention...
         BAtIp(1) =  SUM( POT(1,1:nd) * dBasisdx(1:nd,2) )
         BAtIp(2) = -SUM( POT(1,1:nd) * dBasisdx(1:nd,1) )
-        IF(dofs==4) THEN
+        IF( CSymmetry ) BAtIp(2) = BAtIP(2) - SUM( POT(1,1:nd) * Basis(1:nd) ) / x
+
+        IF(FluxDofs==4) THEN
           BAtIp(3) =  SUM( POT(2,1:nd) * dBasisdx(1:nd,2) )
           BAtIp(4) = -SUM( POT(2,1:nd) * dBasisdx(1:nd,1) )
+          IF( CSymmetry ) BAtIp(4) = BAtIP(4) - SUM( POT(2,1:nd) * Basis(1:nd) ) / x
+        END IF
+
+        ! Joule heating fields
+        IF( TotDofs > 4 ) THEN
+          CondAtIp = SUM( Basis(1:n) * Cond(1:n) )
+          PotAtIp(1) = SUM( POT(1,1:nd) * Basis(1:nd ) )
+          PotAtIp(2) = SUM( POT(2,1:nd) * Basis(1:nd ) )
+          BAtIp(5) = 0.5_dp * Omega**2 * ( PotAtIp(1)**2 + PotAtIp(2)**2 )  
+          BAtIp(6) = CondAtIp * BAtIp(5) 
+          TotalHeating = TotalHeating + Weight * BAtIp(6)
+        END IF
+
+        IF( LossEstimation ) THEN
+          DO i=1,2
+            ValAtIP = SUM( BAtIP(2*i-1:2*i) ** 2 )
+            Coeff = Weight * LossCoeff * ( Freq ** FreqPower ) * ( ValAtIp ** FieldPower )
+            ComponentLoss(i) = ComponentLoss(i) + Coeff
+            BodyLoss(BodyId) = BodyLoss(BodyId) + Coeff
+          END DO          
         END IF
         
-        DO i=1,dofs
+        DO i=1,Totdofs
           Coeff = Weight * BAtIp(i)
           FORCE(i,1:nd) = FORCE(i,1:nd) + Coeff * Basis(1:nd)
         END DO
@@ -1416,16 +1565,37 @@ CONTAINS
             BulkUpdate=ConstantBulkMatrix )
       END IF
 
-      DO i=1,Dofs
+      DO i=1,TotDofs
         Solver % Matrix % RHS => ForceVector(:,i)
         CALL DefaultUpdateForce( FORCE(i,1:nd) )
       END DO
 
     END DO
 
+    ! Check the total heating and normalize it, if requested
+    IF( JouleHeating ) THEN
+      TotalHeating = 2*PI*ParallelReduction(TotalHeating)
+
+      WRITE(Message,'(A,ES15.4)') 'Joule Heating (W): ',TotalHeating
+      CALL Info('MagnetoDynamics2D',Message)
+      CALL ListAddConstReal( Model % Simulation, 'res: Joule heating',TotalHeating)
+      
+      DesiredHeating = ListGetConstReal( SolverParams, &
+          'Desired Heating Power',Found)        
+      IF( Found .AND. TotalHeating > 0.0_dp ) THEN
+        HeatingCoeff = DesiredHeating / TotalHeating
+
+        WRITE(Message,'(A,ES15.4)') 'Joule coefficient: ',HeatingCoeff
+        CALL Info('MagnetoDynamics2D',Message)
+        CALL ListAddConstReal( Model % Simulation, 'res: Joule coefficient',HeatingCoeff)
+      
+        ForceVector(:,5) = HeatingCoeff * ForceVector(:,5) 
+        ForceVector(:,6) = HeatingCoeff * ForceVector(:,6) 
+      END IF
+    END IF
+
     ! Assembly of the face terms:
     !----------------------------
-
     IF (GetLogical(GetSolverParams(),'Discontinuous Galerkin',Found)) THEN
       IF (GetLogical(GetSolverParams(),'Average Within Materials',Found)) THEN
         FORCE = 0.0d0
@@ -1433,7 +1603,46 @@ CONTAINS
       END IF
     END IF
 
+
+    IF( LossEstimation ) THEN
+      DO j=1,2
+        ComponentLoss(j) = ParallelReduction(ComponentLoss(j)) 
+      END DO
+      
+      DO j=1,Model % NumberOfBodies
+        BodyLoss(j) = ParallelReduction(BodyLoss(j))
+      END DO
+      
+      TotalLoss = SUM( ComponentLoss )
+      CALL ListAddConstReal( Model % Simulation,'res: fourier loss',TotalLoss )
+      !CALL ListAddConstReal( Model % Simulation,'res: cos mode fourier loss', ComponentLoss(1)) 
+      !CALL ListAddConstReal( Model % Simulation,'res: sin mode fourier loss', ComponentLoss(2))       
+    
+      !---------------------------------------------------------------------------------
+      ! Screen ouput for componentwise and bodywise losses 
+      !--------------------------------------------------------------------------------
+      WRITE( Message,'(A,ES12.3)') 'Loss for cos mode: ', ComponentLoss(1)
+      CALL Info('BSolver', Message, Level=6 )
+      WRITE( Message,'(A,ES12.3)') 'Loss for sin mode: ', ComponentLoss(2)
+      CALL Info('BSolver', Message, Level=6 )
+      WRITE( Message,'(A,ES12.3)') 'Total loss: ',TotalLoss
+      CALL Info('BSolver',Message, Level=5 )
+
+      CALL Info('FourierLosses','Losses by bodies',Level=6)
+      DO j=1,Model % NumberOfBodies
+         IF( BodyLoss(j) < TINY( TotalLoss ) ) CYCLE
+         WRITE( Message,'(A,I0,A,ES12.3)') 'Body ',j,' : ',BodyLoss(j)
+         CALL Info('FourierLosses', Message, Level=6 )
+      END DO
+
+      DEALLOCATE( BodyLoss )
+    END IF
+
     DEALLOCATE( POT, STIFF, FORCE, Basis, dBasisdx )
+
+    IF( JouleHeating ) THEN
+      DEALLOCATE( Cond ) 
+    END IF
 
 !------------------------------------------------------------------------------
   END SUBROUTINE BulkAssembly
@@ -1517,6 +1726,10 @@ CONTAINS
         stat = ElementInfo(Face, FaceNodes, U, V, W, detJ, FaceBasis)
 
         S = S * detJ
+        IF( CSymmetry ) THEN
+          S = S * SUM( FaceNodes % x(1:n) * FaceBasis(1:n) ) 
+        END IF
+
 
         ! Find basis functions for the parent elements:
         ! ---------------------------------------------
@@ -1539,146 +1752,6 @@ CONTAINS
       END DO
 !------------------------------------------------------------------------------
     END SUBROUTINE LocalJumps
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-    SUBROUTINE LossBulkAssembly(Omega)
-!------------------------------------------------------------------------------
-      REAL(KIND=dp) :: Omega
-!------------------------------------------------------------------------------
-      INTEGER :: elem,t,i,j,k,p,q,n,nd,BodyId
-      REAL(KIND=dp) :: weight,coeff,detJ,BAtIp(4), TotalLoss, &
-           Freq, FreqPower, FieldPower, ComponentLoss(2), LossCoeff, ValAtIP
-      LOGICAL :: Found
-
-      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-      TYPE(Nodes_t) :: Nodes
-
-      TYPE(Element_t), POINTER :: Element
-      TYPE(ValueList_t), POINTER :: Material
-
-      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:)
-      REAL(KIND=dp), ALLOCATABLE :: POT(:,:)
-      REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
-      REAL(KIND=dp), ALLOCATABLE :: BodyLoss(:)
-
-      SAVE Nodes
-      !--------------------------------------------------------------------------------
-      n = 2*MAX(Solver % Mesh % MaxElementDOFs,Solver % Mesh % MaxElementNodes)
-      ALLOCATE( STIFF(n,n), FORCE(dofs,n) )
-      ALLOCATE( POT(2,n), Basis(n), dBasisdx(n,3) )
-      ALLOCATE( BodyLoss(Model % NumberOfBodies) )
-
-      Freq = Omega / (2*PI)
-
-      FreqPower = GetCReal( SolverParams,'Fourier Loss Frequency Exponent',Found )
-      IF( .NOT. Found ) FreqPower = 2.0_dp
-
-      FieldPower = GetCReal( SolverParams,'Fourier Loss Field Exponent',Found ) 
-      IF( .NOT. Found ) FieldPower = 2.0_dp
-      FieldPower = FieldPower / 2.0_dp
-
-      ComponentLoss = 0.0_dp
-      BodyLoss = 0.0_dp
-
-      CALL GetLocalSolution( POT, VarName )
-      DO elem = 1,GetNOFActive()
-         !---------------------
-         ! Element information
-         ! ---------------------
-         Element => GetActiveElement(elem)
-         CALL GetElementNodes( Nodes )
-         nd = GetElementNOFDOFs()
-         n  = GetElementNOFNodes()
-
-         BodyId = GetBody()
-         Material => GetMaterial()
-
-         ! Integrate the loss estimate elementwise
-         ! -----------------------------------------
-         IntegStuff = GaussPoints( Element )
-         STIFF  = 0.0_dp
-         FORCE  = 0.0_dp
-
-         DO t=1,IntegStuff % n
-            Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
-                 IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
-
-            Weight = IntegStuff % s(t) * detJ
-
-            ! /* the following stiff matrix computation is omitted as we don't solve loss distribution */ 
-            !        IF ( .NOT. ConstantBulkMatrixInUse ) THEN
-            !          DO p=1,nd
-            !            DO q=1,nd
-            !              STIFF(p,q) = STIFF(p,q) + Weight * Basis(q) * Basis(p)
-            !            END DO
-            !          END DO
-            !        END IF
-
-            LossCoeff = ListGetFun( Material,'Fourier Loss Coefficient',Freq,Found ) 
-
-            BAtIp(1) =  SUM( POT(1,1:nd) * dBasisdx(1:nd,2) )
-            BAtIp(2) = -SUM( POT(1,1:nd) * dBasisdx(1:nd,1) )
-            BAtIp(3) =  SUM( POT(2,1:nd) * dBasisdx(1:nd,2) )
-            BAtIp(4) = -SUM( POT(2,1:nd) * dBasisdx(1:nd,1) )
-
-            DO i=1,2
-               ValAtIP = SUM( BAtIP(2*i-1:2*i) ** 2 )
-               Coeff = Weight * LossCoeff * ( Freq ** FreqPower ) * ( ValAtIp ** FieldPower )
-               ComponentLoss(i) = ComponentLoss(i) + Coeff
-               BodyLoss(BodyId) = BodyLoss(BodyId) + Coeff
-            END DO
-         END DO
-
-         !------------------------------------------------------------------------------
-         !      Update global matrices from local matrices 
-         !------------------------------------------------------------------------------
-         !      IF ( .NOT. ConstantBulkMatrixInUse ) THEN
-         !        Solver % Matrix % Rhs => SaveRhs
-         !        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
-         !            BulkUpdate=ConstantBulkMatrix )
-         !      END IF
-
-         !      DO i=1,Dofs
-         !        Solver % Matrix % RHS => ForceVector(:,i)
-         !        CALL DefaultUpdateForce( FORCE(i,1:nd) )
-         !      END DO
-      END DO
-
-      DO j=1,2
-         ComponentLoss(j) = ParallelReduction(ComponentLoss(j)) 
-      END DO
-
-      DO j=1,Model % NumberOfBodies
-         BodyLoss(j) = ParallelReduction(BodyLoss(j))
-      END DO
-
-      TotalLoss = SUM( ComponentLoss )
-      CALL ListAddConstReal( Model % Simulation,'res: fourier loss',TotalLoss )
-      !CALL ListAddConstReal( Model % Simulation,'res: cos mode fourier loss', ComponentLoss(1)) 
-      !CALL ListAddConstReal( Model % Simulation,'res: sin mode fourier loss', ComponentLoss(2))       
-    
-      !---------------------------------------------------------------------------------
-      ! Screen ouput for componentwise and bodywise losses 
-      !--------------------------------------------------------------------------------
-      WRITE( Message,'(A,ES12.3)') 'Loss for cos mode: ', ComponentLoss(1)
-      CALL Info('BSolver', Message, Level=6 )
-      WRITE( Message,'(A,ES12.3)') 'Loss for sin mode: ', ComponentLoss(2)
-      CALL Info('BSolver', Message, Level=6 )
-      WRITE( Message,'(A,ES12.3)') 'Total loss: ',TotalLoss
-      CALL Info('BSolver',Message, Level=5 )
-
-      CALL Info('FourierLosses','Losses by bodies',Level=6)
-      DO j=1,Model % NumberOfBodies
-         IF( BodyLoss(j) < TINY( TotalLoss ) ) CYCLE
-         WRITE( Message,'(A,I0,A,ES12.3)') 'Body ',j,' : ',BodyLoss(j)
-         CALL Info('FourierLosses', Message, Level=6 )
-      END DO
-
-      DEALLOCATE( BodyLoss, POT, STIFF, FORCE, Basis, dBasisdx )
-!------------------------------------------------------------------------------
-    END SUBROUTINE LossBulkAssembly
 !------------------------------------------------------------------------------
 
 
