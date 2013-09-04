@@ -1029,13 +1029,13 @@ SUBROUTINE ElasticSolver_Init( Model,Solver,dt,Transient )
 !       Others:
 !       -------
         CASE DEFAULT
-          CALL Fatal( 'ElasticSolve',  'Unknown element type.' )
-       
+           !CALL Fatal( 'ElasticSolve',  'Unknown element type.' )
+           N_gauss = 0
         END SELECT
 
-        IF( N_gauss == 0 ) THEN
-          CALL Fatal( 'ElasticSolve',  'Unknown number of nodes.' )
-        END IF
+        !IF( N_gauss == 0 ) THEN
+        !  CALL Fatal( 'ElasticSolve',  'Unknown number of nodes.' )
+        !END IF
 
       END FUNCTION ElasticityGaussPoints
 
@@ -1119,9 +1119,12 @@ SUBROUTINE ElasticSolver_Init( Model,Solver,dt,Transient )
 !    Integration stuff
 !    
 
-     N_gauss = ElasticityGaussPoints( Element )      
-     IntegStuff = GaussPoints( element,N_gauss )
-
+     N_gauss = ElasticityGaussPoints( Element )
+     IF (N_gauss > 0) THEN
+        IntegStuff = GaussPoints( element,N_gauss )
+     ELSE
+        IntegStuff = GaussPoints( element )
+     END IF
 
      U_Integ => IntegStuff % u
      V_Integ => IntegStuff % v
@@ -1314,7 +1317,7 @@ SUBROUTINE ElasticSolver_Init( Model,Solver,dt,Transient )
 
                !-------------------------------------------------------------
                ! Then dStress1 relates to having an equivalent expression for
-               ! the derivative DS(u_k)[grad u_{k+1}] with S the first  
+               ! the derivative DS(F_k)[grad u_{k+1}] with S the first  
                ! Piola-Kirchhoff stress.
                !-------------------------------------------------------------
                dStress1 = MATMUL(Grad,Stress2) + MATMUL(DefG,dStress2)
@@ -1436,8 +1439,12 @@ SUBROUTINE ElasticSolver_Init( Model,Solver,dt,Transient )
     !    Integration stuff
     !    
 
-    N_gauss = ElasticityGaussPoints( Element )      
-    IntegStuff = GaussPoints( element,N_gauss )
+    N_gauss = ElasticityGaussPoints( Element )
+    IF (N_gauss > 0) THEN
+       IntegStuff = GaussPoints( element,N_gauss )
+    ELSE
+       IntegStuff = GaussPoints( element )
+    END IF
 
 
     U_Integ => IntegStuff % u
@@ -1689,8 +1696,12 @@ SUBROUTINE ElasticSolver_Init( Model,Solver,dt,Transient )
 !    
 !    Integration stuff
 !    
-     N_gauss = ElasticityGaussPoints( Element ) 
-     IntegStuff = GaussPoints( element,N_gauss )
+     N_gauss = ElasticityGaussPoints( Element )
+     IF (N_gauss > 0) THEN
+        IntegStuff = GaussPoints( element,N_gauss )
+     ELSE
+        IntegStuff = GaussPoints( element )
+     END IF
 
      U_Integ => IntegStuff % u
      V_Integ => IntegStuff % v
