@@ -58,12 +58,12 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
 !    Local variables
 !------------------------------------------------------------------------------
   TYPE(ValueList_t),POINTER :: SolverParams
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CondName
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CondName, PotName
   INTEGER :: i,j,k,dim,DOFs,firstmag
   LOGICAL :: ConstantBulkMatrix, ConstantBulkMatrixInUse, CSymmetry
   LOGICAL :: GotIt, Visited = .FALSE.
   LOGICAL :: CalculateFluxMag, CalculateFlux, CalculateGradMag, CalculateGrad, &
-      EnforcePositiveMagnitude
+      EnforcePositiveMagnitude, UsePot
   REAL(KIND=dp) :: Unorm, Totnorm, val
   REAL(KIND=dp), ALLOCATABLE, TARGET :: ForceVector(:,:)
   REAL(KIND=dp), POINTER :: SaveRHS(:)
@@ -113,10 +113,16 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
 !-------------------------------------------------------------------------------
 
   VarName = GetString(SolverParams,'Flux Variable',GotIt )
+  UsePot = .FALSE.
   IF(.NOT. GotIt) VarName = GetString(SolverParams,'Target Variable',GotIt )
   IF(.NOT. gotIt) THEN
-    CALL Warn('FluxSolver','> Target Variable < not given, using Temperature')
-    VarName = TRIM('Temperature')
+    PotName = GetString(SolverParams,'Target Expression',UsePot )
+    IF( UsePot ) THEN
+      VarName = PotName
+    ELSE
+      CALL Warn('FluxSolver','> Target Variable < not given, using Temperature')
+      VarName = TRIM('Temperature')
+    END IF
   END IF
 
   IF( CalculateFlux .OR. CalculateFluxMag ) THEN
@@ -292,6 +298,7 @@ CONTAINS
       ! Element information
       ! ---------------------
       Element => GetActiveElement(elem)
+      Material => GetMaterial()
       CALL GetElementNodes( Nodes )
       nd = GetElementNOFDOFs()
       n  = GetElementNOFNodes()
@@ -303,7 +310,7 @@ CONTAINS
       FORCE  = 0.0_dp
 
       IF( CalculateFlux .OR. CalculateFluxMag ) THEN
-        CALL GetRealArray( GetMaterial(), Conductivity, CondName, Found )
+        CALL GetRealArray( Material, Conductivity, CondName, Found )
         Rank = 0
         IF ( Found ) Rank = GetTensorRank(Conductivity)
         
@@ -314,7 +321,11 @@ CONTAINS
         END DO
       END IF
 
-      CALL GetScalarLocalSolution( LocalPotential, VarName )
+      IF( UsePot ) THEN
+        LocalPotential(1:n) = GetReal( Material, PotName ) 
+      ELSE
+        CALL GetScalarLocalSolution( LocalPotential, VarName )
+      END IF
 
       DO t=1,IntegStuff % n
         Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
@@ -565,7 +576,8 @@ END SUBROUTINE FluxSolver
     TYPE(ValueList_t), POINTER :: SolverParams
     INTEGER :: dim
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName, FluxName, GradName
-    LOGICAL :: GotIt, CalculateFluxMag, CalculateFlux, CalculateGrad, CalculateGradMag
+    LOGICAL :: GotIt, CalculateFluxMag, CalculateFlux, CalculateGrad, &
+        CalculateGradMag
 !------------------------------------------------------------------------------
     SolverParams => GetSolverParams()
     dim = CoordinateSystemDimension()
@@ -597,8 +609,13 @@ END SUBROUTINE FluxSolver
     VarName = GetString(SolverParams,'Flux Variable',GotIt )
     IF(.NOT. GotIt) VarName = GetString(SolverParams,'Target Variable',GotIt )
     IF(.NOT. gotIt) THEN
-      CALL Warn('FluxSolver','> Target Variable < not given, using Temperature')
-      VarName = 'Temperature'
+      IF( .NOT. GotIt ) THEN
+        VarName = GetString( SolverParams,'Target Expression',GotIt ) 
+      END IF
+      IF( .NOT. GotIt ) THEN
+        CALL Warn('FluxSolver','> Target Variable < not given, using Temperature')
+        VarName = 'Temperature'
+      END IF
     END IF
 
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
