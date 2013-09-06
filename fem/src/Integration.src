@@ -741,15 +741,26 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-!>    Return gaussian integration points for 2D triangle element
+!>    Return Gaussian integration points for 2D triangle element. Here the 
+!>    reference element over which the integration is done can also be the
+!>    equilateral triangle used in the description of p-elements. In that case,
+!>    this routine may return a more economical set of integration points. 
 !------------------------------------------------------------------------------
-   FUNCTION GaussPointsTriangle( n ) RESULT(p)
+   FUNCTION GaussPointsTriangle( n, PReferenceElement ) RESULT(p)
 !------------------------------------------------------------------------------
       INTEGER :: n    !< number of points in the requested rule
+      LOGICAL, OPTIONAL ::  PReferenceElement !< used for switching the reference element
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       INTEGER :: i
+      LOGICAL :: ConvertToPTriangle
+      REAL (KIND=dp) :: uq, vq, sq
 !     INTEGER :: thread, omp_get_thread_num
+!-------------------------------------------------------------------------------
+      ConvertToPtriangle = .FALSE.
+      IF ( PRESENT(PReferenceElement) ) THEN
+         ConvertToPTriangle =  PReferenceElement
+      END IF
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
 !       thread = 1
@@ -815,6 +826,25 @@ CONTAINS
          END DO
          p % s(1:p % n) = 0.5d0 * p % s(1:p % n) / SUM( p % s(1:p % n) )
       END SELECT
+
+      IF (ConvertToPTriangle) THEN
+         !-------------------------------------------------------------------
+         ! Apply an additional transformation if the actual reference element
+         ! is the equilateral triangle used in the description of p-elements.
+	 ! We map the original integration points into their counterparts on the 
+	 ! p-reference element and scale the weights by the determinant of the 
+	 ! deformation gradient associated with the change of reference element.
+         !-------------------------------------------------------------------
+         DO i=1,P % n  
+            uq = P % u(i) 
+            vq = P % v(i) 
+            sq = P % s(i)
+            P % u(i) = -1.0d0 + 2.0d0*uq + vq
+            P % v(i) = SQRT(3.0d0)*vq
+            P % s(i) = SQRT(3.0d0)*2.0d0*sq
+         END DO
+      END IF
+
       p % w(1:n) = 0.0d0
 !------------------------------------------------------------------------------
    END FUNCTION GaussPointsTriangle
@@ -858,16 +888,27 @@ END FUNCTION GaussPointsPTetra
 
 
 !------------------------------------------------------------------------------
-!>    Return gaussian integration points for 3D tetra element
+!>    Return Gaussian integration points for 3D tetrahedral element. Here the 
+!>    reference element over which the integration is done can also be the
+!>    regular tetrahedron used in the description of p-elements. In that case,
+!>    this routine may return a more economical set of integration points. 
 !------------------------------------------------------------------------------
-   FUNCTION GaussPointsTetra( n ) RESULT(p)
+   FUNCTION GaussPointsTetra( n, PReferenceElement ) RESULT(p)
 !------------------------------------------------------------------------------
       INTEGER :: n      !< number of points in the requested rule
+      LOGICAL, OPTIONAL ::  PReferenceElement !< used for switching the reference element 
       TYPE(GaussIntegrationPoints_t), POINTER :: p
 !------------------------------------------------------------------------------
       REAL( KIND=dp ) :: ScaleFactor
       INTEGER :: i
+      LOGICAL :: ConvertToPTetrahedron
+      REAL (KIND=dp) :: uq, vq, wq, sq
 !     INTEGER :: thread, omp_get_thread_num
+!----------------------------------------------------------------------------------
+      ConvertToPTetrahedron = .FALSE.
+      IF ( PRESENT(PReferenceElement) ) THEN
+         ConvertToPTetrahedron =  PReferenceElement
+      END IF
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
 !       thread = 1
@@ -923,6 +964,26 @@ END FUNCTION GaussPointsPTetra
          END DO
 !         p % s(1:p % n) = p % s(1:p % n) / SUM( p % s(1:p % n) ) / 6.0d0
       END SELECT
+
+      IF (ConvertToPTetrahedron) THEN
+         !-------------------------------------------------------------------
+         ! Apply an additional transformation if the actual reference element
+         ! is the regular tetrahedron used in the description of p-elements
+	 ! We map the original integration points into their counterparts on the 
+	 ! p-reference element and scale the weights by the determinant of the 
+	 ! deformation gradient associated with the change of reference element.
+         !-------------------------------------------------------------------
+         DO i=1,P % n  
+            uq = P % u(i) 
+            vq = P % v(i)
+            wq = P % w(i)            
+            sq = P % s(i)
+            P % u(i) = -1.0d0 + 2.0d0*uq + vq + wq
+            P % v(i) = SQRT(3.0d0)*vq + 1.0d0/SQRT(3.0d0)*wq
+            P % w(i) = SQRT(8.0d0)/SQRT(3.0d0)*wq
+            P % s(i) = SQRT(8.0d0)*2.0d0*sq
+         END DO
+      END IF
 !------------------------------------------------------------------------------
    END FUNCTION GaussPointsTetra
 !------------------------------------------------------------------------------

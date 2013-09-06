@@ -212,47 +212,13 @@ CONTAINS
        ! The reference element is chosen to be that used for p-approximation,
        ! so we need to switch to using a quadrature which would not be used otherwise
        !--------------------------------------------------------------------------------------------
-       ! In the following, we find the Gauss quadrature data for the standard reference element, map 
-       ! the integration points into their counterparts on the p-reference element and scale the weights 
-       ! by the determinant of the deformation gradient associated with the change of reference element.
-       !----------------------------------------------------------------------------------------------
        IF (dim == 2) THEN
-          !----------------------------------------------------------------------------------------------
-          ! The following is enough for the lowest-order RT approximation on triangles. We could also set 
-          !
-          ! IP = GaussPointsPTriangle(4) ! np = {4,9} for linear and quadratic approximation, respectively
-          ! 
-          ! but this appears to give unnecessary many integration points.
-          !---------------------------------------------------------------------------------------------
-          IP = GaussPointsTriangle(3)
-
-          DO i=1,IP % n  
-             uq = IP % u(i) 
-             vq = IP % v(i) 
-             sq = IP % s(i)
-             IP % u(i) = -1.0d0 + 2.0d0*uq + vq
-             IP % v(i) = SQRT(3.0d0)*vq
-             IP % s(i) = SQRT(3.0d0)*2.0d0*sq
-          END DO
-
-          IP % w(1:IP % n) = 0.0d0
+          IP = GaussPointsTriangle(3, PReferenceElement=.TRUE.)
        ELSE
           !----------------------------------------------------------------
           ! The lowest-order BDM approximation on tetrahedra
           !----------------------------------------------------------------
-          IP = GaussPointsTetra(4)
-
-          DO i=1,IP % n  
-             uq = IP % u(i) 
-             vq = IP % v(i)
-             wq = IP % w(i)            
-             sq = IP % s(i)
-             IP % u(i) = -1.0d0 + 2.0d0*uq + vq + wq
-             IP % v(i) = SQRT(3.0d0)*vq + 1.0d0/SQRT(3.0d0)*wq
-             IP % w(i) = SQRT(8.0d0)/SQRT(3.0d0)*wq
-             IP % s(i) = SQRT(8.0d0)*2.0d0*sq
-          END DO
-
+          IP = GaussPointsTetra(4, PReferenceElement=.TRUE.)
        END IF
     ELSE
        !-------------------------------------------------------------
