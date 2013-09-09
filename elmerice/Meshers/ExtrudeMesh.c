@@ -186,7 +186,7 @@ int checkFileEntries(char *filename, char *argv[], int *entriesPerLine){
   return ++lines;
 }
 
-int readDEM(double *inputfield, int pointsInDEM, char *filename, char *argv[]){
+int readDEM(double *inputfield, int *isnoval, int pointsInDEM, char *filename, char *argv[]){
   int i,validPointsInDEM;
   double noval = atof(argv[13]);
   FILE *fileptr;
@@ -199,15 +199,18 @@ int readDEM(double *inputfield, int pointsInDEM, char *filename, char *argv[]){
   for (i=0,validPointsInDEM=0;i<pointsInDEM;++i){
     fscanf(fileptr,"%lf %lf %lf",&inputfield[3*validPointsInDEM],&inputfield[3*validPointsInDEM+1],&inputfield[3*validPointsInDEM+2]);
     if (inputfield[3*validPointsInDEM+2] == noval) 
-      inputfield[3*validPointsInDEM] = inputfield[3*validPointsInDEM+1] = inputfield[3*validPointsInDEM+2] = 0.0;
-    else
+      isnoval[validPointsInDEM] = 1;
+      // inputfield[3*validPointsInDEM] = inputfield[3*validPointsInDEM+1] = inputfield[3*validPointsInDEM+2] = 0.0;
+    else{
       validPointsInDEM++;
+      isnoval[validPointsInDEM] = 0;
+    }
   }
   fclose(fileptr);
   return validPointsInDEM;
 }
 
-int interpolatePoint(double X, double Y, double *B, double *S, double *bed, double *surf,  double *thick, int *pointsInDEM, double minrad, double wexp, int interpolationScheme, char *argv[]){
+int interpolatePoint(double X, double Y, double *B, double *S, double *bed, double *surf,  double *thick, int *pointsInDEM, double minrad, double wexp, int interpolationScheme, char *argv[], int *isnoval0, int *isnoval1, int *isnoval2){
   int i, j, k, rounds;
   double weightsum, weight, radius, localthickness;
   
@@ -225,7 +228,11 @@ int interpolatePoint(double X, double Y, double *B, double *S, double *bed, doub
 	//printf("radius=%e, bed=%e,%e\n",radius,bed[3*i], bed[3*i+1]); 
 
 	if (radius <= minrad*(1.0 + (double)(rounds+1)/100.0)){
-	  weight = 1.0/(pow(radius,wexp) + 1.0E-09);
+	  if (isnoval2[i] == 1) {
+	    weight = 0.0;
+	      }else{
+	    weight = 1.0/(pow(radius,wexp) + 1.0E-09);
+	  }
 	  weight = (weight > 1.0E05) ? 1.0E05 : weight;
 	  weightsum += weight;
 	  localthickness += weight * thick[(3*i)+2];
@@ -258,7 +265,11 @@ int interpolatePoint(double X, double Y, double *B, double *S, double *bed, doub
 	//printf("radius=%e, bed=%e,%e\n",radius,bed[3*i], bed[3*i+1]); 
 
 	if (radius <= minrad*(1.0 + (double)(rounds+1)/100.0)){
-	  weight = 1.0/(pow(radius,wexp) + 1.0E-09);
+	  if (isnoval0[i] == 1) {
+	    weight = 0.0;
+	      }else{
+	    weight = 1.0/(pow(radius,wexp) + 1.0E-09);
+	  }
 	  weight = (weight > 1.0E05) ? 1.0E05 : weight;
 	  weightsum += weight;
 	  *B += weight * bed[(3*i)+2];
@@ -286,7 +297,11 @@ int interpolatePoint(double X, double Y, double *B, double *S, double *bed, doub
       for (i=0,weightsum=0.0;i<pointsInDEM[1];++i){
 	radius = sqrt(pow((X-surf[3*i]),2.0) + pow((Y-surf[(3*i)+1]),2.0));
 	if (radius <= minrad*(1.0 + (double)(rounds+1)/100.0)){
-	  weight = 1.0/(pow(radius,wexp) + 1.0E-06);
+	  if (isnoval1[i] == 1) {
+	    weight = 0.0;
+	      }else{
+	    weight = 1.0/(pow(radius,wexp) + 1.0E-09);
+	  }
 	  weightsum += weight;
 	  *S += weight * surf[(3*i)+2];
 	}
@@ -317,7 +332,7 @@ int interpolatePoint(double X, double Y, double *B, double *S, double *bed, doub
 //----------------------------------------------------------------------------------------------
 // extrudes every single partition
 //---------------------------------------------------------------------------------------------------
-int extrudepartition( char *argv[], char *inputfilename, char *outputfilename, int partition, int partitions, int levels, double depth, int pointsinlevel, int elementsinlevel, int belementsinlevel, int interpolationScheme,  double *bed, double *surf, double *thick, int *pointsInDEM, double cutOffValue, double wexp)
+int extrudepartition( char *argv[], char *inputfilename, char *outputfilename, int partition, int partitions, int levels, double depth, int pointsinlevel, int elementsinlevel, int belementsinlevel, int interpolationScheme,  double *bed, double *surf, double *thick, int *pointsInDEM, double cutOffValue, double wexp, int *isnoval0, int *isnoval1, int *isnoval2)
 {// extrudepartition
   int i,j,k,l,level, dummyint, nodesinpartition,  elementsinpartition, belementsinpartition, sharednodes, points, quads, lines, triangles, bricks, wedges, parent[2], elementtype, belementtype;
   char instring[BUF_LEN],dummys[BUF_LEN], numberstring[BUF_LEN], dummyc, *charptr;
@@ -434,7 +449,7 @@ int extrudepartition( char *argv[], char *inputfilename, char *outputfilename, i
   for (i=0; i<nodesinpartition;++i){
     fscanf(infids[1],"%i %i %le %le %le",&nodeinfo[i], &dummyint, &X[i], &Y[i], &B[i]);
     if (interpolationScheme > 0){
-      if (interpolatePoint(X[i], Y[i], &B[i], &S[i], bed, surf, thick, pointsInDEM, cutOffValue, wexp, interpolationScheme, argv) == EXIT_FAILURE){
+      if (interpolatePoint(X[i], Y[i], &B[i], &S[i], bed, surf, thick, pointsInDEM, cutOffValue, wexp, interpolationScheme, argv, isnoval0, isnoval1, isnoval2) == EXIT_FAILURE){
 	fprintf(stderr,"(%s) Failed interpolating values for point %i %e %e\n",argv[0],i,X[i],Y[i]);
 	return EXIT_FAILURE;
       }else{
@@ -692,7 +707,7 @@ int extrudepartition( char *argv[], char *inputfilename, char *outputfilename, i
 //---------------------------------------------------------------------------------------------------
 // extrudes serial mesh
 //---------------------------------------------------------------------------------------------------
-int extrudeserial( char *argv[], char *inputfilename, char *outputfilename, int levels, double depth, int pointsinlevel, int elementsinlevel, int belementsinlevel, int interpolationScheme,  double *bed, double *surf, double *thick, int *pointsInDEM, double cutOffValue, double wexp, int GL, double percentage, double ratio, int baseline)
+int extrudeserial( char *argv[], char *inputfilename, char *outputfilename, int levels, double depth, int pointsinlevel, int elementsinlevel, int belementsinlevel, int interpolationScheme,  double *bed, double *surf, double *thick, int *pointsInDEM, double cutOffValue, double wexp, int GL, double percentage, double ratio, int baseline, int corrbed, int *isnoval0, int *isnoval1, int *isnoval2 )
 {//extrudeserial
   int i,j,k,l,level, dummyint, nodesinpartition,  elementsinpartition, belementsinpartition, points, quads, lines, triangles, bricks, wedges, parent[2], elementtype, belementtype, bcoffset, maxorigBCno;
   char instring[BUF_LEN],dummys[BUF_LEN], numberstring[BUF_LEN],  *charptr;
@@ -805,14 +820,18 @@ int extrudeserial( char *argv[], char *inputfilename, char *outputfilename, int 
   for (i=0; i<nodesinpartition;++i){
     fscanf(infids[1],"%i %i %le %le %le",&nodeinfo[i], &dummyint, &X[i], &Y[i], &B[i]);
     if (interpolationScheme > 0){
-      if (interpolatePoint(X[i], Y[i], &B[i], &S[i], bed, surf, thick, pointsInDEM, cutOffValue, wexp, interpolationScheme, argv) == EXIT_FAILURE){
+      if (interpolatePoint(X[i], Y[i], &B[i], &S[i], bed, surf, thick, pointsInDEM, cutOffValue, wexp, interpolationScheme, argv, isnoval0, isnoval1, isnoval2) == EXIT_FAILURE){
 	fprintf(stderr,"(%s) Failed interpolating values for point %i %e %e\n",argv[0],i,X[i],Y[i]);
 	return EXIT_FAILURE;
       }else{
 	//printf("S,B= %e %e\n", B[i], S[i]);
 	if (S[i] -  B[i] < depth){
 	  printf("corrected  S[%i] %e %e %e\n", i, X[i], Y[i], S[i]);
- 	  S[i]  = B[i] + depth;
+	  if (corrbed == 1){
+	    B[i] = S[i]  - depth;
+	  }else{
+	    S[i]  = B[i] + depth;
+	  }
 	  printf(" ->  %e %e %e\n", X[i], Y[i], S[i]);
 	}
 	//S[i] = (S[i] <= B[i] - depth) ? (B[i] + depth) :  S[i];
@@ -1034,14 +1053,14 @@ int extrudeserial( char *argv[], char *inputfilename, char *outputfilename, int 
 
 int main(int argc, char *argv[])
 {
-  int i,j,k,l,levels,partitions,partition,pointsinlevel, elementsinlevel, belementsinlevel, stat, interpolateDEM, fileExists[3], interpolationScheme, noelementtypes,triangles,quads,lines,points, pointsInDEM[3],dummyint,GL, baseline;
+  int i,j,k,l,levels,partitions,partition,pointsinlevel, elementsinlevel, belementsinlevel, stat, interpolateDEM, fileExists[3], interpolationScheme, noelementtypes,triangles,quads,lines,points, pointsInDEM[3],dummyint,GL, baseline, *isnoval0, *isnoval1, *isnoval2, corrbed=0;
   char inputdirectoryname[MAXPATHLEN+1],outputdirectoryname[MAXPATHLEN+1],directoryname[MAXPATHLEN+1], cpartition[11], inputfilename[MAXPATHLEN+1], outputfilename[MAXPATHLEN+1], filename[MAXPATHLEN+1], *charptr;
   double depth, cutOffValue, *bed, *surf, *thick, wexp, noval, percentage, ratio;
   FILE *infofid, *headerfid;
 
   // failure/usage message
   //----------------------
-  if((argc != 10) && (argc != 14)){
+  if((argc != 10) && ((argc != 14)) && (argc != 15)){
     printf("%s usage:\a\n\n",argv[0]);
     printf("%s inputdir outputdir levels extrudedepth N baseline GL percentage ratio DEM cutoff wexp noval\n\n",argv[0]);
     printf("     inputdir ... directory containing the 2D footrpint to be extruded\n");
@@ -1074,6 +1093,10 @@ int main(int argc, char *argv[])
     printf("                  exponent of weight for interpolation w=1/r^wexp\n");
     printf("      noval  ... (optional, but mandatory if previous was given)\n");
     printf("                  value indicating void/unvalid entry in DEM (e.g. -999.99)\n");
+    printf("     corrbed ... (optional) value: 1 or any other number\n");
+    printf("                 corrections induced by minimum flowdpeth are by default applied\n");
+    printf("                 correctiong the side of the free surface, only of value 1 is defined\n");
+    printf("                 the surface is kept constant and the bedrock is adjusted\n"); 
     printf("outputdir contains:\n");
     printf(" mesh.{nodes,elements,boundary} ... mesh files (if N==1)\n");
     printf(" partitioning.N/mesh.{nodes,elements,boundary} ... mesh files (if N>1)\n");
@@ -1130,7 +1153,7 @@ int main(int argc, char *argv[])
     partitions=1;
   }
   interpolateDEM = 0;
-  if (argc == 14){// we have a DEM to interpolate
+  if ((argc == 14) || (argc == 15)){// we have a DEM to interpolate
     for (i=0;i<argc;++i) {
       printf("argv[%i] = %s\n",i, argv[i]);
     }
@@ -1142,7 +1165,11 @@ int main(int argc, char *argv[])
     printf("    ... cutoff radius: %e\n", cutOffValue);
     printf("    ... exponent m of weight (1/r^m): %e\n", wexp);
     printf("    ... noval: %10.4f\n",noval);
-
+    if (corrbed == 1){
+      printf("    ... depth corrections of bedrock\n");
+    }else{
+      printf("    ... depth corrections of surface (default)\n");
+    }
 
     int entriesPerLine;
  
@@ -1158,7 +1185,8 @@ int main(int argc, char *argv[])
 	printf("(%s) %i file entries found in file %s\n", argv[0], pointsInDEM[0], filename);
 	bed = (double *) malloc(pointsInDEM[0] * 3 * sizeof(double));
 	//      for (i=0;i<pointsInDEM[0];++i){ bed[3*i]=(double) 3*i, bed[(3*i)+1]=2.0, bed[(3*i)+2]=3.0; printf("-> %f %f %f\n",bed[3*i], bed[(3*i)+1], bed[(3*i)+2]);}
-	dummyint = readDEM(bed, pointsInDEM[0], filename, argv);
+	isnoval0 = (int *) malloc( pointsInDEM[0] * sizeof(int));
+	dummyint = readDEM(bed, isnoval0, pointsInDEM[0], filename, argv);
 	if (dummyint > 1){
 	  printf("(%s) %i out of %i valid points in DEM %s\n",argv[0],dummyint,pointsInDEM[0],filename);
 	  pointsInDEM[0] = dummyint;
@@ -1186,7 +1214,8 @@ int main(int argc, char *argv[])
 	printf("(%s) %i file entries found in file %s\n", argv[0], pointsInDEM[1], filename);
 	surf = (double *) malloc(pointsInDEM[1] * 3 * sizeof(double));
 	for (i=0;i<pointsInDEM[1];++i){ surf[3*i]=0.0, surf[3*i+1]=0.0, surf[3*i+2]=0.0;}
-	dummyint  = readDEM(surf, pointsInDEM[1], filename, argv);
+	isnoval1 = (int *) malloc( pointsInDEM[1] * sizeof(int));
+	dummyint  = readDEM(surf, isnoval1, pointsInDEM[1], filename, argv);
 	if (dummyint > 1){
 	  printf("(%s) %i out of %i valid points in DEM %s\n",argv[0],dummyint,pointsInDEM[1],filename);
 	  pointsInDEM[1] = dummyint;
@@ -1217,7 +1246,8 @@ int main(int argc, char *argv[])
 	  printf("(%s) %i file entries found in file %s\n", argv[0], pointsInDEM[2], filename);
 	  thick = (double *) malloc(pointsInDEM[2] * 3 * sizeof(double));
 	  for (i=0;i<pointsInDEM[2];++i){ thick[3*i]=0.0, thick[3*i+1]=0.0, thick[3*i+2]=0.0;}
-	  dummyint  = readDEM(thick, pointsInDEM[2], filename, argv);
+	  isnoval2 = (int *) malloc( pointsInDEM[0] * sizeof(int));
+	  dummyint  = readDEM(thick, isnoval2, pointsInDEM[2], filename, argv);
 	  if (dummyint > 1){
 	    printf("(%s) %i out of %i valid points in DEM %s\n",argv[0],dummyint,pointsInDEM[2],filename);
 	    pointsInDEM[2] = dummyint;
@@ -1237,6 +1267,8 @@ int main(int argc, char *argv[])
   }else{
     interpolationScheme = 0;
   }
+
+ 
 
   strcpy(inputdirectoryname,argv[1]);
   // read in global header file
@@ -1307,7 +1339,7 @@ int main(int argc, char *argv[])
   }
   // write input to info file
   //-------------------------
-  fprintf(infofid,"command line was: %s %s %s %i %8.2f %i %i  %5.2f %4.2f  %s %8.2f %3.2f %8.2f\n",argv[0], argv[1],argv[2],levels,depth, partitions,GL,percentage,ratio,argv[10],cutOffValue,wexp,noval);
+  fprintf(infofid,"command line was: %s %s %s %i %8.2f %i %i %i  %5.2f %4.2f  %s %8.2f %3.2f %8.2f [%i]\n",argv[0], argv[1],argv[2],levels,depth, partitions,baseline,GL,percentage,ratio,argv[10],cutOffValue,wexp,noval,corrbed);
   fprintf(infofid,"(%s) was invoked with following inputs ...\n",argv[0]);
   fprintf(infofid,"    ... input directory: %s \n",argv[1]);
   fprintf(infofid,"    ... output directory: %s\n",argv[2]);
@@ -1323,6 +1355,7 @@ int main(int argc, char *argv[])
     fprintf(infofid,"    ... cutoff radius: %10.4f\n", cutOffValue);
     fprintf(infofid,"    ... exponent m of weight (1/r^m): %10.4f\n",wexp);
     fprintf(infofid,"    ... noval: %10.4f\n\n",noval); 
+    fprintf(infofid,"    ... corrbed: %1i\n\n",corrbed);
   }
 
   fprintf(infofid,"    ... total poitns in 2d mesh: %i \n",pointsinlevel);
@@ -1373,7 +1406,7 @@ int main(int argc, char *argv[])
       strcpy(inputfilename,inputdirectoryname); strcat(inputfilename,cpartition);
       printf("(%s) reading partition %i: base file name %s\n",argv[0],partition+1,inputfilename);
       strcpy(outputfilename,outputdirectoryname); strcat(outputfilename,cpartition);
-      stat = extrudepartition(argv, inputfilename, outputfilename, partition, partitions, levels, depth, pointsinlevel, elementsinlevel, belementsinlevel, interpolationScheme, bed, surf, thick, pointsInDEM, cutOffValue, wexp);
+      stat = extrudepartition(argv, inputfilename, outputfilename, partition, partitions, levels, depth, pointsinlevel, elementsinlevel, belementsinlevel, interpolationScheme, bed, surf, thick, pointsInDEM, cutOffValue, wexp, isnoval0, isnoval1, isnoval2);
       //stat = extrudepartition(argv, inputfilename, outputfilename, partition, partitions, levels, depth, pointsinlevel, elementsinlevel, belementsinlevel, interpolateDEM=0, charptr);
       
     } // end of loop over partitions
@@ -1381,7 +1414,7 @@ int main(int argc, char *argv[])
     printf("(%s) Doing serial extrusion\n",argv[0]);    
     strcpy(inputfilename,inputdirectoryname);
     strcpy(outputfilename,outputdirectoryname);
-    stat = extrudeserial(argv, inputfilename, outputfilename, levels, depth, pointsinlevel, elementsinlevel, belementsinlevel, interpolationScheme, bed, surf, thick, pointsInDEM, cutOffValue, wexp, GL, percentage, ratio, baseline);
+    stat = extrudeserial(argv, inputfilename, outputfilename, levels, depth, pointsinlevel, elementsinlevel, belementsinlevel, interpolationScheme, bed, surf, thick, pointsInDEM, cutOffValue, wexp, GL, percentage, ratio, baseline, corrbed, isnoval0, isnoval1, isnoval2);
     
   }
     
