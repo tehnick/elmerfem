@@ -924,7 +924,7 @@ bool SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, const QStrin
 	// Don't write the the trivial dof==1 case as this leaves possibility to define the number of
 	// dofs internally within the solver. 
         if ( dofs <= 1 ) {
-	  addSifLine( "  "+labelName+" = " + varName );
+	  addSifLine( "  "+labelName+" = ", varName );
 	  dofs = 1;
 	}
 	else {
