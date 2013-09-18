@@ -48,7 +48,6 @@ MODULE MeshUtils
     USE Interpolation
     USE ParallelUtils
     USE Types
-
     IMPLICIT NONE
 
 CONTAINS
@@ -284,16 +283,15 @@ END SUBROUTINE GetMaxDefs
 
     TYPE(Mesh_t),  POINTER :: Mesh
     TYPE(Model_t) :: Model
-!------------------------------------------------------------------------------
-  
-    INTERFACE
-      SUBROUTINE eio_open_mesh(dir,info)
-        USE, INTRINSIC :: ISO_C_BINDING
-        INTEGER(C_INT) :: info
-        CHARACTER(C_CHAR) :: dir(*)
-      END SUBROUTINE eio_open_mesh
-    END INTERFACE
 
+     INTERFACE
+       SUBROUTINE eio_open_mesh(dir,info)
+         USE, INTRINSIC :: ISO_C_BINDING
+         INTEGER(C_INT) :: info
+         CHARACTER(C_CHAR) :: dir(*)
+       END SUBROUTINE eio_open_mesh
+     END INTERFACE
+!------------------------------------------------------------------------------
 
     INTEGER :: eio_info
  
@@ -1390,7 +1388,7 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------    
     TYPE(Model_t) :: Model
     INTEGER :: This, Trgt
-    TYPE(Mesh_t) :: Mesh
+    TYPE(Mesh_t), TARGET :: Mesh
     TYPE(Matrix_t), POINTER :: Projector
     LOGICAL :: Success
 !------------------------------------------------------------------------------
@@ -1408,7 +1406,7 @@ END SUBROUTINE GetMaxDefs
     IF ( This <= 0 .OR. Trgt <= 0 ) THEN
       CALL Fatal('CreateInterfaceMeshes','Invalid target boundaries')
     END IF
-    
+
 ! Interface meshes consist of boundary elements only    
     Elements => Mesh % Elements( Mesh % NumberOfBulkElements+1: )
 
@@ -1439,6 +1437,9 @@ END SUBROUTINE GetMaxDefs
 !    BMesh1 => AllocateMesh()
 !    BMesh2 => AllocateMesh()
 
+    BMesh1 % Parent => Mesh
+    BMesh2 % Parent => Mesh
+
     CALL AllocateVector( BMesh1 % Elements,n1 )
     CALL AllocateVector( BMesh2 % Elements,n2 )
     CALL AllocateVector( Perm1, Mesh % NumberOfNodes )
@@ -1450,8 +1451,7 @@ END SUBROUTINE GetMaxDefs
       Rad0 = ListGetConstReal( Model % BCs(Trgt) % Values, &
           'Mortar Projector Radius',SetRadius)  
     END IF
-    
-    
+
  
 !   Fill in the mesh element structures with the
 !   boundary elements:
@@ -1494,9 +1494,22 @@ END SUBROUTINE GetMaxDefs
       PMesh % Elements(ind) = Element
 
       CALL AllocateVector(PMesh % Elements(ind) % NodeIndexes,n )
+#if 1
       PMesh % Elements(ind) % NodeIndexes(1:n) = Element % NodeIndexes(1:n)
-      NULLIFY( PMesh % Elements(ind) % EdgeIndexes )
-      NULLIFY( PMesh % Elements(ind) % FaceIndexes )
+#else
+  BLOCK
+   TYPE(Element_t), POINTER :: Parent,q
+   INTEGER :: en
+   Parent => Element % BoundaryInfo % Left
+   q => Find_Face0(Parent,Element)
+   PMesh % Elements(ind) % NodeIndexes(1:n) = q % NodeIndexes(1:n)
+   en = q % Type % NumberOfEdges
+   ALLOCATE(PMesh % Elements(ind) % EdgeIndexes(en))
+   Pmesh % Elements(ind) % EdgeIndexes(1:en) = q % EdgeIndexes(1:en)
+  END BLOCK
+#endif
+!     NULLIFY( PMesh % Elements(ind) % EdgeIndexes )
+!     NULLIFY( PMesh % Elements(ind) % FaceIndexes )
       PPerm( Element % NodeIndexes(1:n) ) = 1
     END DO
   
@@ -1511,8 +1524,8 @@ END SUBROUTINE GetMaxDefs
     BMesh1 % NumberOfBulkElements = n1
     BMesh2 % NumberOfBulkElements = n2
 
-    BMesh2 % NumberOfNodes = COUNT( Perm2 > 0 )
-    BMesh1 % NumberOfNodes = COUNT( Perm1 > 0 )
+    BMesh2 % NumberOfNodes = COUNT(Perm2 > 0)
+    BMesh1 % NumberOfNodes = COUNT(Perm1 > 0)
 
     ! As there were some active boundary elements this condition should 
     ! really never be possible   
@@ -1572,7 +1585,6 @@ END SUBROUTINE GetMaxDefs
           BMesh2 % Nodes % x(k2) = RadCoeff * BMesh2 % Nodes % x(k2)
           BMesh2 % Nodes % y(k2) = RadCoeff * BMesh2 % Nodes % y(k2)
         END IF
-
       END IF
     END DO
 
@@ -1918,167 +1930,28 @@ END SUBROUTINE GetMaxDefs
   END SUBROUTINE PostRotationalProjector
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  FUNCTION Find_Face(Parent,Element) RESULT(ptr)
+!------------------------------------------------------------------------------
+    TYPE(Element_t), POINTER :: Ptr
+    TYPE(Element_t) :: Parent, Element
 
+    INTEGER :: i,j,k,n
 
-
-  !---------------------------------------------------------------------------
-  !> Create a projector for mapping between interfaces using the Galerkin method
-  !> A temporal mesh structure with a node for each Gaussian integration point is 
-  !> created. The this projector matrix is transferred to a projector on the nodal
-  !> coordinates.   
-  !---------------------------------------------------------------------------
-   FUNCTION WeightedProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
-       UseQuadrantTree, Repeating, AntiRepeating ) &
-      RESULT ( Projector )
-  !---------------------------------------------------------------------------
-    USE Lists
-
-    TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
-    INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
-    LOGICAL :: UseQuadrantTree, Repeating, AntiRepeating
-    TYPE(Matrix_t), POINTER :: Projector
-    !--------------------------------------------------------------------------
-    LOGICAL, ALLOCATABLE :: MirrorNode(:)
-    TYPE(Matrix_t), POINTER :: GaussProjector
-    TYPE(Nodes_t), POINTER :: GaussNodes, RealNodes, ElementNodes
-    TYPE(Element_t), POINTER :: Element
-    INTEGER :: i,j,k,l,n,p,q,NoNodes, NoGaussPoints
-    INTEGER, POINTER :: NodeIndexes(:),Rows(:),Cols(:)
-    REAL(KIND=dp), POINTER :: Basis(:), Values(:)
-    REAL(KIND=dp) :: u,v,w,val,detJ
-    TYPE(GaussIntegrationPoints_t) :: IntegStuff
-    LOGICAL :: Stat
-
-    ALLOCATE( GaussNodes, ElementNodes )
-    RealNodes => Bmesh1 % Nodes
-    NoNodes = Bmesh1 % NumberOfNodes
-
-    ! Calculate the total number of Gaussian integration points
-    ! and allocate space for the node structures. 
-    !----------------------------------------------------------
-    NoGaussPoints = 0
-    DO i=1, BMesh1 % NumberOfBulkElements
-      Element => BMesh1 % Elements(i)
-      IntegStuff = GaussPoints( Element )      
-      NoGaussPoints = NoGaussPoints + IntegStuff % n
-    END DO
-    
-    WRITE( Message,'(A,I0,A,I0)') 'Number of nodes and gauss points: '&
-        ,NoNodes,' and ',NoGaussPoints
-    CALL Info('WeightedProjector',Message)
-
-    ALLOCATE( GaussNodes % x(NoGaussPoints), GaussNodes % y(NoGaussPoints), GaussNodes % z(NoGaussPoints))
-    n = BMesh1 % MaxElementNodes
-    ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), Basis(n) )
-
-    ! Create the nodal coordinates for all Gaussian integration points
-    !-----------------------------------------------------------------    
-    NoGaussPoints = 0
-    DO i=1, BMesh1 % NumberOfBulkElements
-      Element => BMesh1 % Elements(i)
-      n = Element % TYPE % NumberOfNodes        
-      NodeIndexes => Element % NodeIndexes
-      ElementNodes % x(1:n) = RealNodes % x(NodeIndexes(1:n))
-      ElementNodes % y(1:n) = RealNodes % y(NodeIndexes(1:n))
-      ElementNodes % z(1:n) = RealNodes % z(NodeIndexes(1:n))
-      
-      IntegStuff = GaussPoints( Element )      
-      DO j=1,IntegStuff % n
-        NoGaussPoints = NoGaussPoints + 1
-        u = IntegStuff % u(j)
-        v = IntegStuff % v(j)
-        w = IntegStuff % w(j)
-        Stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis )
-        GaussNodes % x(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % x(1:n) )
-        GaussNodes % y(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % y(1:n) )
-        GaussNodes % z(NoGaussPoints) = SUM( Basis(1:n) * ElementNodes % z(1:n) )
-      END DO
-    END DO
-
-    BMesh1 % Nodes => GaussNodes
-    BMesh1 % NumberOfNodes = NoGaussPoints
-
-    ! Create the mirror node flag and map the nodes of Mesh1 to be 
-    ! in the interval of Mesh2.    
-    !-----------------------------------------------------------------
-    IF( Repeating ) THEN
-      IF( AntiRepeating ) THEN
-        ALLOCATE( MirrorNode( BMesh1 % NumberOfNodes ) )
-        MirrorNode = .FALSE.
-      END IF
-      CALL PreRotationalProjector(BMesh1, BMesh2, MirrorNode )
-    END IF
-
-    ! Create the projector for Gaussian integration points
-    !-----------------------------------------------------------------
-    GaussProjector => MeshProjector( BMesh2, BMesh1, UseQuadrantTree )    
-    Rows => GaussProjector % Rows
-    Cols => GaussProjector % Cols
-    Values => GaussProjector % Values
-
-    ! If there are mirror nodes change the sign
-    !-----------------------------------------------------------------------------
-    IF( AntiRepeating ) THEN
-      CALL PostRotationalProjector( GaussProjector, MirrorNode )
-      IF( ALLOCATED( MirrorNode) ) DEALLOCATE( MirrorNode ) 
-    END IF
-
-    ! Transfer the projector on the Gaussian points to that on
-    ! nodal points utilizing the flexibility of the list matrix.
-    !-----------------------------------------------------------
-    Projector => AllocateMatrix()
-    Projector % FORMAT = MATRIX_LIST
-    NoGaussPoints=0
-
-    DO i=1, BMesh1 % NumberOfBulkElements
-      Element => BMesh1 % Elements(i)
-      n = Element % TYPE % NumberOfNodes        
-      NodeIndexes => Element % NodeIndexes
-      ElementNodes % x(1:n) = RealNodes % x(NodeIndexes(1:n))
-      ElementNodes % y(1:n) = RealNodes % y(NodeIndexes(1:n))
-      ElementNodes % z(1:n) = RealNodes % z(NodeIndexes(1:n))
-      
-      IntegStuff = GaussPoints( Element )      
-      DO j=1,IntegStuff % n
-        NoGaussPoints = NoGaussPoints + 1
-        u = IntegStuff % u(j)
-        v = IntegStuff % v(j)
-        w = IntegStuff % w(j)
-        Stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis )
-        
-        ! Below List_ commands are used instead of generic matrix commands as we know
-        ! that the matrix format is list, and otherwise there would be a cyclic dependence
-        ! between MeshUtils and SolverUtils.
-        !-----------------------------------------------------------------
-        DO p=1,n
-          val = detJ * IntegStuff % s(j) * Basis(p)
-          DO q=1,n
-            CALL List_AddToMatrixElement(Projector % ListMatrix, NodeIndexes(p), &
-                InvPerm1(NodeIndexes(q)), Basis(q) * val ) 
-          END DO
-
-          DO q = Rows(NoGaussPoints), Rows(NoGaussPoints+1)-1
-            CALL List_AddToMatrixElement(Projector % ListMatrix, &
-                NodeIndexes(p), InvPerm2(Cols(q)), -Values(q) * val ) 
-          END DO
+    Ptr => Null()
+    DO i=1,Parent % Type % NumberOfFaces
+      Ptr => CurrentModel % Mesh % Faces(Parent % FaceIndexes(i))
+      n=0
+      DO j=1,Ptr % Type % NumberOfNodes
+        DO k=1,Element % Type % NumberOfNodes
+          IF (Ptr % NodeIndexes(j) == Element % NodeIndexes(k))n=n+1
         END DO
       END DO
+      IF (n==Ptr % Type % NumberOfNodes) EXIT
     END DO
-
-    CALL List_ToCRSMatrix( Projector )
-
-    BMesh1 % Nodes => RealNodes
-    BMesh1 % NumberOfNodes = NoNodes
-
-    ! Finally, deallocate permanent storage
-    !----------------------------------------------------------------
-    DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z )
-    DEALLOCATE( GaussNodes % x, GaussNodes % y, GaussNodes % z )
-    DEALLOCATE( ElementNodes, GaussNodes, Basis )
-
-  END FUNCTION WeightedProjector2
 !------------------------------------------------------------------------------
-
+  END FUNCTION Find_Face
+!------------------------------------------------------------------------------
 
 
 
@@ -2103,6 +1976,9 @@ END SUBROUTINE GetMaxDefs
     INTEGER :: i,j,k,n
     INTEGER, POINTER :: Rows(:),Cols(:)
     REAL(KIND=dp), POINTER :: Values(:)
+
+    BMesh1 % Parent => Null()
+    BMesh2 % Parent => Null()
 
     ! Set the nodes of Mesh1 to be in the interval defined by Mesh2
     !-----------------------------------------------------------------
@@ -2380,6 +2256,18 @@ END SUBROUTINE GetMaxDefs
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
     TYPE(Nodes_t), POINTER :: MeshNodes, GaussNodes
     REAL(KIND=dp) :: rowsum
+
+    INTERFACE
+      FUNCTION WeightedProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
+          UseQuadrantTree, Repeating, AntiRepeating ) &
+         RESULT ( Projector )
+        USE Lists
+        TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+        INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
+        LOGICAL :: UseQuadrantTree, Repeating, AntiRepeating
+         TYPE(Matrix_t), POINTER :: Projector
+      END FUNCTION WeightedProjector2
+    END INTERFACE
 !------------------------------------------------------------------------------
     
     DIM = CoordinateSystemDimension()
@@ -2484,8 +2372,7 @@ END SUBROUTINE GetMaxDefs
       END DO
       
       DEALLOCATE( PMesh % Elements )
-      
-      CALL FreeQuadrantTree( PMesh % RootQuadrant )
+!     CALL FreeQuadrantTree( PMesh % RootQuadrant )
       
       DEALLOCATE( PMesh % Nodes % x )
       DEALLOCATE( PMesh % Nodes % y )
@@ -2494,8 +2381,9 @@ END SUBROUTINE GetMaxDefs
 
       DEALLOCATE( PMesh ) 
     END DO
+
     DEALLOCATE( InvPerm2 )
-    Projector % InvPerm => InvPerm1
+    IF(.NOT.ASSOCIATED(Projector % InvPerm)) Projector % InvPerm => InvPerm1
 
     CALL CheckTimer('PeriodicProjector',Delete=.TRUE.)
     CALL Info('PeriodicProjector','Projector created, now exiting...',Level=8)
@@ -5602,7 +5490,7 @@ END SUBROUTINE FindNeighbourNodes
                  Enew % TYPE % NodeV, Enew % TYPE % NodeW )
          END IF
       ELSE
-        Enew % PDefs=>NULL()
+        Enew % PDefs=>Null()
       END IF
       Enew % EdgeIndexes => NULL()
       Enew % FaceIndexes => NULL()
@@ -5769,7 +5657,7 @@ CONTAINS
              list1 = BoundaryElement % NodeIndexes
              CALL Sort( SIZE(list1), list1 )
              
-             DO j = 1,Element % TYPE % NumberOfEdges
+             DO j = 1,Element % Type % NumberOfEdges
                 k = Element % EdgeIndexes(j)
                 Edge => Mesh % Edges(k)
                 IF( SIZE( Edge % NodeIndexes ) /= SIZE(list1) ) CYCLE
@@ -5852,7 +5740,7 @@ CONTAINS
              list1 = BoundaryElement % NodeIndexes
              CALL Sort(SIZE(list1),list1)
              
-             DO j = 1,Element % TYPE % NumberOfFaces
+             DO j = 1,Element % Type % NumberOfFaces
                 k = Element % FaceIndexes(j)
                 Face => Mesh % Faces(k)
                 IF(SIZE(Face % NodeIndexes)/= SIZE(list1) ) CYCLE

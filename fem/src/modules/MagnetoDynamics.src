@@ -331,7 +331,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
 
   INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0, &
-          NoIterations, nsize
+          NoIterationsMax,NoIterationsMin, nsize
 
   TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp), POINTER :: VecPot(:)
@@ -344,7 +344,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   LOGICAL :: Stat, EigenAnalysis, TG, DoneAssembly=.FALSE., &
          SkipAssembly, ConstantSystem, ConstantBulk, FixJ
 
-  TYPE(Variable_t), POINTER :: Var, FixJVar
+  TYPE(Variable_t), POINTER :: Var, FixJVar, CoordVar
   TYPE(Matrix_t), POINTER :: A
   TYPE(ListMatrix_t), POINTER :: BasicCycles(:)
 
@@ -416,17 +416,38 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   ! ----------------------------------------
   CALL ListAddInteger(GetSolverParams(),'Norm Permutation',nNodes+1)
 
+
   ! 
   ! Resolve internal non.linearities, if requeted:
   ! ----------------------------------------------
-  NoIterations = GetInteger( GetSolverParams(), &
-              'Nonlinear System Max Iterations',Found)
-  IF(.NOT. Found) NoIterations = 1
+  NoIterationsMax = GetInteger( GetSolverParams(), &
+	      'Nonlinear System Max Iterations',Found)
+  IF(.NOT. Found) NoIterationsMax = 1
 
+  NoIterationsMin = GetInteger( GetSolverParams(), &
+	      'Nonlinear System Min Iterations',Found)
+  IF(.NOT. Found) NoIterationsMin = 1
 
-  DO i=1,NoIterations
-    IF( DoSolve(i) ) EXIT
+  DO i=1,NoIterationsMax
+    IF( DoSolve(i) ) THEN
+      IF(i>=NoIterationsMin) EXIT
+    END IF
+    IF (i==1) CALL ListAddLogical( GetSolverParams(), 'Linear System Refactorize',.FALSE.)
   END DO
+  CALL ListAddLogical( GetSolverParams(), 'Linear System Refactorize',.TRUE.)
+
+  CALL CalculateLumped(Model % NumberOfBodyForces)
+
+
+  CoordVar => VariableGet(Mesh % Variables,'Coordinates')
+  IF(ASSOCIATED(CoordVar)) THEN
+    DO i=1,Mesh % NumberOfNodes
+      j = 3*(CoordVar % Perm(i)-1)
+      CoordVar % Values(j+1) = Mesh % Nodes % x(i)
+      CoordVar % Values(j+2) = Mesh % Nodes % y(i)
+      CoordVar % Values(j+3) = Mesh % Nodes % z(i)
+    END DO
+  END IF
 
 CONTAINS
 
@@ -460,15 +481,15 @@ CONTAINS
      LOAD = 0.0d0
      BodyForce => GetBodyForce()
      IF ( ASSOCIATED(BodyForce) ) THEN
-        Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
-        Load(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
-        Load(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
+	Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
+	Load(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
+	Load(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
 
-        Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
-        Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
-        Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
+	Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
+	Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
+	Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
 
-        Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
+	Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
      END IF
 
      Acoef = 0.0d0
@@ -482,12 +503,12 @@ CONTAINS
      !Get element local matrix and rhs vector:
      !----------------------------------------
      CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
-           Tcoef, Acoef, Element, n, nd )
+          Tcoef, Acoef, Element, n, nd )
 
-     !Update global matrix and rhs vector from local matrix & vector:
-     !---------------------------------------------------------------
-     IF (Transient) CALL DefaultUpdateMass(MASS)
-     CALL DefaultUpdateEquations(STIFF,FORCE)
+    !Update global matrix and rhs vector from local matrix & vector:
+    !---------------------------------------------------------------
+    IF (Transient) CALL DefaultUpdateMass(MASS)
+    CALL DefaultUpdateEquations(STIFF,FORCE)
   END DO
 
   CALL DefaultFinishBulkAssembly(BulkUpdate=ConstantBulk)
@@ -583,6 +604,18 @@ CONTAINS
   ! --------------------------------------------------
   CALL DirichletAfromB()
 
+  k = 0
+  DO i=1,Mesh % NumberOfNodes
+    J = Solver % Variable % Perm(i)
+    IF(J>0) THEN
+      IF ( A % Values(A % Diag(j))==0._dp ) THEN
+        k = k + 1
+        CALL ZeroRow(A,j)
+        CALL SetMatrixElement(A,j,j,1._dp)
+        A % RHS(j)=0._dp
+      END IF
+    END IF
+  END DO
 
   !
   ! Gauge tree, if requested or using direct solver:
@@ -612,7 +645,7 @@ CONTAINS
   END IF
 
   PrevNorm = ParallelReduction(SQRT(SUM(Solver % Variable % Values**2)))
-  Norm = DefaultSolve()
+  norm = DefaultSolve()
 
   IF ( Found .AND. dt /= PrevDT ) THEN
     CALL ListAddLogical( GetSolverParams(), &
@@ -639,6 +672,200 @@ CONTAINS
 !------------------------------------------------------------------------------
  END FUNCTION DoSolve
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+ SUBROUTINE CalculateLumped(nbf)
+!------------------------------------------------------------------------------
+   INTEGER::nbf
+!------------------------------------------------------------------------------
+   REAL(KIND=dp) :: torq,a(nbf),u(nbf),IMoment,IA
+   INTEGER :: i,bfid,n,nd
+   LOGICAL :: Found
+   TYPE(ValueList_t),POINTER::Params
+!------------------------------------------------------------------------------
+
+   U=0._dp; a=0._dp; torq=0._dp; IMoment=0._dp;IA=0
+   DO i=1,GetNOFActive()
+     Element => GetActiveElement(i)
+     nd = GetElementNOFDOFs(Element)
+     n  = GetElementNOFNodes(Element)
+
+     CALL Torque(Torq,Element,n,nd)
+
+     Params=>GetBodyForce(Element)
+     IF(ASSOCIATED(Params)) THEN
+       bfid=GetBodyForceId(Element)
+       IF(GetLogical(Params,'Calculate Potential',Found)) &
+         CALL Potential(u(bfid),a(bfid),Element,n,nd)
+     END IF
+
+     Params=>GetBodyParams(Element)
+     IF(ASSOCIATED(Params)) THEN
+       IF(GetLogical(Params,'Calculate Inertial Moment',Found)) &
+         CALL InertialMoment(IMoment,IA,Element,n,nd)
+     END IF
+   END DO
+
+   DO i=1,nbf
+     a(i) = ParallelReduction(a(i))
+     u(i) = ParallelReduction(u(i))
+   END DO
+   IMoment = ParallelReduction(IMoment)
+   IA = ParallelReduction(IA)
+   Torq = ParallelReduction(Torq)
+
+   DO i=1,nbf
+     IF(a(i)>0) THEN
+       CALL ListAddConstReal(Model % Simulation,'res: Potential / bodyforce ' &
+                     //TRIM(i2s(i)),u(i)/a(i))
+       CALL ListAddConstReal(Model % Simulation,'res: area / bodyforce ' &
+                     //TRIM(i2s(i)),a(i))
+     END IF
+   END DO
+   CALL ListAddConstReal(Model % Simulation,'res: Air Gap Torque', Torq)
+   CALL ListAddConstReal(Model % Simulation,'res: Inertial Volume', IA)
+   CALL ListAddConstReal(Model % Simulation,'res: Inertial Moment', IMoment)
+
+!------------------------------------------------------------------------------
+ END SUBROUTINE CalculateLumped
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE InertialMoment(U,A,Element,n,nd)
+!------------------------------------------------------------------------------
+    INTEGER :: n,nd
+    REAL(KIND=dp)::U,a
+    TYPE(Element_t)::Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n), DetJ,x,y,r,Density(n)
+    INTEGER :: t
+    LOGICAL :: stat,Found
+    TYPE(Nodes_t), SAVE :: Nodes
+    TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
+
+    Density(1:n) = GetReal(GetMaterial(),'Density',Found,Element)
+    IF(.NOT.Found) RETURN
+
+    CALL GetElementNodes( Nodes, Element )
+  
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints(Element)
+    DO t=1,IP % n
+      ! Basis function values & derivatives at the integration point:
+      !--------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                IP % W(t), detJ, Basis )
+
+      x = SUM(Nodes % x(1:n)*Basis(1:n))
+      y = SUM(Nodes % y(1:n)*Basis(1:n))
+      r = SQRT(x**2+y**2)
+      A = A + IP % s(t)*detJ
+      U = U + IP % s(t)*detJ*R*SUM(Density(1:n)*Basis(1:n))
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE InertialMoment
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE Torque(U,Element,n,nd)
+!------------------------------------------------------------------------------
+    INTEGER :: n,nd
+    REAL(KIND=dp)::U
+    TYPE(Element_t)::Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: dBasisdx(nd,3),Basis(nd), DetJ, &
+             POT(nd),x,y,r,r0,r1,Br,Bp,Bx,By,B(3,nd),Wbasis(nd,3),RotWBasis(nd,3)
+    INTEGER :: t
+    LOGICAL :: stat, Found
+    TYPE(Nodes_t), SAVE :: Nodes
+    TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
+
+    r0 = GetCReal(GetBodyParams(),'r inner',Found)
+    r1 = GetCReal(GetBodyParams(),'r outer',Found)
+    IF (.NOT.Found) RETURN
+
+    CALL GetElementNodes( Nodes, Element )
+
+    x = SUM(Nodes % x(1:n))/n
+    y = SUM(Nodes % y(1:n))/n
+    r = SQRT(x**2+y**2)
+    IF (r<r0.OR.r>r1) RETURN
+
+    CALL GetLocalSolution(POT, UElement=Element)
+  
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints(Element)
+    DO t=1,IP % n
+      ! Basis function values & derivatives at the integration point:
+      !--------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                IP % W(t), detJ, Basis, dBasisdx )
+
+      CALL GetEdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
+
+      x = SUM(Nodes % x(1:n)*Basis(1:n))
+      y = SUM(Nodes % y(1:n)*Basis(1:n))
+      r = SQRT(x**2+y**2)
+
+      Bx =  SUM(POT(n+1:nd) * RotWBasis(1:nd-n,1))
+      By =  SUM(POT(n+1:nd) * RotWBasis(1:nd-n,2))
+      Br =  x/r*Bx + y/r*By
+      Bp = -y/r*Bx + x/r*By
+      U = U + IP % s(t)*detJ*r*Br*Bp/(PI*4.0d-7*(r1-r0))
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE Torque
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE Potential( U, A, Element,n,nd)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: U,A
+    INTEGER :: n, nd
+    TYPE(Element_t) :: Element
+
+    REAL(KIND=dp) :: Basis(nd), DetJ,POT(nd),pPOT(nd),dPOT(nd)
+    INTEGER :: t
+    LOGICAL :: stat
+    TYPE(Nodes_t), SAVE :: Nodes
+    TYPE(GaussIntegrationPoints_t) :: IP
+	!$OMP THREADPRIVATE(Nodes)
+
+    CALL GetElementNodes( Nodes )
+
+    CALL GetLocalSolution(POT,UElement=Element)
+    CALL GetLocalSolution(pPOT,tstep=-1,UElement=Element)
+    IF(Solver % Order<2.OR.GetTimeStep()<=2) THEN 
+      dPot = (POT - pPOT)/dt
+    ELSE
+      dPot = 1.5_dp*POT - 2*pPOT
+      CALL GetLocalSolution(pPOT,tstep=-2,UElement=Element)
+      dPot = (dPOT + 0.5_dp*pPOT)/dt
+    END IF
+
+
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints(Element)
+    DO t=1,IP % n
+      ! Basis function values & derivatives at the integration point:
+      !--------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                IP % W(t), detJ, Basis )
+      A = A + IP % s(t) * detJ
+      U = U + IP % s(t) * detJ * SUM(dPot(1:nd)*Basis(1:nd))
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE Potential
+!------------------------------------------------------------------------------
+
 
 
 !------------------------------------------------------------------------------
@@ -1001,12 +1228,15 @@ CONTAINS
     REAL(KIND=dp) :: Aloc(nd), JAC(nd,nd), mu, muder, B_ip(3), Babs
     REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), A, C, Acoefder(n)
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ, L(3), G(3), M(3), FixJPot(nd)
-    LOGICAL :: Stat, Found, Newton, Cubic
+    LOGICAL :: Stat, Found, Newton, Cubic, HBCurve
     INTEGER :: t, i, j, p, q, np, siz
     TYPE(GaussIntegrationPoints_t) :: IP
 
     TYPE(Nodes_t), SAVE :: Nodes
-    REAL(KIND=dp), POINTER, SAVE :: HB(:,:)=>NULL(), CubicCoeff(:)=>NULL()
+
+    REAL(KIND=dp), POINTER :: Bval(:), Hval(:), Cval(:),  &
+           CubicCoeff(:)=>Null(),HB(:,:)=>Null()
+    TYPE(ValueList_t), POINTER :: Lst
 !------------------------------------------------------------------------------
     CALL GetElementNodes( Nodes )
 
@@ -1022,14 +1252,33 @@ CONTAINS
       FixJPot(1:n) = FixJVar % Values(FixJVar % Perm(Element % NodeIndexes))
     END IF
 
-    CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
-    IF ( ASSOCIATED(HB) ) THEN
-      Cubic = GetLogical( Material, 'Cubic spline for H-B curve',Found)
-      IF (Cubic.AND..NOT.ASSOCIATED(CubicCoeff) ) THEN
-        siz = SIZE(HB,1)
-        ALLOCATE(CubicCoeff(siz))
-        CALL CubicSpline(siz,HB(:,1),HB(:,2),CubicCoeff)
+    CALL GetConstRealArray( Material, HB, 'H-B curve', HBCurve )
+    siz = 0
+    IF ( HBCurve ) THEN
+      siz = SIZE(HB,1)
+      IF(siz>1) THEN
+        Bval=>HB(:,1)
+        Hval=>HB(:,2)
+        Cubic = GetLogical( Material, 'Cubic spline for H-B curve',Found)
+        IF (Cubic.AND..NOT.ASSOCIATED(CubicCoeff) ) THEN
+          ALLOCATE(Cval(siz))
+          CALL CubicSpline(siz,Bval,Hval,CubicCoeff)
+        END IF
+        Cval=>CubicCoeff
+        HBCurve = .TRUE.
       END IF
+    END IF
+
+    IF(siz<=1) THEN
+      Lst => ListFind(Material,'H-B Curve',HBcurve)
+      IF(HBcurve) THEN
+        Cval => Lst % CubicCoeff
+        Bval => Lst % TValues
+        Hval => Lst % FValues(1,1,:)
+      END IF
+    END IF
+
+    IF(HBCurve) THEN
       CALL GetScalarLocalSolution(Aloc)
       Newton = GetLogical( GetSolverParams(),'Newton-Raphson iteration',Found)
     END IF
@@ -1053,12 +1302,12 @@ CONTAINS
        L = L-MATMUL(FixJPot(1:n), dBasisdx(1:n,:))
        L = L-C*MATMUL(LOAD(7,1:n), dBasisdx(1:n,:))
 
-       IF ( ASSOCIATED(HB) ) THEN
+       IF ( HBCurve ) THEN
          B_ip = MATMUL( Aloc(np+1:nd), RotWBasis(1:nd-np,:) )
          babs = MAX( SQRT(SUM(B_ip**2)), 1.d-8 )
-         mu = InterpolateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)/babs
+         mu = InterpolateCurve(Bval,Hval,Babs,CubicCoeff=Cval)/babs
          IF ( Newton ) THEN
-           muder=(DerivateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)-mu)/babs
+           muder=(DerivateCurve(Bval,Hval,Babs,CubicCoeff=Cval)-mu)/babs
          END IF
        END IF
 
@@ -1078,8 +1327,8 @@ CONTAINS
                STIFF(p,q) = STIFF(p,q) + C * &
                  SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
              ELSE
-               STIFF(p,q) = STIFF(p,q) + &
-                      Basis(q)*Basis(p)*detJ*IP % s(t)
+!              STIFF(p,q) = STIFF(p,q) + &
+!                     Basis(q)*Basis(p)*detJ*IP % s(t)
              END IF
            END DO
            DO j=1,nd-np

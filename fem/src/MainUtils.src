@@ -3345,7 +3345,7 @@ CONTAINS
      ! -----------------------------------
      FoundMortar = .FALSE.
      IF (GetLogical(Solver % Values,'Apply Mortar BCs',Found)) THEN
-       CM => NULL()
+       CM => Null()
        DO i=1,Model % NumberOFBCs
          j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
          IF(FoundMortar) THEN
@@ -3365,7 +3365,7 @@ CONTAINS
            CM0 % RHS = 0._dp
            CM0 % Cols = Solver % Variable % Perm(CM0 % Cols)
            IF(ASSOCIATED(CM0 % InvPerm)) THEN
-             CM0 % InvPerm = Solver % Variable % Perm(CM % InvPerm)
+             CM0 % InvPerm = Solver % Variable % Perm(CM0 % InvPerm)
            END IF           
            CM0 % Ordered = .FALSE.
            CALL CRS_SortMatrix(CM0,.TRUE.)
@@ -3394,7 +3394,7 @@ CONTAINS
       DO WHILE(.NOT.ASSOCIATED(CM,CM0 % ConstraintMatrix))
         CM0 => CM0 % ConstraintMatrix
       END DO
-      CM0 % ConstraintMatrix => NULL()
+      CM0 % ConstraintMatrix => Null()
       CALL FreeMatrix(CM)
     END IF
 !------------------------------------------------------------------------------

@@ -1390,24 +1390,24 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
 
   S=>Solver % Matrix
 
-   DO i=1,Model % NumberOFBCs
-     j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
-     IF(FoundMortar) THEN
-       A => PeriodicProjector(Model,Solver % Mesh,i,j,dim,.TRUE.)
-       FoundMortar = ASSOCIATED(A)
-       EXIT
-     END IF
-   END DO
+!  DO i=1,Model % NumberOFBCs
+!    j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
+!    IF(FoundMortar) THEN
+!      A => PeriodicProjector(Model,Solver % Mesh,i,j,dim,.TRUE.)
+!      FoundMortar = ASSOCIATED(A)
+!      EXIT
+!    END IF
+!  END DO
 
-   IF(FoundMortar) THEN
-     CM=>A
-     ALLOCATE(CM % RHS(CM % NumberOfRows))
-     CM % RHS = 0._dp
-     S % ConstraintMatrix => CM
-     CM % Cols = Solver % Variable % Perm(CM % Cols)
-     CM % Ordered = .FALSE.
-     CALL CRS_SortMatrix(CM,.TRUE.)
-   END IF
+!  IF(FoundMortar) THEN
+!    CM=>A
+!    ALLOCATE(CM % RHS(CM % NumberOfRows))
+!    CM % RHS = 0._dp
+!    S % ConstraintMatrix => CM
+!    CM % Cols = Solver % Variable % Perm(CM % Cols)
+!    CM % Ordered = .FALSE.
+!    CALL CRS_SortMatrix(CM,.TRUE.)
+!  END IF
 
    CALL DefaultDirichletBCs()
       
@@ -1430,10 +1430,10 @@ SUBROUTINE Bsolver( Model,Solver,dt,Transient )
    TotNorm = SQRT(TotNorm)
    Solver % Variable % Norm = Totnorm
 
-   IF(FoundMortar) THEN
-     CALL FreeMatrix(CM)
-     S % ConstraintMatrix=>NULL()
-   END IF
+!  IF(FoundMortar) THEN
+!    CALL FreeMatrix(CM)
+!    S % ConstraintMatrix=>NULL()
+!  END IF
 
 !------------------------------------------------------------------------------     
 

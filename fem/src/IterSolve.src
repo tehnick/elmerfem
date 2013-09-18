@@ -162,7 +162,7 @@ CONTAINS
 !   external stopfun
     REAL(KIND=dp), ALLOCATABLE :: work(:,:)
     INTEGER :: i,j,k,N,ipar(50),wsize,istat,IterType,PCondType,ILUn,Blocks
-    LOGICAL :: Internal
+    LOGICAL :: Internal, NullEdges
 
     REAL(KIND=dp) :: ILUT_TOL, DiagFactor
     LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize,Found,GotDiagFactor
@@ -418,7 +418,6 @@ CONTAINS
               A % Values( A % Diag ) = DiagFactor * A % Values( A % Diag )      
             END IF
 
-
             IF ( A % COMPLEX ) THEN
               IF ( PCondType == PRECOND_ILUn ) THEN
                 Condition = CRS_ComplexIncompleteLU(A,ILUn)
@@ -428,8 +427,9 @@ CONTAINS
             ELSE
               SELECT CASE(PCondType)
               CASE(PRECOND_ILUn)
+                NullEdges = ListGetLogical(Params, 'Edge Basis', GotIt)
                 CM => A % ConstraintMatrix
-                IF(ASSOCIATED(CM)) THEN
+                IF(NullEdges.OR.ASSOCIATED(CM)) THEN
 
                   IF(ASSOCIATED(A % ILURows)) DEALLOCATE(A % ILURows)
                   IF(ASSOCIATED(A % ILUCols)) DEALLOCATE(A % ILUCols)
@@ -439,25 +439,36 @@ CONTAINS
                   PrecMat => AllocateMatrix()
                   PrecMat % FORMAT = MATRIX_LIST
 
-                  DO i=CM % NumberOfRows,1,-1
-                    CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
-                           i + A % NumberOfRows, i + A % NumberOFrows, 0._dp)
-
-                    DO j=CM % Rows(i+1)-1,CM % Rows(i),-1
+                  IF(ASSOCIATED(CM)) THEN
+                    DO i=CM % NumberOfRows,1,-1
                       CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
-                           i + A % NumberOfRows, CM % Cols(j), CM % Values(j))
+                             i + A % NumberOfRows, i + A % NumberOFrows, 0._dp)
 
-                      CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
-                           CM % Cols(j), i + A % NumberOfRows, CM % Values(j))
+                      DO j=CM % Rows(i+1)-1,CM % Rows(i),-1
+                        CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
+                             i + A % NumberOfRows, CM % Cols(j), CM % Values(j))
+
+                        CALL List_AddToMatrixElement( PrecMat % ListMatrix, &
+                             CM % Cols(j), i + A % NumberOfRows, CM % Values(j))
+                      END DO
+                    END DO
+                  END IF
+
+                  k = A % NumberOfRows - A % ExtraDOFs
+                  DO i=A % NumberOfRows,1,-1
+                     IF(i>k) THEN
+                       CALL List_AddToMatrixElement(PrecMat % ListMatrix, i, i, 0._dp)
+                    ELSE IF (NullEdges) THEN
+                       CALL List_AddToMatrixElement(PrecMat % ListMatrix, i, i, 1._dp)
+                    END IF
+
+                    DO j=A % Rows(i+1)-1,A % Rows(i),-1
+                      IF (i>k .OR. A % Cols(j)>k .OR. .NOT.NullEdges) THEN
+                        CALL List_AddToMatrixElement(PrecMat % ListMatrix, i, A % Cols(j), A % Values(j))
+                      END IF
                     END DO
                   END DO
 
-                  DO i=1,A % NumberOfRows
-                    DO j=A % Rows(i+1)-1, A % Rows(i),-1
-                      CALL List_AddToMatrixElement(PrecMat % ListMatrix, &
-                            i, A % Cols(j), A % Values(j))
-                    END DO
-                  END DO
                   CALL List_ToCRSMatrix(PrecMat)
                   Condition = CRS_IncompleteLU(PrecMat,ILUn)
 

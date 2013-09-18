@@ -133,7 +133,7 @@ CONTAINS
        TYPE(Solver_t), POINTER :: PSolver             
 
 
-       INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100
+       INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100,ndofs
        CHARACTER(LEN=MAX_NAME_LEN) :: Path,str,mgname, LowestSolver
        LOGICAL :: Condition, Found, Parallel, Project,Transient, LIter
 
@@ -162,6 +162,7 @@ CONTAINS
        n = Matrix1 % NumberOfRows
        ALLOCATE( Residual(n) )
        Residual = 0.0d0
+
 
        RHSNorm = ParallelReduction(SQRT(SUM(ForceVector**2)))
        Solution(1:n) = Solution(1:n) / RHSnorm
@@ -878,7 +879,7 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: Matrix2, PMatrix, SaveMatrix
        TYPE(Solver_t), POINTER :: PSolver             
 
-       INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, RDOF, CDOF
+       INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, RDOF, CDOF,ndofs
        LOGICAL :: Condition, Found, Parallel, Project,Transient
        CHARACTER(LEN=MAX_NAME_LEN) :: Path,str,mgname
 
@@ -902,6 +903,9 @@ CONTAINS
        TYPE(ValueList_t), POINTER :: Params
 !------------------------------------------------------------------------------
        tt = CPUTime()
+
+
+
 !
 !      Initialize:
 !      -----------

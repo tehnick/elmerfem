@@ -1376,15 +1376,17 @@ CONTAINS
 
 
 !> Returns the nodal coordinate values in the active element
-  SUBROUTINE GetElementNodes( ElementNodes, UElement, USolver )
+  SUBROUTINE GetElementNodes( ElementNodes, UElement, USolver, UMesh )
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+     TYPE(Mesh_t), OPTIONAL, TARGET :: UMesh
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
 
      INTEGER :: i,n,nd,sz,sz1
      INTEGER, POINTER :: Indexes(:)
 
      TYPE(Solver_t),  POINTER  :: Solver
+     TYPE(Mesh_t),  POINTER  :: Mesh
      TYPE(Element_t), POINTER :: Element
 
      Solver => CurrentModel % Solver
@@ -1392,19 +1394,21 @@ CONTAINS
 
      Element => GetCurrentElement(UElement)
 
-     n = MAX(Solver % Mesh % MaxElementNodes,Solver % Mesh % MaxElementDOFs)
+     Mesh => Solver % Mesh
+     IF ( PRESENT( UMesh ) ) Mesh => UMesh
+     n = MAX(Mesh % MaxElementNodes,Mesh % MaxElementDOFs)
 
      IF ( .NOT. ASSOCIATED( ElementNodes % x ) ) THEN
-          ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
+       ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
      ELSE IF ( SIZE(ElementNodes % x)<n ) THEN
-         DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z)
-         ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
+       DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z)
+       ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
      END IF
 
      n = Element % TYPE % NumberOfNodes
-     ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(Element % NodeIndexes)
-     ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(Element % NodeIndexes)
-     ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(Element % NodeIndexes)
+     ElementNodes % x(1:n) = Mesh % Nodes % x(Element % NodeIndexes)
+     ElementNodes % y(1:n) = Mesh % Nodes % y(Element % NodeIndexes)
+     ElementNodes % z(1:n) = Mesh % Nodes % z(Element % NodeIndexes)
 
      sz = SIZE(ElementNodes % x)
      IF ( sz > n ) THEN
@@ -1413,15 +1417,15 @@ CONTAINS
        ElementNodes % z(n+1:sz) = 0.0d0
      END IF
 
-     sz1 = SIZE(Solver % Mesh % Nodes % x)
-     IF (sz1 > Solver % Mesh % NumberOfNodes) THEN
+     sz1 = SIZE(Mesh % Nodes % x)
+     IF (sz1 > Mesh % NumberOfNodes) THEN
         Indexes => GetIndexStore()
         nd = GetElementDOFs(Indexes,Element,NotDG=.TRUE.)
         DO i=n+1,nd
            IF ( Indexes(i)>0 .AND. Indexes(i)<=sz1 ) THEN
-             ElementNodes % x(i) = Solver % Mesh % Nodes % x(Indexes(i))
-             ElementNodes % y(i) = Solver % Mesh % Nodes % y(Indexes(i))
-             ElementNodes % z(i) = Solver % Mesh % Nodes % z(Indexes(i))
+             ElementNodes % x(i) = Mesh % Nodes % x(Indexes(i))
+             ElementNodes % y(i) = Mesh % Nodes % y(Indexes(i))
+             ElementNodes % z(i) = Mesh % Nodes % z(Indexes(i))
            END IF
         END DO
      END IF

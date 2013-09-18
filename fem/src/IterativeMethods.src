@@ -70,6 +70,10 @@ MODULE IterativeMethods
 
   IMPLICIT NONE
   
+  INTEGER :: nc
+  LOGICAL :: Constrained
+
+  TYPE(Matrix_t), POINTER, PRIVATE :: CM
   
 CONTAINS
   
@@ -421,6 +425,52 @@ CONTAINS
 !------------------------------------------------------------------------------
   
 
+!-----------------------------------------------------------------------------------
+    SUBROUTINE C_matvec(u,v,ipar,matvecsubr)
+!-----------------------------------------------------------------------------------
+      INTEGER :: ipar(*)
+      REAL(KIND=dp) :: u(*),v(*)
+
+      EXTERNAL matvecsubr
+!-----------------------------------------------------------------------------------
+      INTEGER :: i,j,k,l,ndim
+!-----------------------------------------------------------------------------------
+      ndim = HUTI_NDIM
+      CALL matvecsubr( u, v, ipar )
+      IF (Constrained) THEN
+         DO i=1,CM % NumberOfRows
+           k = ndim+i
+           v(k) = 0._dp
+           DO j = CM % Rows(i),CM % Rows(i+1)-1
+             l = CM % Cols(j)
+             v(l) = v(l) + CM % Values(j)*u(k)
+             v(k) = v(k) + CM % Values(j)*u(l)
+           END DO
+         END DO
+       END IF
+!-----------------------------------------------------------------------------------
+    END SUBROUTINE C_matvec
+!-----------------------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------------------
+    SUBROUTINE C_lpcond(u,v,ipar,pcondlsubr)
+!-----------------------------------------------------------------------------------
+      INTEGER :: ipar(*)
+      REAL(KIND=dp) :: u(*),v(*)
+
+      EXTERNAL pcondlsubr
+!-----------------------------------------------------------------------------------
+      INTEGER :: ndim
+!-----------------------------------------------------------------------------------
+      ndim = HUTI_NDIM
+      IF(Constrained) HUTI_NDIM = ndim+nc
+      CALL pcondlsubr(u,v,ipar)
+      IF(Constrained) HUTI_NDIM = ndim
+!-----------------------------------------------------------------------------------
+    END SUBROUTINE C_lpcond
+!-----------------------------------------------------------------------------------
+
 !------------------------------------------------------------------------------
 !>   This routine solves real linear systems Ax = b by using the BiCGStab(l) algorithm 
 !>   with l >= 2 and the right-oriented ILU(n) preconditioning. 
@@ -444,17 +494,15 @@ CONTAINS
     REAL(KIND=dp), TARGET :: &
        xvec(HUTI_NDIM),rhsvec(HUTI_NDIM),work(HUTI_WRKDIM,HUTI_NDIM)
 
-    INTEGER :: ndim
+    INTEGER :: ndim,i,j,k
     INTEGER :: Rounds, OutputInterval, PolynomialDegree
     REAL(KIND=dp) :: MinTol, MaxTol, Residual
     LOGICAL :: Converged, Diverged
 
-    INTEGER :: nc
+    TYPE(Matrix_t),POINTER :: A
+
     REAL(KIND=dp), POINTER :: x(:),b(:)
 
-    LOGICAL :: Constrained
-
-    TYPE(Matrix_t), POINTER :: A,CM
 
     A => GlobalMatrix
     CM => A % ConstraintMatrix
@@ -500,43 +548,6 @@ CONTAINS
 
   CONTAINS
 
-!-----------------------------------------------------------------------------------
-    SUBROUTINE C_matvec(u,v,ipar)
-!-----------------------------------------------------------------------------------
-      INTEGER :: ipar(*)
-      REAL(KIND=dp) :: u(*),v(*)
-!-----------------------------------------------------------------------------------
-      INTEGER :: i,j,k,l
-!-----------------------------------------------------------------------------------
-      CALL matvecsubr( u, v, ipar )
-      IF (Constrained) THEN
-         DO i=1,CM % NumberOfRows
-           k = ndim+i
-           v(k) = 0._dp
-           DO j = CM % Rows(i),CM % Rows(i+1)-1
-             l = CM % Cols(j)
-             v(l) = v(l) + CM % Values(j)*u(k)
-             v(k) = v(k) + CM % Values(j)*u(l)
-           END DO
-         END DO
-       END IF
-!-----------------------------------------------------------------------------------
-    END SUBROUTINE C_matvec
-!-----------------------------------------------------------------------------------
-
-
-!-----------------------------------------------------------------------------------
-    SUBROUTINE C_lpcond(u,v,ipar)
-!-----------------------------------------------------------------------------------
-      INTEGER :: ipar(*)
-      REAL(KIND=dp) :: u(*),v(*)
-!-----------------------------------------------------------------------------------
-      HUTI_NDIM = ndim+nc
-      CALL pcondlsubr( u, v, ipar )
-      HUTI_NDIM = ndim
-!-----------------------------------------------------------------------------------
-    END SUBROUTINE C_lpcond
-!-----------------------------------------------------------------------------------
 
 
 !-----------------------------------------------------------------------------------
@@ -589,7 +600,7 @@ CONTAINS
       yl = y0+1
       y = yl+1
     
-      CALL C_matvec(x,work(:,r),ipar)
+      CALL C_matvec(x,work(:,r),ipar,matvecsubr)
 
       work(1:n,r) = b(1:n) - work(1:n,r)
       bnrm  = normfun(n, b(1:n), 1 )
@@ -652,9 +663,8 @@ CONTAINS
             work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
           ENDDO
 
-          CALL C_lpcond( t, work(:,u+k-1), ipar )
-          CALL C_matvec( t, work(:,u+k),   ipar )
-
+          CALL C_lpcond( t, work(:,u+k-1), ipar, pcondlsubr )
+          CALL C_matvec( t, work(:,u+k), ipar, matvecsubr )
           sigma = dotprodfun(n, work(1:n,rr), 1, work(1:n,u+k), 1 )
           
           IF (sigma == zero) THEN
@@ -670,8 +680,8 @@ CONTAINS
             work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
           ENDDO
 
-          CALL C_lpcond( t, work(:,r+k-1), ipar )
-          CALL C_matvec( t, work(:,r+k), ipar )
+          CALL C_lpcond( t, work(:,r+k-1), ipar,pcondlsubr )
+          CALL C_matvec( t, work(:,r+k), ipar, matvecsubr )
 
           rnrm = normfun(n, work(1:n,r), 1 )
           IF (rnrm /= rnrm) THEN
@@ -772,8 +782,8 @@ CONTAINS
         rcmp = ((rnrm < delta*mxnrmr .AND. rnrm0 < mxnrmr) .OR. xpdt)
         IF (rcmp) THEN
           ! PRINT *, 'Performing residual update...'
-          CALL C_lpcond( t, x, ipar )
-          CALL C_matvec( t, work(:,r), ipar )
+          CALL C_lpcond( t, x, ipar,pcondlsubr )
+          CALL C_matvec( t, work(:,r), ipar, matvecsubr )
 
           work(1:n,r) = work(1:n,bp) - work(1:n,r)
           mxnrmr = rnrm
@@ -793,7 +803,7 @@ CONTAINS
             t(1:n) = t(1:n) + work(1:n,xp)  
           END IF
         ELSE
-          CALL C_lpcond( t, x, ipar )
+          CALL C_lpcond( t, x, ipar,pcondlsubr )
           t(1:n) = t(1:n)+work(1:n,xp)
         END IF
       
@@ -816,7 +826,7 @@ CONTAINS
       ! solve the true unknown x
       !------------------------------------------------------------
       t(1:n) = x(1:n)
-      CALL C_lpcond( x, t, ipar )
+      CALL C_lpcond( x, t, ipar,pcondlsubr )
       x(1:n) = x(1:n) + work(1:n,xp)        
 !------------------------------------------------------------------------------
     END SUBROUTINE RealBiCGStabl
@@ -846,13 +856,17 @@ CONTAINS
     ! Parameters
     INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
     REAL(KIND=dp), DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
-    REAL(KIND=dp) :: &
+    REAL(KIND=dp), TARGET :: &
        xvec(HUTI_NDIM),rhsvec(HUTI_NDIM),work(HUTI_WRKDIM,HUTI_NDIM)
 
     INTEGER :: ndim, RestartN
     INTEGER :: Rounds, OutputInterval
     REAL(KIND=dp) :: MinTol, MaxTol, Residual
     LOGICAL :: Converged, Diverged
+
+    TYPE(Matrix_t),POINTER::A
+
+    REAL(KIND=dp), POINTER :: x(:),b(:)
     
     ndim = HUTI_NDIM
     Rounds = HUTI_MAXIT
@@ -860,9 +874,37 @@ CONTAINS
     MaxTol = HUTI_MAXTOLERANCE
     OutputInterval = HUTI_DBUGLVL
     RestartN = HUTI_GCR_RESTART 
+
+    x => xvec
+    b => rhsvec
+    nc = 0
+
+    A => GlobalMatrix
+    CM => A % ConstraintMatrix
+    Constrained = ASSOCIATED(CM)
+
+    IF (Constrained) THEN
+      nc = CM % NumberOfRows
+      Constrained = nc>0
+      IF(Constrained) THEN
+        ALLOCATE(x(ndim+nc),b(ndim+nc))
+        IF(.NOT.ALLOCATED(CM % ExtraVals))THEN
+          ALLOCATE(CM % ExtraVals(nc)); CM % extraVals=0._dp
+        END IF
+        b(1:ndim) = rhsvec; b(ndim+1:) = CM % RHS
+        x(1:ndim) = xvec; x(ndim+1:) = CM % extraVals
+      END IF
+    END IF
        
-    CALL GCR(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, MaxTol, Residual, &
+    CALL GCR(ndim+nc, GlobalMatrix, x, b, Rounds, MinTol, MaxTol, Residual, &
         Converged, Diverged, OutputInterval, RestartN )
+
+    IF(Constrained) THEN
+      xvec=x(1:ndim)
+      rhsvec=b(1:ndim)
+      CM % extraVals = x(ndim+1:ndim+nc)
+      DEALLOCATE(x,b)
+    END IF
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
@@ -883,7 +925,7 @@ CONTAINS
       REAL(KIND=dp) :: bnorm,rnorm
       REAL(KIND=dp), ALLOCATABLE :: R(:)
 
-      REAL(KIND=dp), ALLOCATABLE :: S(:,:), V(:,:), T1(:), T2(:)
+      REAL(KIND=dp), ALLOCATABLE :: S(:,:), V(:,:), T1(:), T2(:),TT(:)
 
 !------------------------------------------------------------------------------
       INTEGER :: i,j,k
@@ -893,14 +935,14 @@ CONTAINS
       Converged = .FALSE.
       Diverged = .FALSE.
       
-      ALLOCATE( R(n), T1(n), T2(n) )
+      ALLOCATE( R(n), T1(n), T2(n),TT(n) )
       IF ( m > 1 ) THEN
          ALLOCATE( S(n,m-1), V(n,m-1) )
          V(1:n,1:m-1) = 0.0d0	
          S(1:n,1:m-1) = 0.0d0
       END IF	
       
-      CALL matvecsubr( x, r, ipar )
+      CALL C_matvec( x, r, ipar, matvecsubr )
       r(1:n) = b(1:n) - r(1:n)
       
       bnorm = normfun(n, b, 1)
@@ -923,8 +965,9 @@ CONTAINS
          !----------------------------------------------------------
          ! Perform the preconditioning...
          !---------------------------------------------------------------
-         CALL pcondlsubr( T1, r, ipar )         
-         CALL matvecsubr( T1, T2, ipar )
+         CALL C_lpcond( T1, r, ipar,pcondlsubr )         
+         CALL C_matvec( T1, T2, ipar, matvecsubr )
+
          !--------------------------------------------------------------
          ! Perform the orthogonalization of the search directions....
          !--------------------------------------------------------------

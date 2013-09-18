@@ -2036,10 +2036,16 @@ REAL(kind=dp)::cputime,realtime,tt,rt
 
   ALLOCATE( TmpXVec(SplittedMatrix % InsideMatrix % NumberOfRows) )
   j = 0
+  SplittedMatrix % InsideMatrix % ExtraDOFs=0
   DO i = 1, SourceMatrix % NumberOfRows
     IF ( ParallelInfo % NeighbourList(i) % Neighbours(1)==ParEnv % MyPE ) THEN
       j = j + 1
       TmpXVec(j) = XVec(i)
+
+      IF(i>SourceMatrix % NumberOfRows-SourceMatrix % ExtraDOFs) THEN
+        SplittedMatrix % InsideMatrix % ExtraDOFs = &
+           SplittedMatrix % InsideMatrix % ExtraDOFs+1
+      END IF
     END IF
   END DO
 

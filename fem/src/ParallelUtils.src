@@ -96,7 +96,7 @@ CONTAINS
        INTEGER, POINTER :: Perm(:)
 
        INTEGER :: pardofs_bef, pardofs_all
-       INTEGER, ALLOCATABLE :: pardofs_in(:), pardofs_out(:)
+       INTEGER, ALLOCATABLE :: pardofs_in(:), pardofs_out(:), ind(:)
        REAL(KIND=dp) :: realtime,tt
 !-------------------------------------------------------------------------------
 
@@ -283,17 +283,26 @@ CONTAINS
            IF (Global_dof) THEN
              Matrix % Parallelinfo % Interface(i) = .TRUE.
              ALLOCATE(Matrix % ParallelInfo % NeighbourList(i) % Neighbours(ParEnv % PEs))
-             DO k=1,ParEnv % PEs
-               Matrix % ParallelInfo % NeighbourList(i) % Neighbours(k)=k-1
+             l = 0
+             DO k=j,ParEnv % PEs
+               l = l + 1
+               Matrix % ParallelInfo % NeighbourList(i) % Neighbours(l)=ParEnv % PEs-k
+             END DO
+             DO k=1,MIN(j-1,Parenv % PEs)
+               l = l + 1
+               Matrix % ParallelInfo % NeighbourList(i) % Neighbours(l)=ParEnv % PEs-k
              END DO
              k = j + g_beg
            ELSE IF(Found) THEN
              k = Solver % Matrix % ConstraintMatrix % InvPerm(j-Matrix % ParallelDOFs)
-
+             IF(k<=0) CYCLE
              Matrix % Parallelinfo % Interface(i) = Matrix % ParallelInfo % Interface(k)
 
-             ALLOCATE(Matrix % ParallelInfo % NeighbourList(i) % Neighbours( &
-                SIZE(Matrix % ParallelInfo % NeighbourList(k) % Neighbours)))
+             l = SIZE(Matrix % ParallelInfo % NeighbourList(k) % Neighbours)
+             ALLOCATE(Matrix % ParallelInfo % NeighbourList(i) % Neighbours(l))
+
+             IF (Matrix % Parallelinfo % Interface(i)) &
+               CALL Sort(l,Matrix % ParallelInfo % NeighbourList(k) % Neighbours)
 
              Matrix % Parallelinfo % NeighbourList(i) % Neighbours = &
                 Matrix % ParallelInfo % NeighbourList(k) % Neighbours
@@ -306,6 +315,18 @@ CONTAINS
            END IF
            Matrix % ParallelInfo % GlobalDofs(i) = k
          END DO
+
+         l=Matrix % ExtraDOFs
+         IF(l>0) THEN
+            ALLOCATE(Ind(l))
+            k = 0
+            DO i=Matrix % NumberOfRows-l+1,Matrix % NumberOfRows
+              k = k + 1
+              Matrix % Perm(i) = i
+              Ind(k) = Matrix % Parallelinfo % Globaldofs(i)
+            END DO
+            CALL SortI(l,Ind,Matrix % Perm(Matrix % NumberOfRows-l+1:))
+         END IF
 
        ELSE
          MeshPI => Solver % Mesh % ParallelInfo

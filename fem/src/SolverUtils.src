@@ -4884,6 +4884,20 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+    DoCM=.FALSE.
+    IF(PRESENT(ConstraintScaling)) DoCm=ConstraintScaling
+
+    IF(doCM) THEN
+      CM => A % ConstraintMatrix
+      IF (ASSOCIATED(CM)) THEN
+        DO i=1,CM % NumberOFRows
+          DO j=CM % Rows(i), CM % Rows(i+1)-1
+            CM % Values(j) = CM % Values(j) * Diag(CM % Cols(j))
+          END DO
+        END DO
+      END IF
+    END IF
+
     ! Scale r.h.s. and initial guess
     !--------------------------------
     A % RhsScaling=1._dp
@@ -4902,20 +4916,6 @@ END FUNCTION SearchNodeL
       b(1:n) = b(1:n) / bnorm
       IF( PRESENT( x) ) THEN
         x(1:n) = x(1:n) / Diag(1:n)
-      END IF
-    END IF
-
-    DoCM=.FALSE.
-    IF(PRESENT(ConstraintScaling)) DoCm=ConstraintScaling
-
-    IF(doCM) THEN
-      CM => A % ConstraintMatrix
-      IF (ASSOCIATED(CM)) THEN
-        DO i=1,CM % NumberOFRows
-          DO j=CM % Rows(i), CM % Rows(i+1)-1
-            CM % Values(j) = CM % Values(j) * Diag(CM % Cols(j))
-          END DO
-        END DO
       END IF
     END IF
 !-----------------------------------------------------------------------------
@@ -5060,7 +5060,9 @@ END FUNCTION SearchNodeL
     END IF
 
     IF(.NOT. ASSOCIATED( Diag ) ) THEN
-      CALL Fatal('BackScaleLinearSystem','Diag not associated!')
+!     CALL Fatal('BackScaleLinearSystem','Diag not associated!')
+      CALL Warn('BackScaleLinearSystem','Diag not associated!')
+      RETURN
     END IF
     IF( SIZE( Diag ) /= n ) THEN
       CALL Fatal('BackScaleLinearSystem','Diag of wrong size!')
@@ -5126,8 +5128,7 @@ END FUNCTION SearchNodeL
       IF (ASSOCIATED(CM)) THEN
         DO i=1,CM % NumberOFRows
           DO j=CM % Rows(i), CM % Rows(i+1)-1
-            CM % Values(j) = CM % Values(j) / &
-                ( A % RhsScaling * Diag(CM % Cols(j)) )
+            CM % Values(j) = CM % Values(j) / ( Diag(CM % Cols(j)) )
           END DO
         END DO
       END IF
@@ -5326,7 +5327,6 @@ END FUNCTION SearchNodeL
           Solver % Variable % Name )
       RETURN
     END IF
-
 
 
 ! If whether b=0 since then equation Ax=b has only the trivial solution, x=0. 
@@ -5664,7 +5664,7 @@ END FUNCTION SearchNodeL
 
       ! if there are several constraint matrices unify:
       ! -----------------------------------------------
-      Btmp => NULL()
+      Btmp => Null()
       Atmp => A % ConstraintMatrix
       IF(ASSOCIATED(atmp)) THEN
         IF ( ASSOCIATED(Atmp % ConstraintMatrix) ) THEN
@@ -5680,6 +5680,7 @@ END FUNCTION SearchNodeL
           ALLOCATE( Btmp % RHS(nrows), Btmp % Rows(nrows+1), &
               Btmp % Cols(ncols), Btmp % Values(ncols) )
           Btmp % NumberOFRows = nrows
+          Allocate(Btmp % InvPerm(nrows)); Btmp % InvPerm=0
 
           Atmp => A % ConstraintMatrix
           k = 0
@@ -5688,6 +5689,8 @@ END FUNCTION SearchNodeL
           DO WHILE(ASSOCIATED(Atmp))
             DO i=1,Atmp % NumberOfRows
               Btmp % RHS(n)=Atmp % RHS(i)
+              IF(ASSOCIATED(Atmp % Invperm)) &
+                Btmp % InvPerm(n) = Atmp % InvPerm(i)
               DO j=Atmp % Rows(i),Atmp % Rows(i+1)-1
                 k = k + 1
                 Btmp % Cols(k)   = Atmp % Cols(j)
@@ -6262,7 +6265,7 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
 !>  ConstraintMatrix.
 !>  NOTE: Only serial solver implemented so far ...
 !------------------------------------------------------------------------------
-SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
+RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
         Norm, DOFs, Solver )
 !------------------------------------------------------------------------------  
   IMPLICIT NONE
@@ -6275,7 +6278,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   TYPE(Solver_t), TARGET :: Solver       !< Linear equation solver options.
 !------------------------------------------------------------------------------
   TYPE(Solver_t), POINTER :: SolverPointer
-  TYPE(Matrix_t), POINTER :: CollectionMatrix=>NULL(), RestMatrix, AddMatrix, &
+  TYPE(Matrix_t), POINTER :: CollectionMatrix, RestMatrix, AddMatrix, &
        RestMatrixTranspose
   REAL(KIND=dp), POINTER CONTIG :: CollectionVector(:), RestVector(:),&
                  MultiplierValues(:),AddVector(:)
@@ -6285,7 +6288,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   INTEGER :: i, j, k, l
   TYPE(Variable_t), POINTER :: MultVar
   REAL(KIND=dp) :: scl
-  LOGICAL :: Found, ExportMultiplier, NotExplicit
+  LOGICAL :: Found, ExportMultiplier, NotExplicit, Refactorize
   SAVE MultiplierValues, SolverPointer
   CHARACTER(LEN=MAX_NAME_LEN) :: MultiplierName
 !------------------------------------------------------------------------------
@@ -6308,6 +6311,16 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   NumberOfRows = StiffMatrix % NumberOfRows
 
   CollectionMatrix => StiffMatrix % CollectionMatrix
+  Refactorize = ListGetLogical(Solver % Values,'Linear System Refactorize',Found)
+  IF(.NOT.Found) Refactorize = .TRUE.
+
+  IF(Refactorize.AND..NOT.NotExplicit) THEN
+    IF(ASSOCIATED(CollectionMatrix)) THEN
+      CALL FreeMatrix(CollectionMatrix)
+      CollectionMatrix => Null()
+    END IF
+  END IF
+
   IF(.NOT.ASSOCIATED(CollectionMatrix)) THEN
     CollectionMatrix => AllocateMatrix()
     CollectionMatrix % FORMAT = MATRIX_LIST
@@ -6452,9 +6465,10 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   CollectionMatrix % ExtraDOFs = CollectionMatrix % NumberOfRows - &
                   StiffMatrix % NumberOfRows
 
+  CollectionMatrix % ParallelDOFs = 0
   IF(ASSOCIATED(AddMatrix)) &
-    CollectionMatrix % ParallelDOFs = AddMatrix % NumberOfRows - &
-                  StiffMatrix % NumberOfRows
+    CollectionMatrix % ParallelDOFs = MAX(AddMatrix % NumberOfRows - &
+                  StiffMatrix % NumberOfRows,0)
 
   CALL Info( 'SolveWithLinearRestriction', 'CollectionVector done', Level=5 )
 
@@ -6485,24 +6499,21 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
     END IF
 !------------------------------------------------------------------------------
 
-    IF(NotExplicit) THEN
-      CollectionMatrix % ConstraintMatrix => NULL()
-      StiffMatrix % CollectionMatrix => CollectionMatrix
-    ELSE
-      CALL FreeMatrix( CollectionMatrix )
-      StiffMatrix % CollectionMatrix => NULL()
-    END IF
+    StiffMatrix % CollectionMatrix => CollectionMatrix
     DEALLOCATE(CollectionSolution)
+    CollectionMatrix % ConstraintMatrix => Null()
 
     CALL Info( 'SolveWithLinearRestriction', 'All done', Level=5 )
-
+!------------------------------------------------------------------------------
   END SUBROUTINE SolveWithLinearRestriction
 !------------------------------------------------------------------------------
       
 
+!------------------------------------------------------------------------------
   SUBROUTINE SaveLinearSystem( Solver )
-
+!------------------------------------------------------------------------------
     TYPE( Solver_t ) :: Solver
+!------------------------------------------------------------------------------
     
     TYPE(Matrix_t), POINTER :: A
     TYPE(ValueList_t), POINTER :: Params
@@ -6510,6 +6521,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
     INTEGER, POINTER :: Perm(:)
     INTEGER :: i
     LOGICAL :: SaveMass, SaveDamp, SavePerm, Found 
+!------------------------------------------------------------------------------
 
     CALL Info('SaveLinearSystem','Saving linear system',Level=4)
 
@@ -6570,8 +6582,9 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
       CALL Info('SaveLinearSystem','Just saved matrix and stopped!',Level=4)
       STOP
     END IF
-    
+!------------------------------------------------------------------------------
   END SUBROUTINE SaveLinearSystem
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 !> Assemble Laplace matrix related to a solver and permutation vector. 

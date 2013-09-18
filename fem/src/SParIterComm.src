@@ -220,7 +220,7 @@ CONTAINS
     ! Local variables
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     
-    INTEGER :: i, j, k, ii, n, sz, ierr, proc, MinActive
+    INTEGER :: i, j, k, m, ii, n, sz, ierr, proc, MinActive
     INTEGER, ALLOCATABLE :: Active(:), buf(:)
     LOGICAL :: L, Interf
     REAL(KIND=dp) :: RealTime, tstart, tend,s
@@ -349,6 +349,7 @@ CONTAINS
     IF ( .NOT. SourceMatrix % DGMatrix ) THEN
       DO i=1,SIZE(SourceMatrix % Perm)
         ii = SourceMatrix % Perm(i)
+
         Interf=.FALSE.
         IF(ii>0) THEN
           Active(ii) = HUGE(i)
@@ -359,10 +360,9 @@ CONTAINS
           DO j=1,sz
             k = ParallelInfo % NeighbourList(ii) % Neighbours(j)
             IF ( k == ParEnv % Mype ) THEN
-              IF ( SourceMatrix % Perm(i)/=0 ) Active(ii)=j
+              Active(ii) = j
             ELSE IF ( ParEnv % Active(k+1) ) THEN
-              CALL AddtoNlist( Neighlist(k+1), ParallelInfo % GlobalDOFs(ii), &
-                         SourceMatrix % Perm(i) )
+              CALL AddtoNlist( Neighlist(k+1), ParallelInfo % GlobalDOFs(ii), ii)
             END IF
           END DO
         END IF
@@ -403,6 +403,7 @@ CONTAINS
       END DO
       DEALLOCATE( NeighList, buf )
 
+      m = SIZE(ParallelInfo % GlobalDOFs)
       DO i=1,ParEnv % NumOfNeighbours
         CALL MPI_RECV( sz,1,MPI_INTEGER,MPI_ANY_SOURCE,20000,MPI_COMM_WORLD,status,ierr)
         IF (sz>0 ) THEN
@@ -411,7 +412,7 @@ CONTAINS
           CALL MPI_RECV( buf,sz,MPI_INTEGER,proc,20001,MPI_COMM_WORLD,status,ierr)
           DO j=1,sz,2
             IF ( buf(j+1)>0 ) THEN
-              k = SearchNode( ParallelInfo, buf(j),Order=SourceMatrix % Perm )
+              k = SearchNode( ParallelInfo, buf(j), Order=SourceMatrix % Perm )
               IF ( k>0  ) THEN
                 sz = SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
                 DO n=1,sz
@@ -2812,6 +2813,19 @@ SUBROUTINE SParIterAllReduceAnd(L)
    CALL MPI_ALLREDUCE(L1,L,1,MPI_LOGICAL,MPI_LAND,MPI_COMM_WORLD,ierr)
 !-----------------------------------------------------------------------
 END  SUBROUTINE SParIterAllReduceAnd
+!-----------------------------------------------------------------------
+
+!-----------------------------------------------------------------------
+SUBROUTINE SParIterAllReduceOR(L)
+   LOGICAL :: L
+!-----------------------------------------------------------------------
+   LOGICAL :: L1
+   INTEGER :: ierr
+
+   L1 = L
+   CALL MPI_ALLREDUCE(L1,L,1,MPI_LOGICAL,MPI_LAND,MPI_COMM_WORLD,ierr)
+!-----------------------------------------------------------------------
+END  SUBROUTINE SParIterAllReduceOR
 !-----------------------------------------------------------------------
 
 
