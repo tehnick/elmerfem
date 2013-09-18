@@ -91,7 +91,7 @@ CONTAINS
        TYPE(NeighbourList_t), POINTER :: MtrxN, MeshN
 
        INTEGER :: maxnode, maxedge, maxface, fdofs, maxfdofs, &
-                  edofs, maxedofs, maxbdofs, l_beg, g_beg
+                  edofs, maxedofs, maxbdofs, l_beg, g_beg, proc_ind
 
        INTEGER, POINTER :: Perm(:)
 
@@ -277,20 +277,26 @@ CONTAINS
          IF(Found) Found = ASSOCIATED(Solver % Matrix % ConstraintMatrix % InvPerm)
 
          j=0
+         proc_ind = ParEnv % PEs
          DO i=Matrix % NumberOFRows-Matrix % ExtraDOFs+1,Matrix % NumberOfRows
            j=j+1
            Global_dof = j <= Matrix % ParallelDOFs
            IF (Global_dof) THEN
              Matrix % Parallelinfo % Interface(i) = .TRUE.
              ALLOCATE(Matrix % ParallelInfo % NeighbourList(i) % Neighbours(ParEnv % PEs))
-             l = 0
-             DO k=j,ParEnv % PEs
-               l = l + 1
-               Matrix % ParallelInfo % NeighbourList(i) % Neighbours(l)=ParEnv % PEs-k
-             END DO
-             DO k=1,MIN(j-1,Parenv % PEs)
-               l = l + 1
-               Matrix % ParallelInfo % NeighbourList(i) % Neighbours(l)=ParEnv % PEs-k
+
+             IF(proc_ind<=0) proc_ind=ParEnv % PEs
+             proc_ind=proc_ind-1
+
+!            Matrix % ParallelInfo % NeighbourList(i) % Neighbours(1)=proc_ind
+!            l = -1
+!            DO k=2,ParEnv % PEs
+!              l = l + 1
+!              IF(l==proc_ind) l = l + 1
+!              Matrix % ParallelInfo % NeighbourList(i) % Neighbours(k)=l
+!            END DO
+             DO k=1,ParEnv % PEs
+               Matrix % ParallelInfo % NeighbourList(i) % Neighbours(k)=ParEnv % PEs-k
              END DO
              k = j + g_beg
            ELSE IF(Found) THEN

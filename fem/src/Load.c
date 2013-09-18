@@ -728,7 +728,3 @@ void STDCALLBULL FC_FUNC(matvecsubr, MMATVECSUBR)
 {
    DoMatVecSubr( (void (STDCALLBULL *)())*matvec,SpMV,n,rows,cols,vals,u,v,reinit);
 }
-
-
-
-
