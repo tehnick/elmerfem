@@ -2255,14 +2255,15 @@ END SUBROUTINE GetMaxDefs
     LOGICAL, ALLOCATABLE :: MirrorNode(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2, PMesh
     TYPE(Nodes_t), POINTER :: MeshNodes, GaussNodes
-    REAL(KIND=dp) :: rowsum
+    REAL(KIND=dp) :: rowsum, PeriodicScale
 
     INTERFACE
       FUNCTION WeightedProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
-          UseQuadrantTree, Repeating, AntiRepeating ) &
+          UseQuadrantTree, Repeating, AntiRepeating, PeriodicScale ) &
          RESULT ( Projector )
-        USE Lists
+        USE Types
         TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+        REAL(KIND=dp) :: PeriodicScale
         INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
         LOGICAL :: UseQuadrantTree, Repeating, AntiRepeating
          TYPE(Matrix_t), POINTER :: Projector
@@ -2296,6 +2297,9 @@ END SUBROUTINE GetMaxDefs
     AntiSliding = ListGetLogical( Model % BCs(This) % Values,&
         'Anti Sliding Projector',GotIt )
     IF( AntiSliding ) Sliding = .TRUE. 
+
+    PeriodicScale = ListGetConstReal( Model % BCs(This) % Values, 'Mortar BC Scaling',GotIt)
+    IF(.NOT.Gotit ) PeriodicScale = 1._dp
 
     ! Whether to choose nodal or Galerkin projector is determined by an optional
     ! flag. The default is the nodal projector.
@@ -2349,7 +2353,7 @@ END SUBROUTINE GetMaxDefs
     
     IF( IntGalerkin ) THEN
       Projector => WeightedProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-          UseQuadrantTree, Repeating, AntiRepeating )
+          UseQuadrantTree, Repeating, AntiRepeating, PeriodicScale )
     ELSE
       Projector => NodalProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
           UseQuadrantTree, Repeating, AntiRepeating )

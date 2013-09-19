@@ -1038,7 +1038,6 @@ CONTAINS
 
 
 
-#if 1
   !---------------------------------------------------------------------------
   !> Create a projector for mapping between interfaces using the Galerkin method
   !> A temporal mesh structure with a node for each Gaussian integration point is 
@@ -1046,12 +1045,13 @@ CONTAINS
   !> coordinates.   
   !---------------------------------------------------------------------------
    FUNCTION WeightedProjector2(BMesh2, BMesh1, InvPerm2, InvPerm1, &
-       UseQuadrantTree, Repeating, AntiRepeating ) &
+       UseQuadrantTree, Repeating, AntiRepeating, PeriodicScale ) &
       RESULT ( Projector )
   !---------------------------------------------------------------------------
     USE DefUtils
 
     TYPE(Mesh_t), POINTER :: BMesh1, BMesh2
+    REAL(KIND=dp) :: PeriodicScale
     INTEGER, POINTER :: InvPerm1(:), InvPerm2(:)
     LOGICAL :: UseQuadrantTree, Repeating, AntiRepeating
     TYPE(Matrix_t), POINTER :: Projector
@@ -1229,7 +1229,7 @@ CONTAINS
             IF (qq<=0) EXIT
             IF(.NOT.EdgeBasis) qq=InvPerm2(qq)
             CALL List_AddToMatrixElement(Projector % ListMatrix, &
-                EQind(Indexes(p)), qq, -Values(q) * val ) 
+                EQind(Indexes(p)), qq, -PeriodicScale * Values(q) * val ) 
           END DO
         END DO
 
@@ -1264,7 +1264,7 @@ CONTAINS
               vq(3) = Values(q+2)
 
               CALL List_AddToMatrixElement( Projector % ListMatrix,&
-                  EQind(Indexes(p)), -Cols(q), -DetJ*IntegStuff % s(j)*SUM(vq*wq))
+                  EQind(Indexes(p)), -Cols(q), -PeriodicScale*DetJ*IntegStuff % s(j)*SUM(vq*wq))
             END DO
           END DO
         ENDIF
@@ -1284,4 +1284,3 @@ CONTAINS
 !------------------------------------------------------------------------------
   END FUNCTION WeightedProjector2
 !------------------------------------------------------------------------------
-#endif
