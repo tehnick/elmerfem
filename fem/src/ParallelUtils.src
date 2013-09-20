@@ -91,7 +91,7 @@ CONTAINS
        TYPE(NeighbourList_t), POINTER :: MtrxN, MeshN
 
        INTEGER :: maxnode, maxedge, maxface, fdofs, maxfdofs, &
-                  edofs, maxedofs, maxbdofs, l_beg, g_beg, proc_ind
+                  edofs, maxedofs, maxbdofs, l_beg, g_beg, proc_ind, sz
 
        INTEGER, POINTER :: Perm(:)
 
@@ -110,15 +110,14 @@ CONTAINS
        IF(PRESENT(inPerm)) Perm=>InPerm
 
        n = SIZE(Perm)
-       k = n*DOFs+Matrix % ExtraDOFs
+       k = n*DOFs + Matrix % ExtraDOFs
        ALLOCATE( Matrix % Perm(k), Matrix % InvPerm(k))
 
        Matrix % Perm = 0
        DO i=1,n
          IF ( Perm(i) /= 0 )  THEN
             DO j=1,DOFs
-               Matrix % Perm((i-1)*DOFs+j) = &
-                  DOFs * (Perm(i)-1) + j
+               Matrix % Perm((i-1)*DOFs+j) = DOFs * (Perm(i)-1) + j
             END DO
          END IF
        END DO
@@ -323,15 +322,16 @@ CONTAINS
          END DO
 
          l=Matrix % ExtraDOFs
+         n=SIZE(Perm)
          IF(l>0) THEN
             ALLOCATE(Ind(l))
             k = 0
             DO i=Matrix % NumberOfRows-l+1,Matrix % NumberOfRows
               k = k + 1
-              Matrix % Perm(i) = i
+              Matrix % Perm(n*DOFs+k) = i
               Ind(k) = Matrix % Parallelinfo % Globaldofs(i)
             END DO
-            CALL SortI(l,Ind,Matrix % Perm(Matrix % NumberOfRows-l+1:))
+            CALL SortI(l,Ind,Matrix % Perm(n*DOFs+1:))
          END IF
 
        ELSE
