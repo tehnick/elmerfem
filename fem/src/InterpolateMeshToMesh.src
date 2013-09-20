@@ -857,6 +857,7 @@ CONTAINS
                        NotDG=ASSOCIATED(CurrentModel % Solver))
 
               np = GetElementNOFNodes(Element)
+              IF (ANY(Indexes(1:np)>Element % NodeIndexes)) np=0
 
               IF( EdgeBasis) THEN
                 IF(.NOT.ALLOCATED(dVals)) THEN
@@ -899,13 +900,13 @@ CONTAINS
                     nrow = nrow + 1                  
                   ELSE
                     Cols(nrow) = -Indexes(j)
-                    Values(nrow) = WBasis(j-np*1,1)
+                    Values(nrow) = WBasis(j-np,1)
                     nrow = nrow + 1                  
                     Cols(nrow) = -Indexes(j)
-                    Values(nrow) = WBasis(j-np*1,2)
+                    Values(nrow) = WBasis(j-np,2)
                     nrow = nrow + 1                  
                     Cols(nrow) = -Indexes(j)
-                    Values(nrow) = WBasis(j-np*1,3)
+                    Values(nrow) = WBasis(j-np,3)
                     nrow = nrow + 1                  
                   END IF
                 END DO
@@ -1184,6 +1185,7 @@ CONTAINS
         Element => Find_Face(Element % BoundaryInfo % Left,Element)
         n  = GetElementDOFs(Indexes,Element)
         np = GetElementNOFNodes(Element)
+        IF(ANY(Indexes(1:np)>Element % NodeIndexes)) np=0
         CALL GetElementNodes(Nodes,Element)
       ELSE
         Element => BMesh1 % Elements(i)
@@ -1236,8 +1238,8 @@ CONTAINS
         IF(EdgeBasis)THEN
           CALL GetEdgeBasis(Element, WBasis, RotWBasis, Basis,dBasisdx)
 
-          DO p=np*1+1,n
-            pp=p-np*1
+          DO p=np+1,n
+            pp=p-np
 
             wq = WBasis(pp,:)
 
@@ -1247,8 +1249,8 @@ CONTAINS
               Projector % InvPerm(Ind)=Indexes(p)
             END IF
 
-            DO q=np*1+1,n
-              qq = q-np*1
+            DO q=np+1,n
+              qq = q-np
 
               vq = Wbasis(qq,:)
               CALL List_AddToMatrixElement(Projector % ListMatrix, EQind(Indexes(p)),&
@@ -1256,7 +1258,7 @@ CONTAINS
             END DO
 
 
-            DO q = Rows(NoGaussPoints)+np*1, Rows(NoGaussPoints+1)-1,3
+            DO q = Rows(NoGaussPoints)+np, Rows(NoGaussPoints+1)-1,3
               IF(Cols(q)>=0) STOP 'q'
 
               vq(1) = Values(q)
