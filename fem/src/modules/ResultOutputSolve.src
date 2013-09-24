@@ -422,7 +422,7 @@ END SUBROUTINE ResultOutputSolver
     Dofs = 0
     ScalarFields = 0
     On_nodes_on_elements = 0
-    DO Vari = 1, 99
+    DO Vari = 1, 999
       WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
@@ -437,7 +437,7 @@ END SUBROUTINE ResultOutputSolver
     END DO
     
     VectorFields = 0
-    DO Vari = 1, 99
+    DO Vari = 1, 999
       WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
@@ -614,13 +614,7 @@ END SUBROUTINE ResultOutputSolver
           
           WRITE( PostFileUnit,'(a)',ADVANCE='NO' )  Str(1:k)
         ELSE
-          IF ( k > 0 .AND. k < 10 ) THEN
-            WRITE(PostFileUnit,'(a,i1,a)',ADVANCE='NO' ) 'body',k,' '
-          ELSE IF ( k >= 10 .AND. k < 100 ) THEN
-            WRITE(PostFileUnit,'(a,i2,a)',ADVANCE='NO' ) 'body',k,' '
-          ELSE
-            WRITE(PostFileUnit,'(a,i3,a)',ADVANCE='NO' ) 'body',k,' '
-          END IF
+          WRITE(PostFileUnit,'(a)',ADVANCE='NO' ) 'body'//TRIM(I2S(k))//' '
         END IF
         
         WRITE(PostFileUnit,'(i5)', ADVANCE='NO') Element % TYPE % ElementCode
@@ -665,13 +659,7 @@ END SUBROUTINE ResultOutputSolver
           
           WRITE( PostFileUnit,'(a)',ADVANCE='NO' )  Str(1:k)
         ELSE
-          IF ( k < 10 ) THEN
-            WRITE( PostFileUnit,'(a,i1,a)',ADVANCE='NO' ) 'Constraint', k, ' '
-          ELSE IF ( k < 100 ) THEN
-            WRITE( PostFileUnit,'(a,i2,a)',ADVANCE='NO' ) 'Constraint', k, ' '
-          ELSE
-            WRITE( PostFileUnit,'(a,i3,a)',ADVANCE='NO' ) 'Constraint', k, ' '
-          END IF
+          WRITE( PostFileUnit,'(a)',ADVANCE='NO' ) 'Constraint'//TRIM(I2S(k))//' '
         END IF
         
         WRITE(PostFileUnit,'(i5)', ADVANCE='NO') Element % TYPE % ElementCode
@@ -1120,7 +1108,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
      ! First scalar fields:
      !----------------------
-     DO i = 1, 99
+     DO i = 1, 999
        WRITE(Txt,'(A,I0)') 'Scalar Field ',i
        
        ScalarFieldName = GetString( Solver % Values, TRIM(Txt), Found )
@@ -1172,7 +1160,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
      ! Then vector fields:
      !--------------------
-     DO i = 1, 99
+     DO i = 1, 999
        WRITE(Txt,'(A,I0)') 'Vector Field ',i
        
        VectorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
@@ -1249,7 +1237,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
      ! Finally tensor fields:
      !-----------------------
-     DO i = 1, 99
+     DO i = 1, 999
        WRITE(Txt,'(A,I0)') 'Tensor Field ',i
        TensorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
        IF(.NOT. Found) EXIT
@@ -1586,7 +1574,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   !-------------------------------------------------
   CALL Info('GmshOutputSolver','Writing the nodal data')
   DO Rank = 0,2
-    DO Vari = 1, 99
+    DO Vari = 1, 999
       IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
       IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
       IF(Rank==2) WRITE(Txt,'(A,I0)') 'Tensor Field ',Vari
@@ -3627,7 +3615,7 @@ CONTAINS
     
     ElementalSolutionsExist=.FALSE.
     DO Rank = 0,2
-      DO Vari = 1, 99
+      DO Vari = 1, 999
         IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
         IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
         IF(Rank==2) WRITE(Txt,'(A,I0)') 'Tensor Field ',Vari
@@ -3848,7 +3836,7 @@ CONTAINS
     END IF
     
     DO Rank = 0,1
-      DO Vari = 1, 99
+      DO Vari = 1, 999
         IF( Rank == 0 ) THEN
           WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
         ELSE
@@ -4412,7 +4400,7 @@ CONTAINS
 
     
     DO Rank = 0,2
-      DO Vari = 1, 99
+      DO Vari = 1, 999
         IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
         IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
         IF(Rank==2) WRITE(Txt,'(A,I0)') 'Tensor Field ',Vari
@@ -4515,7 +4503,7 @@ CONTAINS
 
     IF( ScalarsExist .OR. VectorsExist ) THEN
       DO Rank = 0,2
-        DO Vari = 1, 99
+        DO Vari = 1, 999
           IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
           IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field Elemental ',Vari
           FieldName = GetString( Params, TRIM(Txt), Found )

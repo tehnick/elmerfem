@@ -675,8 +675,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       IF ( Model % Solvers(i) % NOFEigenValues > 0 ) THEN
         DO k = 1, Model % Solvers(i) % NOFEigenValues
           
-!          k = Model % Solvers(i) % NOFEigenValues - j + 1
-          Val = Model % Solvers(i) % Variable % EigenValues(k)
+          Val = REAL( Model % Solvers(i) % Variable % EigenValues(k) )
           l = l + 1
 
           IF ( SaveEigenValue ) THEN
@@ -686,10 +685,12 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
           IF ( SaveEigenFreq ) THEN
             WRITE( Name, '("eigen: frequency ", I0, " [Hz]")' ) k
-            IF ( REAL( Model % Solvers(i) % Variable % EigenValues(k)) > 0 ) THEN
-              Val = SQRT(REAL(Val)) / (2*PI)
+            IF ( Val >= 0.0 ) THEN
+              Val = SQRT(Val) / (2*PI)
             ELSE
-              Val = -1.0d0
+              ! If the eigenvalue is negative take take take a square root of its absolute value and
+              ! rertun a negative frequency. 
+              Val = -SQRT(-Val) / (2*PI)
             END IF
             CALL AddToSaveList(TRIM(Name), Val)
           END IF

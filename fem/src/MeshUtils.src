@@ -471,10 +471,10 @@ END SUBROUTINE GetMaxDefs
     IF( GotIt ) THEN            
       CoordScale = 1.0_dp
       DO i=1,mesh_dim
-        j = MIN( i, SIZE(Wrk,2) )
-        CoordScale(i) = Wrk(1,j)
+        j = MIN( i, SIZE(Wrk,1) )
+        CoordScale(i) = Wrk(j,1)
       END DO
-      WRITE(Message,'(A,3ES10.3)') 'Scaling coordinates:',CoordScale
+      WRITE(Message,'(A,3ES10.3)') 'Scaling coordinates:',CoordScale(1:mesh_dim)
       CALL Info('LoadMesh',Message) 
       Mesh % Nodes % x = CoordScale(1) * Mesh % Nodes % x
       IF( mesh_dim > 1) Mesh % Nodes % y = CoordScale(2) * Mesh % Nodes % y
