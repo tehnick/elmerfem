@@ -578,18 +578,8 @@ st = realtime()
   ! allocate stuff
   !
   !----------------------------------------------------------------------
-
   sz = A % Rows(n+1)-1
   ALLOCATE(A % Values(sz))
-
-  NULLIFY( A % MassValues )
-  IF ( NeedMass ) ALLOCATE(A % MassValues(sz))
-
-  NULLIFY( A % DampValues )
-  IF ( NeedDamp ) ALLOCATE(A % DampValues(sz))
-
-  A % ILUValues => Null()
-  IF ( NeedPrec ) ALLOCATE(A % ILUValues(sz))
 
 !-----------------------------------------------------------------------------
 
@@ -726,6 +716,19 @@ st = realtime()
   END IF
 !if ( parenv % mype==0 ) print*, 'REBUILD GLUETABLE: ', realtime()-st; st=realtime()
 
+  ! Allocate more insidematrix stuff
+  ! ---------------------------------
+  sz = SIZE(A % Values)
+  NULLIFY( A % MassValues )
+  IF ( NeedMass ) ALLOCATE(A % MassValues(sz))
+
+  NULLIFY( A % DampValues )
+  IF ( NeedDamp ) ALLOCATE(A % DampValues(sz))
+
+  A % ILUValues => Null()
+  IF ( NeedPrec ) ALLOCATE(A % ILUValues(sz))
+
+
   !----------------------------------------------------------------------
   !
   ! Clean up temporary work space
@@ -780,32 +783,36 @@ SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
 
   !*******************************************************************
 
+  NeedPrec = ASSOCIATED(SplittedMatrix % InsideMatrix % ILUValues)
   NeedMass = ASSOCIATED(SplittedMatrix % InsideMatrix % MassValues)
   NeedDamp = ASSOCIATED(SplittedMatrix % InsideMatrix % DampValues)
 
-  SplittedMatrix % InsideMatrix % Values = 0.0d0
-  IF ( NeedMass ) SplittedMatrix % InsideMatrix % MassValues = 0.0d0
-  IF ( NeedDamp ) SplittedMatrix % InsideMatrix % DampValues = 0.0d0
+  SplittedMatrix % InsideMatrix % Values = 0._dp
+  IF ( NeedPrec ) SplittedMatrix % InsideMatrix % ILUValues = 0._dp
+  IF ( NeedMass ) SplittedMatrix % InsideMatrix % MassValues = 0._dp
+  IF ( NeedDamp ) SplittedMatrix % InsideMatrix % DampValues = 0._dp
 
-  NeedPrec = .FALSE.
   DO i = 1, ParEnv % PEs
-
      IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-       SplittedMatrix % IfMatrix(i) % Values = 0.0d0
-       NeedPrec = ALLOCATED(SplittedMatrix % IfMatrix(i) % ILUValues)
-       IF ( NeedPrec ) SplittedMatrix % IfMatrix(i) % ILUValues  = 0.0d0
-       IF ( NeedMass ) SplittedMatrix % IfMatrix(i) % MassValues = 0.0d0
-       IF ( NeedDamp ) SplittedMatrix % IfMatrix(i) % DampValues = 0.0d0
+       SplittedMatrix % IfMatrix(i) % Values = 0._dp
+       IF ( NeedPrec.AND.ALLOCATED(SplittedMatrix % IfMatrix(i) % ILUvalues) ) &
+         SplittedMatrix % IfMatrix(i) % ILUValues  = 0._dp
+       IF ( NeedMass.AND.ALLOCATED(SplittedMatrix % IfMatrix(i) % MassValues) ) &
+         SplittedMatrix % IfMatrix(i) % MassValues = 0._dp
+       IF ( NeedDamp.AND.ALLOCATED(SplittedMatrix % IfMatrix(i) % DampValues) ) &
+         SplittedMatrix % IfMatrix(i) % DampValues = 0._dp
      END IF
 
      IF ( SplittedMatrix % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
-       SplittedMatrix % NbsIfMatrix(i) % Values = 0.0d0
-       IF ( NeedPrec ) SplittedMatrix % NbsIfMatrix(i) % ILUValues  = 0.0d0
-       IF ( NeedMass ) SplittedMatrix % NbsIfMatrix(i) % MassValues = 0.0d0
-       IF ( NeedDamp ) SplittedMatrix % NbsIfMatrix(i) % DampValues = 0.0d0
+       SplittedMatrix % NbsIfMatrix(i) % Values = 0._dp
+       IF ( NeedPrec.AND.ALLOCATED(SplittedMatrix % NbsIfMatrix(i) % ILUvalues) ) &
+         SplittedMatrix % NbsIfMatrix(i) % ILUValues  = 0._dp
+       IF ( NeedMass.AND.ALLOCATED(SplittedMatrix % NbsIfMatrix(i) % MassValues) ) &
+         SplittedMatrix % NbsIfMatrix(i) % MassValues = 0._dp
+       IF ( NeedDamp.AND.ALLOCATED(SplittedMatrix % NbsIfMatrix(i) % DampValues) ) &
+         SplittedMatrix % NbsIfMatrix(i) % DampValues = 0._dp
      END IF
   END DO
-  IF ( NeedPrec ) SplittedMatrix % InsideMatrix % ILUValues  = 0.0d0
 !----------------------------------------------------------------------
 END SUBROUTINE ZeroSplittedMatrix
 !----------------------------------------------------------------------
@@ -865,12 +872,9 @@ END SUBROUTINE ZeroSplittedMatrix
       !------------------------------------------------------------------
 
       GT => SplittedMatrix % GlueTable
-
-
       DO i = 1, SourceMatrix % NumberOfRows
        
          GRow = ParallelInfo % GlobalDOFs(i)
-
          DO j = SourceMatrix % Rows(i),SourceMatrix % Rows(i+1) - 1
 
             GCol = ParallelInfo % GlobalDOFs(SourceMatrix % Cols(j))
@@ -2376,7 +2380,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
         IfL => GlobalData % SplittedMatrix % IfLCols(i)
         IfO => GlobalData % SplittedMatrix % IfORows(i)
 
-        IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
+        IfV % IfVec(1:CurrIf % NumberOfRows) = 0._dp
         DO j = 1, CurrIf % NumberOfRows / 2
           IF ( Currif % RowOwner(2*j-1) == ParEnv % MyPE ) THEN
 !
@@ -2433,7 +2437,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   !
   !----------------------------------------------------------------------
   ALLOCATE( buf(2*n) )
-  buf = 0.0d0
+  buf = 0._dp
   CALL Recv_LocIf_Old( GlobalData % SplittedMatrix, 2*n, buf )
 
   DO i=1,n
