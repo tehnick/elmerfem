@@ -2205,6 +2205,19 @@ CONTAINS
                                                Elem % NodeIndexes(9), &
                                                Elem % NodeIndexes(7), &
                                                Elem % NodeIndexes(4) /) - 1
+            CASE( 715 )
+                ! Translate qudratic wedge into linear wedge
+                ALLOCATE( VtkCells(1) )
+
+                VtkCells % nNodes = 6
+                ALLOCATE( VtkCells(1) % NodeIndex(6) )
+
+                VtkCells(1) % NodeIndex = (/ Elem % NodeIndexes(1), &
+                                             Elem % NodeIndexes(2), &
+                                             Elem % NodeIndexes(3), &
+                                             Elem % NodeIndexes(4), &
+                                             Elem % NodeIndexes(5), &
+                                             Elem % NodeIndexes(6) /) - 1
             CASE DEFAULT
                 ALLOCATE( VtkCells(1) )
 
@@ -2244,6 +2257,9 @@ CONTAINS
             CASE( 605 )
                 WRITE( IOUnit,'(I0)' ) 14
             CASE( 706 )
+                WRITE( IOUnit,'(I0)' ) 13
+            CASE( 715 )
+                ! Translate to linear wedge
                 WRITE( IOUnit,'(I0)' ) 13
             CASE( 808 )
                 WRITE( IOUnit,'(I0)' ) 12
