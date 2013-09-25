@@ -428,15 +428,15 @@ void GetElementSide(int element,int side,int normal,
       ind[2] = elemind[(side+1)%3+3];
       ind[3] = elemind[side+3];  
       ind[4] = elemind[6+side];
-      ind[5] = elemind[9+(side+1)%3];
-      ind[6] = elemind[12+side];
-      ind[7] = elemind[9+side];      
+      ind[5] = elemind[12+(side+1)%3];
+      ind[6] = elemind[9+side];
+      ind[7] = elemind[12+side];      
     }
     else if (side < 5) {
       *sideelemtype = 306;          
       for(i=0;i<3;i++) {
 	ind[i] = elemind[3*(side-3)+i];
-	ind[i+3] = elemind[6*(side-3)+6+i];
+	ind[i+3] = elemind[3*(side-3)+6+i];
       }      
     }
     else if(side < 14) {
@@ -758,20 +758,6 @@ int GetElementGraph(int element,int edge,struct FemType *data,int *ind)
     }
     break;
   case 7:
-/*
-    if(side < 3) {
-      ind[0] = elemind[side];
-      ind[1] = elemind[(side+1)%3];
-    }
-    else if(side < 6) {
-      ind[0] = elemind[side-3];
-      ind[1] = elemind[side];
-    }
-    else if(side < 9) {
-      ind[0] = elemind[side-3];
-      ind[1] = elemind[3+(side+1)%3];
-    }
-*/
     switch(side) {
        case 0: ind[0]=elemind[0]; ind[1]=elemind[1]; break;
        case 1: ind[0]=elemind[1]; ind[1]=elemind[2]; break;
@@ -784,6 +770,7 @@ int GetElementGraph(int element,int edge,struct FemType *data,int *ind)
        case 8: ind[0]=elemind[2]; ind[1]=elemind[5]; break;
     }
     break;
+
   case 8:
     if(side < 4) {
       ind[0] = elemind[side];
