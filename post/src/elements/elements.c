@@ -109,6 +109,7 @@ int elm_5node_pyramid_initialize();
 int elm_13node_pyramid_initialize();
 
 int elm_6node_wedge_initialize();
+int elm_15node_wedge_initialize();
 
 int elm_8node_brick_initialize();
 int elm_20node_brick_initialize();
@@ -155,6 +156,7 @@ int elm_initialize_element_types()
     if ( !elm_13node_pyramid_initialize() )    return FALSE;
 
     if ( !elm_6node_wedge_initialize() )    return FALSE;
+    if ( !elm_15node_wedge_initialize() )    return FALSE;
 
     if ( !elm_8node_brick_initialize() )    return FALSE;
     if ( !elm_20node_brick_initialize() )   return FALSE;

@@ -20,6 +20,7 @@ libelements_a_SOURCES=\
 	5node_quad.c \
 	6node_triangle.c \
 	6node_wedge.c \
+	15node_wedge.c \
 	8node_brick.c \
 	8node_quad.c \
 	8node_tetra.c \
