@@ -2890,6 +2890,38 @@ CONTAINS
    END FUNCTION ListCheckPresentAnyMaterial
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+!> Check if the keyword in any material is defined as an array
+!------------------------------------------------------------------------------
+   FUNCTION ListCheckAnyMaterialIsArray( Model, Name ) RESULT(IsArray)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: IsArray
+     LOGICAL :: Found
+     INTEGER :: mat, n1, n2
+     TYPE(ValueList_t), POINTER :: ptr
+    
+     IsArray = .FALSE.
+     DO mat = 1,Model % NumberOfMaterials
+       ptr => ListFind(Model % Materials(mat) % Values,Name,Found)
+       IF( .NOT. ASSOCIATED( ptr ) ) CYCLE
+       IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
+         WRITE(Message,*) 'Value type for property [', TRIM(Name), &
+             '] not used consistently.'
+         CALL Fatal( 'ListCheckAnyMaterialArray', Message )
+       END IF
+       n1 = SIZE( ptr % FValues,1 )
+       n2 = SIZE( ptr % FValues,2 )
+       IsArray =  ( n1 > 1 ) .OR. ( n2 > 1 ) 
+       IF( IsArray ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListCheckAnyMaterialIsArray
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
 !> Check if the keyword is True in any material.
 !------------------------------------------------------------------------------
