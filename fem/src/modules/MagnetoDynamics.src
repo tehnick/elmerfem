@@ -1256,11 +1256,11 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Aloc(nd), JAC(nd,nd), mu, muder, B_ip(3), Babs, CondTerm
+    REAL(KIND=dp) :: Aloc(nd), JAC(nd,nd), mu, muder, B_ip(3), Babs
     REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), A, C(3,3), Acoefder(n)
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ, L(3), G(3), M(3), FixJPot(nd)
     LOGICAL :: Stat, Found, Newton, Cubic, HBCurve
-    INTEGER :: t, i, j, p, q, np, siz, pp, qq
+    INTEGER :: t, i, j, p, q, np, siz
     TYPE(GaussIntegrationPoints_t) :: IP
 
     TYPE(Nodes_t), SAVE :: Nodes
@@ -1369,15 +1369,9 @@ CONTAINS
 	     ! Compute the conductivity term <C grad V,grad v> for stiffness 
              ! matrix (anisotropy taken into account)
              ! -------------------------------------------
-             CondTerm = 0.d0
-             DO pp=1,3
-               DO qq=1,3
-                 CondTerm = CondTerm + C(pp,qq) * dBasisdx(p,pp) * dBasisdx(q,qq)
-               END DO
-             END DO
 
-             IF ( CondTerm /= 0._dp ) THEN
-               STIFF(p,q) = STIFF(p,q) + CondTerm*detJ*IP % s(t)
+             IF ( SUM(C) /= 0._dp ) THEN
+               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C(1:3, 1:3), dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
              ELSE
 !              STIFF(p,q) = STIFF(p,q) + &
 !                     Basis(q)*Basis(p)*detJ*IP % s(t)
@@ -1389,24 +1383,12 @@ CONTAINS
 	     ! Compute the conductivity term <C A,grad v> for 
              ! mass matrix (anisotropy taken into account)
              ! -------------------------------------------
-             CondTerm = 0.d0
-             DO pp=1,3
-               DO qq=1,3
-                 CondTerm = CondTerm + C(pp,qq) * dBasisdx(i,pp)*Wbasis(j,qq)
-               END DO
-             END DO
-             MASS(p,q) = MASS(p,q) + CondTerm*detJ*IP % s(t)
+             MASS(p,q) = MASS(p,q) + SUM(MATMUL(C(1:3,1:3), dBasisdx(i,:))*Wbasis(j,:))*detJ*IP % s(t)
 
 	     ! Compute the conductivity term <C grad V, eta> for 
              ! stiffness matrix (anisotropy taken into account)
              ! ------------------------------------------------
-             CondTerm = 0.d0
-             DO pp=1,3
-               DO qq=1,3
-                 CondTerm = CondTerm + C(pp,qq) * WBasis(j,pp)*dBasisdx(i,qq)
-               END DO
-             END DO
-             STIFF(q,p) = STIFF(q,p) + CondTerm*detJ*IP % s(t)
+             STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C(1:3,1:3), WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
            END DO
          END DO
        ELSE
@@ -1424,14 +1406,7 @@ CONTAINS
                ! Compute the conductivity term <C grad V,grad v> for stiffness 
                ! matrix (anisotropy taken into account)
                ! -------------------------------------------
-               CondTerm = 0.d0
-               DO pp=1,3
-                 DO qq=1,3
-                   CondTerm = CondTerm + C(pp,qq) * dBasisdx(i,pp) * dBasisdx(j,qq)
-                 END DO
-               END DO
-
-               STIFF(p,q) = STIFF(p,q) + CondTerm*detJ*IP % s(t)
+               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C(1:3,1:3), dBasisdx(i,:)) * dBasisdx(j,:))*detJ*IP % s(t)
              END DO
 
              DO j=1,nd-np
@@ -1439,13 +1414,7 @@ CONTAINS
                ! Compute the conductivity term <C grad V, eta> for 
                ! stiffness matrix (anisotropy taken into account)
                ! ------------------------------------------------
-               CondTerm = 0.d0
-               DO pp=1,3
-                 DO qq=1,3
-                   CondTerm = CondTerm + C(pp,qq) * WBasis(j,pp)*dBasisdx(i,qq)
-                 END DO
-               END DO
-               STIFF(q,p) = STIFF(q,p) + CondTerm*detJ*IP % s(t)
+               STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C(1:3,1:3), WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
              END DO
            END DO
          END IF
@@ -1471,14 +1440,8 @@ CONTAINS
            ! Compute the conductivity term <C A,eta> for 
            ! mass matrix (anisotropy taken into account)
            ! -------------------------------------------
-           CondTerm = 0.d0
-           DO pp=1,3
-             DO qq=1,3
-               CondTerm = CondTerm + C(pp,qq) * WBasis(i,pp)*WBasis(j,qq)
-             END DO
-           END DO
+           MASS(p,q) = MASS(p,q) + SUM(MATMUL(C(1:3,1:3), WBasis(i,:))*WBasis(j,:) )*detJ*IP % s(t)
 
-           MASS(p,q) = MASS(p,q) + CondTerm*detJ*IP % s(t)
          END DO
        END DO
     END DO
