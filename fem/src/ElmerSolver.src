@@ -73,7 +73,7 @@
      REAL(KIND=dp) :: s,dt,dtfunc
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
      REAL(KIND=dp), POINTER, SAVE :: sTime(:), sStep(:), sInterval(:), sSize(:), &
-                               steadyIt(:),nonlinIt(:),sPrevSizes(:,:)
+           steadyIt(:),nonlinIt(:),sPrevSizes(:,:),sPeriodic(:)
 
      TYPE(Element_t),POINTER :: CurrentElement
 
@@ -393,12 +393,13 @@ END INTERFACE
 
        IF ( FirstLoad ) &
          ALLOCATE( sTime(1), sStep(1), sInterval(1), sSize(1), &
-             steadyIt(1), nonLinit(1), sPrevSizes(1,5) )
+             steadyIt(1), nonLinit(1), sPrevSizes(1,5), sPeriodic(1) )
 
        dt   = 0._dp
 
        sTime = 0._dp
        sStep = 0
+       sPeriodic = 0._dp
 
        sSize = dt
        sPrevSizes = 0_dp
@@ -697,6 +698,7 @@ END INTERFACE
              'Coordinate 3',1,Mesh % Nodes % z )
 
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Time', 1, sTime )
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Periodic Time', 1, sPeriodic )
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep', 1, sStep )
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep size', 1, sSize )
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep interval', 1, sInterval )
@@ -1139,7 +1141,7 @@ END INTERFACE
      LOGICAL :: ExecThis,SteadyStateReached=.FALSE.
 
      REAL(KIND=dp) :: CumTime, MaxErr, AdaptiveLimit, &
-           AdaptiveMinTimestep, AdaptiveMaxTimestep
+           AdaptiveMinTimestep, AdaptiveMaxTimestep, timePeriod
      INTEGER :: SmallestCount, AdaptiveKeepSmallest, StepControl=-1
      LOGICAL :: AdaptiveTime = .TRUE.
 
@@ -1177,6 +1179,10 @@ END INTERFACE
 !------------------------------------------------------------------------------
 !      go trough number of timesteps within an interval
 !------------------------------------------------------------------------------
+       timePeriod = ListGetCReal(CurrentModel % Simulation, 'Time Period',gotIt)
+       IF(.NOT.GotIt) timePeriod = HUGE(timePeriod)
+
+
        RealTimestep = 1
        DO timestep = 1,Timesteps(interval)
 
@@ -1195,6 +1201,10 @@ END INTERFACE
 
 !------------------------------------------------------------------------------
          sTime(1) = sTime(1) + dt
+         sPeriodic(1) = sTime(1)
+         DO WHILE(sPeriodic(1) > timePeriod)
+           sPeriodic(1) = sPeriodic(1) - timePeriod 
+         END DO
 
          ! Move the old timesteps one step down the ladder
          IF(timestep > 1 .OR. interval > 1) THEN

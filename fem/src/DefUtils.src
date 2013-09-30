@@ -256,6 +256,16 @@ CONTAINS
      st = v % Values(1)
   END FUNCTION GetTime
 
+!> Returns the current periodic time
+  FUNCTION GetPeriodicTime() RESULT(st)
+     REAL(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: v
+
+     v => CurrentModel % Solver % Mesh % Variables
+     v => VariableGet( v, 'periodic time' )
+     st = v % Values(1)
+  END FUNCTION GetPeriodicTime
+
 !> Returns the current timestep  
   FUNCTION GetTimeStep() RESULT(st)
      INTEGER :: st
