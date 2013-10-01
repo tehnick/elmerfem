@@ -712,9 +712,15 @@ CONTAINS
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: torq,a(nbf),u(nbf),IMoment,IA
    INTEGER :: i,bfid,n,nd
-   LOGICAL :: Found
+   LOGICAL :: Found, CalcTorque,CalcPotential,CalcInertia
    TYPE(ValueList_t),POINTER::Params
 !------------------------------------------------------------------------------
+
+   CalcTorque = ListCheckPresentAnyBody(Model,'r inner')
+   CalcPotential = ListGetLogicalAnyBodyForce( Model,'Calculate Potential')
+   CalcInertia = ListGetLogicalAnyBody( Model,'Calculate Inertial Moment')
+
+   IF(.NOT. (CalcTorque .OR. CalcPotential .OR. CalcInertia ) ) RETURN
 
    U=0._dp; a=0._dp; torq=0._dp; IMoment=0._dp;IA=0
    DO i=1,GetNOFActive()
@@ -722,41 +728,55 @@ CONTAINS
      nd = GetElementNOFDOFs(Element)
      n  = GetElementNOFNodes(Element)
 
-     CALL Torque(Torq,Element,n,nd)
-
-     Params=>GetBodyForce(Element)
-     IF(ASSOCIATED(Params)) THEN
-       bfid=GetBodyForceId(Element)
-       IF(GetLogical(Params,'Calculate Potential',Found)) &
-         CALL Potential(u(bfid),a(bfid),Element,n,nd)
+     IF( CalcTorque ) THEN
+       CALL Torque(Torq,Element,n,nd)
      END IF
 
-     Params=>GetBodyParams(Element)
-     IF(ASSOCIATED(Params)) THEN
-       IF(GetLogical(Params,'Calculate Inertial Moment',Found)) &
-         CALL InertialMoment(IMoment,IA,Element,n,nd)
+     IF( CalcPotential ) THEN
+       Params=>GetBodyForce(Element)
+       IF(ASSOCIATED(Params)) THEN
+         bfid=GetBodyForceId(Element)
+         IF(GetLogical(Params,'Calculate Potential',Found)) &
+             CALL Potential(u(bfid),a(bfid),Element,n,nd)
+       END IF
+     END IF
+
+     IF( CalcInertia ) THEN
+       Params=>GetBodyParams(Element)
+       IF(ASSOCIATED(Params)) THEN
+         IF(GetLogical(Params,'Calculate Inertial Moment',Found)) &
+             CALL InertialMoment(IMoment,IA,Element,n,nd)
+       END IF
      END IF
    END DO
 
-   DO i=1,nbf
-     a(i) = ParallelReduction(a(i))
-     u(i) = ParallelReduction(u(i))
-   END DO
-   IMoment = ParallelReduction(IMoment)
-   IA = ParallelReduction(IA)
-   Torq = ParallelReduction(Torq)
+   IF( CalcPotential ) THEN
+     DO i=1,nbf
+       a(i) = ParallelReduction(a(i))
+       u(i) = ParallelReduction(u(i))
+     END DO
+     
+     DO i=1,nbf
+       IF(a(i)>0) THEN
+         CALL ListAddConstReal(Model % Simulation,'res: Potential / bodyforce ' &
+             //TRIM(i2s(i)),u(i)/a(i))
+         CALL ListAddConstReal(Model % Simulation,'res: area / bodyforce ' &
+             //TRIM(i2s(i)),a(i))
+       END IF
+     END DO
+   END IF
 
-   DO i=1,nbf
-     IF(a(i)>0) THEN
-       CALL ListAddConstReal(Model % Simulation,'res: Potential / bodyforce ' &
-                     //TRIM(i2s(i)),u(i)/a(i))
-       CALL ListAddConstReal(Model % Simulation,'res: area / bodyforce ' &
-                     //TRIM(i2s(i)),a(i))
-     END IF
-   END DO
-   CALL ListAddConstReal(Model % Simulation,'res: Air Gap Torque', Torq)
-   CALL ListAddConstReal(Model % Simulation,'res: Inertial Volume', IA)
-   CALL ListAddConstReal(Model % Simulation,'res: Inertial Moment', IMoment)
+   IF( CalcTorque ) THEN
+     Torq = ParallelReduction(Torq)
+     CALL ListAddConstReal(Model % Simulation,'res: Air Gap Torque', Torq)
+   END IF
+
+   IF( CalcInertia ) THEN
+     IMoment = ParallelReduction(IMoment)
+     IA = ParallelReduction(IA)
+     CALL ListAddConstReal(Model % Simulation,'res: Inertial Volume', IA)
+     CALL ListAddConstReal(Model % Simulation,'res: Inertial Moment', IMoment)
+   END IF
 
 !------------------------------------------------------------------------------
  END SUBROUTINE CalculateLumped
@@ -1266,7 +1286,7 @@ CONTAINS
     TYPE(Nodes_t), SAVE :: Nodes
 
     REAL(KIND=dp), POINTER :: Bval(:), Hval(:), Cval(:),  &
-           CubicCoeff(:)=>Null(),HB(:,:)=>Null()
+           CubicCoeff(:)=>NULL(),HB(:,:)=>NULL()
     TYPE(ValueList_t), POINTER :: Lst
 !------------------------------------------------------------------------------
     CALL GetElementNodes( Nodes )
@@ -2025,7 +2045,7 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
   A => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
      Perm, dofs, MATRIX_CRS, .TRUE., Equation, .FALSE., .FALSE.)
   n = A % NumberOfRows
-  IF (dofs>1) A % Complex = .TRUE.
+  IF (dofs>1) A % COMPLEX = .TRUE.
 
   fixJpot => VariableGet( Mesh % Variables, 'Jfix')
   IF (.NOT.ASSOCIATED(fixJPot)) THEN
@@ -2195,7 +2215,7 @@ CONTAINS
 
     IF (ParEnv%Pes>1) THEN
       gm => AllocateMatrix()
-      gm % Format = MATRIX_LIST
+      gm % FORMAT = MATRIX_LIST
     END IF
 
     ! At outer boundaries, if J has component normal to the
@@ -2274,7 +2294,7 @@ CONTAINS
          ! other owners...
          ! -------------------------------------------------------
          IF (Parenv % PEs>1) THEN
-           IF(A % ParallelInfo % Interface(p)) THEN
+           IF(A % ParallelInfo % INTERFACE(p)) THEN
              DO l=1,SIZE(A % ParallelInfo % Neighbourlist(p) % Neighbours)
                m=A % ParallelInfo % NeighbourList(p) % Neighbours(l)
                IF(m/=ParEnv % MyPE) THEN
@@ -3834,7 +3854,7 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
        CALL ListAddConstReal( Model % Simulation, &
             'res: Magnetic Flux Average', 0._dp )
 
-       IF (Var % DOFs == 2) then 
+       IF (Var % DOFs == 2) THEN 
          CALL ListAddConstReal( Model % Simulation, &
               'res: Magnetic Flux im Average', 0._dp )
        END IF
@@ -3842,7 +3862,7 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
        CALL ListAddConstReal( Model % Simulation, &
             'res: Magnetic Flux Density Average', 0._dp )
 
-       IF (Var % DOFs == 2) then 
+       IF (Var % DOFs == 2) THEN 
          CALL ListAddConstReal( Model % Simulation, &
               'res: Magnetic Flux Density im Average', 0._dp )
        END IF
@@ -4505,7 +4525,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        CALL ListAddConstReal( Model % Simulation, &
             'res: Magnetic Flux Average', Flux(1) )
 
-       IF (vDOFs == 2) then 
+       IF (vDOFs == 2) THEN 
          WRITE(Message,*) 'Magnetic Flux im Average: ', Flux(2)
          CALL Info( 'MagnetoDynamics', Message )
          CALL ListAddConstReal( Model % Simulation, &
@@ -4517,7 +4537,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        CALL ListAddConstReal( Model % Simulation, &
             'res: Magnetic Flux Density Average', AverageFluxDensity(1) )
 
-       IF (vDOFs == 2) then 
+       IF (vDOFs == 2) THEN 
          WRITE(Message,*) 'Magnetic Flux Density im Average: ', AverageFluxDensity(2)
          CALL Info( 'MagnetoDynamics', Message )
          CALL ListAddConstReal( Model % Simulation, &
