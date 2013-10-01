@@ -2832,6 +2832,44 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Check if the keyword is present in any body.
+!------------------------------------------------------------------------------
+   FUNCTION ListCheckPresentAnyBody( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found
+     INTEGER :: body
+     
+     Found = .FALSE.
+     DO body = 1,Model % NumberOfBodies
+       Found = ListCheckPresent( Model % Bodies(body) % Values, Name )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListCheckPresentAnyBody
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Check if the keyword is true in any body.
+!------------------------------------------------------------------------------
+   FUNCTION ListGetLogicalAnyBody( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found
+     INTEGER :: body
+     LOGICAL :: GotIt
+     
+     Found = .FALSE.
+     DO body = 1,Model % NumberOfBodies
+       Found = ListGetLogical( Model % Bodies(body) % Values, Name, GotIt )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListGetLogicalAnyBody
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 !> Check if the keyword is present in any body force.
