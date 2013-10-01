@@ -3828,6 +3828,30 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
   CALL ListAddConstReal( Model % Simulation, 'res: Eddy current power', 0._dp)
   CALL ListAddConstReal( Model % Simulation, 'res: Magnetic Field Energy', 0._dp)
 
+  ! add these in the beginning only if the Magnetix Flux Average is computed
+  IF (ListGetLogicalAnyBC( Model,'Magnetic Flux Average')) THEN
+
+       CALL ListAddConstReal( Model % Simulation, &
+            'res: Magnetic Flux Average', 0._dp )
+
+       IF (Var % DOFs == 2) then 
+         CALL ListAddConstReal( Model % Simulation, &
+              'res: Magnetic Flux im Average', 0._dp )
+       END IF
+
+       CALL ListAddConstReal( Model % Simulation, &
+            'res: Magnetic Flux Density Average', 0._dp )
+
+       IF (Var % DOFs == 2) then 
+         CALL ListAddConstReal( Model % Simulation, &
+              'res: Magnetic Flux Density im Average', 0._dp )
+       END IF
+ 
+       CALL ListAddConstReal( Model % Simulation, &
+            'res: Magnetic Flux Area', 0._dp )
+
+  END IF
+
 !------------------------------------------------------------------------------
 END SUBROUTINE MagnetoDynamicsCalcFields_Init
 !------------------------------------------------------------------------------
@@ -3857,6 +3881,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
    REAL(KIND=dp) :: Freq, FreqPower, FieldPower, ComponentLoss(2), LossCoeff, ValAtIP
    REAL(KIND=dp) :: Coeff, TotalLoss
+   REAL(KIND=dp) :: Flux(2), AverageFluxDensity(2), Area
    COMPLEX(KIND=dp) ::  Magnetization(3,32), MG_ip(3)
 
    COMPLEX(KIND=dp) :: CST(3,3)
@@ -3872,8 +3897,8 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Solver_t), POINTER :: pSolver
    CHARACTER(LEN=MAX_NAME_LEN) :: Pname
 
-   LOGICAL :: Found, stat, Cubic, LossEstimation
-   TYPE(ValueList_t), POINTER :: Material
+   LOGICAL :: Found, stat, Cubic, LossEstimation, CalcFluxLogical
+   TYPE(ValueList_t), POINTER :: Material, BC
 
    TYPE(GaussIntegrationPoints_t) :: IP
    TYPE(Nodes_t), SAVE :: Nodes
@@ -4423,6 +4448,91 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
       DEALLOCATE( BodyLoss )      
    END IF
       
+  ! Flux On Boundary:
+  !------------------
+
+  Flux = 0._dp
+  Area = 0._dp
+  AverageFluxDensity = 0._dp
+  CalcFluxLogical=.FALSE.
+
+  IF (ListGetLogicalAnyBC( Model,'Magnetic Flux Average')) THEN
+    DO i=1,GetNOFBoundaryElements()
+       Element => GetBoundaryElement(i)
+       IF (.NOT. ActiveBoundaryElement()) CYCLE
+         BC=>GetBC()
+         IF (.NOT. ASSOCIATED(BC) ) CYCLE
+     
+         SELECT CASE(GetElementFamily())
+         CASE(1)
+           CYCLE
+         CASE(2)
+           k = GetBoundaryEdgeIndex(Element,1); Element => Mesh % Edges(k)
+         CASE(3,4)
+           k = GetBoundaryFaceIndex(Element)  ; Element => Mesh % Faces(k)
+         END SELECT
+
+         IF (ASSOCIATED(Element % BoundaryInfo % Right)) THEN
+           BodyId = Element % BoundaryInfo % Right % BodyID       
+         ELSE IF (ASSOCIATED(Element % BoundaryInfo % Left)) THEN
+           BodyId = Element % BoundaryInfo % Left % BodyID
+         ELSE 
+           CALL Fatal ('MagnetoDynamicsCalcFields', 'Magnetic Flux Average: Boundary Element has not got a parent element.')
+         END IF
+
+         n = GetElementNOFNodes()
+         np = n*pSolver % Def_Dofs(BodyId,1)
+         nd = GetElementNOFDOFs(uElement=Element, uSolver=pSolver)
+         CALL GetVectorLocalSolution(SOL,Pname,uElement=Element,uSolver=pSolver)
+
+         CalcFluxLogical=GetLogical( BC, 'Magnetic Flux Average', Found)
+         IF (Found .AND. CalcFluxLogical) CALL calcAverageFlux(Flux, Area, Element, n, nd, np, SOL, vDOFs)
+
+        END DO
+       Flux(1)=ParallelReduction(Flux(1))
+       Flux(2)=ParallelReduction(Flux(2))
+       Area=ParallelReduction(Area)
+
+       IF( Area < EPSILON( Area ) ) THEN
+         CALL WARN('MagnetoDynamicsCalcFields', 'Magnetic Flux Average Computation: Area < Epsilon(Area)')
+         RETURN
+       END IF
+
+       AverageFluxDensity=Flux/Area
+ 
+       WRITE(Message,*) 'Magnetic Flux Average: ', Flux(1)
+       CALL Info( 'MagnetoDynamics', Message )
+       CALL ListAddConstReal( Model % Simulation, &
+            'res: Magnetic Flux Average', Flux(1) )
+
+       IF (vDOFs == 2) then 
+         WRITE(Message,*) 'Magnetic Flux im Average: ', Flux(2)
+         CALL Info( 'MagnetoDynamics', Message )
+         CALL ListAddConstReal( Model % Simulation, &
+              'res: Magnetic Flux im Average', Flux(2) )
+       END IF
+
+       WRITE(Message,*) 'Magnetic Flux Density Average: ', AverageFluxDensity(1)
+       CALL Info( 'MagnetoDynamics', Message )
+       CALL ListAddConstReal( Model % Simulation, &
+            'res: Magnetic Flux Density Average', AverageFluxDensity(1) )
+
+       IF (vDOFs == 2) then 
+         WRITE(Message,*) 'Magnetic Flux Density im Average: ', AverageFluxDensity(2)
+         CALL Info( 'MagnetoDynamics', Message )
+         CALL ListAddConstReal( Model % Simulation, &
+              'res: Magnetic Flux Density im Average', AverageFluxDensity(2) )
+       END IF
+ 
+
+       WRITE(Message,*) 'Magnetic Flux Area: ', Area
+       CALL Info( 'MagnetoDynamics', Message )
+       CALL ListAddConstReal( Model % Simulation, &
+            'res: Magnetic Flux Area', Area )
+
+   END IF
+
+
 CONTAINS
 
 !------------------------------------------------------------------------------
@@ -4526,6 +4636,45 @@ CONTAINS
 !------------------------------------------------------------------------------
     END SUBROUTINE LocalJumps
 !------------------------------------------------------------------------------
+
+
+    SUBROUTINE calcAverageFlux (Flux, Area, Element, n, nd, np, SOL, vDOFs)
+       INTEGER :: n, nd
+       TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,L(3),Normal(3)
+       REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), B(2, 3), &
+                        SOL(2,32), Flux(2), Area
+       LOGICAL :: Stat
+       TYPE(GaussIntegrationPoints_t) :: IP
+       INTEGER :: j, k, np, vDOFs
+
+       TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+       CALL GetElementNodes( Nodes )
+       IP = GaussPoints(Element)
+
+       B=0._dp
+
+       DO j=1,IP % n
+         stat = ElementInfo( Element, Nodes, IP % U(j), IP % V(j), &
+                  IP % W(j), detJ, Basis, dBasisdx )
+         CALL GetEdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
+         Normal = NormalVector( Element, Nodes, IP % U(j), IP % V(j), .TRUE. )
+
+         s = IP % s(j) * detJ
+
+
+         DO k=1, vDOFs
+           B(k,:) = MATMUL( SOL(k, np+1:nd), RotWBasis(1:nd-np,:) )
+           Flux(k) = Flux(k) + s * SUM(Normal * B(k,:))
+         END DO  
+
+         Area = Area + s
+
+      END DO
+
+    END SUBROUTINE calcAverageFlux
 
 
 !------------------------------------------------------------------------
