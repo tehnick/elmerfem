@@ -237,7 +237,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 4') 	
   END IF
 
-
   ComplexEigen = ListGetLogical(Params,'Complex Eigen Vectors',GotIt)
   MovingMesh = ListGetLogical(Params,'Moving Mesh',GotIt )
   
@@ -389,7 +388,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   NoVar = 0
   MinOper = 'min'
   MaxOper = 'max'
-  
+
   DO WHILE(GotVar .OR. GotOper)
     
     GotOper = .FALSE.
@@ -454,7 +453,28 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     MaskName = ListGetString(Params,TRIM(Name),GotIt)
     IF(.NOT. GotIt) MaskName = 'Save Scalars'
 
+    
     IF ( GotOper ) THEN
+      
+      SELECT CASE( Oper ) 
+        
+      CASE ('partitions')
+      CASE ('cpu time')
+      CASE ('wall time')
+      CASE ('cpu memory') 
+      CASE ('nodes')
+      CASE ('elements')
+      CASE ('bounding box')
+      CASE ('area')
+      CASE ('volume')
+
+      CASE DEFAULT
+        IF( .NOT. GotVar ) THEN
+          CALL Error('SaveScalars','Operator > '//TRIM(Oper)//' < requires variable')
+          CYCLE
+        END IF
+      END SELECT
+
 
       SELECT CASE(Oper)
 
@@ -474,30 +494,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Val = CPUMemory()
         CALL AddToSaveList('value: maximum memory usage (kb)',Val,.FALSE.,ParOper)
 
-      CASE ('norm')
-        Val = Var % Norm
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
-
-      CASE ('nonlin change')
-        Val = Var % NonlinChange
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
-
-      CASE ('steady state change')
-        Val = Var % SteadyChange
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
-
-      CASE ('nonlin iter')
-        Val = Var % NonlinIter
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
-
-      CASE ('nonlin converged')
-        Val = 1.0_dp * Var % NonlinConverged
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
-
-      CASE ('steady converged')
-        Val = 1.0_dp * Var % SteadyConverged
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
-
       CASE ('nodes')
         Val = 1.0_dp * Solver % Mesh % NumberOfNodes
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
@@ -506,7 +502,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Val = 1.0_dp * Solver % Mesh % NumberOfBulkElements
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
 
-     CASE ('bounding box')
+      CASE ('bounding box')
         Val = MINVAL( Solver % Mesh % Nodes % x ) 
         CALL AddToSaveList(TRIM(Oper)//' min x',Val,ParallelOperator=MinOper)
         Val = MAXVAL( Solver % Mesh % Nodes % x ) 
@@ -522,21 +518,47 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           CALL AddToSaveList(TRIM(Oper)//' max z',Val,ParallelOperator=MaxOper)
         END IF
 
+      ! Operators that require a variable (except for 'area' and 'volume')
+      !-----------------------------------------------------------------
+      CASE ('norm')
+        Val = Var % Norm
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
+        
+      CASE ('nonlin change')
+        Val = Var % NonlinChange
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
+        
+      CASE ('steady state change')
+        Val = Var % SteadyChange
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
+        
+      CASE ('nonlin iter')
+        Val = Var % NonlinIter
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
+        
+      CASE ('nonlin converged')
+        Val = 1.0_dp * Var % NonlinConverged
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
+        
+      CASE ('steady converged')
+        Val = 1.0_dp * Var % SteadyConverged
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
+        
       CASE ('dofs')
         Val = 1.0_dp * SIZE(Var % Values)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.TRUE.,ParOper)
-
+        
       CASE ('sum','sum abs','mean abs','max','max abs','min','min abs','mean','variance','range')
         Val = VectorStatistics(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Val,.FALSE.,ParOper)
-
+        
       CASE ('deviation')
         Val = VectorMeanDeviation(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Val,.FALSE.,ParOper)
         
       CASE ('int','int mean','int variance','volume',&
-        'potential energy','diffusive energy','convective energy')
-
+          'potential energy','diffusive energy','convective energy')
+        
         Val = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
         IF(GotCoeff) THEN
           CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName)//' with '//TRIM(CoefficientName), Val,&
@@ -544,7 +566,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         ELSE
           CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Val,.FALSE.,ParOper)
         END IF
-
+        
       CASE('boundary sum','boundary dofs','boundary max','boundary max abs','boundary min',&
           'boundary min abs','boundary mean')
         BoundaryHits = 0
@@ -575,10 +597,10 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         BoundaryAreas = 0.0_dp      
         Minimum = 0.0_dp
         Maximum = 0.0_dp
-
+        
         CALL BoundaryIntegrals(Var, Oper, GotCoeff, CoefficientName,&
             BoundaryFluxes,BoundaryAreas,BoundaryHits)
-
+        
         GotAny = .FALSE.
         DO j=1,Model % NumberOfBCs
           IF( BoundaryHits(j) > 0 ) THEN
@@ -595,7 +617,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           CALL WARN('SaveScalars','No flag > '//TRIM(MaskName)// &
               '< active for operator: '// TRIM(Oper))
         END IF
- 
+        
         IF(TRIM(Oper) == 'diffusive flux' .OR. TRIM(Oper) == 'convective flux') THEN
           IF( ANY (BoundaryHits > 0) ) THEN
             ParOper = 'min'
@@ -635,7 +657,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         CALL WARN('SaveScalars',Message)
         
       END SELECT
-      
+
     END IF
   END DO
 
@@ -1744,8 +1766,14 @@ CONTAINS
     Minimum = HUGE(minimum)
     Maximum = -HUGE(maximum)
 
-    NoDofs = Var % Dofs
-    Permutated = ASSOCIATED(Var % Perm)
+    IF( OperName == 'area' ) THEN
+      NoDofs = 1
+      Permutated = .FALSE.
+    ELSE
+      NoDofs = Var % Dofs
+      Permutated = ASSOCIATED(Var % Perm)
+    END IF
+
     DO i=1,3          
       EnergyTensor(i,i,:) = 1.0d0
     END DO
@@ -1988,13 +2016,12 @@ CONTAINS
             s = s * SqrtElementMetric * IntegStuff % s(i)
           END IF
           
-          Normal = NormalVector( Element,ElementNodes,U,V,.TRUE. )
-
           
           SELECT CASE(OperName)
             
           CASE ('diffusive flux')
             
+            Normal = NormalVector( Element,ElementNodes,U,V,.TRUE. )
             CALL GetParentUVW( Element, n, Parent, pn, Up, Vp, Wp, Basis)
             
             stat = ElementInfo( Parent,ParentNodes,Up,Vp,Wp,SqrtElementMetric, &
@@ -2021,6 +2048,7 @@ CONTAINS
             
           CASE ('convective flux')
             
+            Normal = NormalVector( Element,ElementNodes,U,V,.TRUE. )
             coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
             
             IF(NoDofs == 1) THEN
@@ -2238,7 +2266,12 @@ CONTAINS
     coeff = 1.0_dp   
 
     NoDofs = Var % Dofs
-    Permutated = ASSOCIATED(Var % Perm)
+    IF( OperName == 'area' ) THEN
+      Permutated = .FALSE.
+    ELSE
+      Permutated = ASSOCIATED(Var % Perm)
+    END IF
+
     DO i=1,3          
       EnergyTensor(i,i,:) = 1.0d0
     END DO
