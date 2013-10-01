@@ -564,7 +564,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( char *cmd, char *Value, int *len )
 
   static int been_here = 0;
   char *ptr, c, cc[32];
-  int slen, i;
+  int slen, i, start;
 #pragma omp threadprivate(been_here)
 
   /* MB: Critical section removed since Matc library
@@ -581,16 +581,24 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( char *cmd, char *Value, int *len )
   c = cmd[slen];
   cmd[slen] = '\0';
 
-  ptr = (char *)mtc_domath(cmd);
+  start = 0;
+  if (strncmp(cmd,"nc:",3)==0) start=3;
+
+  ptr = (char *)mtc_domath(&cmd[start]);
   if ( ptr )
   {
     strcpy( Value, (char *)ptr );
     *len = strlen(Value)-1; /* ignore linefeed! */
 
     if ( strncmp(Value, "MATC ERROR:",11)==0 || strncmp(Value,"WARNING:",8)==0 ) {
-        fprintf( stderr, "Solver input file error: %s\n", Value );
-        fprintf( stderr, "...offending input line: %s\n", cmd );
-        exit(0);
+      if (start==0) {
+          fprintf( stderr, "Solver input file error: %s\n", Value );
+          fprintf( stderr, "...offending input line: %s\n", cmd );
+          exit(0);
+      } else {
+        Value[0]=' ';
+        *len = 0;
+        }
     }
   } else {
     *len = 0;
