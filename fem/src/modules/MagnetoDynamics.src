@@ -2017,7 +2017,7 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Matrix_t), POINTER :: A,B
   REAL(KIND=dp) :: Norm
-  LOGICAL:: Found
+  LOGICAL:: AutomatedBCs, Found
   INTEGER, ALLOCATABLE :: Def_Dofs(:,:)
   CHARACTER(LEN=MAX_NAME_LEN):: Equation
   INTEGER, POINTER :: Perm(:)
@@ -2056,6 +2056,10 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
 
     fixJpot => VariableGet(Mesh % Variables, 'Jfix')
   END IF
+
+  AutomatedBCs = GetLogical( SolverParams, &
+       'Automated Source Projection BCs', Found )
+  IF (.NOT. Found) AutomatedBCs = .TRUE.
 
   svar => Solver % Variable
   Solver % Variable => fixJpot
@@ -2220,101 +2224,107 @@ CONTAINS
 
     ! At outer boundaries, if J has component normal to the
     ! surface, set Fix_pot=0:
+    ! THIS MAY NOT DO WHAT IS PHYSICALLY SOUND: It may be better
+    ! to disable this by the command 
+    ! Automated Projection BCs = Logical False
+    ! and set BCs explicitly in the sif file    
     ! ------------------------------------------------------
-    DO i=1,GetNOFBoundaryElements()
-     Element => GetBoundaryElement(i)
-     n = GetElementNOFNodes()
-     IF (.NOT.ActiveBoundaryElement()) CYCLE
+    IF (AutomatedBCs) THEN
+       DO i=1,GetNOFBoundaryElements()
+          Element => GetBoundaryElement(i)
+          n = GetElementNOFNodes()
+          IF (.NOT.ActiveBoundaryElement()) CYCLE
 
 
-     P1 => Element % BoundaryInfo % Left
-     P2 => Element % BoundaryInfo % Right
-     IF(ASSOCIATED(P1).AND.ASSOCIATED(P2)) THEN
-       IF (ALL(Perm(P1 % NodeIndexes)>0).AND.&
-           ALL(Perm(P2 % NodeIndexes)>0)) CYCLE
-     ELSE IF (.NOT.ASSOCIATED(P1).AND..NOT.ASSOCIATED(P2)) THEN
-       CYCLE
-     END IF
- 
-     IF (ASSOCIATED(P1)) THEN
-       BodyForce => GetBodyForce(P1)
-       IF (Element % TYPE % DIMENSION<P1 % TYPE % DIMENSION-1) CYCLE
-     ELSE
-       BodyForce => GetBodyForce(P2)
-       IF (Element % TYPE % DIMENSION<P2 % TYPE % DIMENSION-1) CYCLE
-     END IF
-     IF (.NOT. ASSOCIATED(BodyForce)) CYCLE
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF(ASSOCIATED(P1).AND.ASSOCIATED(P2)) THEN
+             IF (ALL(Perm(P1 % NodeIndexes)>0).AND.&
+                  ALL(Perm(P2 % NodeIndexes)>0)) CYCLE
+          ELSE IF (.NOT.ASSOCIATED(P1).AND..NOT.ASSOCIATED(P2)) THEN
+             CYCLE
+          END IF
 
-     CALL GetElementNodes(Nodes)
-     Nrm = NormalVector(Element,Nodes,0._dp,0._dp)
+          IF (ASSOCIATED(P1)) THEN
+             BodyForce => GetBodyForce(P1)
+             IF (Element % TYPE % DIMENSION<P1 % TYPE % DIMENSION-1) CYCLE
+          ELSE
+             BodyForce => GetBodyForce(P2)
+             IF (Element % TYPE % DIMENSION<P2 % TYPE % DIMENSION-1) CYCLE
+          END IF
+          IF (.NOT. ASSOCIATED(BodyForce)) CYCLE
 
-     IF (A % COMPLEX ) THEN
-       Load_C(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
-       Load_C(1,1:n) = CMPLX( REAL(Load_C(1,1:n)), &
-         GetReal( BodyForce, 'Current Density im 1', Found ),KIND=dp)
+          CALL GetElementNodes(Nodes)
+          Nrm = NormalVector(Element,Nodes,0._dp,0._dp)
 
-       Load_C(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
-       Load_C(2,1:n) = CMPLX( REAL(Load_C(2,1:n)), & 
-         GetReal( BodyForce, 'Current Density im 2', Found), KIND=dp)
+          IF (A % COMPLEX ) THEN
+             Load_C(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
+             Load_C(1,1:n) = CMPLX( REAL(Load_C(1,1:n)), &
+                  GetReal( BodyForce, 'Current Density im 1', Found ),KIND=dp)
 
-       Load_C(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
-       Load_C(3,1:n) = CMPLX( REAL(Load_C(3,1:n)), &
-         GetReal( BodyForce, 'Current Density im 3', Found), KIND=dp)
+             Load_C(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
+             Load_C(2,1:n) = CMPLX( REAL(Load_C(2,1:n)), & 
+                  GetReal( BodyForce, 'Current Density im 2', Found), KIND=dp)
 
-       L_C(1) = SUM(Load_C(1,1:n))/n
-       L_C(2) = SUM(Load_C(2,1:n))/n
-       L_C(3) = SUM(Load_C(3,1:n))/n
+             Load_C(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
+             Load_C(3,1:n) = CMPLX( REAL(Load_C(3,1:n)), &
+                  GetReal( BodyForce, 'Current Density im 3', Found), KIND=dp)
 
-       L_R = REAL(L_C)
-       IF (ANY(L_R /= 0.0d0)) L_R = L_R / SQRT(SUM(L_R**2))
-       IF (ABS(SUM(L_R*Nrm))<Jfluxeps) THEN
-         L_R = AIMAG(L_C)
-         IF (ANY(L_R /= 0.0d0)) L_R = L_R / SQRT(SUM(L_R**2))
-         IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
-       END IF
-     ELSE
-       Load_R(1,1:n) = GetReal(BodyForce, 'Current Density 1', Found)
-       Load_R(2,1:n) = GetReal(BodyForce, 'Current Density 2', Found)
-       Load_R(3,1:n) = GetReal(BodyForce, 'Current Density 3', Found)
+             L_C(1) = SUM(Load_C(1,1:n))/n
+             L_C(2) = SUM(Load_C(2,1:n))/n
+             L_C(3) = SUM(Load_C(3,1:n))/n
 
-       L_R(1) = SUM(Load_R(1,1:n))/n
-       L_R(2) = SUM(Load_R(2,1:n))/n
-       L_R(3) = SUM(Load_R(3,1:n))/n
-       rabs = SQRT(SUM(L_R**2))
-       IF(rabs/=0) L_R = L_R / rabs
-       IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
-     END IF
+             L_R = REAL(L_C)
+             IF (ANY(L_R /= 0.0d0)) L_R = L_R / SQRT(SUM(L_R**2))
+             IF (ABS(SUM(L_R*Nrm))<Jfluxeps) THEN
+                L_R = AIMAG(L_C)
+                IF (ANY(L_R /= 0.0d0)) L_R = L_R / SQRT(SUM(L_R**2))
+                IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
+             END IF
+          ELSE
+             Load_R(1,1:n) = GetReal(BodyForce, 'Current Density 1', Found)
+             Load_R(2,1:n) = GetReal(BodyForce, 'Current Density 2', Found)
+             Load_R(3,1:n) = GetReal(BodyForce, 'Current Density 3', Found)
 
-     DO j=1,dofs
-       DO k=1,n
-         p = Element % NodeIndexes(k) 
-         p = dofs*(Perm(p)-1)+j
+             L_R(1) = SUM(Load_R(1,1:n))/n
+             L_R(2) = SUM(Load_R(2,1:n))/n
+             L_R(3) = SUM(Load_R(3,1:n))/n
+             rabs = SQRT(SUM(L_R**2))
+             IF(rabs/=0) L_R = L_R / rabs
+             IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
+          END IF
 
-        ! In parallel collect shared constrained dofs and send to
-         ! other owners...
-         ! -------------------------------------------------------
-         IF (Parenv % PEs>1) THEN
-           IF(A % ParallelInfo % INTERFACE(p)) THEN
-             DO l=1,SIZE(A % ParallelInfo % Neighbourlist(p) % Neighbours)
-               m=A % ParallelInfo % NeighbourList(p) % Neighbours(l)
-               IF(m/=ParEnv % MyPE) THEN
-                 CALL List_AddToMatrixElement( gm % ListMatrix, m+1, &
-                    A % ParallelInfo % GlobalDOFs(p), 1._dp)
-               ELSE
-                 CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
-               END IF
+          DO j=1,dofs
+             DO k=1,n
+                p = Element % NodeIndexes(k) 
+                p = dofs*(Perm(p)-1)+j
+
+                ! In parallel collect shared constrained dofs and send to
+                ! other owners...
+                ! -------------------------------------------------------
+                IF (Parenv % PEs>1) THEN
+                   IF(A % ParallelInfo % INTERFACE(p)) THEN
+                      DO l=1,SIZE(A % ParallelInfo % Neighbourlist(p) % Neighbours)
+                         m=A % ParallelInfo % NeighbourList(p) % Neighbours(l)
+                         IF(m/=ParEnv % MyPE) THEN
+                            CALL List_AddToMatrixElement( gm % ListMatrix, m+1, &
+                                 A % ParallelInfo % GlobalDOFs(p), 1._dp)
+                         ELSE
+                            CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
+                         END IF
+                      END DO
+                   ELSE
+                      CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
+                   END IF
+                ELSE
+                   CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
+                END IF
              END DO
-           ELSE
-             CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
-           END IF
-         ELSE
-           CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
-         END IF
+          END DO
        END DO
-     END DO
-  END DO
+    END IF
 
-   ! In parallel apply constraints spotted by other partitions
+    ! In parallel apply constraints spotted by other partitions
     ! ---------------------------------------------------------
     IF(ParEnv % PEs>1) THEN
       IF(ASSOCIATED(gm % ListMatrix)) CALL List_toCRSMatrix(gm)
