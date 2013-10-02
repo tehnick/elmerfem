@@ -471,6 +471,21 @@ VARIABLE *var_temp_new(type,nrow,ncol) int type, nrow, ncol;
     return ptr; 
 }
 
+
+void var_copy_transpose(char *name,double *values,int nrows,int ncols)
+{
+  VARIABLE *var;
+  int i,j;
+
+  var = var_check(name); 
+  if(!var) return;
+
+  for(i=0; i<min(nrows,NROW(var)); i++)
+  for(j=0; j<min(ncols,NCOL(var)); j++)
+    values[nrows*i+j] = M(var,j,i);
+}
+
+
 void var_delete_temp_el( VARIABLE *ptr )
 {  
     if ( ptr != NULL )
