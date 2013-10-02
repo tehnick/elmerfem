@@ -556,6 +556,15 @@ char *mtc_domath(char *);
 void mtc_init(FILE *,FILE *, FILE *);
 
 /*--------------------------------------------------------------------------
+  This routine will call matc and return matc variable array values
+  -------------------------------------------------------------------------*/
+void STDCALLBULL FC_FUNC_(matc_get_array,MATC_GET_ARRAY) (char *name, 
+           double *values, int *nrows, int *ncols )
+{
+  var_copy_transpose(name,values,*nrows,*ncols);
+}
+
+/*--------------------------------------------------------------------------
   This routine will call matc and return matc result
   -------------------------------------------------------------------------*/
 void STDCALLBULL FC_FUNC(matc,MATC) ( char *cmd, char *Value, int *len )
