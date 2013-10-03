@@ -3282,7 +3282,7 @@ CONTAINS
       IF ( .NOT. Found ) CYCLE
 
       k = GetBoundaryFaceIndex(Element); Element=>Mesh % Faces(k)
-      Faces=Faces+1
+      Faces = Faces + 1
       FaceMap(k) = Faces
 
       DO i=1,Element % TYPE % NumberOfNodes
@@ -3325,11 +3325,11 @@ CONTAINS
       Found2 = Found2.OR.Found
 
       LOAD(3,1:n) = GetReal(BC,'Magnetic Flux Density 3',Found3)
-      LOAD(3,1:n) = LOAD(2,1:n)+im*GetReal(BC,'Magnetic Flux Density im 3',Found)
+      LOAD(3,1:n) = LOAD(3,1:n)+im*GetReal(BC,'Magnetic Flux Density im 3',Found)
       Found3 = Found3.OR.Found
 
       LOAD(4,1:n) = GetReal(BC,'Magnetic Flux Density {n}',Found)
-      LOAD(4,1:n) = LOAD(2,1:n)+im*GetReal(BC,'Magnetic Flux Density im {n}',L1)
+      LOAD(4,1:n) = LOAD(4,1:n)+im*GetReal(BC,'Magnetic Flux Density im {n}',L1)
       Found = Found.OR.L1
 
       IF (Found.OR.Found1.OR.Found2.OR.Found3) THEN
@@ -3855,31 +3855,24 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
 
   ! add these in the beginning, so that SaveData sees these existing, even
   ! if executed before the actual computations...
-  CALL ListAddConstReal( Model % Simulation, 'res: Eddy current power', 0._dp)
-  CALL ListAddConstReal( Model % Simulation, 'res: Magnetic Field Energy', 0._dp)
+  ! -----------------------------------------------------------------------
+  CALL ListAddConstReal(Model % Simulation,'res: Eddy current power',0._dp)
+  CALL ListAddConstReal(Model % Simulation,'res: Magnetic Field Energy',0._dp)
 
   ! add these in the beginning only if the Magnetix Flux Average is computed
+  ! -------------------------------------------------------------------------
   IF (ListGetLogicalAnyBC( Model,'Magnetic Flux Average')) THEN
+    CALL ListAddConstReal( Model % Simulation,'res: Magnetic Flux Average', 0._dp)
+    CALL ListAddConstReal(Model % Simulation, &
+                           'res: Magnetic Flux Density Average',0._dp)
 
-       CALL ListAddConstReal( Model % Simulation, &
-            'res: Magnetic Flux Average', 0._dp )
+    IF (Var % DOFs == 2) THEN 
+      CALL ListAddConstReal(Model % Simulation,'res: Magnetic Flux im Average',0._dp)
+      CALL ListAddConstReal(Model % Simulation, &
+                   'res: Magnetic Flux Density im Average', 0._dp )
+    END IF
 
-       IF (Var % DOFs == 2) THEN 
-         CALL ListAddConstReal( Model % Simulation, &
-              'res: Magnetic Flux im Average', 0._dp )
-       END IF
-
-       CALL ListAddConstReal( Model % Simulation, &
-            'res: Magnetic Flux Density Average', 0._dp )
-
-       IF (Var % DOFs == 2) THEN 
-         CALL ListAddConstReal( Model % Simulation, &
-              'res: Magnetic Flux Density im Average', 0._dp )
-       END IF
- 
-       CALL ListAddConstReal( Model % Simulation, &
-            'res: Magnetic Flux Area', 0._dp )
-
+    CALL ListAddConstReal(Model % Simulation,'res: Magnetic Flux Area',0._dp)
   END IF
 
 !------------------------------------------------------------------------------
@@ -4449,13 +4442,11 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
    WRITE(Message,*) 'Eddy current power: ', Power
    CALL Info( 'MagnetoDynamics', Message )
-   CALL ListAddConstReal( Model % Simulation, &
-        'res: Eddy current power', Power )
+   CALL ListAddConstReal( Model % Simulation, 'res: Eddy current power', Power )
 
    WRITE(Message,*) '(Electro)Magnetic Field Energy: ', Energy
    CALL Info( 'MagnetoDynamics', Message )
-   CALL ListAddConstReal( Model % Simulation, &
-        'res: Magnetic Field Energy', Energy )
+   CALL ListAddConstReal(Model % Simulation,'res: Magnetic Field Energy',Energy)
    DEALLOCATE( Gforce,MASS,FORCE )
 
    IF (LossEstimation) THEN
@@ -4481,86 +4472,80 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
   ! Flux On Boundary:
   !------------------
 
+  CalcFluxLogical = .FALSE.
   Flux = 0._dp
   Area = 0._dp
   AverageFluxDensity = 0._dp
-  CalcFluxLogical=.FALSE.
 
   IF (ListGetLogicalAnyBC( Model,'Magnetic Flux Average')) THEN
     DO i=1,GetNOFBoundaryElements()
        Element => GetBoundaryElement(i)
        IF (.NOT. ActiveBoundaryElement()) CYCLE
-         BC=>GetBC()
-         IF (.NOT. ASSOCIATED(BC) ) CYCLE
+       BC=>GetBC()
+       IF (.NOT. ASSOCIATED(BC) ) CYCLE
      
-         SELECT CASE(GetElementFamily())
-         CASE(1)
-           CYCLE
-         CASE(2)
-           k = GetBoundaryEdgeIndex(Element,1); Element => Mesh % Edges(k)
-         CASE(3,4)
-           k = GetBoundaryFaceIndex(Element)  ; Element => Mesh % Faces(k)
-         END SELECT
+       SELECT CASE(GetElementFamily())
+       CASE(1)
+         CYCLE
+       CASE(2)
+         k = GetBoundaryEdgeIndex(Element,1); Element => Mesh % Edges(k)
+       CASE(3,4)
+         k = GetBoundaryFaceIndex(Element)  ; Element => Mesh % Faces(k)
+       END SELECT
 
-         IF (ASSOCIATED(Element % BoundaryInfo % Right)) THEN
-           BodyId = Element % BoundaryInfo % Right % BodyID       
-         ELSE IF (ASSOCIATED(Element % BoundaryInfo % Left)) THEN
-           BodyId = Element % BoundaryInfo % Left % BodyID
-         ELSE 
-           CALL Fatal ('MagnetoDynamicsCalcFields', 'Magnetic Flux Average: Boundary Element has not got a parent element.')
-         END IF
-
-         n = GetElementNOFNodes()
-         np = n*pSolver % Def_Dofs(BodyId,1)
-         nd = GetElementNOFDOFs(uElement=Element, uSolver=pSolver)
-         CALL GetVectorLocalSolution(SOL,Pname,uElement=Element,uSolver=pSolver)
-
-         CalcFluxLogical=GetLogical( BC, 'Magnetic Flux Average', Found)
-         IF (Found .AND. CalcFluxLogical) CALL calcAverageFlux(Flux, Area, Element, n, nd, np, SOL, vDOFs)
-
-        END DO
-       Flux(1)=ParallelReduction(Flux(1))
-       Flux(2)=ParallelReduction(Flux(2))
-       Area=ParallelReduction(Area)
-
-       IF( Area < EPSILON( Area ) ) THEN
-         CALL WARN('MagnetoDynamicsCalcFields', 'Magnetic Flux Average Computation: Area < Epsilon(Area)')
-         RETURN
+       IF (ASSOCIATED(Element % BoundaryInfo % Right)) THEN
+         BodyId = Element % BoundaryInfo % Right % BodyID       
+       ELSE IF (ASSOCIATED(Element % BoundaryInfo % Left)) THEN
+         BodyId = Element % BoundaryInfo % Left % BodyID
+       ELSE 
+         CALL Fatal ('MagnetoDynamicsCalcFields', 'Magnetic Flux Average: Boundary Element has not got a parent element.')
        END IF
 
-       AverageFluxDensity=Flux/Area
+       n = GetElementNOFNodes()
+       np = n*pSolver % Def_Dofs(BodyId,1)
+       nd = GetElementNOFDOFs(uElement=Element, uSolver=pSolver)
+       CALL GetVectorLocalSolution(SOL,Pname,uElement=Element,uSolver=pSolver)
+
+       CalcFluxLogical = GetLogical( BC, 'Magnetic Flux Average', Found)
+       IF (Found .AND. CalcFluxLogical) CALL calcAverageFlux(Flux, Area, Element, n, nd, np, SOL, vDOFs)
+    END DO
+    Flux(1) = ParallelReduction(Flux(1))
+    Flux(2) = ParallelReduction(Flux(2))
+    Area = ParallelReduction(Area)
+
+    IF( Area < EPSILON( Area ) ) THEN
+      CALL WARN('MagnetoDynamicsCalcFields', 'Magnetic Flux Average Computation: Area < Epsilon(Area)')
+      RETURN
+    END IF
+
+    AverageFluxDensity = Flux / Area
  
-       WRITE(Message,*) 'Magnetic Flux Average: ', Flux(1)
-       CALL Info( 'MagnetoDynamics', Message )
-       CALL ListAddConstReal( Model % Simulation, &
-            'res: Magnetic Flux Average', Flux(1) )
-
-       IF (vDOFs == 2) THEN 
-         WRITE(Message,*) 'Magnetic Flux im Average: ', Flux(2)
-         CALL Info( 'MagnetoDynamics', Message )
-         CALL ListAddConstReal( Model % Simulation, &
-              'res: Magnetic Flux im Average', Flux(2) )
-       END IF
-
-       WRITE(Message,*) 'Magnetic Flux Density Average: ', AverageFluxDensity(1)
-       CALL Info( 'MagnetoDynamics', Message )
-       CALL ListAddConstReal( Model % Simulation, &
-            'res: Magnetic Flux Density Average', AverageFluxDensity(1) )
-
-       IF (vDOFs == 2) THEN 
-         WRITE(Message,*) 'Magnetic Flux Density im Average: ', AverageFluxDensity(2)
-         CALL Info( 'MagnetoDynamics', Message )
-         CALL ListAddConstReal( Model % Simulation, &
-              'res: Magnetic Flux Density im Average', AverageFluxDensity(2) )
-       END IF
+    WRITE(Message,*) 'Magnetic Flux Average: ', Flux(1)
+    CALL Info( 'MagnetoDynamics', Message )
+    CALL ListAddConstReal( Model % Simulation, 'res: Magnetic Flux Average', Flux(1) )
  
+    IF (vDOFs == 2) THEN 
+      WRITE(Message,*) 'Magnetic Flux im Average: ', Flux(2)
+      CALL Info( 'MagnetoDynamics', Message )
+      CALL ListAddConstReal( Model % Simulation, 'res: Magnetic Flux im Average', Flux(2) )
+    END IF
 
-       WRITE(Message,*) 'Magnetic Flux Area: ', Area
-       CALL Info( 'MagnetoDynamics', Message )
-       CALL ListAddConstReal( Model % Simulation, &
-            'res: Magnetic Flux Area', Area )
+    WRITE(Message,*) 'Magnetic Flux Density Average: ', AverageFluxDensity(1)
+    CALL Info( 'MagnetoDynamics', Message )
+    CALL ListAddConstReal( Model % Simulation,'res: Magnetic Flux Density Average', &
+                          AverageFluxDensity(1))
 
-   END IF
+    IF (vDOFs == 2) THEN 
+     WRITE(Message,*) 'Magnetic Flux Density im Average: ', AverageFluxDensity(2)
+     CALL Info( 'MagnetoDynamics', Message )
+     CALL ListAddConstReal( Model % Simulation,'res: Magnetic Flux Density im Average', &
+                          AverageFluxDensity(2))
+    END IF
+
+    WRITE(Message,*) 'Magnetic Flux Area: ', Area
+    CALL Info( 'MagnetoDynamics', Message )
+    CALL ListAddConstReal( Model % Simulation,'res: Magnetic Flux Area', Area )
+  END IF
 
 
 CONTAINS
