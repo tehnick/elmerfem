@@ -941,7 +941,7 @@ CONTAINS
             GOTO 100
           END IF
 
-          DEALLOCATE( Basis, Vals, ElemPtrs, LocalU, LocalV, LocalW )
+          DEALLOCATE( Basis, Vals, ElemPtrs, LocalU, LocalV, LocalW, Indexes )
 
 !         Store also the transpose of the projector:
 !         ------------------------------------------ 
@@ -1279,9 +1279,14 @@ CONTAINS
 
     ! Finally, deallocate permanent storage
     !----------------------------------------------------------------
-    DEALLOCATE( GaussNodes % x, GaussNodes % y, GaussNodes % z)
-    DEALLOCATE( Basis )
     DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z )
+    DEALLOCATE( ElementNodes )
+
+    DEALLOCATE( GaussNodes % x, GaussNodes % y, GaussNodes % z)
+    DEALLOCATE( GaussNodes )
+
+    DEALLOCATE( Basis )
+    IF(EdgeBasis) DEALLOCATE( dBasisdx, WBasis, RotWBasis ) 
 
 !------------------------------------------------------------------------------
   END FUNCTION WeightedProjector2

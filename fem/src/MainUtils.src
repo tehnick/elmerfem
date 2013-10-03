@@ -3361,8 +3361,11 @@ CONTAINS
        IF(FoundMortar) THEN
          CM0 => CM
          DO WHILE(ASSOCIATED(CM0))
+           IF(ASSOCIATED(CM0 % RHS)) DEALLOCATE(CM0 % RHS)
+
            ALLOCATE(CM0 % RHS(CM0 % NumberOfRows))
            CM0 % RHS = 0._dp
+
            CM0 % Cols = Solver % Variable % Perm(CM0 % Cols)
            IF(ASSOCIATED(CM0 % InvPerm)) THEN
              CM0 % InvPerm = Solver % Variable % Perm(CM0 % InvPerm)

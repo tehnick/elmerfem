@@ -1592,15 +1592,12 @@ END SUBROUTINE GetMaxDefs
 !   only boundary nodes:
 !   ---------------------------------------------------
     DO i=1,n1
-       BMesh1 % Elements(i) % NodeIndexes = &
-          Perm1(BMesh1 % Elements(i) % NodeIndexes )
+      BMesh1 % Elements(i) % NodeIndexes = Perm1(BMesh1 % Elements(i) % NodeIndexes)
     END DO
 
     DO i=1,n2
-       BMesh2 % Elements(i) % NodeIndexes = &
-           Perm2(BMesh2 % Elements(i) % NodeIndexes)
+      BMesh2 % Elements(i) % NodeIndexes = Perm2(BMesh2 % Elements(i) % NodeIndexes)
     END DO
-
     DEALLOCATE( Perm1, Perm2 )
 
     Success = .TRUE.
@@ -2271,6 +2268,7 @@ END SUBROUTINE GetMaxDefs
     END INTERFACE
 !------------------------------------------------------------------------------
     
+
     DIM = CoordinateSystemDimension()
     
     Projector => NULL()
@@ -2351,43 +2349,27 @@ END SUBROUTINE GetMaxDefs
     Repeating = Rotational .OR. Sliding 
     AntiRepeating = AntiRotational .OR. AntiSliding 
     
+
     IF( IntGalerkin ) THEN
       Projector => WeightedProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
           UseQuadrantTree, Repeating, AntiRepeating, PeriodicScale )
     ELSE
       Projector => NodalProjector2( BMesh2, BMesh1, InvPerm2, InvPerm1, &
-          UseQuadrantTree, Repeating, AntiRepeating )
+                 UseQuadrantTree, Repeating, AntiRepeating )
     END IF
-
       
 
     ! Deallocate mesh structures:
     !---------------------------------------------------------------
-    DO k=1,2
-        
-      IF( k == 1 ) THEN
-        PMesh => BMesh1 
-      ELSE
-        PMesh => BMesh2
-      END IF
-      
-      DO i=1,SIZE( PMesh % Elements ) 
-        DEALLOCATE( PMesh % Elements(i) % NodeIndexes )
-      END DO
-      
-      DEALLOCATE( PMesh % Elements )
-!     CALL FreeQuadrantTree( PMesh % RootQuadrant )
-      
-      DEALLOCATE( PMesh % Nodes % x )
-      DEALLOCATE( PMesh % Nodes % y )
-      DEALLOCATE( PMesh % Nodes % z )
-      DEALLOCATE( PMesh % Nodes )
-
-      DEALLOCATE( PMesh ) 
-    END DO
+    BMesh1 % Parent => Null(); CALL ReleaseMesh(BMesh1)
+    BMesh2 % Parent => Null(); CALL ReleaseMesh(BMesh2)
 
     DEALLOCATE( InvPerm2 )
-    IF(.NOT.ASSOCIATED(Projector % InvPerm)) Projector % InvPerm => InvPerm1
+    IF(.NOT.ASSOCIATED(Projector % InvPerm)) THEN
+      Projector % InvPerm => InvPerm1
+    ELSE
+      DEALLOCATE(InvPerm1)
+    END IF
 
     CALL CheckTimer('PeriodicProjector',Delete=.TRUE.)
     CALL Info('PeriodicProjector','Projector created, now exiting...',Level=8)
