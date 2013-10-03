@@ -2007,7 +2007,8 @@ END SUBROUTINE GetMaxDefs
     ! original mesh system.
     !-----------------------------------------------------------------
     n = SIZE( InvPerm1 ) 
-    Projector % InvPerm => InvPerm1
+    ALLOCATE( Projector % InvPerm(n) )
+    Projector % InvPerm = InvPerm1
 
     DO i=1,Projector % NumberOfRows
        DO j = Rows(i), Rows(i+1)-1
@@ -2361,15 +2362,11 @@ END SUBROUTINE GetMaxDefs
 
     ! Deallocate mesh structures:
     !---------------------------------------------------------------
+    BMesh1 % Projector => Null()
     BMesh1 % Parent => Null(); CALL ReleaseMesh(BMesh1)
     BMesh2 % Parent => Null(); CALL ReleaseMesh(BMesh2)
 
-    DEALLOCATE( InvPerm2 )
-    IF(.NOT.ASSOCIATED(Projector % InvPerm)) THEN
-      Projector % InvPerm => InvPerm1
-    ELSE
-      DEALLOCATE(InvPerm1)
-    END IF
+    DEALLOCATE( InvPerm1, InvPerm2 )
 
     CALL CheckTimer('PeriodicProjector',Delete=.TRUE.)
     CALL Info('PeriodicProjector','Projector created, now exiting...',Level=8)
@@ -6070,8 +6067,8 @@ CONTAINS
      END IF
      Mesh % Nodes => NULL()
 
-     IF ( ASSOCIATED( Mesh % Edges ) ) CALL ReleaseMeshEdgeTables( Mesh )
-     Mesh % Edges => NULL()
+!    IF ( ASSOCIATED( Mesh % Edges ) ) CALL ReleaseMeshEdgeTables( Mesh )
+!    Mesh % Edges => NULL()
 
 ! ML
      IF ( ASSOCIATED( Mesh % Faces ) ) CALL ReleaseMeshFaceTables( Mesh )
