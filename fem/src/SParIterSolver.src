@@ -783,20 +783,19 @@ SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
 
   !*******************************************************************
 
-  NeedPrec = ASSOCIATED(SplittedMatrix % InsideMatrix % ILUValues)
   NeedMass = ASSOCIATED(SplittedMatrix % InsideMatrix % MassValues)
   NeedDamp = ASSOCIATED(SplittedMatrix % InsideMatrix % DampValues)
 
   SplittedMatrix % InsideMatrix % Values = 0._dp
-  IF ( NeedPrec ) SplittedMatrix % InsideMatrix % ILUValues = 0._dp
   IF ( NeedMass ) SplittedMatrix % InsideMatrix % MassValues = 0._dp
   IF ( NeedDamp ) SplittedMatrix % InsideMatrix % DampValues = 0._dp
 
+  NeedPrec = .FALSE.
   DO i = 1, ParEnv % PEs
      IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+       NeedPrec = ALLOCATED(SplittedMatrix % IfMatrix(i) % ILUValues)
        SplittedMatrix % IfMatrix(i) % Values = 0._dp
-       IF ( NeedPrec.AND.ALLOCATED(SplittedMatrix % IfMatrix(i) % ILUvalues) ) &
-         SplittedMatrix % IfMatrix(i) % ILUValues  = 0._dp
+       IF ( NeedPrec ) SplittedMatrix % IfMatrix(i) % ILUValues  = 0._dp
        IF ( NeedMass.AND.ALLOCATED(SplittedMatrix % IfMatrix(i) % MassValues) ) &
          SplittedMatrix % IfMatrix(i) % MassValues = 0._dp
        IF ( NeedDamp.AND.ALLOCATED(SplittedMatrix % IfMatrix(i) % DampValues) ) &
@@ -813,6 +812,7 @@ SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
          SplittedMatrix % NbsIfMatrix(i) % DampValues = 0._dp
      END IF
   END DO
+  IF(NeedPrec) SplittedMatrix % InsideMatrix % ILUValues = 0._dp
 !----------------------------------------------------------------------
 END SUBROUTINE ZeroSplittedMatrix
 !----------------------------------------------------------------------
