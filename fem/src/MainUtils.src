@@ -3368,7 +3368,11 @@ CONTAINS
 
            CM0 % Cols = Solver % Variable % Perm(CM0 % Cols)
            IF(ASSOCIATED(CM0 % InvPerm)) THEN
-             CM0 % InvPerm = Solver % Variable % Perm(CM0 % InvPerm)
+             DO i=1,SIZE(CM0 % InvPerm)
+               IF(CM0 % InvPerm(i)>0) THEN
+                 CM0 % InvPerm(i) = Solver % Variable % Perm(CM0 % InvPerm(i))
+               END IF
+             END DO
            END IF           
            CM0 % Ordered = .FALSE.
            CALL CRS_SortMatrix(CM0,.TRUE.)
