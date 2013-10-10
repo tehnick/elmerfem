@@ -190,7 +190,7 @@ MODULE NetCDFInterface
                 //TRIM(CoordName)//' < : ',VarDim
            CALL Fatal('GridDataReader',Message)
         END SELECT
-        CoordVarNDims(i) = VarDim
+        if (i <= 3) CoordVarNDims(i) = VarDim
       
         ! Get the size of the coordinate dimension
         NetCDFstatus = NF90_INQUIRE_DIMENSION(FileId,dimid,str,size)
