@@ -38,6 +38,9 @@
 # endif
 #endif 
 
+/* prototype */
+char *mtc_domath(char *);
+
 int main( int argc, char **argv )
 {
   char strt[2000];
@@ -49,7 +52,7 @@ int main( int argc, char **argv )
 #endif
 
   (void)mtc_init( stdin, stdout, stderr );
-  str = (char *)mtc_domath( "source(\"mc.ini\")" );
+  str = mtc_domath( "source(\"mc.ini\")" );
 
   signal( SIGINT, SIG_IGN );
 
@@ -75,7 +78,7 @@ int main( int argc, char **argv )
       {
 	return 0;
       }
-      if ( *str ) fprintf( stdout, "%s\n", (char *)mtc_domath( str ) );
+      if ( *str ) fprintf( stdout, "%s\n", mtc_domath( str ) );
       
 #ifdef USE_READLINE
       free(str);
