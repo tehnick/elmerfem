@@ -3074,7 +3074,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   INTEGER :: MaxModes, BCOffset, ElemFirst, ElemLast
   INTEGER, POINTER :: ActiveModes(:)
   LOGICAL :: GotActiveModes, EigenAnalysis, WriteIds, SaveBoundariesOnly, SaveBulkOnly, &
-      GotMaskName, AllNodesUsed
+      GotMaskName, AllNodesUsed, SaveElemental, SaveNodal
   LOGICAL, ALLOCATABLE :: ActiveElem(:)
 
 ! Parameters for buffered binary output
@@ -3102,6 +3102,12 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     AsciiOutput = GetLogical( Params,'Ascii Output',GotIt)
     BinaryOutput = .NOT. AsciiOutput
   END IF
+
+  SaveElemental = GetLogical( Params,'Save Elemental Fields',GotIt)
+  IF(.NOT. GotIt) SaveElemental = .TRUE.
+
+  SaveNodal = GetLogical( Params,'Save Nodal Fields',GotIt) 
+  IF(.NOT. GotIt) SaveNodal = .TRUE.
 
   SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
   IF( SinglePrec ) THEN
@@ -3530,7 +3536,7 @@ CONTAINS
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, &
         FieldName, FieldName2, OutStr
     CHARACTER :: lf
-    LOGICAL :: ElementalSolutionsExist, ScalarsExist, VectorsExist, Found,&
+    LOGICAL :: ScalarsExist, VectorsExist, Found,&
               ComponentVector, ComplementExists, Use2
     LOGICAL :: WriteData, WriteXML, L, Buffered
     TYPE(Variable_t), POINTER :: Solution
@@ -3592,13 +3598,15 @@ CONTAINS
     !-------------------------------------
     ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
     VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+
+  IF( SaveNodal ) THEN
     IF( ScalarsExist .OR. VectorsExist) THEN
       WRITE( OutStr,'(A)') '      <PointData>'//lf
       CALL StrWrite( OutStr )
     ELSE
       CALL Warn('WriteVtuFile','Are there really no scalars or vectors?')
     END IF
-
+  END IF
 
     DispDofs = 0
     Disp2Dofs = 0
@@ -3629,7 +3637,7 @@ CONTAINS
     !------------------------------------------------------------------------------------
 100 Offset = 0
     
-    ElementalSolutionsExist=.FALSE.
+  IF( SaveNodal ) THEN
     DO Rank = 0,2
       DO Vari = 1, 999
         IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
@@ -3843,6 +3851,7 @@ CONTAINS
         CALL StrWrite( OutStr ) 
       END IF
     END IF
+  END IF
     
     ! Elementwise information
     !-------------------------------------
@@ -3851,8 +3860,10 @@ CONTAINS
       CALL StrWrite( OutStr ) 
     END IF
     
+  IF( SaveElemental ) THEN
     DO Rank = 0,1
       DO Vari = 1, 999
+
         IF( Rank == 0 ) THEN
           WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
         ELSE
@@ -3871,20 +3882,26 @@ CONTAINS
         END IF
 
         IF(.NOT. Found) EXIT
-        
+
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
         Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
-       
+        ComponentVector = .FALSE.
+
         IF(.NOT. ASSOCIATED(Solution)) THEN
-	  IF( L ) THEN
-            WRITE(Txt, '(A,A)') 'Nonexistent elemental variable: ',TRIM(FieldName)
-            CALL Warn('WriteVtuXMLFile', Txt)
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1')
+          IF( ASSOCIATED(Solution)) THEN 
+            ComponentVector = .TRUE.
+          ELSE 
+            IF( L ) THEN
+              WRITE(Txt, '(A,A)') 'Nonexistent elemental variable: ',TRIM(FieldName)
+              CALL Warn('WriteVtuXMLFile', Txt)
+            END IF
+            CYCLE
           END IF
-          CYCLE
         END IF
-        
+
         IF (Solution % TYPE /= Variable_on_nodes_on_elements ) CYCLE
 
         Perm => Solution % Perm
@@ -3957,6 +3974,7 @@ CONTAINS
         END IF
       END DO
     END DO
+  END IF
 
     !---------------------------------------------------------------------
     ! If requested write the body and bc indexes
@@ -4401,6 +4419,8 @@ CONTAINS
     !-------------------------------------
     ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
     VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+
+  IF( SaveNodal ) THEN
     IF( ScalarsExist .AND. VectorsExist) THEN
       WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)&
           //'" Vectors="'//TRIM(VectorFieldName)//'">'
@@ -4510,16 +4530,18 @@ CONTAINS
       END DO
     END DO
     WRITE( VtuUnit,'(A)') '    </PPointData>'
-
+  END IF
 
 
     ! Elementwise information
     !-------------------------------------
     WRITE( VtuUnit,'(A)') '    <PCellData>'
 
+  IF( SaveElemental ) THEN
     IF( ScalarsExist .OR. VectorsExist ) THEN
       DO Rank = 0,2
         DO Vari = 1, 999
+
           IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
           IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field Elemental ',Vari
           FieldName = GetString( Params, TRIM(Txt), Found )
@@ -4531,7 +4553,7 @@ CONTAINS
             FieldName = GetString( Params, TRIM(Txt), Found )
           END IF
           IF(.NOT. Found ) EXIT
-          
+
           Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
           ComponentVector = .FALSE.
 
@@ -4590,6 +4612,7 @@ CONTAINS
             sdofs = 1
           END IF
 
+
           DO iField = 1, NoFields
             
             IF( NoModes == 0 .OR. EigenAnalysis ) THEN
@@ -4615,6 +4638,7 @@ CONTAINS
         END DO
       END DO
     END IF
+  END IF
 
     ! Body and BC indexes
     IF( WriteIds ) THEN
@@ -4626,7 +4650,6 @@ CONTAINS
     END IF
 
     WRITE( VtuUnit,'(A)') '    </PCellData>'
-
 
     ! Coordinates of each point
     !-------------------------------------
