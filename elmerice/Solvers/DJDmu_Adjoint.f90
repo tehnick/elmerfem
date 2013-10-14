@@ -65,6 +65,7 @@ SUBROUTINE DJDMu_Adjoint( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !******************************************************************************
   USE DefUtils
+  USE MaterialModels
   IMPLICIT NONE
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
@@ -91,15 +92,20 @@ SUBROUTINE DJDMu_Adjoint( Model,Solver,dt,TransientSimulation )
 
 !! autres variables
   real(kind=dp),allocatable :: VisitedNode(:),db(:)
-  real(kind=dp),allocatable :: NodeDJ(:),NodalVeloN(:,:),NodalVeloD(:,:)
-  real(kind=dp),allocatable :: m(:),cs(:)
-  real(kind=dp) :: vn(3),vd(3),LGradN(3,3),LGradD(3,3),SRD(3,3),SRN(3,3)
-  real(kind=dp) :: IPGrad,SecInv
+  real(kind=dp),allocatable,dimension(:) :: Ux,Uy,Uz
+  real(kind=dp) :: Velo(3),dVelodx(3,3)
+  real(kind=dp) :: s,ss,c2,c3
+  real(kind=dp) :: mub,Viscosityb
+  real(kind=dp),allocatable,dimension(:) :: c2n,c3n
+  real(kind=dp),allocatable,dimension(:) :: NodalViscosityb
 
-  integer :: i,j,t,n,NMAX,NActiveNodes,DIM
+
+  integer :: i,j,t,n,NMAX,NpN,NActiveNodes,DIM,e,p,q
+
+  CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityFlag
 
   logical :: SquareFormulation
-  Logical ::  Firsttime=.true.,Found,stat
+  Logical ::  Firsttime=.true.,Found,stat,gotit
 
 
   save Firsttime,DIM
@@ -107,8 +113,10 @@ SUBROUTINE DJDMu_Adjoint( Model,Solver,dt,TransientSimulation )
   save SolverName
   save NeumannSolName,DirichletSolName,VarSolName,GradSolName
   save SquareFormulation
-  save VisitedNode,db,NodeDJ,Basis,dBasisdx,NodalVeloN,NodalVeloD
-  save m,cs
+  save VisitedNode,db,Basis,dBasisdx
+  save Ux,Uy,Uz
+  save c2n,c3n
+  save NodalViscosityb
 
   !!!! Firsttime Do some allocation and initialisation
   If (Firsttime) then
@@ -117,11 +125,15 @@ SUBROUTINE DJDMu_Adjoint( Model,Solver,dt,TransientSimulation )
       WRITE(SolverName, '(A)') 'DJDMu_Adjoint'
 
       NMAX=Solver % Mesh % NumberOfNodes
-      allocate(VisitedNode(NMAX),db(NMAX), NodeDJ(Model %  MaxElementNodes), &
-               Basis(Model % MaxElementNodes),  &
-               dBasisdx(Model % MaxElementNodes,3), &
-               NodalVeloN(3,Model % MaxElementNodes),NodalVeloD(3,Model % MaxElementNodes), &
-               m(Model % MaxElementNodes),cs(Model % MaxElementNodes))
+      NpN=Model % MaxElementNodes
+
+      allocate(VisitedNode(NMAX),db(NMAX), &
+               Basis(NpN),  &
+               dBasisdx(NpN,3), &
+               Ux(NpN),Uy(NpN),Uz(NpN),&
+               c2n(NpN),c3n(NpN),&
+               NodalViscosityb(NpN),&
+               )
 
 !!!!!!!!!!! get Solver Variables
       SolverParams => GetSolverParams()
@@ -202,70 +214,104 @@ SUBROUTINE DJDMu_Adjoint( Model,Solver,dt,TransientSimulation )
     VisitedNode=0.0_dp
     db=0.0_dp
 
-    DO t=1,Solver % NumberOfActiveElements
+    DO e=1,Solver % NumberOfActiveElements
 
-          Element => GetActiveElement(t)
+          Element => GetActiveElement(e)
           Material => GetMaterial()
           CALL GetElementNodes( ElementNodes )
           n = GetElementNOFNodes()
           NodeIndexes => Element % NodeIndexes
 
-          NodalVeloN = 0.0d0
-          NodalVeloD = 0.0d0
-          DO i=1, dim
-             NodalVeloN(i,1:n) = VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(1:n))-1)+i)
-             NodalVeloD(i,1:n) = VelocityD((DIM+1)*(VeloDPerm(NodeIndexes(1:n))-1)+i)
-          END DO
+          VisitedNode(NodeIndexes(1:n))=VisitedNode(NodeIndexes(1:n))+1.0_dp
 
-          !! exposant nodal
-               m=ListGetReal(Material, 'Viscosity Exponent', n, NodeIndexes)
-               cs=ListGetReal(Material, 'Critical Shear Rate', n, NodeIndexes)
+          Ux=0.0_dp
+          Uy=0.0_dp
+          Uz=0.0_dp
+          Ux(1:n)=VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(1:n))-1)+1)
+          Uy(1:n)=VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(1:n))-1)+2)
+          If (DIM.eq.3) Uz(1:n)=VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(1:n))-1)+3)
 
-          ! Compute Nodal Value of DJDBeta
-          Do i=1,n
-             VisitedNode(NodeIndexes(i))=VisitedNode(NodeIndexes(i))+1.0_dp
+          !!!!
+          nodalViscosityb=0.0_dp
 
-             u=Element % Type % NodeU(i)
-             v=Element % Type % NodeV(i)
-             w=Element % Type % NodeW(i)
-             stat=ElementInfo(Element,ElementNodes,u,v,w, &
-                                SqrtElementMetric,Basis,dBasisdx)
+          IntegStuff = GaussPoints( Element )
 
-             LGradN=0.0_dp
-             LGradD=0.0_dp
-             LGradN = MATMUL( NodalVeloN(:,1:n), dBasisdx(1:n,:) )
-             SRN = 0.5 * ( LGradN + TRANSPOSE(LGradN) )
-             LGradD = MATMUL( NodalVeloD(:,1:n), dBasisdx(1:n,:) )
-             SRD = 0.5 * ( LGradD + TRANSPOSE(LGradD) )
+          DO t=1,IntegStuff%n
 
-              NodeDJ(i)=-2.0*Prod(SRD,SRN)
+             u = IntegStuff % u(t)
+             v = IntegStuff % v(t)
+             w =IntegStuff % w(t)
 
-              if (m(i).ne.1.0_dp) then
-                      SecInv=2.0_dp*Prod(SRN,SRN) ! le carre du Second invariant de D
-                      If (SecInv.lt.cs(i)*cs(i)) SecInv=cs(i)*cs(i)
-                      NodeDJ(i)=NodeDJ(i)*SecInv**(0.5_dp*(m(i)-1._dp))
-              endif
+             stat = ElementInfo( Element, ElementNodes, u, v, w,SqrtElementMetric, &
+                           Basis, dBasisdx) !removed bubbles 
 
-              IF (SquareFormulation) then
-                      NodeDJ(i)=NodeDJ(i)*2.0_dp*Values(Perm(NodeIndexes(i)))
-              ENDIF
-           End do
+             s = SqrtElementMetric * IntegStuff % s(t)
 
-           ! Compute Integrated Nodal Value of DJDBeta
-           IntegStuff = GaussPoints( Element )
-           DO j=1,IntegStuff % n
-              U = IntegStuff % u(j)
-              V = IntegStuff % v(j)
-              W = IntegStuff % w(j)
-              stat = ElementInfo(Element,ElementNodes,U,V,W,SqrtElementMetric, &
-                             Basis,dBasisdx )
-              Do i=1,n
-                    IPGrad=NodeDJ(i)*Basis(i)
-                    db(NodeIndexes(i)) = db(NodeIndexes(i)) + &
-                                   SqrtElementMetric*IntegStuff % s(j)*IPGrad
-              End do
-            End Do
-    End do
+             mub=0.0_dp
+             Do p=1,n
+                Do q=1,n
+                  Do i=1,DIM
+                    Do j=1,DIM
+                       mub=mub+ s * dBasisdx(q,j) * dBasisdx(p,j) * &
+                         (- VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(q))-1)+i) * &
+                          VelocityD((DIM+1)*(VeloDPerm(NodeIndexes(p))-1)+i))
+
+                       mub=mub+ s * dBasisdx(q,i) * dBasisdx(p,j) * &
+                         (- VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(q))-1)+j) * &
+                           & VelocityD((DIM+1)*(VeloDPerm(NodeIndexes(p))-1)+i))
+                    End Do !j
+                  End Do !i
+                 End Do !q
+              End Do !p
+
+              ViscosityFlag = ListGetString( Material,'Viscosity Model', GotIt)
+
+              If (.NOT.Gotit) THEN
+                 CALL FATAL(SolverName,'Viscosity Model Not Found')
+              End IF
+
+              SELECT CASE( ViscosityFlag )
+                CASE('power law')
+                DO j=1,3
+                   dVelodx(1,j) = SUM( Ux(1:n)*dBasisdx(1:n,j) )
+                   dVelodx(2,j) = SUM( Uy(1:n)*dBasisdx(1:n,j) )
+                   dVelodx(3,j) = SUM( Uz(1:n)*dBasisdx(1:n,j) )
+                END DO
+
+                Velo(1) = SUM( Basis(1:n) * Ux(1:n) )
+                Velo(2) = SUM( Basis(1:n) * Uy(1:n) )
+                Velo(3) = SUM( Basis(1:n) * Uz(1:n) )
+
+                ss = SecondInvariant(Velo,dVelodx)/2
+        
+                c2n = ListGetReal( Material, 'Viscosity Exponent', n, NodeIndexes )
+                c2 = SUM( Basis(1:n) * c2n(1:n) )
+
+                s = ss
+
+                c3n = ListGetReal( Material, 'Critical Shear Rate',n, NodeIndexes ,gotIt )
+                IF (GotIt) THEN
+                  c3 = SUM( Basis(1:n) * c3n(1:n) )
+                  IF(s < c3**2) THEN
+                     s = c3**2
+                  END IF
+                END IF
+
+                Viscosityb=mub*s**((c2-1)/2)
+
+                CASE default
+                    CALL FATAL(SolverName,'Viscosity Model has to be power Law')
+              END SELECT 
+
+              nodalViscosityb(1:n)=nodalViscosityb(1:n)+Viscosityb*Basis(1:n)
+          End Do !on IPs
+
+          IF (SquareFormulation) then
+               nodalViscosityb(1:n)=nodalViscosityb(1:n)*2.0_dp*Values(Perm(NodeIndexes(1:n)))
+          END IF
+
+          db(NodeIndexes(1:n)) = db(NodeIndexes(1:n)) + nodalViscosityb(1:n)
+       End Do ! on elements
 
    Do t=1,Solver % Mesh % NumberOfNodes
      if (VisitedNode(t).lt.1.0_dp) cycle
@@ -274,21 +320,6 @@ SUBROUTINE DJDMu_Adjoint( Model,Solver,dt,TransientSimulation )
 
    Return
 
-   CONTAINS
-
-           function Prod(v1,v2) result(sol)
-             implicit none
-             real(kind=dp) :: v1(3,3),v2(3,3),sol
-             integer :: i,j
-
-             sol=0._dp
-             Do i=1,3
-               Do j=1,3
-                 sol=sol+v1(i,j)*v2(j,i)
-               End do
-             End do
-
-           end function Prod
 !------------------------------------------------------------------------------
 END SUBROUTINE DJDMu_Adjoint
 !------------------------------------------------------------------------------

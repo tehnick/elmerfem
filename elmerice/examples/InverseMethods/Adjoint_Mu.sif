@@ -178,14 +178,39 @@ Solver 2
 ! value of the cost function
   Exported Variable 5 = CostValue
   Exported Variable 5 DOFS = Integer 1
+! Variable used to force the adjoint system/update in CostSolver
+  Exported Variable 6 = Velocityb
+  Exported Variable 6 DOFs = Integer 4
 
-  Exported Variable 6 = VsurfIni
-  Exported Variable 6 DOFS = Integer 2
+  Exported Variable 7 = VsurfIni
+  Exported Variable 7 DOFS = Integer 2
 
 End
 
-!!!!  Adjoint Solver
+
+!!! Compute Cost function
+!!!!!!!!   Has to be run before the Adjoint Solver as adjoint forcing is computed here !!!!!
 Solver 3
+  Equation = "Cost"
+
+!!  Solver need to be associated => Define dumy variable
+  Variable = -nooutput "CostV"
+  Variable DOFs = 1
+
+  procedure = "ElmerIceSolvers" "CostSolver_Adjoint"
+
+
+  Cost Variable Name = String "CostValue"  ! Name of Cost Variable
+
+  Optimized Variable Name = String "Mu"  ! Name of Beta for Regularization
+  Lambda = Real  $Lambda                   ! Regularization Coef
+! save the cost as a function of iterations
+  Cost Filename = File "Cost_$name".dat" 
+end
+
+
+!!!!  Adjoint Solver
+Solver 4
   Equation = "Adjoint"
   Variable = Adjoint
   Variable Dofs = 4
@@ -203,24 +228,6 @@ Solver 3
    Linear System Max Iterations = 1000
 End
 
-
-Solver 4
-  Equation = "Cost"
-
-!!  Solver need to be associated => Define dumy variable
-  Variable = -nooutput "CostV"
-  Variable DOFs = 1
-
-  procedure = "ElmerIceSolvers" "CostSolver_Adjoint"
-
-
-  Cost Variable Name = String "CostValue"  ! Name of Cost Variable
-
-  Optimized Variable Name = String "Mu"  ! Name of Beta for Regularization
-  Lambda = Real  $Lambda                   ! Regularization Coef
-
-  Cost Filename = File "Cost_$name".dat" ! save the cost as a function of iterations
-end
 
 !!!!!  Compute Derivative of Cost function / Mu
 Solver 5
@@ -288,7 +295,7 @@ Solver 7
   Scalar Field 4 = Adjoint 2
   Scalar Field 5 = Adjoint 3
   Scalar Field 6 = VsurfIni 1
-  Scalar Field 7 = VsurfIni  2
+  Scalar Field 7 = VsurfIni 2
 End
 
 
@@ -370,15 +377,14 @@ Boundary Condition 5
   Top Surface = Variable Coordinate 1
      REAL procedure "Executables/USF_Init" "zsIni"
 
-! Definition of the Cost function
+  ! Definition of the Cost function
   Adjoint Cost = Variable Velocity 1 , Vsurfini 1 , Velocity 2 , Vsurfini 2
     Real MATC "0.5*((tx(0)-tx(1))*(tx(0)-tx(1))+(tx(2)-tx(3))*(tx(2)-tx(3)))"
 
-! Neumann term for the Adjoint solver; derivative of the cost function wr u and v
-  Adjoint Force BC = Logical True
-  Adjoint Force 1 = Variable Velocity 1 , Vsurfini 1
+  !  derivative of the cost function wr u and v
+  Adjoint Cost der 1 = Variable Velocity 1 , Vsurfini 1
     Real MATC "tx(0)-tx(1)"
-  Adjoint Force 2 = Variable Velocity 2 , Vsurfini 2
+  Adjoint Cost der 2 = Variable Velocity 2 , Vsurfini 2
     Real MATC "tx(0)-tx(1)"
 
 End 

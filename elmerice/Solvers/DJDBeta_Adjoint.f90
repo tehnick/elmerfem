@@ -52,7 +52,9 @@ SUBROUTINE DJDBeta_Adjoint( Model,Solver,dt,TransientSimulation )
 
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
-!  
+!
+  TYPE(ValueList_t), POINTER :: BC
+
   CHARACTER(LEN=MAX_NAME_LEN) :: SolverName,NeumannSolName,AdjointSolName
   CHARACTER(LEN=MAX_NAME_LEN) :: VarSolName,GradSolName
   TYPE(Element_t),POINTER ::  Element
@@ -65,18 +67,21 @@ SUBROUTINE DJDBeta_Adjoint( Model,Solver,dt,TransientSimulation )
   INTEGER, POINTER :: Permutation(:), VeloNPerm(:),VeloDPerm(:),BetaPerm(:),NodeIndexes(:)
 
   real(kind=dp),allocatable :: VisitedNode(:),db(:),Basis(:),dBasisdx(:,:)
-  real(kind=dp),allocatable :: NodeDJ(:)
-  real(kind=dp) :: u,v,w,SqrtElementMetric
-  real(kind=dp) :: Lambda,IPGrad
-  real(kind=dp) :: vn(3),vd(3)
+  real(kind=dp),allocatable :: nodalbetab(:),NodalRegb(:)
+  real(kind=dp) :: betab
+  real(kind=dp) :: u,v,w,SqrtElementMetric,s
+  real(kind=dp) :: Lambda
+  REAL(KIND=dp) :: Normal(3),Tangent(3),Tangent2(3),Vect(3)
 
-  integer :: i,j,t,n,NMAX,NActiveNodes,DIM
+  integer :: i,j,k,e,t,n,NMAX,NActiveNodes,DIM
+  integer :: p,q
 
   logical :: PowerFormulation,Beta2Formulation
   Logical ::  Firsttime=.true.,Found,stat
+  Logical :: NormalTangential1,NormalTangential2
 
   save SolverName,NeumannSolName,AdjointSolName,VarSolName,GradSolName
-  save VisitedNode,db,NodeDJ,Basis,dBasisdx
+  save VisitedNode,db,Basis,dBasisdx,nodalbetab,NodalRegb
   save Firsttime,DIM,Lambda
   save ElementNodes
   save PowerFormulation,Beta2Formulation
@@ -87,7 +92,9 @@ SUBROUTINE DJDBeta_Adjoint( Model,Solver,dt,TransientSimulation )
      WRITE(SolverName, '(A)') 'DJDBeta_Adjoint'
 
       NMAX=Solver % Mesh % NumberOfNodes
-      allocate(VisitedNode(NMAX),db(NMAX), NodeDJ(Model %  MaxElementNodes), &
+      allocate(VisitedNode(NMAX),db(NMAX),  &
+               nodalbetab(Model %  MaxElementNodes),&
+               NodalRegb(Model %  MaxElementNodes),&
                Basis(Model % MaxElementNodes),  &
                dBasisdx(Model % MaxElementNodes,3))
 
@@ -190,59 +197,111 @@ SUBROUTINE DJDBeta_Adjoint( Model,Solver,dt,TransientSimulation )
     VisitedNode=0.0_dp
     db=0.0_dp
 
-    DO t=1,Solver % NumberOfActiveElements
-      Element => GetActiveElement(t)
+    DO e=1,Solver % NumberOfActiveElements
+      Element => GetActiveElement(e)
       CALL GetElementNodes( ElementNodes )
       n = GetElementNOFNodes()
       NodeIndexes => Element % NodeIndexes
 
       ! Compute Nodal Value of DJDBeta
+      BC => GetBC()
+      if (.NOT.ASSOCIATED(BC)) CYCLE
+      
+      NormalTangential1 = GetLogical( BC, &
+                       'Normal-Tangential Velocity', Found )
+      IF (.NOT.Found) then
+          NormalTangential1 = GetLogical( BC, &
+            'Normal-Tangential '//trim(NeumannSolName), Found)
+      END IF
+      NormalTangential2 = GetLogical( BC, &
+            'Normal-Tangential '//trim(AdjointSolName), Found)
+      IF (NormalTangential1.NEQV.NormalTangential2) then
+          WRITE(Message,'(A,I1,A,I1)') &
+              'NormalTangential Velocity is : ',NormalTangential1, &
+              'But NormalTangential Adjoint is : ',NormalTangential2
+               CALL FATAL(SolverName,Message)
+      ENDIF
+      IF (.NOT.NormalTangential1) then 
+          WRITE(Message,'(A)') &
+               'ALWAYS USE Normal-Tangential COORDINATES with SlipCoef 2=SlipCoef 3'
+          CALL FATAL(SolverName,Message)
+      ENDIF
 
-      Do i=1,n
-         VisitedNode(NodeIndexes(i))=VisitedNode(NodeIndexes(i))+1.0_dp
-
-
-         vn=0.0
-         vd=0.0
-         vn(1) = VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(i))-1)+1)
-         vn(2) = VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(i))-1)+2)
-         vd(1) = VelocityD((DIM+1)*(VeloDPerm(NodeIndexes(i))-1)+1)
-         vd(2) = VelocityD((DIM+1)*(VeloDPerm(NodeIndexes(i))-1)+2)
-         if (DIM.eq.3) then
-                 vn(3)=VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(i))-1)+3)
-                 vd(3)=VelocityD((DIM+1)*(VeloDPerm(NodeIndexes(i))-1)+3)
-         endif
-
-         NodeDJ(i)=-scalar(vn,vd)
-         IF (PowerFormulation) then
-                 NodeDJ(i)=NodeDJ(i)*(10**(BetaValues(BetaPerm(NodeIndexes(i)))))*log(10.0)
-         ENDIF
-         IF (Beta2Formulation) then
-                 NodeDJ(i)=NodeDJ(i)*2.0_dp*BetaValues(BetaPerm(NodeIndexes(i)))
-         END IF
-       END DO
+         VisitedNode(NodeIndexes(1:n))=VisitedNode(NodeIndexes(1:n))+1.0_dp
 
          ! Compute Integrated Nodal Value of DJDBeta
+         nodalbetab=0.0_dp
+         NodalRegb=0.0_dp
+
+
          IntegStuff = GaussPoints( Element )
-           DO j=1,IntegStuff % n
-              U = IntegStuff % u(j)
-              V = IntegStuff % v(j)
-              W = IntegStuff % w(j)
+           DO t=1,IntegStuff % n
+              U = IntegStuff % u(t)
+              V = IntegStuff % v(t)
+              W = IntegStuff % w(t)
               stat = ElementInfo(Element,ElementNodes,U,V,W,SqrtElementMetric, &
                              Basis,dBasisdx )
-              Do i=1,n
-                    IPGrad=NodeDJ(i)*Basis(i)
-                    If (Lambda /= 0.0) then
-                        IPGrad=IPGrad+Lambda*(SUM(dBasisdx(1:n,1)*BetaValues(BetaPerm(NodeIndexes(1:n))))*dBasisdx(i,1))
-                        IF (DIM.eq.3) then
-                                IPGrad=IPGrad+Lambda*(SUM(dBasisdx(1:n,2)*BetaValues(BetaPerm(NodeIndexes(1:n))))*dBasisdx(i,2))
-                        End if     
-                    End if
-                    db(NodeIndexes(i)) = db(NodeIndexes(i)) + &
-                                   SqrtElementMetric*IntegStuff % s(j)*IPGrad
-              End do
-            End Do
-    End do
+ 
+              s = SqrtElementMetric * IntegStuff % s(t) 
+
+              ! compute gradient from Stokes and adjoint computation
+              ! follow the compuation of the stiffMatrix as done in the NS solver
+              Normal = NormalVector( Element, ElementNodes, u,v,.TRUE. )
+              SELECT CASE( Element % TYPE % DIMENSION )
+               CASE(1)
+                 Tangent(1) =  Normal(2)
+                 Tangent(2) = -Normal(1)
+                 Tangent(3) =  0.0_dp
+                 Tangent2   =  0.0_dp
+               CASE(2)
+                 CALL TangentDirections( Normal, Tangent, Tangent2 )
+              END SELECT
+
+ 
+              betab=0.0_dp
+              Do p=1,n
+                 Do q=1,n
+          
+                  Do i=2,dim
+                    SELECT CASE(i)
+                    CASE(2)
+                     Vect = Tangent
+                    CASE(3)
+                      Vect = Tangent2
+                    END SELECT
+               
+                    Do j=1,DIM
+                      Do k=1,DIM
+                        betab = betab + s *  Basis(q) * Basis(p) * Vect(j) * Vect(k) * &
+                   (- VelocityN((DIM+1)*(VeloNPerm(NodeIndexes(q))-1)+k) * &
+                    VelocityD((DIM+1)*(VeloDPerm(NodeIndexes(p))-1)+j))
+                      End Do !on k
+                   End Do !on j
+                  End Do !on i
+                 End Do !on q
+               End Do !on p
+
+               nodalbetab(1:n)=nodalbetab(1:n)+betab*Basis(1:n)
+
+               If (Lambda /= 0.0) then
+                        NodalRegb(1:n)=NodalRegb(1:n)+&
+                          s*Lambda*(SUM(dBasisdx(1:n,1)*BetaValues(BetaPerm(NodeIndexes(1:n))))*dBasisdx(1:n,1))
+                    IF (DIM.eq.3) then
+                        NodalRegb(1:n)=NodalRegb(1:n)+&
+                          s*Lambda*(SUM(dBasisdx(1:n,2)*BetaValues(BetaPerm(NodeIndexes(1:n))))*dBasisdx(1:n,2))
+                    End if     
+               End if
+            End DO ! on IPs
+
+            IF (PowerFormulation) then
+                 nodalbetab(1:n)=nodalbetab(1:n)*(10**(BetaValues(BetaPerm(NodeIndexes(1:n)))))*log(10.0)
+            ENDIF
+            IF (Beta2Formulation) then
+                 nodalbetab(1:n)=nodalbetab(1:n)*2.0_dp*BetaValues(BetaPerm(NodeIndexes(1:n)))
+            END IF
+
+            db(NodeIndexes(1:n)) = db(NodeIndexes(1:n)) + nodalbetab(1:n) + NodalRegb(1:n)
+    End do ! on elements
 
    Do t=1,Solver % Mesh % NumberOfNodes
      if (VisitedNode(t).lt.1.0_dp) cycle

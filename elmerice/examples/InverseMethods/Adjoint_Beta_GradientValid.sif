@@ -1,9 +1,25 @@
-
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!   Compare the total derivative of the cost function computed as:
+!     (1) dJ=P.G  where P is a pertubation vector of the variable of interest
+!                     G is the gradient of the cost function computed by an inverse method
+!     (2) [J(V+hP)-J(V)]/h  : forward finite diffrence computation of the derivative
+!                             V is the variable of interest
+!                             h is the step size 
+!
+!
+!  Compute (1) from at the first iteration and update V=Vini+hP, h=1
+!  Compute (2) for all the other iteration with h^i+1=h^i/2
+!
+! RESULTS stored in :
+!     Gradient Validation section
+!      Result File = File "GradientValidation_$name".dat"
+!        gives: h, abs(1-2)/1, (1), (2)
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 check keywords warn
 
 ! name of the run used for the outputs
-$name="Robin_Beta"
+$name="Adj_Beta_GradientValidation"
 
 ! Parametre de régularisation  
 $Lambda=0.0e00  
@@ -56,11 +72,8 @@ Simulation
 
   Output Intervals = 1
 
-  Steady State Max Iterations = 100
+  Steady State Max Iterations = 20
   Steady State Min Iterations = 1
-
-  Output File = "Test_$name".result"
-  Post File = "Test_$name".ep"
 
   Initialize Dirichlet Conditions = Logical False
 
@@ -93,16 +106,18 @@ Initial Condition 1
  
 ! initial guess for (square root) slip coeff.
   Beta = REAL $ 1.0e3/sqrt(1.0e06*yearinsec)
+! the perturbation
+  BetaP = REAL $ 1.0e3/sqrt(1.0e06*yearinsec)
 
   Pressure = Real 0.0 
   Velocity 1 = Real 0.0 
   Velocity 2 = Real 0.0
   Velocity 3 = Real 0.0
 
-  VeloD 1 = Real 0.0
-  VeloD 2 = Real 0.0
-  VeloD 3 = Real 0.0
-  VeloD 4 = Real 0.0
+  Adjoint 1 = Real 0.0
+  Adjoint 2 = Real 0.0
+  Adjoint 3 = Real 0.0
+  Adjoint 4 = Real 0.0
 
 ! Surface velocities (data)
   Vsurfini 1 = Variable Coordinate 1
@@ -147,6 +162,9 @@ Solver 2
   Stabilize = logical True
   flow model = Stokes
   
+!mandatory to save bulk stiffness matrix
+  calculate loads = Logical True
+
   !Linear System Solver = Direct
   !Linear System Direct Method =  mumps
   !mumps percentage increase working space = integer 60
@@ -154,12 +172,12 @@ Solver 2
    Linear System Iterative Method = GMRES
    Linear System GMRES Restart = 100
    Linear System Preconditioning= ILU0
-   Linear System Convergence Tolerance= 1.0e-08
+   Linear System Convergence Tolerance= 1.0e-12
    Linear System Max Iterations = 1000
 
-! 
+! system self adjoint if Newton is used for the last iterations
   Nonlinear System Max Iterations = Integer 100
-  Nonlinear System Convergence Tolerance  = Real 1.0e-7
+  Nonlinear System Convergence Tolerance  = Real 1.0e-9
   Nonlinear System Newton After Iterations = Integer 10
   Nonlinear System Newton After Tolerance = Real 1.0e-03
   Nonlinear System Relaxation Factor = Real 1.0 
@@ -177,26 +195,59 @@ Solver 2
 ! square root of the slip coef
   Exported Variable 3 = Beta
   Exported Variable 3 DOFS = Integer 1
-! derivative of the cost fn wr to beta
-  Exported Variable 4 = DJDBeta
+! perturbation variable
+  Exported Variable 4 = BetaP
   Exported Variable 4 DOFS = Integer 1
-! value of the cost function
-  Exported Variable 5 = CostValue
+! derivative of the cost fn wr to beta
+  Exported Variable 5 = DJDBeta
   Exported Variable 5 DOFS = Integer 1
+! value of the cost function
+  Exported Variable 6 = CostValue
+  Exported Variable 6 DOFS = Integer 1
+! Variable used to force the adjoint system/update in CostSolver
+  Exported Variable 7 = Velocityb
+  Exported Variable 7 DOFs = Integer 4
 
-  Exported Variable 6 = VsurfIni
-  Exported Variable 6 DOFS = Integer 2
+  Exported Variable 8 = VsurfIni
+  Exported Variable 8 DOFS = Integer 2
 
 End
 
-!!!! Navier-Stokes = Dirichlet Problem
+!!! Compute Cost function
+!!!!!!!!   Has to be run before the Adjoint Solver as adjoint forcing is computed here !!!!!
 Solver 3
-  Equation = "NS-Dirichlet"
 
-  Variable = VeloD
+  Equation = "Cost"
+
+!!  Solver need to be associated => Define dumy variable
+  Variable = -nooutput "CostV"
+  Variable DOFs = 1
+
+  procedure = "ElmerIceSolvers" "CostSolver_Adjoint"
+
+
+  Cost Variable Name = String "CostValue"  ! Name of Cost Variable
+
+  Optimized Variable Name = String "Beta"  ! Name of Beta for Regularization
+  Lambda = Real  $Lambda                   ! Regularization Coef
+
+  ! save the cost as a function of iterations
+  Cost Filename = File "Cost_$name".dat"   
+end
+
+!!!!  Adjoint Solution
+Solver 4
+  !!! needed only at the first iteration for computation of the total derivative with teh inverse method
+  Exec Interval = 100
+ 
+  Equation = "Adjoint"
+  Variable = Adjoint
   Variable Dofs = 4
 
-  procedure = "FlowSolve" "FlowSolver"
+  procedure = "ElmerIceSolvers" "AdjointSolver"
+
+!Name of the flow solution solver
+  Flow Solution Equation Name = string "Navier-Stokes"
 
   !Linear System Solver = Direct
   !Linear System Direct Method = mumps
@@ -206,54 +257,24 @@ Solver 3
    Linear System Preconditioning= ILU0
    Linear System Convergence Tolerance= 1.0e-08
    Linear System Max Iterations = 1000
-
-
-  Nonlinear System Max Iterations = Integer 100
-  Nonlinear System Convergence Tolerance  = Real 1.0e-7
-  Nonlinear System Newton After Iterations = Integer 10
-  Nonlinear System Newton After Tolerance = Real 1.0e-03
-  Nonlinear System Relaxation Factor = Real 1.0 
-
-  Nonlinear System Reset Newton = Logical True
-
-  Steady State Convergence Tolerance = Real 1.0e-12
 End
 
-!!! Compute Cost function
-Solver 4
-
-  Equation = "Cost"
-
-!!  Solver need to be associated => Define dumy variable
-  Variable = -nooutput "CostV"
-  Variable DOFs = 1
-
-  procedure = "ElmerIceSolvers" "CostSolver_Robin"
-
-
-  Cost Variable Name = String "CostValue"  ! Name of Cost Variable
-
-  Neumann Solution Name = String "Flow Solution"
-  Dirichlet Solution Name = String "VeloD"
-
-  Optimized Variable Name = String "Beta"  ! Name of Beta for Regularization
-  Lambda = Real  $Lambda                   ! Regularization Coef
-! save the cost as a function of iterations
-  Cost Filename = File "Cost_$name".dat"   
-end
 
 !!!!!  Compute Derivative of Cost function / Beta
 Solver 5
+  !!! needed only at the first iteration for computation of the total derivative with teh inverse method
+  Exec Interval = 100
+
   Equation = "DJDBeta"
 
 !!  Solver need to be associated => Define dumy variable
   Variable = -nooutput "DJDB"
   Variable DOFs = 1
 
-  procedure = "ElmerIceSolvers" "DJDBeta_Robin"
+  procedure = "ElmerIceSolvers" "DJDBeta_Adjoint"
   
-  Neumann Solution Name = String "Flow Solution"
-  Dirichlet Solution Name = String "VeloD"
+  Flow Solution Name = String "Flow Solution"
+  Adjoint Solution Name = String "Adjoint"
   Optimized Variable Name = String "Beta"  ! Name of Beta variable
   Gradient Variable Name = String "DJDBeta"   ! Name of gradient variable
   PowerFormulation = Logical False
@@ -262,33 +283,22 @@ Solver 5
   Lambda = Real  $Lambda                   ! Regularization Coef
 end
 
-!!!!! Optimization procedure 
+!!!!! Gradient Validation
+!!!!!!  Compute total derivative and update the step size for the finite difference computation
 Solver 6
-  Equation = "Optimize_m1qn3"
+  Equation = "GradientValidation"
 
 !!  Solver need to be associated => Define dumy variable
   Variable = -nooutput "UB"
   Variable DOFs = 1
 
-  procedure = "ElmerIceSolvers" "Optimize_m1qn3Parallel"
+  procedure = "./Executables/GradientValidation" "GradientValidation"
 
   Cost Variable Name = String "CostValue"
   Optimized Variable Name = String "Beta"
+  Perturbed Variable Name = String "BetaP"
   Gradient Variable Name = String "DJDBeta"
-  gradient Norm File = String "GradientNormAdjoint_$name".dat"
-
-
-! M1QN3 Parameters
-  M1QN3 dxmin = Real 1.0e-10
-  M1QN3 epsg = Real  1.e-6
-  M1QN3 niter = Integer 200
-  M1QN3 nsim = Integer 200
-  M1QN3 impres = Integer 5
-  M1QN3 DIS Mode = Logical False
-  M1QN3 df1 = Real 0.5
-  M1QN3 normtype = String "dfn"
-  M1QN3 OutputFile = File  "M1QN3_$name".out"
-  M1QN3 ndz = Integer 20
+  Result File = File "GradientValidation_$name".dat"
 
 end
 
@@ -301,9 +311,13 @@ Solver 7
   Vtu Format = logical true
   Binary Output = True
   Single Precision = True
+  Save Geometry Ids = Logical True
 
+  Vector Field 1 = "Velocity"
+  Scalar Field 1 = VsurfIni 1
+  Scalar Field 2 = VsurfIni 2
+  Scalar Field 3 = Beta
 End
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Equation 1
@@ -325,9 +339,9 @@ Boundary Condition 1
   Velocity 1 = Real 0.0
   Velocity 2 = Real 0.0
 
-!Dirichlet BC => Same Dirichlet 
-  VeloD 1 = Real 0.0
-  VeloD 2 = Real 0.0
+!Dirichlet BC => Dirichlet = 0 for Adjoint
+  Adjoint 1 = Real 0.0
+  Adjoint 2 = Real 0.0
 End
 
 Boundary Condition 2
@@ -338,10 +352,9 @@ Boundary Condition 2
       REAL MATC "4.753e-6*yearinsec*(sin(2.0*pi*(Ly-tx)/Ly)+2.5*sin(pi*(Ly-tx)/Ly))"
    Velocity 2 = Real 0.0
 
-!Dirichlet BC => Same Dirichlet
-  VeloD 1 = Variable Coordinate 2
-      REAL MATC "4.753e-6*yearinsec*(sin(2.0*pi*(Ly-tx)/Ly)+2.5*sin(pi*(Ly-tx)/Ly))"
-  VeloD 2 = Real 0.0
+!Dirichlet BC => Dirichlet = 0 for Adjoint
+  Adjoint 1 = Real 0.0
+  Adjoint 2 = Real 0.0
 End
 
 Boundary Condition 3
@@ -352,10 +365,9 @@ Boundary Condition 3
       REAL MATC "1.584e-5*yearinsec*(sin(2.0*pi*(Ly-tx)/Ly)+2.5*sin(pi*(Ly-tx)/Ly)+0.5*sin(3.0*pi*(Ly-tx)/Ly))"
    Velocity 2 = Real 0.0
 
-!Dirichlet BC => Same Dirichlet 
-  VeloD 1 = Variable Coordinate 2
-      REAL MATC "1.584e-5*yearinsec*(sin(2.0*pi*(Ly-tx)/Ly)+2.5*sin(pi*(Ly-tx)/Ly)+0.5*sin(3.0*pi*(Ly-tx)/Ly))"
-  VeloD 2 = Real 0.0
+!Dirichlet BC => Dirichlet = 0 for Adjoint
+  Adjoint 1 = Real 0.0
+  Adjoint 2 = Real 0.0
 End
 
 Boundary Condition 4
@@ -370,11 +382,12 @@ Boundary Condition 4
     REAL   procedure "Executables/USF_Init" "zbIni"
 
   Normal-Tangential Velocity = Logical True  
-  Normal-Tangential VeloD = Logical True  
+  Normal-Tangential Adjoint = Logical True  
 
+  Adjoint Force BC = Logical True
 
   Velocity 1 = Real 0.0e0
-  VeloD 1 = Real 0.0e0
+  Adjoint 1 = Real 0.0e0
 
   Slip Coefficient 2 = Variable Beta
      REAL MATC "tx*tx"
@@ -396,10 +409,15 @@ Boundary Condition 5
   Top Surface = Variable Coordinate 1
      REAL procedure "Executables/USF_Init" "zsIni"
 
+  ! Definition of the Cost function
+  Adjoint Cost = Variable Velocity 1 , Vsurfini 1 , Velocity 2 , Vsurfini 2
+    Real MATC "0.5*((tx(0)-tx(1))*(tx(0)-tx(1))+(tx(2)-tx(3))*(tx(2)-tx(3)))"
 
-  ! Dirichlet problem applied observed velocities
-  VeloD 1 = Equals  Vsurfini 1
-  VeloD 2 = Equals  Vsurfini 2
+  !  derivative of the cost function wr u and v
+  Adjoint Cost der 1 = Variable Velocity 1 , Vsurfini 1
+    Real MATC "tx(0)-tx(1)"
+  Adjoint Cost der 2 = Variable Velocity 2 , Vsurfini 2
+    Real MATC "tx(0)-tx(1)"
 
 End 
 

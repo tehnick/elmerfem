@@ -71,11 +71,15 @@ SUBROUTINE AdjointSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   TYPE(Element_t),POINTER :: Element
   TYPE(Variable_t), POINTER :: Sol
+  TYPE(Variable_t), POINTER :: VelocitybSol
+  REAL(KIND=dp), POINTER :: Vb(:)
+  INTEGER, POINTER :: VbPerm(:)
   REAL(KIND=dp),POINTER :: ForceVector(:)
   integer :: t,n,NSDOFs,NVals,SolverInd
   REAL(KIND=dp),ALLOCATABLE :: STIFF(:,:),FORCE(:),ExtPressure(:),LoadVector(:,:),Alpha(:),Beta(:),SlipCoeff(:,:),w(:)
   Logical :: Gotit,GotForceBC,NormalTangential,Firsttime=.true.
   INTEGER, POINTER :: NodeIndexes(:),Perm(:)
+  integer :: p,q,dim,c
 
   integer :: i,iii,jjj,k
   Real(KIND=dp) :: Unorm
@@ -86,6 +90,7 @@ SUBROUTINE AdjointSolver( Model,Solver,dt,TransientSimulation )
 
   save SolverName,Firsttime,SolverInd,STIFF,FORCE,ExtPressure,LoadVector,Alpha,Beta,SlipCoeff,w
 
+  DIM = CoordinateSystemDimension()
 
   StiffMatrix => Solver % Matrix
   ForceVector => StiffMatrix % RHS
@@ -131,37 +136,38 @@ SUBROUTINE AdjointSolver( Model,Solver,dt,TransientSimulation )
          InitMat % Cols => NSSolver % Matrix % Cols
 
 
+         VelocitybSol => VariableGet( Solver % Mesh % Variables, 'Velocityb'  )
+         IF ( ASSOCIATED( VelocitybSol ) ) THEN
+            Vb => VelocitybSol % Values
+            VbPerm => VelocitybSol % Perm
+         ELSE
+            WRITE(Message,'(A)') &
+                               'No variable > Velocityb < found'
+            CALL FATAL(SolverName,Message)
+         END IF  
+         IF (VelocitybSol % DOFs.NE.(dim+1)) then
+           WRITE(Message,'(A,I1,A,I1)') &
+            'Variable Velocityb has ',VelocitybSol % DOFs,' DOFs, should be',dim+1
+            CALL FATAL(SolverName,Message)
+         End If
 
-   !if (.NOT.ALLOCATED(FullMat)) then
-   !       allocate(FullMat(Solver % Matrix % NumberOfRows,Solver %  Matrix % NumberOfRows))
-   !end if
-   !   FullMat=0.0_dp
-   !   write(fo1,*) '(',InitMat % NumberOfRows,'f25.12,x)'
-   !   open(10,file='NSStiffMat.dat')
-   !   Do iii=1,InitMat % NumberOfRows
-   !     Do jjj=InitMat % Rows(iii),InitMat % Rows(iii+1)-1
-   !        FullMat(iii,InitMat % Cols(jjj))=InitMat % Values(jjj)
-   !     End Do
-   !     write(10,fo1)FullMat(iii,1:InitMat % NumberOfRows)
-   !   End Do
+        TransMat => NULL()
+        TransMat => CRS_Transpose(InitMat)
 
-  TransMat => NULL()
-  TransMat => CRS_Transpose(InitMat)
+        NULLIFY( InitMat % Rows, InitMat % Cols, InitMat % Diag, InitMat % Values )
+        CALL FreeMatrix( InitMat )
 
-    NULLIFY( InitMat % Rows, InitMat % Cols, InitMat % Diag, InitMat % Values )
-    CALL FreeMatrix( InitMat )
+        CALL CRS_SortMatrix( TransMat , .true. )
 
-  CALL CRS_SortMatrix( TransMat , .true. )
+        StiffMatrix % Values = TransMat % Values
+        StiffMatrix % Rows = TransMat % Rows
+        StiffMatrix % Cols = TransMat % Cols
+        StiffMatrix % Diag = TransMat % Diag
+        ForceVector = 0.0
+        Perm = NSSolver % Variable % Perm
 
-  StiffMatrix % Values = TransMat % Values
-  StiffMatrix % Rows = TransMat % Rows
-  StiffMatrix % Cols = TransMat % Cols
-  StiffMatrix % Diag = TransMat % Diag
-  ForceVector = 0.0
-  Perm = NSSolver % Variable % Perm
-
-  deallocate( TransMat % Rows, TransMat % Cols , TransMat % Values, TransMat %  Diag)
-  nullify(TransMat)
+        deallocate( TransMat % Rows, TransMat % Cols , TransMat % Values, TransMat %  Diag)
+        nullify(TransMat)
 
       DO t = 1,Solver % Mesh % NumberOfBoundaryElements
 
@@ -192,13 +198,10 @@ SUBROUTINE AdjointSolver( Model,Solver,dt,TransientSimulation )
         ExtPressure=0.0
         SlipCoeff = 0.0d0
 
+        ! I only see 1 case where we have to impose Neumann condition to the
+        ! Adjoint system; the slip BC
         NormalTangential = GetLogical( BC, &
                          'Normal-Tangential Adjoint', GotIt )
-       
-        ExtPressure(1:n) = GetReal( BC, 'Adjoint Load', GotIt )
-        LoadVector(1,1:n) =  GetReal( BC, 'Adjoint Force 1', GotIt )
-        LoadVector(2,1:n) =  GetReal( BC, 'Adjoint Force 2', GotIt )
-        LoadVector(3,1:n) =  GetReal( BC, 'Adjoint Force 3', GotIt )
 
         SlipCoeff(1,1:n) =  GetReal( BC, 'Slip Coefficient 1',GotIt )
         SlipCoeff(2,1:n) =  GetReal( BC, 'Slip Coefficient 2',GotIt )
@@ -212,6 +215,17 @@ SUBROUTINE AdjointSolver( Model,Solver,dt,TransientSimulation )
        end if
 
       END DO
+      
+      !forcing of the adjoint system comes from the Velocityb variable computed
+      !with the cost function
+      c = dim + 1
+      Do t=1,Solver%Mesh%NumberOfNodes
+         Do i=1,c
+           p=(Perm(t)-1)*c+i
+           q=(VbPerm(t)-1)*c+i
+           ForceVector(p)=Vb(q)
+        End Do
+      EndDo
 
       CALL FinishAssembly( Solver, ForceVector )
        

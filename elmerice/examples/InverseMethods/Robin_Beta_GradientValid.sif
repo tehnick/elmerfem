@@ -1,9 +1,26 @@
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!   Compare the total derivative of the cost function computed as:
+!     (1) dJ=P.G  where P is a pertubation vector of the variable of interest
+!                     G is the gradient of the cost function computed by an inverse method
+!     (2) [J(V+hP)-J(V)]/h  : forward finite diffrence computation of the derivative
+!                             V is the variable of interest
+!                             h is the step size 
+!
+!
+!  Compute (1) from at the first iteration and update V=Vini+hP, h=1
+!  Compute (2) for all the other iteration with h^i+1=h^i/2
+!
+! RESULTS stored in :
+!     Gradient Validation section
+!      Result File = File "GradientValidation_$name".dat"
+!        gives: h, abs(1-2)/1, (1), (2)
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 check keywords warn
 
 ! name of the run used for the outputs
-$name="Robin_Beta"
+$name="Robin_Beta_GradientValidation"
 
 ! Parametre de régularisation  
 $Lambda=0.0e00  
@@ -56,11 +73,11 @@ Simulation
 
   Output Intervals = 1
 
-  Steady State Max Iterations = 100
+  Steady State Max Iterations = 20
   Steady State Min Iterations = 1
 
-  Output File = "Test_$name".result"
-  Post File = "Test_$name".ep"
+!  Output File = "Test_$name".result"
+!  Post File = "Test_$name".ep"
 
   Initialize Dirichlet Conditions = Logical False
 
@@ -93,6 +110,9 @@ Initial Condition 1
  
 ! initial guess for (square root) slip coeff.
   Beta = REAL $ 1.0e3/sqrt(1.0e06*yearinsec)
+! the perturbation
+  BetaP = REAL $ 1.0e3/sqrt(1.0e06*yearinsec)
+
 
   Pressure = Real 0.0 
   Velocity 1 = Real 0.0 
@@ -177,20 +197,24 @@ Solver 2
 ! square root of the slip coef
   Exported Variable 3 = Beta
   Exported Variable 3 DOFS = Integer 1
-! derivative of the cost fn wr to beta
-  Exported Variable 4 = DJDBeta
+! perturbation variable
+  Exported Variable 4 = BetaP
   Exported Variable 4 DOFS = Integer 1
-! value of the cost function
-  Exported Variable 5 = CostValue
+! derivative of the cost fn wr to beta
+  Exported Variable 5 = DJDBeta
   Exported Variable 5 DOFS = Integer 1
+! value of the cost function
+  Exported Variable 6 = CostValue
+  Exported Variable 6 DOFS = Integer 1
 
-  Exported Variable 6 = VsurfIni
-  Exported Variable 6 DOFS = Integer 2
+  Exported Variable 7 = VsurfIni
+  Exported Variable 7 DOFS = Integer 2
 
 End
 
 !!!! Navier-Stokes = Dirichlet Problem
 Solver 3
+
   Equation = "NS-Dirichlet"
 
   Variable = VeloD
@@ -244,6 +268,9 @@ end
 
 !!!!!  Compute Derivative of Cost function / Beta
 Solver 5
+  !!! needed only at the first iteration for computation of the total derivative with teh inverse method
+  Exec Interval = 100
+
   Equation = "DJDBeta"
 
 !!  Solver need to be associated => Define dumy variable
@@ -262,33 +289,22 @@ Solver 5
   Lambda = Real  $Lambda                   ! Regularization Coef
 end
 
-!!!!! Optimization procedure 
+!!!!! Gradient Validation
+!!!!!!  Compute total derivative and update the step size for the finite difference computation
 Solver 6
-  Equation = "Optimize_m1qn3"
+  Equation = "GradientValidation"
 
 !!  Solver need to be associated => Define dumy variable
   Variable = -nooutput "UB"
   Variable DOFs = 1
 
-  procedure = "ElmerIceSolvers" "Optimize_m1qn3Parallel"
+  procedure = "./Executables/GradientValidation" "GradientValidation"
 
   Cost Variable Name = String "CostValue"
   Optimized Variable Name = String "Beta"
+  Perturbed Variable Name = String "BetaP"
   Gradient Variable Name = String "DJDBeta"
-  gradient Norm File = String "GradientNormAdjoint_$name".dat"
-
-
-! M1QN3 Parameters
-  M1QN3 dxmin = Real 1.0e-10
-  M1QN3 epsg = Real  1.e-6
-  M1QN3 niter = Integer 200
-  M1QN3 nsim = Integer 200
-  M1QN3 impres = Integer 5
-  M1QN3 DIS Mode = Logical False
-  M1QN3 df1 = Real 0.5
-  M1QN3 normtype = String "dfn"
-  M1QN3 OutputFile = File  "M1QN3_$name".out"
-  M1QN3 ndz = Integer 20
+  Result File = File "GradientValidation_$name".dat"
 
 end
 

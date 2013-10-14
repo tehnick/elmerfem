@@ -22,15 +22,15 @@
 ! *****************************************************************************/
 ! ******************************************************************************
 ! *
-! *  Authors: 
-! *  Email:   
+! *  Authors: f. Gillet-Chaulet (LGGE, Grenoble,France)
+! *  Email:   gillet-chaulet@lgge.obs.ujf-grenoble.fr
 ! *  Web:     http://elmerice.elmerfem.org
 ! *
 ! *  Original Date: 
 ! * 
 ! *****************************************************************************
 !Compute the Cost function of the Adjoint inverse Problem
-!      as Sum_Surface 0.5*(u - uobs)^2
+!      as Integral_Surface Node_Cost ds
 !      with a regularization as Sum_bedrock 0.5 Lambda (dBeta/dx)^2
 !
 !   Serial/Parallel    2D/3D
@@ -39,9 +39,11 @@
 !   - Name of the Cost Variable
 !   - Lambda and Beta for regularization
 !   - define in the sif Name='surface' and Name='bed' in appropriate BC.
-!
-!
-!
+!   - define in the sif in the surface BC:
+!                'Adjoint Cost = Real ...' : The nodal value of the cost
+!                'Adjoint Cost der 1 = Real ...' : The derivative of 'Adjoint Cost' w.r.t. u-velocity
+!                'Adjoint Cost der 2 = Real ...' : The derivative of 'Adjoint Cost' w.r.t. v-velocity
+!                'Adjoint Cost der 3 = Real ...' : The derivative of 'Adjoint Cost' w.r.t. w-velocity
 !
 ! *****************************************************************************
 SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
@@ -61,21 +63,27 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
   CHARACTER(LEN=MAX_NAME_LEN) :: BCName,CostSolName,VarSolName
   TYPE(Element_t),POINTER ::  Element
   TYPE(Variable_t), POINTER :: TimeVar,CostVar,BetaSol
+  TYPE(Variable_t), POINTER :: VelocitybSol
   TYPE(ValueList_t), POINTER :: BC,SolverParams
   TYPE(Nodes_t) :: ElementNodes
   TYPE(GaussIntegrationPoints_t) :: IntegStuff
   REAL(KIND=dp), POINTER :: Beta(:)
+  REAL(KIND=dp), POINTER :: Vb(:)
   INTEGER, POINTER :: NodeIndexes(:), BetaPerm(:)
+  INTEGER, POINTER :: VbPerm(:)
   Logical :: Firsttime=.true.,Found,Parallel,stat,Gotit
-  integer :: i,j,k,l,t,n,NMAX,DIM,ierr
+  integer :: i,j,k,l,t,n,NMAX,DIM,ierr,c
   real(kind=dp) :: Cost,Cost_bed,Cost_surf,Cost_S,Cost_bed_S,Cost_surf_S,Lambda
   real(kind=dp) :: Bu,Bv,u,v,w,s,coeff,SqrtElementMetric,x
   REAL(KIND=dp) :: NodeCost(Model % MaxElementNodes),Basis(Model % MaxElementNodes), dBasisdx(Model % MaxElementNodes,3)
+  REAL(KIND=dp) :: NodeCostb(Model % MaxElementNodes),NodeCost_der(3,Model %MaxElementNodes)
   CHARACTER*10 :: date,temps
 
   save Firsttime,Parallel 
   save SolverName,CostSolName,VarSolName,Lambda,CostFile
-  save DIM,ElementNodes
+  save ElementNodes
+
+  DIM = CoordinateSystemDimension()
 
   If (Firsttime) then
 
@@ -87,7 +95,6 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
             END IF
     END IF
 
-     DIM = CoordinateSystemDimension()
      WRITE(SolverName, '(A)') 'CostSolver_Adjoint'
 
 !!!!!!!!!!! get Solver Variables
@@ -131,7 +138,6 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
            CALL WARN(SolverName,'Taking default value Lambda=0.0')
            Lambda = 0.0
    End if
-
   
   !!! End of First visit
     Firsttime=.false.
@@ -145,7 +151,25 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
             WRITE(Message,'(A,A,A)') &
                                'No variable >',VarSolName,' < found'
             CALL FATAL(SolverName,Message)
-    END IF            
+    END IF  
+
+    VelocitybSol => VariableGet( Solver % Mesh % Variables, 'Velocityb'  )
+    IF ( ASSOCIATED( VelocitybSol ) ) THEN
+            Vb => VelocitybSol % Values
+            VbPerm => VelocitybSol % Perm
+    ELSE
+            WRITE(Message,'(A)') &
+                               'No variable > Velocityb < found'
+            CALL FATAL(SolverName,Message)
+    END IF  
+    c=DIM + 1 ! size of the velocity variable
+    IF (VelocitybSol % DOFs.NE.c) then
+           WRITE(Message,'(A,I1,A,I1)') &
+            'Variable Velocityb has ',VelocitybSol % DOFs,' DOFs, should be',c
+            CALL FATAL(SolverName,Message)
+    End If
+    Vb=0.0_dp
+
 
     Cost=0._dp
     Cost_surf=0._dp
@@ -167,12 +191,17 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
       NodeCost=0.0_dp
       IF (BCName == 'surface') THEN
           NodeCost(1:n) = ListGetReal(BC, 'Adjoint Cost', n, NodeIndexes, GotIt)
-          !PRINT *,NodeCost(1:n)
           IF (.NOT.GotIt) Then
                   WRITE(Message,'(A)') &
                      'No variable >Adjoint Cost< found in "surface" BC'
                   CALL FATAL(SolverName,Message)
           END IF 
+          NodeCost_der=0.0_dp
+          
+          NodeCost_der(1,1:n)=ListGetReal(BC, 'Adjoint Cost der 1', n, NodeIndexes, GotIt)
+          NodeCost_der(2,1:n)=ListGetReal(BC, 'Adjoint Cost der 2', n, NodeIndexes, GotIt)
+          NodeCost_der(3,1:n)=ListGetReal(BC, 'Adjoint Cost der 3', n, NodeIndexes, GotIt)
+          
       Else IF (BCName == 'bed') Then
           NodeCost(1:n)=Beta(BetaPerm(NodeIndexes(1:n)))
       End if
@@ -181,6 +210,9 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
 !    Numerical integration
 !------------------------------------------------------------------------------
         IntegStuff = GaussPoints( Element )
+
+
+        NodeCostb=0.0_dp
 
         DO i=1,IntegStuff % n
           U = IntegStuff % u(i)
@@ -203,6 +235,7 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
            IF (BCName == 'surface') Then   
             coeff = SUM(NodeCost(1:n)  * Basis(1:n))
             Cost_surf=Cost_surf+coeff*s
+            NodeCostb(1:n)=NodeCostb(1:n) + s*Basis(1:n)
            else IF (BCName == 'bed') Then
             coeff = SUM(NodeCost(1:n) * dBasisdx(1:n,1))
             coeff =  coeff * coeff
@@ -215,9 +248,16 @@ SUBROUTINE CostSolver_Adjoint( Model,Solver,dt,TransientSimulation )
             coeff = 0.0
            End if
 
-            !Cost=Cost+coeff*s
-            !PRINT *,Solver % Matrix % ParMatrix % ParEnv % MyPE,Cost
         End do
+        IF (BCName == 'surface') Then
+        c=DIM + 1 ! size of the velocity variable
+         Do j=1,n
+          Do i=1,DIM
+            k=(VbPerm(NodeIndexes(j))-1)*c+i
+            Vb(k)=Vb(k)+NodeCostb(j)*NodeCost_der(i,j)
+          End Do
+         End Do
+        END if
     End do
 
    Cost=Cost_surf+0.5*Lambda*Cost_bed
