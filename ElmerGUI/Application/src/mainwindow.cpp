@@ -1449,6 +1449,7 @@ void MainWindow::saveSlot()
     return;
   }
 
+  generateSifSlot();
   saveElmerMesh(saveDirName);
 }
 
@@ -1472,6 +1473,7 @@ void MainWindow::saveAsSlot()
     return;
   }
 
+  generateSifSlot();
   saveElmerMesh(saveDirName);
 }
 
@@ -1484,6 +1486,8 @@ void MainWindow::saveProjectSlot()
     logMessage("Unable to save project: no mesh");
     return;
   }
+
+  generateSifSlot();
 
   QString defaultDirName = getDefaultDirName();
 
@@ -2326,7 +2330,8 @@ void MainWindow::saveElmerMesh(QString dirName)
 //-----------------------------------------------------------------------------
 void MainWindow::closeMainWindowSlot()
 {
-  QApplication::closeAllWindows();
+    saveSlot();
+    QApplication::closeAllWindows();
   // close();
 }
 
