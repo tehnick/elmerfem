@@ -132,8 +132,7 @@ SUBROUTINE DJDMu_Adjoint( Model,Solver,dt,TransientSimulation )
                dBasisdx(NpN,3), &
                Ux(NpN),Uy(NpN),Uz(NpN),&
                c2n(NpN),c3n(NpN),&
-               NodalViscosityb(NpN),&
-               )
+               NodalViscosityb(NpN))
 
 !!!!!!!!!!! get Solver Variables
       SolverParams => GetSolverParams()
