@@ -3234,7 +3234,7 @@ CONTAINS
      REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------
      LOGICAL :: stat, Found, GB, MeActive
-     INTEGER :: i, j, n, SolverAddr, BDOFs, maxdim
+     INTEGER :: i, j, k, l, col, row, n, SolverAddr, BDOFs, maxdim
      TYPE(Element_t), POINTER :: CurrentElement
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
 
@@ -3243,7 +3243,7 @@ CONTAINS
      INTEGER :: comm_active, group_active, group_world, ierr
 
      LOGICAL :: FoundMortar
-     TYPE(Matrix_t), POINTER :: CM, CM0
+     TYPE(Matrix_t), POINTER :: CM, CM0, CM1, CMP
 
 !------------------------------------------------------------------------------
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
@@ -3360,22 +3360,72 @@ CONTAINS
 
        IF(FoundMortar) THEN
          CM0 => CM
+         CMP => Null()
          DO WHILE(ASSOCIATED(CM0))
-           IF(ASSOCIATED(CM0 % RHS)) DEALLOCATE(CM0 % RHS)
-
-           ALLOCATE(CM0 % RHS(CM0 % NumberOfRows))
-           CM0 % RHS = 0._dp
-
            CM0 % Cols = Solver % Variable % Perm(CM0 % Cols)
+
            IF(ASSOCIATED(CM0 % InvPerm)) THEN
              DO i=1,SIZE(CM0 % InvPerm)
                IF(CM0 % InvPerm(i)>0) THEN
                  CM0 % InvPerm(i) = Solver % Variable % Perm(CM0 % InvPerm(i))
                END IF
              END DO
-           END IF           
+           END IF
+
+           n = Solver % Variable % DOFs
+           IF (n>1) THEN
+             CM1 => AllocateMatrix()
+             CM1 % NumberOfRows = n*CM0 % NumberOfRows
+             ALLOCATE(CM1 % Rows(n*CM0 % NumberOfRows+1))
+             ALLOCATE(CM1 % Cols(n*SIZE(CM0 % Cols))); CM1 % Cols = 0._dp
+             ALLOCATE(CM1 % Diag(CM1 % NumberOfRows)); CM1 % Diag = 0._dp
+             ALLOCATE(CM1 % Values(n*SIZE(CM0 % Values))); CM1 % Values = 0._dp
+
+             CM1 % Rows(1) = 1
+             col = 0
+             row = 1
+             DO i=1,CM0 % NumberOfRows
+               DO j=1,n
+                 DO k=CM0 % Rows(i),CM0 % Rows(i+1)-1
+#if 0
+                   DO l=1,n
+                     col = col + 1
+                     CM1 % Values(col) = CM0 % Values(k)
+                     IF(j==l) THEN
+                       CM1 % Cols(col) = n*(CM0 % Cols(k)-1)+l
+                     END IF
+                   END DO
+#else
+                   col = col + 1
+                   CM1 % Values(col) = CM0 % Values(k)
+                   CM1 % Cols(col) = n*(CM0 % Cols(k)-1)+j
+#endif
+                 END DO
+                 row = row + 1
+                 CM1 % Rows(row) = col + 1
+               END DO
+             END DO
+
+             ALLOCATE(CM1 % InvPerm(n*SIZE(CM0 % InvPerm)))
+             CM1 % InvPerm = 0
+             DO i=1,SIZE(CM0 % InvPerm)
+               IF(CM0 % InvPerm(i)<=0) CYCLE
+               DO j=1,n
+                 CM1 % InvPerm(n*(i-1)+j) = n*(CM0 % InvPerm(i)-1)+j
+               END DO
+             END DO
+
+             CM1 % ConstraintMatrix => CM0 % ConstraintMatrix
+             IF(ASSOCIATED(CM0,CM)) CM=>CM1
+             CM0 % ConstraintMatrix => Null(); CALL FreeMatrix(CM0)
+             CM0 => CM1
+             IF(ASSOCIATED(CMP)) CMP % ConstraintMatrix => CM0
+           END IF
+
+           ALLOCATE(CM0 % RHS(CM0 % NumberOfRows)); CM0 % RHS = 0._dp
            CM0 % Ordered = .FALSE.
            CALL CRS_SortMatrix(CM0,.TRUE.)
+           CMP => CM0
            CM0 => CM0 % ConstraintMatrix
          END DO
 
@@ -3386,7 +3436,6 @@ CONTAINS
          CM0 % ConstraintMatrix => CM
        END IF
      END IF
-
 
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
