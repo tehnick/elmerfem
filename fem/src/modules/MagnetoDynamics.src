@@ -903,6 +903,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+
 !------------------------------------------------------------------------------
   SUBROUTINE Potential( U, A, Element,n,nd)
 !------------------------------------------------------------------------------
@@ -910,9 +912,10 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t) :: Element
 
-    REAL(KIND=dp) :: Basis(nd), DetJ,POT(nd),pPOT(nd),dPOT(nd)
+    REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3),DetJ,POT(nd),pPOT(nd), &
+          dPOT(nd),wBasis(nd,3),rotWBasis(nd,3),Wpot(nd),w(3)
     INTEGER :: t
-    LOGICAL :: stat
+    LOGICAL :: stat, WbaseFound
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
 	!$OMP THREADPRIVATE(Nodes)
@@ -929,6 +932,9 @@ CONTAINS
       dPot = (dPOT + 0.5_dp*pPOT)/dt
     END IF
 
+    CALL GetLocalSolution(Wpot,'W',UElement=Element)
+    W = [0._dp, 0._dp, 1._dp]
+    WbaseFound = ANY(Wpot(1:n)/=0._dp))
 
     !Numerical integration:
     !----------------------
@@ -937,13 +943,20 @@ CONTAINS
       ! Basis function values & derivatives at the integration point:
       !--------------------------------------------------------------
       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-                IP % W(t), detJ, Basis )
+                  IP % W(t), detJ, Basis,dBasisdx )
+
+      IF(WBaseFound) W = MATMUL(Wpot(1:n),dBasisdx(1:n,:))
+
+      CALL GetEdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
+
       A = A + IP % s(t) * detJ
-      U = U + IP % s(t) * detJ * SUM(dPot(1:nd)*Basis(1:nd))
+      U = U + IP % s(t) * detJ * SUM(dPot(n+1:nd)*MATMUL(WBasis(1:nd-n,:),w))
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE Potential
 !------------------------------------------------------------------------------
+
+
 
 
 
@@ -1398,7 +1411,7 @@ CONTAINS
 
        ! Compute C * grad(V), where C is a tensor
        ! -----------------------------------------
-       L = L-MATMUL(C(1:3,1:3), MATMUL(LOAD(7,1:n), dBasisdx(1:n,:)))
+       L = L-MATMUL(C, MATMUL(LOAD(7,1:n), dBasisdx(1:n,:)))
 
        IF ( HBCurve ) THEN
          B_ip = MATMUL( Aloc(np+1:nd), RotWBasis(1:nd-np,:) )
@@ -1428,7 +1441,7 @@ CONTAINS
              ! -------------------------------------------
 
              IF ( SUM(C) /= 0._dp ) THEN
-               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C(1:3, 1:3), dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
+               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
              ELSE
 !              STIFF(p,q) = STIFF(p,q) + &
 !                     Basis(q)*Basis(p)*detJ*IP % s(t)
@@ -1440,12 +1453,12 @@ CONTAINS
 	     ! Compute the conductivity term <C A,grad v> for 
              ! mass matrix (anisotropy taken into account)
              ! -------------------------------------------
-             MASS(p,q) = MASS(p,q) + SUM(MATMUL(C(1:3,1:3), dBasisdx(i,:))*Wbasis(j,:))*detJ*IP % s(t)
+             MASS(p,q) = MASS(p,q) + SUM(MATMUL(C, dBasisdx(i,:))*Wbasis(j,:))*detJ*IP % s(t)
 
 	     ! Compute the conductivity term <C grad V, eta> for 
              ! stiffness matrix (anisotropy taken into account)
              ! ------------------------------------------------
-             STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C(1:3,1:3), WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
+             STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C, WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
            END DO
          END DO
        ELSE
@@ -1463,7 +1476,7 @@ CONTAINS
                ! Compute the conductivity term <C grad V,grad v> for stiffness 
                ! matrix (anisotropy taken into account)
                ! -------------------------------------------
-               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C(1:3,1:3), dBasisdx(i,:)) * dBasisdx(j,:))*detJ*IP % s(t)
+               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(i,:)) * dBasisdx(j,:))*detJ*IP % s(t)
              END DO
 
              DO j=1,nd-np
@@ -1471,7 +1484,7 @@ CONTAINS
                ! Compute the conductivity term <C grad V, eta> for 
                ! stiffness matrix (anisotropy taken into account)
                ! ------------------------------------------------
-               STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C(1:3,1:3), WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
+               STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C, WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
              END DO
            END DO
          END IF
@@ -1497,7 +1510,7 @@ CONTAINS
            ! Compute the conductivity term <C A,eta> for 
            ! mass matrix (anisotropy taken into account)
            ! -------------------------------------------
-           MASS(p,q) = MASS(p,q) + SUM(MATMUL(C(1:3,1:3), WBasis(i,:))*WBasis(j,:) )*detJ*IP % s(t)
+           MASS(p,q) = MASS(p,q) + SUM(MATMUL(C, WBasis(i,:))*WBasis(j,:) )*detJ*IP % s(t)
 
            ! Compute the low frequency eddy term for laminate stack model.
            ! Note that the conductivity term <C A, eta> above can be used to 
@@ -2537,7 +2550,9 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0
 
   TYPE(Mesh_t), POINTER :: Mesh
-  COMPLEX(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:,:,:)
+
+  COMPLEX(kind=dp) :: Aval
+  COMPLEX(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:)
   COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
 
   COMPLEX(KIND=dp), ALLOCATABLE :: LamCond(:)
@@ -2812,17 +2827,25 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   !
   ! Fix unused potential DOFs:
   ! --------------------------
-  IF(ParEnv % PEs<=1) THEN
-    A => GetMatrix()
-    DO i=1,Mesh % NumberOfNodes
-      j=Solver % Variable % Perm(i)
-      IF (j==0) CYCLE
-      k=A % Diag(2*(j-1)+1)
-      IF (A % Values(k)==0) A % Values(k)=1._dp
-      k=A % Diag(2*(j-1)+2)
-      IF (A % Values(k)==0) A % Values(k)=1._dp
-    END DO
-  END IF
+  A => GetMatrix()
+  DO i=1,Mesh % NumberOfNodes
+    j=Solver % Variable % Perm(i)
+    IF (j==0) CYCLE
+
+    j = 2*(j-1)
+    k = A % Diag(j+1)
+    Aval = CMPLX(A % Values(k), -A % Values(k+1))
+
+    IF (Aval==0._dp) THEN
+      A % RHS(j+1) = 0._dp
+      CALL ZeroRow(A,j+1)
+      A % Values(A % Diag(j+1)) = 1._dp
+
+      A % RHS(j+2) = 0._dp
+      CALL ZeroRow(A,j+2)
+      A % Values(A % Diag(j+2)) = 1._dp
+    END IF
+  END DO
 
   !
   ! Linear system solution:
@@ -3257,7 +3280,7 @@ CONTAINS
 
        ! Compute C * grad(V), where C is a tensor
        ! -----------------------------------------
-       L = L-MATMUL(C(1:3,1:3), MATMUL(LOAD(7,1:n), dBasisdx(1:n,:)))
+       L = L-MATMUL(C, MATMUL(LOAD(7,1:n), dBasisdx(1:n,:)))
 
        ! Compute element stiffness matrix and force vector:
        ! --------------------------------------------------
@@ -3274,7 +3297,7 @@ CONTAINS
            ! matrix (anisotropy taken into account)
            ! -------------------------------------------
            IF ( SUM(C) /= 0._dp ) THEN
-             STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C(1:3, 1:3), dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
+             STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
            ELSE
 !            STIFF(p,q) = STIFF(p,q) + &
 !                   Basis(q) * Basis(p)*detJ*IP % s(t)
@@ -3289,12 +3312,12 @@ CONTAINS
            ! stiffness matrix (anisotropy taken into account)
            ! -------------------------------------------
            STIFF(p,q) = STIFF(p,q) + im * Omega * &
-               SUM(MATMUL(C(1:3,1:3),dBasisdx(i,:))*Wbasis(j,:))*detJ*IP % s(t)
+               SUM(MATMUL(C,dBasisdx(i,:))*Wbasis(j,:))*detJ*IP % s(t)
 
            ! Compute the conductivity term <C grad V, eta> for 
            ! stiffness matrix (anisotropy taken into account)
            ! ------------------------------------------------
-           STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C(1:3,1:3), WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
+           STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C, WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
          END DO
        END DO
 
@@ -3315,7 +3338,7 @@ CONTAINS
            ! for stiffness matrix (anisotropy taken into account)
            ! ----------------------------------------------------
            STIFF(p,q) = STIFF(p,q) + im*Omega* &
-                        SUM(MATMUL(C(1:3,1:3), WBasis(i,:))*WBasis(j,:))*detJ*IP % s(t)
+                        SUM(MATMUL(C, WBasis(i,:))*WBasis(j,:))*detJ*IP % s(t)
          END DO
        END DO
     END DO
