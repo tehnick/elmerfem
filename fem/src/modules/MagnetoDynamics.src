@@ -934,7 +934,7 @@ CONTAINS
 
     CALL GetLocalSolution(Wpot,'W',UElement=Element)
     W = [0._dp, 0._dp, 1._dp]
-    WbaseFound = ANY(Wpot(1:n)/=0._dp))
+    WbaseFound = ANY(Wpot(1:n)/=0._dp)
 
     !Numerical integration:
     !----------------------
@@ -2552,8 +2552,8 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   TYPE(Mesh_t), POINTER :: Mesh
 
   COMPLEX(kind=dp) :: Aval
-  COMPLEX(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:)
   COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
+  COMPLEX(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:,:,:)
 
   COMPLEX(KIND=dp), ALLOCATABLE :: LamCond(:)
 
