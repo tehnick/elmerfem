@@ -1078,9 +1078,7 @@ END SUBROUTINE CheckResiduals
 !
       Params => Solver % Values
 
-
       NCV   = 3*NEIG+1
-
 
       ALLOCATE( WORKL(3*NCV**2 + 6*NCV), D(NCV), &
          WORKEV(3*NCV), V(n,NCV+1), CHOOSE(NCV), STAT=istat )
@@ -1173,14 +1171,15 @@ END SUBROUTINE CheckResiduals
       SigmaI = 0
       V = 0
 
-!     Compute LU-factors for (A-\sigma M) (if consistent mass matrix)
-!
+!     Compute LU-factors for (A-\sigma M) (if consistent mass matrix):
+!     ----------------------------------------------------------------
       Factorize = ListGetLogical( Params, &
             'Linear System Refactorize', FoundFactorize )
       CALL ListAddLogical( Params, 'Linear System Refactorize',.TRUE. )
 
       FreeFactorize = ListGetLogical( Params, &
                 'Linear System Refactorize', FoundFreeFactorize )
+
       CALL ListAddLogical( Params,  &
                      'Linear System Free Factorization',.FALSE. )
 
@@ -1260,24 +1259,15 @@ END SUBROUTINE CheckResiduals
             A % rhs => b
             Dofs = Solver % Variable % Dofs
 
-            DO i=0,n-1
-               x(2*i+1) = REAL(  WORKD( IPNTR(2)+i ) )
-               x(2*i+2) = AIMAG( WORKD( IPNTR(2)+i ) )
-            END DO
-
             IF ( ido == -1 ) THEN
-                SaveValues => A % Values
+              SaveValues => A % Values
               A % Values => A % MassValues
               CALL CRS_ComplexMatrixVectorMultiply( A, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
               A % Values => SaveValues
               
               DO i=0,n-1
-                WORKD( IPNTR(1)+i ) = WORKD( IPNTR(2)+i )
-              END DO
-
-              DO i=0,n-1
-                b(2*i+1) = REAL(  WORKD( IPNTR(1)+i ) )
-                b(2*i+2) = AIMAG( WORKD( IPNTR(1)+i ) )
+                b(2*i+1) = REAL(  WORKD( IPNTR(2)+i ) )
+                b(2*i+2) = AIMAG( WORKD( IPNTR(2)+i ) )
               END DO
             ELSE
               DO i=0,n-1
@@ -1285,6 +1275,11 @@ END SUBROUTINE CheckResiduals
                 b(2*i+2) = AIMAG( WORKD( IPNTR(3)+i ) )
               END DO
             END IF
+
+            DO i=0,n-1
+               x(2*i+1) = REAL(  WORKD( IPNTR(2)+i ) )
+               x(2*i+2) = AIMAG( WORKD( IPNTR(2)+i ) )
+            END DO
 
             SELECT CASE( Method ) 
             CASE('multigrid')
