@@ -1187,8 +1187,10 @@ END SUBROUTINE CheckResiduals
       IF ( .NOT. Matrix % Lumped ) THEN
         SigmaR = ListGetConstReal( Params,'Eigen System Shift', stat )
         SigmaI = ListGetConstReal( Params,'Eigen System Shift Im', stat )
-        IF ( CMPLX(SigmaR,SigmaI,KIND=dp) /= 0.0d0 ) THEN
-          Matrix % Values = Matrix % Values - CMPLX(SigmaR,SigmaI,KIND=dp) * Matrix % MassValues
+        Sigma = CMPLX(SigmaR,SigmaI)
+
+        IF ( Sigma /= 0._dp ) THEN
+          Matrix % Values = Matrix % Values - Sigma * Matrix % MassValues
         END IF
 
         Method = ListGetString( Params,'Linear System Solver', stat )         
@@ -1431,8 +1433,8 @@ END SUBROUTINE CheckResiduals
 
          ! Restore matrix values, if modifed when using shift:
          ! ---------------------------------------------------
-         IF ( CMPLX(SigmaR,SigmaI,KIND=dp) /= 0.0d0 ) THEN
-           Matrix % Values = Matrix % Values + CMPLX(SigmaR,SigmaI,KIND=dp) * Matrix % MassValues
+         IF ( Sigma /= 0._dp ) THEN
+           Matrix % Values = Matrix % Values + Sigma * Matrix % MassValues
          END IF
 
          k = 1
