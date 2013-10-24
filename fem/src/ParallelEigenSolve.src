@@ -707,7 +707,7 @@ INCLUDE "mpif.h"
 !     %--------------%
 !
       TYPE(Matrix_t), POINTER :: PMatrix
-      COMPLEX(KIND=dp), TARGET :: WORKD(3*N), RESID(N)
+      COMPLEX(KIND=dp), TARGET :: WORKD(3*N), RESID(N), xx(n)
       COMPLEX(KIND=dp), POINTER CONTIG :: x(:), b(:)
       INTEGER :: IPARAM(11), IPNTR(14)
       INTEGER, ALLOCATABLE :: Perm(:)
@@ -981,6 +981,7 @@ INCLUDE "mpif.h"
             IF ( .NOT. Matrix % Lumped .AND. ido == 1 ) THEN
                x => WORKD(IPNTR(2):IPNTR(2)+pn-1)
                b => WORKD(IPNTR(3):IPNTR(3)+pn-1)
+
                IF ( Direct .AND. DirectMethod == 'mumps' ) THEN
                   ForceVector = 0
                   Solution    = 0
@@ -1027,28 +1028,24 @@ INCLUDE "mpif.h"
                      END IF
                   END DO
                ELSE
-                  DO i=0,n-1
+                  DO i=0,pn-1
                     Solution(2*i+1)    = REAL(x(i+1))
                     Solution(2*i+2)    = AIMAG(x(i+1))
                     ForceVector(2*i+1) = REAL(b(i+1))
                     ForceVector(2*i+2) = AIMAG(b(i+1))
                   END DO
                   CALL BiCGParEigen( Matrix,Solution,ForceVector,Residual,LinIter,LinConv )
-                  DO i=0,n-1
+                  DO i=0,pn-1
                     x(i+1) = CMPLX(Solution(2*i+1),Solution(2*i+2),KIND=dp)
                   END DO
                END IF
             ELSE
-               x => WORKD(IPNTR(1):IPNTR(1)+PN-1)
-               b => WORKD(IPNTR(2):IPNTR(2)+PN-1)
+               x => WORKD(IPNTR(1):IPNTR(1)+pn-1)
+               b => xx
 
                CALL CMGmv( Matrix, x, b, .FALSE., .TRUE. )
-               DO i=1,pn
-                 x(i) = b(i)
-               END DO
 
                x => WORKD(IPNTR(2):IPNTR(2)+pn-1)
-               b => WORKD(IPNTR(1):IPNTR(1)+pn-1)
 
                IF ( Direct .AND. DirectMethod == 'mumps' ) THEN
                   ForceVector = 0
