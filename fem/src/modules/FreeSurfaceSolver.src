@@ -99,7 +99,8 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   SAVE STIFF, MASS, SourceFunc, FORCE, &
        ElementNodes, AllocationsDone, Velo, OldFreeSurf, TimeForce, &
        ElemFreeSurf, Flux, SubstantialSurface, NormalFlux,&
-       UseBodyForce, LimitedSolution, LowerLimit, UpperLimit, ActiveNode, OldValues, OldRHS, &
+       UseBodyForce, LimitedSolution, LowerLimit, &
+       UpperLimit, ActiveNode, OldValues, OldRHS, &
        ResidualVector, StiffVector, MeshVelocity
   !------------------------------------------------------------------------------
   !    Get variables for the solution
@@ -146,7 +147,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   LinearTol = GetConstReal( SolverParams, &
        'Linear System Convergence Tolerance',    Found )
   IF ( .NOT.Found ) THEN
-     CALL Fatal(SolverName, 'No >Linear System Convergence Tolerance< found')
+     CALL Fatal(SolverName, 'No > Linear System Convergence Tolerance < found')
   END IF
   NonlinearTol  = GetConstReal( SolverParams, &
        'Nonlinear System Convergence Tolerance',    Found )
@@ -178,9 +179,6 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
 
   ALEFormulation = GetLogical( SolverParams, &
        'ALE Formulation', Found)
-  IF ( .NOT.Found ) THEN
-     ALEFormulation = .FALSE.
-  END IF
   IF (ALEFormulation) THEN 
      CALL Info(SolverName, 'Using horizontal ALE Formulation',Level=6 )
   ELSE
@@ -225,15 +223,18 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
              MeshVelocity, &
              Flux, &
              ElemFreeSurf,&
-             SourceFunc, &
-             LowerLimit,                      &
-             UpperLimit, &
-             LimitedSolution,  &
-             ActiveNode,                      & 
-             ResidualVector, &
-             StiffVector,  &
-             OldValues, &
-             OldRHS)
+             SourceFunc )
+
+        IF( ApplyDirichlet ) THEN
+          DEALLOCATE( LowerLimit,                      &
+              UpperLimit, &
+              LimitedSolution,  &
+              ActiveNode,                      & 
+              ResidualVector, &
+              StiffVector,  &
+              OldValues, &
+              OldRHS)
+        END IF
 
         IF( NeedOldValues ) DEALLOCATE( OldFreeSurf ) 
      END IF
@@ -245,7 +246,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         Nmatrix = NMAX
      END IF
 
-     ALLOCATE( ElementNodes % x( NMAX ),    &
+     ALLOCATE(  ElementNodes % x( NMAX ),    &
           ElementNodes % y( NMAX ),    &
           ElementNodes % z( NMAX ),    &
           TimeForce( Nmatrix ),        &
@@ -257,14 +258,6 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
           Flux( 3, NMAX), &
           ElemFreeSurf( NMAX ),&
           SourceFunc( NMAX ), &
-          LowerLimit( MMAX ), &
-          UpperLimit( MMAX ), &
-          LimitedSolution( MMAX, 2 ),  &
-          ActiveNode( MMAX, 2 ),                      &  
-          ResidualVector( L ),                    &
-          StiffVector( L ), &
-          OldValues( K ), &
-          OldRHS( L ), &
           STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal(SolverName,'Memory allocation error 1, Aborting.')
@@ -277,11 +270,26 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            CALL Fatal(SolverName,'Memory allocation error 2, Aborting.')
         END IF
      END IF
+     
+     IF( ApplyDirichlet ) THEN
+       ALLOCATE( LowerLimit( MMAX ), &
+           UpperLimit( MMAX ), &
+           LimitedSolution( MMAX, 2 ),  &
+           ActiveNode( MMAX, 2 ),                      &  
+           ResidualVector( L ),                    &
+           StiffVector( L ), &
+           OldValues( K ), &
+           OldRHS( L ), &
+           STAT=istat )
+       IF ( istat /= 0 ) THEN
+         CALL Fatal(SolverName,'Memory allocation error 3, Aborting.')
+       END IF
+       ActiveNode = .FALSE.
+       ResidualVector = 0.0_dp
+     END IF
 
      CALL Info(SolverName,'Memory allocations done' )
      AllocationsDone = .TRUE.
-     ActiveNode = .FALSE.
-     ResidualVector = 0.0_dp
   END IF
 
 
@@ -293,12 +301,15 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   !    Get variables for the residual
   !------------------------------------------------------------------------------
-  VarSurfResidual => VariableGet( Model % Mesh % Variables, TRIM(VariableName) // ' Residual' )
-  IF (.NOT.ASSOCIATED(VarSurfResidual)) THEN
-     WRITE(Message,'(A)') '>' // TRIM(VariableName) // ' Residual < not associated'
-     CALL Fatal( SolverName, Message)
+  IF( ApplyDirichlet ) THEN
+    VarSurfResidual => VariableGet( Model % Mesh % Variables, TRIM(VariableName) // ' Residual' )
+    IF (.NOT.ASSOCIATED(VarSurfResidual)) THEN
+      WRITE(Message,'(A)') '>' // TRIM(VariableName) // ' Residual < not associated'
+      CALL Fatal( SolverName, Message)
+    END IF
+    PointerToResidualVector => VarSurfResidual % Values
   END IF
-  PointerToResidualVector => VarSurfResidual % Values
+
 
   !------------------------------------------------------------------------------
   ! Non-linear iteration loop
@@ -319,6 +330,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
      at = CPUTime()
      CALL Info( SolverName, 'start assembly',Level=6 )
      CALL DefaultInitialize()
+
      !------------------------------------------------------------------------------
      !    Do the assembly
      !------------------------------------------------------------------------------
@@ -351,17 +363,18 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         Material => GetMaterial()
         BodyForce => GetBodyForce()
 
-
-        ! get lower limit for solution 
-        !-----------------------------
-        LowerLimit(CurrentElement % Nodeindexes(1:N)) = &
-             ListGetReal(Material,'Min ' // TRIM(VariableName),n,CurrentElement % NodeIndexes, Found) 
-        LimitedSolution(CurrentElement % Nodeindexes(1:N), 1) = Found
-        ! get upper limit for solution 
-        !-----------------------------
-        UpperLimit(CurrentElement % Nodeindexes(1:N)) = &
-             ListGetReal(Material,'Max ' // TRIM(VariableName),n,CurrentElement % NodeIndexes, Found)              
-        LimitedSolution(CurrentElement % Nodeindexes(1:N), 2) = Found
+        IF( ApplyDirichlet ) THEN
+          ! get lower limit for solution 
+          !-----------------------------
+          LowerLimit(CurrentElement % Nodeindexes(1:N)) = &
+              ListGetReal(Material,'Min ' // TRIM(VariableName),n,CurrentElement % NodeIndexes, Found)
+          LimitedSolution(CurrentElement % Nodeindexes(1:N), 1) = Found
+          ! get upper limit for solution 
+          !-----------------------------
+          UpperLimit(CurrentElement % Nodeindexes(1:N)) = &
+              ListGetReal(Material,'Max ' // TRIM(VariableName),n,CurrentElement % NodeIndexes, Found)              
+          LimitedSolution(CurrentElement % Nodeindexes(1:N), 2) = Found
+        END IF
 
         ! get flow soulution and velocity field from it
         !----------------------------------------------
@@ -453,6 +466,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         ELSE
            Velo=0.0_dp  
         END IF
+
         !------------------------------------------------------------------------------
         ! Get mesh velocity
         !------------------------------------------------------------------------------
@@ -516,6 +530,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            !------------------------------------------------------------------------------
            CALL Default1stOrderTime( MASS, STIFF, FORCE )
         END IF
+
         !------------------------------------------------------------------------------
         !      Update global matrices from local matrices
         !------------------------------------------------------------------------------
@@ -526,6 +541,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         CALL DefaultUpdateEquations( STIFF, FORCE )
         !------------------------------------------------------------------------------
      END DO ! End loop bulk elements
+
      CALL DefaultFinishBulkAssembly()
 
      !------------------------------------------------------------------------------
@@ -545,165 +561,165 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
      !------------------------------------------------------------------------------
      CALL DefaultFinishAssembly()
      CALL DefaultDirichletBCs()
-
+ 
      !------------------------------------------------------------------------------
      !    Manipulation of the assembled matrix due to limits
      !------------------------------------------------------------------------------
-     OldValues = SystemMatrix % Values
-     OldRHS = ForceVector
 
      IF (ApplyDirichlet) THEN
-        ! manipulation of the matrix
-        !---------------------------
-        DO i=1,Model % Mesh % NumberOfNodes
-           k = FreeSurfPerm(i)           
-           IF ((ActiveNode(i,1) .OR. ActiveNode(i,2)) .AND. (k > 0)) THEN
-              CALL ZeroRow( SystemMatrix, k ) 
-              CALL SetMatrixElement( SystemMatrix, k, k, 1.0_dp ) 
-              IF(ActiveNode(i,1)) THEN
-                 SystemMatrix % RHS(k) = LowerLimit(i)
-              ELSE
-                 SystemMatrix % RHS(k) = UpperLimit(i)
-              END IF
+
+       OldValues = SystemMatrix % Values
+       OldRHS = ForceVector
+       
+       ! manipulation of the matrix
+       !---------------------------
+       DO i=1,Model % Mesh % NumberOfNodes
+         k = FreeSurfPerm(i)           
+         IF ((ActiveNode(i,1) .OR. ActiveNode(i,2)) .AND. (k > 0)) THEN
+           CALL ZeroRow( SystemMatrix, k ) 
+           CALL SetMatrixElement( SystemMatrix, k, k, 1.0_dp ) 
+           IF(ActiveNode(i,1)) THEN
+             SystemMatrix % RHS(k) = LowerLimit(i)
+           ELSE
+             SystemMatrix % RHS(k) = UpperLimit(i)
            END IF
-        END DO
+         END IF
+       END DO
+     END IF
+     
+     CALL Info( SolverName, 'Assembly done', Level=6 )
+     !------------------------------------------------------------------------------
+     !    Solve System  and check for convergence
+     !------------------------------------------------------------------------------
+     at = CPUTime() - at
+     st = CPUTime() 
+     
+     PrevNorm = Solver % Variable % Norm
+     
+     Norm = DefaultSolve()
+     
+     IF ( PrevNorm + Norm /= 0.0_dp ) THEN
+       RelativeChange = 2.0_dp * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
+     ELSE
+       RelativeChange = 0.0_dp
+     END IF
+     
+     WRITE( Message, * ) 'Result Norm   : ',Norm
+     CALL Info( SolverName, Message, Level=4 )
+     WRITE( Message, * ) 'Relative Change : ',RelativeChange
+     CALL Info( SolverName, Message, Level=4 )
+     
+     !------------------------------------------------------------------------------
+     ! compute residual
+     !------------------------------------------------------------------------------ 
+     IF( ApplyDirichlet ) THEN
+       SystemMatrix % Values = OldValues
+       ForceVector = OldRHS
+       
+       IF ( ParEnv % PEs > 1 ) THEN !!!!!!!!!!!!!!!!!!!!!! we have a parallel run
+         CALL ParallelInitSolve( SystemMatrix, FreeSurf, ForceVector, ResidualVector )
+         CALL ParallelMatrixVector( SystemMatrix, FreeSurf, StiffVector, .TRUE. )
+         ResidualVector =  StiffVector - ForceVector
+         CALL ParallelSumVector( SystemMatrix, ResidualVector )
+       ELSE !!!!!!!!!!!!!!!!!!!!!! serial run 
+         CALL CRS_MatrixVectorMultiply( SystemMatrix, FreeSurf, StiffVector)
+         ResidualVector =  StiffVector - ForceVector
+       END IF
+       !-----------------------------
+       ! determine "active" nodes set
+       !-----------------------------
+       numberofsurfacenodes = 0
+       DO i=1,Model % NumberOfNodes
+         l= FreeSurfPerm(i)  
+         IF (l<1) CYCLE
+         numberofsurfacenodes = numberofsurfacenodes + 1
+         !---------------------------------------------------------
+         ! if upper limit is exceeded, manipulate matrix in any case
+         !----------------------------------------------------------
+         IF ((LimitedSolution(i,1)).AND.(FreeSurf(l)-LowerLimit(i)<0.0_dp )) THEN
+           ActiveNode(i,1) = .TRUE.
+         END IF
+         IF ((LimitedSolution(i,2)).AND.(FreeSurf(l)-UpperLimit(i)>0.0_dp )) THEN
+           ActiveNode(i,2) = .TRUE.
+         END IF
+         
+         IF ( LimitedSolution(i,1) .AND. ResidualVector(l) < -LinearTol & 
+             .AND. iter>1 ) ActiveNode(i,1) = .FALSE.
+         IF ( LimitedSolution(i,2) .AND. ResidualVector(l) >  LinearTol & 
+             .AND. iter>1 ) ActiveNode(i,2) = .FALSE.
+         
+         IF( .NOT.ActiveNode(i,1) .AND. .NOT.ActiveNode(i,2) ) THEN
+           PointerToResidualVector(VarSurfResidual % Perm(i)) = 0.0_dp
+         ELSE
+           PointerToResidualVector(VarSurfResidual % Perm(i)) = ResidualVector(l)
+         END IF
+       END DO
+     END IF
+     !------------------------------------------
+     ! special treatment for periodic boundaries
+     !------------------------------------------
+
+     !------------------------------------------------------------------------------
+     ! Relaxation
+     !------------------------------------------------------------------------------
+     IF(NeedOldValues) THEN
+       IF(LimitDisp) THEN 
+         maxdh = -HUGE(maxdh)         
+         DO i=1, Model % NumberOfNodes
+           j = FreeSurfPerm(i)
+           IF(j > 0) THEN
+             maxdh = MAX(maxdh, ABS(FreeSurf(j)-OldFreeSurf(j)))
+           END IF
+         END DO
+         IF(maxdh > MaxDisp) THEN
+           Relax = Relax * MaxDisp/maxdh
+         END IF
+         WRITE(Message,'(a,E8.2)') 'Maximum displacement ',maxdh
+         CALL Info( SolverName, Message, Level=4 )
+       END IF
+       WRITE(Message,'(a,F8.2)') 'pp Relaxation factor',Relax
+       CALL Info( SolverName, Message, Level=4 )
+       DO i=1, Model % NumberOfNodes
+         j = FreeSurfPerm(i)
+         IF(j > 0) THEN
+           FreeSurf(j) = Relax * FreeSurf(j) + (1-Relax) * OldFreeSurf(j)
+         END IF
+       END DO
+     END IF
+     
+     st = CPUTIme()-st
+     totat = totat + at
+     totst = totst + st
+     
+     WRITE(Message,'(a,F8.2,F8.2)') 'Assembly: (s)', at, totat
+     CALL Info( SolverName, Message, Level=4 )
+     WRITE(Message,'(a,F8.2,F8.2)') ' Solve:    (s)', st, totst
+     CALL Info( SolverName, Message, Level=4 )
+     !------------------------------------------------------------------------------
+     ! write some info on max/min values
+     !------------------------------------------------------------------------------
+     WRITE(Message,'(a,e13.6,a,e13.6)') &
+         'Max/min values surface:', MAXVAL(FreeSurf(:)),'/',MINVAL( FreeSurf(:))
+     CALL Info(SolverName,Message,Level=4)
+
+     IF (ApplyDirichlet) THEN
+       WRITE(Message,'(a,i0)') 'Number of surface nodes: ', numberofsurfacenodes
+       CALL Info(SolverName,Message,Level=4)
+       WRITE(Message,'(a,i0)') 'Number of constrained points (lower limit): ', COUNT(ActiveNode(:,1))
+       CALL Info(SolverName,Message,Level=4)
+       WRITE(Message,'(a,i0)') 'Number of constrained points (upper limit): ', COUNT(ActiveNode(:,2))
+       CALL Info(SolverName,Message,Level=4)
      END IF
 
-        CALL Info( SolverName, 'Assembly done', Level=6 )
-        !------------------------------------------------------------------------------
-        !    Solve System  and check for convergence
-        !------------------------------------------------------------------------------
-        at = CPUTime() - at
-        st = CPUTime() 
-
-        PrevNorm = Solver % Variable % Norm
-
-        Norm = DefaultSolve()
-
-        IF ( PrevNorm + Norm /= 0.0_dp ) THEN
-           RelativeChange = 2.0_dp * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
-        ELSE
-           RelativeChange = 0.0_dp
-        END IF
-
-        WRITE( Message, * ) 'Result Norm   : ',Norm
-        CALL Info( SolverName, Message, Level=4 )
-        WRITE( Message, * ) 'Relative Change : ',RelativeChange
-        CALL Info( SolverName, Message, Level=4 )
-
-        !------------------------------------------------------------------------------
-        ! compute residual
-        !------------------------------------------------------------------------------ 
-        SystemMatrix % Values = OldValues
-        ForceVector = OldRHS
-
-        IF ( ParEnv % PEs > 1 ) THEN !!!!!!!!!!!!!!!!!!!!!! we have a parallel run
-           CALL ParallelInitSolve( SystemMatrix, FreeSurf, ForceVector, ResidualVector )
-           CALL ParallelMatrixVector( SystemMatrix, FreeSurf, StiffVector, .TRUE. )
-           ResidualVector =  StiffVector - ForceVector
-           CALL ParallelSumVector( SystemMatrix, ResidualVector )
-        ELSE !!!!!!!!!!!!!!!!!!!!!! serial run 
-           CALL CRS_MatrixVectorMultiply( SystemMatrix, FreeSurf, StiffVector)
-           ResidualVector =  StiffVector - ForceVector
-        END IF
-        !-----------------------------
-        ! determine "active" nodes set
-        !-----------------------------
-        IF (ApplyDirichlet) THEN
-           numberofsurfacenodes = 0
-           DO i=1,Model % NumberOfNodes
-              l= FreeSurfPerm(i)  
-              IF (l<1) CYCLE
-              numberofsurfacenodes = numberofsurfacenodes + 1
-              !---------------------------------------------------------
-              ! if upper limit is exceeded, manipulate matrix in any case
-              !----------------------------------------------------------
-              IF ((LimitedSolution(i,1)).AND.(FreeSurf(l)-LowerLimit(i)<0.0_dp )) THEN
-                 ActiveNode(i,1) = .TRUE.
-              END IF
-              IF ((LimitedSolution(i,2)).AND.(FreeSurf(l)-UpperLimit(i)>0.0_dp )) THEN
-                 ActiveNode(i,2) = .TRUE.
-              END IF
-
-              IF ( LimitedSolution(i,1) .AND. ResidualVector(l) < -LinearTol & 
-                       .AND. iter>1 ) ActiveNode(i,1) = .FALSE.
-              IF ( LimitedSolution(i,2) .AND. ResidualVector(l) >  LinearTol & 
-                       .AND. iter>1 ) ActiveNode(i,2) = .FALSE.
-
-              IF( .NOT.ActiveNode(i,1) .AND. .NOT.ActiveNode(i,2) ) THEN
-                 PointerToResidualVector(VarSurfResidual % Perm(i)) = 0.0_dp
-              ELSE
-                 PointerToResidualVector(VarSurfResidual % Perm(i)) = ResidualVector(l)
-              END IF
-            END DO
-        END IF
-        !------------------------------------------
-        ! special treatment for periodic boundaries
-        !------------------------------------------
-
-        !------------------------------------------------------------------------------
-        ! Relaxation
-        !------------------------------------------------------------------------------
-        IF(NeedOldValues) THEN
-           IF(LimitDisp) THEN 
-              maxdh = -HUGE(maxdh)         
-              DO i=1, Model % NumberOfNodes
-                 j = FreeSurfPerm(i)
-                 IF(j > 0) THEN
-                    maxdh = MAX(maxdh, ABS(FreeSurf(j)-OldFreeSurf(j)))
-                 END IF
-              END DO
-              IF(maxdh > MaxDisp) THEN
-                 Relax = Relax * MaxDisp/maxdh
-              END IF
-              WRITE(Message,'(a,E8.2)') 'Maximum displacement ',maxdh
-              CALL Info( SolverName, Message, Level=4 )
-           END IF
-           WRITE(Message,'(a,F8.2)') 'pp Relaxation factor',Relax
-           CALL Info( SolverName, Message, Level=4 )
-           DO i=1, Model % NumberOfNodes
-              j = FreeSurfPerm(i)
-              IF(j > 0) THEN
-                 FreeSurf(j) = Relax * FreeSurf(j) + (1-Relax) * OldFreeSurf(j)
-              END IF
-           END DO
-        END IF
-
-        st = CPUTIme()-st
-        totat = totat + at
-        totst = totst + st
-
-        WRITE(Message,'(a,F8.2,F8.2)') 'Assembly: (s)', at, totat
-        CALL Info( SolverName, Message, Level=4 )
-        WRITE(Message,'(a,F8.2,F8.2)') ' Solve:    (s)', st, totst
-        CALL Info( SolverName, Message, Level=4 )
-        !------------------------------------------------------------------------------
-        ! write some info on max/min values
-        !------------------------------------------------------------------------------
-        WRITE(Message,'(a,e13.6,a,e13.6)') &
-             'Max/min values surface:', MAXVAL(FreeSurf(:)),'/',MINVAL( FreeSurf(:))
-        CALL Info(SolverName,Message,Level=4)
-        IF (ApplyDirichlet) THEN
-           !           WRITE(Message,'(a,i10)') 'Deactivated Periodic BC nodes:', k
-           !          CALL Info(SolverName,Message,Level=1)
-           WRITE(Message,'(a,i0)') 'Number of surface nodes: ', numberofsurfacenodes
-           CALL Info(SolverName,Message,Level=4)
-           WRITE(Message,'(a,i0)') 'Number of constrained points (lower limit): ', COUNT(ActiveNode(:,1))
-           CALL Info(SolverName,Message,Level=4)
-           WRITE(Message,'(a,i0)') 'Number of constrained points (upper limit): ', COUNT(ActiveNode(:,2))
-           CALL Info(SolverName,Message,Level=4)
-        END IF
-        !----------------------
-        ! check for convergence
-        !----------------------
-        IF ( RelativeChange < NonlinearTol ) THEN
-           WRITE(Message,'(a,i0,a)') 'Converged after', iter, ' iterations'
-           CALL Info(SolverName,Message,Level=4)
-           EXIT
-        ELSE
-
-        END IF
-     END DO ! End loop non-linear iterations
+     !----------------------
+     ! check for convergence
+     !----------------------
+     IF ( RelativeChange < NonlinearTol ) THEN
+       WRITE(Message,'(a,i0,a)') 'Converged after', iter, ' iterations'
+       CALL Info(SolverName,Message,Level=4)
+       EXIT
+     END IF
+   END DO ! End loop non-linear iterations
      !------------------------------------------------------------------------------
    CONTAINS
 
@@ -761,7 +777,11 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
        END IF
 
        UseLinear = GetLogical( GetSolverParams(), 'Use linear elements', Stat )
-       UseLinear = UseLinear .OR. ANY(ActiveNode(NodeIndexes,:))
+
+       IF( ApplyDirichlet ) THEN
+         UseLinear = UseLinear .OR. ANY(ActiveNode(NodeIndexes,:))
+       END  IF
+
        UseLinear = UseLinear .AND. Element % TYPE % BasisFunctionDegree==2
 
        IF ( UseLinear ) THEN
@@ -818,7 +838,6 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
           END DO
 
           gradFreeSurf(DIM) = 1.0_dp
-
           
           IF (.NOT.ALEFormulation) THEN
              DO i=1,DIM
