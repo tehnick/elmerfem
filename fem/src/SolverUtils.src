@@ -5808,8 +5808,13 @@ SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
                 EigenValues, EigenVectors )
       END IF
     ELSE
-      CALL ArpackEigenSolveComplex( Solver, StiffMatrix, n/2, &
+      IF ( ParEnv % PEs <= 1 ) THEN
+        CALL ArpackEigenSolveComplex( Solver, StiffMatrix, n/2, &
               NOFEigen, EigenValues, EigenVectors )
+      ELSE
+        CALL ParallelArpackEigenSolveComplex( Solver, StiffMatrix, n/2, NOFEigen, &
+                EigenValues, EigenVectors )
+      END IF
     END IF
 
     CALL ListAddLogical( Solver % Values,'Eigen Analysis',.TRUE.)
@@ -6475,6 +6480,8 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
 !------------------------------------------------------------------------------
 ! Solve the Collection-system 
 !------------------------------------------------------------------------------
+
+! Collectionmatrix % Complex = StiffMatrix % Complex
 
   CALL SolveLinearSystem( CollectionMatrix, CollectionVector, &
       CollectionSolution, Norm, DOFs, Solver, StiffMatrix )
