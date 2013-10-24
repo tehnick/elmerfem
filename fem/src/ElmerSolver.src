@@ -1717,8 +1717,14 @@ END INTERFACE
                     Var => Var % Next
                     CYCLE
                   END IF
+
                   
                   IF ( CurrentModel % Solvers(i) % Matrix % COMPLEX ) THEN
+                    IF(Var % DOFs==1) THEN
+                      Var => Var % Next
+                      CYCLE
+                    END IF
+
                     DO k=1,SIZE(Var % Values) / 2
                       Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k))
                       Var % Values(2*k-0) = AIMAG(Var % EigenVectors(j,k))

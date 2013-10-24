@@ -348,10 +348,10 @@ CONTAINS
               x => workd(ipntr(2):ipntr(2)+n-1)
 
               IF ( ido == -1 ) THEN
-                SaveValues => Matrix % Values
-                Matrix % Values => Matrix % MassValues
-                CALL CRS_MatrixVectorMultiply( Matrix, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
-                Matrix % Values => SaveValues
+                SaveValues => A % Values
+                A % Values => A % MassValues
+                CALL CRS_MatrixVectorMultiply( A, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
+                A % Values => SaveValues
                 
                 DO i=0,n-1
                   WORKD( IPNTR(1)+i ) = WORKD( IPNTR(2)+i )
@@ -363,11 +363,10 @@ CONTAINS
 
               ! Some strategies (such as 'block') may depend on that these are set properly 
               ! to reflect the linear problem under study.            
-              SaveRhs => Matrix % rhs
-              Matrix % rhs => b
+              SaveRhs => A % rhs
+              A % rhs => b
 
               SELECT CASE( Method ) 
-                
               CASE('multigrid')
                 CALL MultiGridSolve( A, x, b, &
                     DOFs, Solver, Solver % MultiGridLevel, NewSystem )
@@ -381,7 +380,7 @@ CONTAINS
                 CALL Fatal('EigenSolve','Unknown linear system method: '//TRIM(Method))
               END SELECT
 
-              Matrix % rhs => SaveRhs
+              A % rhs => SaveRhs
             END IF
 
           ELSE IF (ido == 2) THEN
@@ -1023,7 +1022,7 @@ END SUBROUTINE CheckResiduals
 
       IMPLICIT NONE
 
-      TYPE(Matrix_t), POINTER :: Matrix
+      TYPE(Matrix_t), POINTER :: Matrix, A
       TYPE(Solver_t), TARGET :: Solver
       INTEGER :: N, NEIG, DPERM(n)
       COMPLEX(KIND=dp) :: EigValues(:), EigVectors(:,:)
@@ -1047,13 +1046,18 @@ END SUBROUTINE CheckResiduals
 !
       CHARACTER ::     BMAT*1, Which*2
       INTEGER   ::     IDO, NCV, lWORKL, kinfo, i, j, k, l, p, IERR, iter, &
-                       NCONV, maxitr, ishfts, mode, istat
-      LOGICAL   ::     First, Stat, Direct = .FALSE., &
-                       Iterative = .FALSE., NewSystem
+                       NCONV, maxitr, ishfts, mode, istat, dofs
+      LOGICAL   ::     First, Stat, Direct = .FALSE., FoundFactorize,&
+                       Iterative = .FALSE., NewSystem, Factorize, FreeFactorize, FoundFreeFactorize
+
+      CHARACTER(LEN=MAX_NAME_LEN) :: DirectMethod, Method
       COMPLEX(KIND=dp) :: Sigma = 0.0d0, s
-      REAL(KIND=dp) :: SigmaR, SigmaI, TOL, RWORK(N), x(2*n), b(2*n)
+      REAL(KIND=dp), TARGET :: x(2*n), b(2*n)
+      REAL(KIND=dp) :: SigmaR, SigmaI, TOL, RWORK(N)
 !
-      REAL(KIND=dp), POINTER :: SaveValues(:)
+      REAL(KIND=dp), POINTER :: SaveValues(:), SaveRhs(:)
+
+      TYPE(ValueList_t), POINTER :: Params
 !
 !     %-----------------------%
 !     | Executable Statements |
@@ -1072,11 +1076,14 @@ END SUBROUTINE CheckResiduals
 !     |               NEV + 1 <= NCV <= MAXNCV             | 
 !     %----------------------------------------------------%
 !
+      Params => Solver % Values
+
+
       NCV   = 3*NEIG+1
 
 
       ALLOCATE( WORKL(3*NCV**2 + 6*NCV), D(NCV), &
-         WORKEV(3*NCV), V(n,NCV), CHOOSE(NCV), STAT=istat )
+         WORKEV(3*NCV), V(n,NCV+1), CHOOSE(NCV), STAT=istat )
 
       IF ( istat /= 0 ) THEN
          CALL Fatal( 'EigenSolveComplex', 'Memory allocation error.' )
@@ -1165,19 +1172,39 @@ END SUBROUTINE CheckResiduals
       SigmaR = 0
       SigmaI = 0
       V = 0
-!
+
 !     Compute LU-factors for (A-\sigma M) (if consistent mass matrix)
 !
-      CALL ListAddLogical( Solver % Values, 'Linear System Refactorize',.TRUE.)
-      CALL ListAddLogical( Solver % Values, &
-                       'Linear System Free Factorization',.FALSE.)
+      Factorize = ListGetLogical( Params, &
+            'Linear System Refactorize', FoundFactorize )
+      CALL ListAddLogical( Params, 'Linear System Refactorize',.TRUE. )
+
+      FreeFactorize = ListGetLogical( Params, &
+                'Linear System Refactorize', FoundFreeFactorize )
+      CALL ListAddLogical( Params,  &
+                     'Linear System Free Factorization',.FALSE. )
 
       IF ( .NOT. Matrix % Lumped ) THEN
-         Direct = ListGetString( Solver % Values, &
-           'Linear System Solver', stat ) == 'direct'
+        SigmaR = ListGetConstReal( Params,'Eigen System Shift', stat )
+        SigmaI = ListGetConstReal( Params,'Eigen System Shift Im', stat )
+        IF ( CMPLX(SigmaR,SigmaI,KIND=dp) /= 0.0d0 ) THEN
+          Matrix % Values = Matrix % Values - CMPLX(SigmaR,SigmaI,KIND=dp) * Matrix % MassValues
+        END IF
 
-         IF ( Direct ) Stat = CRS_ComplexILUT(Matrix, 0.0d0)
+        Method = ListGetString( Params,'Linear System Solver', stat )         
+        IF ( Method == 'direct' ) THEN
+          DirectMethod = ListGetString( Params, &
+              'Linear System Direct Method', stat )
+          
+          SELECT CASE( DirectMethod )
+          CASE('umfpack', 'big umfpack', 'mumps', 'superlu', 'pardiso')
+          CASE DEFAULT
+            Stat = CRS_ILUT(Matrix, 0.0d0)
+          END SELECT
+        END IF
       END IF
+
+
 !
 !     %-------------------------------------------%
 !     | M A I N   L O O P (Reverse communication) |
@@ -1195,6 +1222,8 @@ END SUBROUTINE CheckResiduals
          CALL ListAddLogical( Solver % Values, 'No Precondition Recompute', .FALSE. )
       END IF
 
+      A => Matrix
+
       DO WHILE( ido /= 99 )
 !        %---------------------------------------------%
 !        | Repeatedly call the routine DSAUPD and take | 
@@ -1203,13 +1232,13 @@ END SUBROUTINE CheckResiduals
 !        | has been exceeded.                          |
 !        %---------------------------------------------%
 !
-         IF ( Matrix % Symmetric ) THEN
+!        IF ( Matrix % Symmetric ) THEN
 !           CALL ZSAUPD ( ido, BMAT, n, Which, NEIG, TOL, &
 !             RESID, NCV, V, n, IPARAM, IPNTR, WORKD, WORKL, lWORKL, kinfo )
-         ELSE
+!        ELSE
             CALL ZNAUPD ( ido, BMAT, n, Which, NEIG, TOL, &
               RESID, NCV, v, n, IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, kinfo )
-         END IF
+!        END IF
 !
 !
          IF (ido == -1 .OR. ido == 1) THEN
@@ -1223,70 +1252,57 @@ END SUBROUTINE CheckResiduals
 !                    ido = 1 inv(A-sigmaR*M)*z
 !---------------------------------------------------------------------
 
-            IF (  ido == 1 ) THEN
-               DO i=0,n-1
-                  WORKD( IPNTR(2)+i ) = WORKD( IPNTR(3)+i )
-               END DO
+            ! Some strategies (such as 'block') may depend on that these are set properly 
+            ! to reflect the linear problem under study.            
+            SaveRhs => A % rhs
+            A % rhs => b
+            Dofs = Solver % Variable % Dofs
 
-               IF ( Direct ) THEN
-                  CALL CRS_ComplexLUSolve( N, Matrix, WORKD(IPNTR(2)) )
-               ELSE
-                  DO i=0,n-1
-                     x(2*i+1) = REAL(  WORKD( IPNTR(2)+i ) )
-                     x(2*i+2) = AIMAG( WORKD( IPNTR(2)+i ) )
-                     b(2*i+1) = REAL(  WORKD( IPNTR(3)+i ) )
-                     b(2*i+2) = AIMAG( WORKD( IPNTR(3)+i ) )
-                  END DO
-                  IF ( Solver % MultiGridSolver ) THEN
-                     CALL MultiGridSolve( Matrix, x, b, Solver % Variable % DOFs, &
-                          Solver, Solver % MultiGridLevel, NewSystem )
-                  ELSE
-                     CALL IterSolver( Matrix, x, b, Solver )
-                  END IF
+            DO i=0,n-1
+               x(2*i+1) = REAL(  WORKD( IPNTR(2)+i ) )
+               x(2*i+2) = AIMAG( WORKD( IPNTR(2)+i ) )
+            END DO
 
-!                 do i=1,matrix % numberofrows
-!                   j = matrix % rows(i)
-!                   k = matrix % rows(i+1)-1
-!                   if ( ALL( matrix % massvalues(j:k) == 0 ) ) &
-!                      x(i) =  b(i) / matrix % values(matrix % diag(i))
-!                 end do
+            IF ( ido == -1 ) THEN
+                SaveValues => A % Values
+              A % Values => A % MassValues
+              CALL CRS_ComplexMatrixVectorMultiply( A, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
+              A % Values => SaveValues
+              
+              DO i=0,n-1
+                WORKD( IPNTR(1)+i ) = WORKD( IPNTR(2)+i )
+              END DO
 
-                  DO i=0,n-1
-                     WORKD( IPNTR(2)+i ) = CMPLX( x(2*i+1), x(2*i+2),KIND=dp )
-                  END DO
-               END IF
+              DO i=0,n-1
+                b(2*i+1) = REAL(  WORKD( IPNTR(1)+i ) )
+                b(2*i+2) = AIMAG( WORKD( IPNTR(1)+i ) )
+              END DO
             ELSE
-               SaveValues => Matrix % Values
-               Matrix % Values => Matrix % MassValues
-               CALL CRS_ComplexMatrixVectorMultiply( Matrix, &
-                     WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
-               Matrix % Values => SaveValues
-
-               DO i=0,n-1
-                  WORKD( IPNTR(1)+i ) = WORKD( IPNTR(2)+i )
-               END DO
-
-               IF ( Direct ) THEN
-                  CALL CRS_ComplexLUSolve( N, Matrix, WORKD(IPNTR(2)) )
-               ELSE
-                  DO i=0,n-1
-                     x(2*i+1) = REAL(  WORKD( IPNTR(2)+i ) )
-                     x(2*i+2) = AIMAG( WORKD( IPNTR(2)+i ) )
-                     b(2*i+1) = REAL(  WORKD( IPNTR(1)+i ) )
-                     b(2*i+2) = AIMAG( WORKD( IPNTR(1)+i ) )
-                  END DO
-                  IF ( Solver % MultiGridSolver ) THEN
-                     CALL MultiGridSolve(Matrix, x, b, Solver % Variable % DOFs,&
-                             Solver, Solver % MultiGridLevel, NewSystem )
-                  ELSE
-                     CALL IterSolver( Matrix, x, b, Solver )
-                  END IF
-
-                  DO i=0,n-1
-                     WORKD( IPNTR(2)+i ) = CMPLX( x(2*i+1), x(2*i+2),KIND=dp )
-                  END DO
-               END IF
+              DO i=0,n-1
+                b(2*i+1) = REAL(  WORKD( IPNTR(3)+i ) )
+                b(2*i+2) = AIMAG( WORKD( IPNTR(3)+i ) )
+              END DO
             END IF
+
+            SELECT CASE( Method ) 
+            CASE('multigrid')
+              CALL MultiGridSolve( A, x, b, &
+                  DOFs, Solver, Solver % MultiGridLevel, NewSystem )
+            CASE('iterative')
+              CALL IterSolver( A, x, b, Solver )
+            CASE('block')
+              CALL BlockSolveExt( A, x, b, Solver )
+            CASE ('direct')
+              CALL DirectSolver( A, x, b, Solver )
+            CASE DEFAULT
+              CALL Fatal('EigenSolve','Unknown linear system method: '//TRIM(Method))
+            END SELECT
+
+            A % rhs => SaveRhs
+
+            DO i=0,n-1
+              WORKD( IPNTR(2)+i ) = CMPLX( x(2*i+1), x(2*i+2),KIND=dp )
+            END DO
 !
          ELSE IF (ido == 2) THEN
 !
@@ -1298,11 +1314,10 @@ END SUBROUTINE CheckResiduals
 !           | WORKD(IPNTR(2)).                        |
 !           %-----------------------------------------%
 !
-            SaveValues => Matrix % Values
-            Matrix % Values => Matrix % MassValues
-            CALL CRS_ComplexMatrixVectorMultiply( Matrix, &
-                    WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
-            Matrix % Values => SaveValues
+            SaveValues => A % Values
+            A % Values => A % MassValues
+            CALL CRS_ComplexMatrixVectorMultiply(A, WORKD(IPNTR(1)), WORKD(IPNTR(2)) )
+            A % Values => SaveValues
          END IF 
 
          IF ( NewSystem .AND. ido /= 2 ) THEN
@@ -1413,6 +1428,13 @@ END SUBROUTINE CheckResiduals
          CALL Info( 'EigenSolveComplex', ' ', Level=4 )
          CALL Info( 'EigenSolveComplex', 'Computed Eigen Values: ', Level=4 )
          CALL Info( 'EigenSolveComplex', '--------------------------------', Level=4 )
+
+         ! Restore matrix values, if modifed when using shift:
+         ! ---------------------------------------------------
+         IF ( CMPLX(SigmaR,SigmaI,KIND=dp) /= 0.0d0 ) THEN
+           Matrix % Values = Matrix % Values + CMPLX(SigmaR,SigmaI,KIND=dp) * Matrix % MassValues
+         END IF
+
          k = 1
          DO i=1,NEIG
             p = Perm(i)
