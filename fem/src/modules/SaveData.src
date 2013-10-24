@@ -66,7 +66,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t),POINTER :: CurrentElement
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
-      GotIt, GotOper, GotParOper, GotVar, ExactCoordinates, VariablesExist, &
+      GotIt, GotOper, GotParOper, GotVar, GotOldVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, IsParallel, ParallelWrite, LiveGraph, FileAppend, SaveEigenValue, &
       SaveEigenFreq, IsInteger, ParallelReduce, WriteCore, Hit, GotEpsAbs, SaveToFile, &
       EchoValues, GotAny
@@ -408,6 +408,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       CYCLE
     END IF
     
+    GotOldVar = .FALSE.
     IF(GotVar) THEN
       Var => VariableGet( Model % Variables, TRIM(VariableName) )
       IF ( .NOT. ASSOCIATED( Var ) )  THEN
@@ -438,6 +439,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       IF(ASSOCIATED(OldVar)) THEN
         Var => OldVar
         VariableName = OldVariableName
+	GotOldVar = .TRUE.
       END IF
     END IF
 
@@ -480,7 +482,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       CASE ('volume')
 
       CASE DEFAULT
-        IF( .NOT. GotVar ) THEN
+        IF( .NOT. (GotVar .OR. GotOldVar ) ) THEN
           CALL Error('SaveScalars','Operator > '//TRIM(Oper)//' < requires variable')
           CYCLE
         END IF
