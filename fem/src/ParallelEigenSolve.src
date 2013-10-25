@@ -726,7 +726,7 @@ INCLUDE "mpif.h"
       LOGICAL   ::     First, Stat, Direct = .FALSE., &
                        Iterative = .FALSE., NewSystem
 
-      COMPLEX(KIND=dp) :: Sigma
+      COMPLEX(KIND=dp) :: Sigma, c, m
 
       LOGICAL :: Factorize, FreeFactorize,FoundFactorize,FoundFreeFactorize
       REAL(KIND=dp), TARGET :: SigmaR, SigmaI, TOL, s, Residual(2*n), Solution(2*n), &
@@ -886,7 +886,24 @@ INCLUDE "mpif.h"
          SigmaI = ListGetConstReal( Solver % Values,'Eigen System Shift im', stat )
          Sigma = CMPLX(SigmaR,SigmaI,KIND=dp)
          IF ( Sigma /= 0._dp ) THEN
-            Matrix % Values = Matrix % Values - Sigma * Matrix % MassValues
+            DO i=1,Matrix % NumberOfRows,2
+              DO j=Matrix % Rows(i),Matrix % Rows(i+1)-1,2
+                 c = CMPLX( Matrix % Values(j), -Matrix % Values(j+1), KIND=dp)
+                 m = CMPLX( Matrix % MassValues(j), -Matrix % MassValues(j+1), KIND=dp)
+                 c = c - Sigma * m
+                 Matrix % Values(j) = REAL(c)
+                 Matrix % Values(j+1) = -AIMAG(c)
+              END DO
+            END DO
+            DO i=2,Matrix % NumberOfRows,2
+              DO j=Matrix % Rows(i),Matrix % Rows(i+1)-1,2
+                 c = CMPLX( Matrix % Values(j+1), Matrix % Values(j), KIND=dp)
+                 m = CMPLX( Matrix % MassValues(j+1), Matrix % MassValues(j), KIND=dp)
+                 c = c - Sigma * m
+                 Matrix % Values(j) = AIMAG(c)
+                 Matrix % Values(j+1) = REAL(c)
+              END DO
+            END DO
          END IF
 
          IF ( Direct ) THEN
@@ -939,11 +956,6 @@ INCLUDE "mpif.h"
 
       me = ParEnv % MyPe
       OwnerList =>  Matrix % ParallelInfo % NeighbourList
-j = 0
-do i=0,n-1
-  if(ownerlist(2*i+1) % neighbours(1)==me) j=j+1
-end do
-print*,me, j, pn
 
       DO WHILE( ido /= 99 )
 !
@@ -1118,10 +1130,10 @@ print*,me, j, pn
         CALL ListRemove( Solver % Values, 'Linear System Refactorize' )
       END IF
 
-      IF ( .NOT. FoundFreeFactorize ) THEN
-        CALL ListRemove( Solver % Values, 'Linear System Free Factorization' )
-      ELSE
+      IF ( FoundFreeFactorize ) THEN
         CALL ListAddLogical( Solver % Values, 'Linear System Free Factorization', FreeFactorize )
+      ELSE
+        CALL ListRemove( Solver % Values, 'Linear System Free Factorization' )
       END IF
 
 !     %-----------------------------------------%
@@ -1151,24 +1163,10 @@ print*,me, j, pn
 !     | desired.  (indicated by rvec = .true.)    | 
 !     %-------------------------------------------%
 !        
-      D = 0.0d0
-!     IF ( Matrix % Symmetric ) THEN
-!        CALL pDSEUPD ( MPI_COMM_WORLD, .TRUE., 'A', Choose, D, V, PN, SigmaR,  &
-!           BMAT, PN, Which, NEIG, TOL, RESID, NCV, V, PN, &
-!           IPARAM, IPNTR, WORKD, WORKL, lWORKL, IERR )
-!     ELSE
-         CALL pzNEUPD ( Matrix % Comm, .TRUE., 'A', Choose, D, &
-            V, pn, Sigma, WORKEV, BMAT, pn, &
-            Which, NEIG, TOL, RESID, NCV, V, PN, &
-            IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, IERR )
-!     subroutine pzneupd
-!    &         ( comm , rvec  , howmny, select, d    ,
-!    &           z    , ldz   , sigma , workev, bmat ,
-!    &           n    , which , nev   , tol   , resid,
-!    &           ncv  , v     , ldv   , iparam, ipntr,
-!    &           workd, workl , lworkl, rwork , info )
 
-!     END IF
+      d = 0.0_dp
+      CALL pzNEUPD ( Matrix % Comm, .TRUE., 'A', Choose, D, V, pn, Sigma, WORKEV, BMAT, pn, &
+         Which, NEIG, TOL, RESID, NCV, V, PN, IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, IERR )
 
 
 !     %----------------------------------------------%
@@ -1229,7 +1227,24 @@ print*,me, j, pn
       ! Restore matrix values, if modifed when using shift:
       ! ---------------------------------------------------
       IF ( Sigma /= 0._dp ) THEN
-         Matrix % Values = Matrix % Values + Sigma * Matrix % MassValues
+        DO i=1,Matrix % NumberOfRows,2
+          DO j=Matrix % Rows(i),Matrix % Rows(i+1)-1,2
+             c = CMPLX( Matrix % Values(j), -Matrix % Values(j+1), KIND=dp)
+             m = CMPLX( Matrix % MassValues(j), -Matrix % MassValues(j+1), KIND=dp)
+             c = c + Sigma * m
+             Matrix % Values(j) = REAL(c)
+             Matrix % Values(j+1) = -AIMAG(c)
+          END DO
+        END DO
+        DO i=2,Matrix % NumberOfRows,2
+          DO j=Matrix % Rows(i),Matrix % Rows(i+1)-1,2
+             c = CMPLX( Matrix % Values(j+1), Matrix % Values(j), KIND=dp)
+             m = CMPLX( Matrix % MassValues(j+1), Matrix % MassValues(j), KIND=dp)
+             c = c + Sigma * m
+             Matrix % Values(j) = AIMAG(c)
+             Matrix % Values(j+1) = REAL(c)
+          END DO
+        END DO
       END IF
 
       k = 1
@@ -1252,7 +1267,7 @@ print*,me, j, pn
       END DO
       CALL Info( 'EigenSolve', '--------------------------------',Level=3 )
 
-      DEALLOCATE( WORKL, D, WORKEV, V, CHOOSE, Perm )
+      DEALLOCATE( WORKL, D, WORKEV, V, CHOOSE, Perm, WORKD, RESID, xx )
 #else
       CALL Fatal( 'EigenSolve', 'Arpack Eigen System Solver not available.' )
 #endif
