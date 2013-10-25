@@ -67,9 +67,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotParOper, GotVar, GotOldVar, ExactCoordinates, VariablesExist, &
-      ComplexEigen, IsParallel, ParallelWrite, LiveGraph, FileAppend, SaveEigenValue, &
-      SaveEigenFreq, IsInteger, ParallelReduce, WriteCore, Hit, GotEpsAbs, SaveToFile, &
-      EchoValues, GotAny
+      ComplexEigenVectors, ComplexEigenValues, IsParallel, ParallelWrite, LiveGraph, &
+      FileAppend, SaveEigenValue, SaveEigenFreq, IsInteger, ParallelReduce, WriteCore, &
+      Hit, GotEpsAbs, SaveToFile, EchoValues, GotAny
   LOGICAL, POINTER :: ValuesInteger(:)
   LOGICAL, ALLOCATABLE :: ActiveBC(:)
 
@@ -241,7 +241,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 5') 	
   END IF
 
-  ComplexEigen = ListGetLogical(Params,'Complex Eigen Vectors',GotIt)
+  ComplexEigenVectors = ListGetLogical(Params,'Complex Eigen Vectors',GotIt)
   MovingMesh = ListGetLogical(Params,'Moving Mesh',GotIt )
   
   IF(.NOT.SubroutineVisited .OR. MovingMesh) THEN
@@ -701,11 +701,18 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
 
   SaveEigenValue = ListGetLogical( Params, 'Save Eigenvalues', GotIt )
+  IF(.NOT. GotIt) & 
+      SaveEigenValue = ListGetLogical( Params, 'Save Eigen values', GotIt )
+
   SaveEigenFreq = ListGetLogical( Params, 'Save Eigenfrequencies', GotIt )
   IF(.NOT. GotIt) &
-    SaveEigenFreq = ListGetLogical( Params, 'Save Eigen Frequencies', GotIt ) 
+      SaveEigenFreq = ListGetLogical( Params, 'Save Eigen Frequencies', GotIt ) 
 
   IF ( SaveEigenValue .OR. SaveEigenFreq ) THEN
+    ComplexEigenValues = ListGetLogical(Params,'Complex Eigen Values',GotIt)
+    IF(.NOT. GotIt) &
+        ComplexEigenValues = ListGetLogical(Params,'Complex EigenValues',GotIt)
+    
     l = 0
     DO i = 1, Model % NumberOfSolvers       
       IF ( Model % Solvers(i) % NOFEigenValues > 0 ) THEN
@@ -715,8 +722,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           l = l + 1
 
           IF ( SaveEigenValue ) THEN
-            WRITE( Name, '("eigen: value ", I0)' ) k
+            WRITE( Name, '("eigen: Re value ", I0)' ) k
             CALL AddToSaveList(TRIM(Name), Val)
+            IF( ComplexEigenValues ) THEN
+              Val2 = AIMAG( Model % Solvers(i) % Variable % EigenValues(k) )
+              WRITE( Name, '("eigen: Im value ", I0)' ) k
+              CALL AddToSaveList(TRIM(Name), Val2)
+            END IF
           END IF 
 
           IF ( SaveEigenFreq ) THEN
@@ -725,7 +737,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
               Val = SQRT(Val) / (2*PI)
             ELSE
               ! If the eigenvalue is negative take take take a square root of its absolute value and
-              ! rertun a negative frequency. 
+              ! return a negative frequency. 
               Val = -SQRT(-Val) / (2*PI)
             END IF
             CALL AddToSaveList(TRIM(Name), Val)
@@ -769,17 +781,25 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
             DO i=1,Var % DOFs              
               Ind = Var % Perm(l)              
               IF( Ind > 0 ) THEN
+
+                Val = REAL( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
                 IF(Var % DOFs == 1) THEN
-                  WRITE(Name,'("value: Eigen ",I0," ",A," at node ",I7)') j,TRIM(Var % Name),l
+                  WRITE(Name,'("value: Re Eigen ",I0," ",A," at node ",I7)') j,TRIM(Var % Name),l
                 ELSE
-                  WRITE(Name,'("value: Eigen ",I0," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
-                END IF
-                IF(ComplexEigen) THEN
-                  Val = ABS( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
-                ELSE
-                  Val = REAL( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )                  
+                  WRITE(Name,'("value: Re Eigen ",I0," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
                 END IF
                 CALL AddToSaveList( TRIM(Name), Val)
+                
+                IF(ComplexEigenVectors) THEN
+                  Val2 = AIMAG( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
+                  IF(Var % DOFs == 1) THEN
+                    WRITE(Name,'("value: Im Eigen ",I0," ",A," at node ",I7)') j,TRIM(Var % Name),l
+                  ELSE
+                    WRITE(Name,'("value: Im Eigen ",I0," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
+                  END IF
+                  CALL AddToSaveList( TRIM(Name), Val2)
+                END IF
+
               END IF
             END DO
           END DO
@@ -837,27 +857,39 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
             DO i=1,Var % DOFs
 
               Val = -HUGE(Val)
+              Val2 = -HUGE(Val)
               GotIt = .FALSE.
 
               IF( l == 0 ) THEN
                 
               ELSE IF( ALL(Var % Perm(NodeIndexes(1:n)) > 0)) THEN
-                IF(ComplexEigen) THEN
-                  ElementValues(1:n) = ABS( Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i) )
-                ELSE
-                  ElementValues(1:n) = REAL( Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i) )
-                END IF
+                ElementValues(1:n) = REAL( Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i) )
                 Val = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
+                
+                IF(ComplexEigenVectors) THEN
+                  ElementValues(1:n) = AIMAG( Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i) )
+                  Val2 = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
+                END IF
+
                 GotIt = .TRUE.
               END IF
               
               IF( GotIt .OR. IsParallel ) THEN
                 IF(Var % DOFs == 1) THEN
-                  WRITE(Name,'("value: Eigen ",I0," ",A," in element ",I7)') j,TRIM(Var % Name),l
+                  WRITE(Name,'("value: Re Eigen ",I0," ",A," in element ",I7)') j,TRIM(Var % Name),l
                 ELSE
-                  WRITE(Name,'("value: Eigen ",I0," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
+                  WRITE(Name,'("value: Re Eigen ",I0," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
                 END IF
                 CALL AddToSaveList(TRIM(Name), Val,.FALSE.,ParOper)
+
+                IF( ComplexEigenVectors ) THEN
+                  IF(Var % DOFs == 1) THEN
+                    WRITE(Name,'("value: Im Eigen ",I0," ",A," in element ",I7)') j,TRIM(Var % Name),l
+                  ELSE
+                    WRITE(Name,'("value: Im Eigen ",I0," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
+                  END IF
+                  CALL AddToSaveList(TRIM(Name), Val2,.FALSE.,ParOper)                  
+                END IF
               END IF
             END DO
           END DO
