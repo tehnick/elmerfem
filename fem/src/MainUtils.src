@@ -79,13 +79,13 @@ CONTAINS
         IF ( ParEnv % PEs > 1 ) THEN
           IF ( str /= 'mumps' ) &
               CALL Warn( 'CheckSolverOptions', 'Only MUMPS direct solver' // &
-              ' implemented in parallel, trying MUMPS!')
+              ' interface implemented in parallel, trying MUMPS!')
              str = 'mumps' 
             CALL ListAddString( Params,'Linear System Direct Method', str)
         ELSE
           IF ( str == 'mumps' ) &
-              CALL Warn( 'CheckSolverOptions', 'Currently no serial version' // &
-              ' of the MUMPS solver implemented, sorry, trying UMFPACK!')
+              CALL Warn( 'CheckSolverOptions', 'Currently no serial interface' // &
+              ' to the MUMPS solver implemented, trying UMFPACK!')
              str = 'umfpack'
              CALL ListAddString( Params,'Linear System Direct Method', str)
         END IF
