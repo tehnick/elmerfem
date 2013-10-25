@@ -97,7 +97,7 @@ CONTAINS
 
       TYPE(Matrix_t), POINTER :: Matrix
       TYPE(Solver_t), TARGET :: Solver
-      INTEGER :: N, NEIG, DPERM(n)
+      INTEGER :: N, NEIG
       COMPLEX(KIND=dp) :: EigValues(:), EigVectors(:,:)
 
 #define PARALLEL_FOR_REAL
@@ -139,14 +139,14 @@ INCLUDE "mpif.h"
 !     %-----------------------%
 !     | Executable Statements |
 !     %-----------------------%
+
 !
       Solution    = 0
       ForceVector = 1
       Residual    = 0
 
       DOFs = Solver % Variable % DOFs
-      CALL ParallelInitSolve( Matrix, Solution, ForceVector, &
-              Residual )
+      CALL ParallelInitSolve( Matrix, Solution, ForceVector, Residual )
 
       PMatrix => ParallelMatrix( Matrix ) 
       PN = PMatrix % NumberOFRows
@@ -694,7 +694,7 @@ INCLUDE "mpif.h"
 
       TYPE(Matrix_t), POINTER :: Matrix
       TYPE(Solver_t), TARGET :: Solver
-      INTEGER :: N, NEIG, DPERM(n)
+      INTEGER :: N, NEIG
       COMPLEX(KIND=dp) :: EigValues(:), EigVectors(:,:)
 
 #define PARALLEL_FOR_REAL
@@ -707,13 +707,13 @@ INCLUDE "mpif.h"
 !     %--------------%
 !
       TYPE(Matrix_t), POINTER :: PMatrix
-      COMPLEX(KIND=dp), TARGET :: WORKD(3*N), RESID(N), xx(n)
-      COMPLEX(KIND=dp), POINTER CONTIG :: x(:), b(:)
-      INTEGER :: IPARAM(11), IPNTR(14)
+      INTEGER :: IPARAM(32), IPNTR(32)
       INTEGER, ALLOCATABLE :: Perm(:)
       LOGICAL, ALLOCATABLE :: Choose(:)
       REAL(KIND=dp) :: RWORK(2*n)
-      COMPLEX(KIND=dp), ALLOCATABLE :: WORKL(:), D(:), WORKEV(:), V(:,:)
+
+      COMPLEX(KIND=dp), POINTER CONTIG :: x(:), b(:)
+      COMPLEX(KIND=dp), ALLOCATABLE, TARGET :: WORKL(:), D(:), WORKEV(:), V(:,:), WORKD(:), RESID(:), xx(:)
 
 !
 !     %---------------%
@@ -729,7 +729,7 @@ INCLUDE "mpif.h"
       COMPLEX(KIND=dp) :: Sigma
 
       LOGICAL :: Factorize, FreeFactorize,FoundFactorize,FoundFreeFactorize
-      REAL(KIND=dp) :: SigmaR, SigmaI, TOL, s, Residual(2*n), Solution(2*n), &
+      REAL(KIND=dp), TARGET :: SigmaR, SigmaI, TOL, s, Residual(2*n), Solution(2*n), &
               ForceVector(2*n), LinConv, ILUTOL
 !
       REAL(KIND=dp), POINTER :: SaveValues(:)
@@ -749,7 +749,7 @@ INCLUDE "mpif.h"
       DOFs = Solver % Variable % DOFs
       CALL ParallelInitSolve( Matrix, Solution, ForceVector, Residual )
 
-      PMatrix => ParallelMatrix( Matrix ) 
+      PMatrix => ParallelMatrix(Matrix)
       PN = PMatrix % NumberOFRows/2
 
 !     %----------------------------------------------------%
@@ -766,7 +766,7 @@ INCLUDE "mpif.h"
 !     %----------------------------------------------------%
 !
       NCV = ListGetInteger( Solver % Values, 'Eigen System Lanczos Vectors', stat )
-      IF ( .NOT. stat ) NCV = MIN( 3*NEIG + 1, PN )
+      IF ( .NOT. stat ) NCV = MIN( 3*NEIG + 1, pn )
       NCV = NINT(ParallelReduction(1._dp*NCV,1))
 
       IF ( NCV <=  NEIG ) THEN
@@ -775,7 +775,7 @@ INCLUDE "mpif.h"
       END IF
 
       ALLOCATE( WORKL(3*NCV**2 + 6*NCV), D(NCV), &
-         WORKEV(3*NCV), V(PN,NCV), CHOOSE(NCV), STAT=istat )
+         WORKEV(3*NCV), V(PN,NCV), CHOOSE(NCV), WORKD(3*pn), RESID(pn), xx(pn), STAT=istat )
 
       IF ( istat /= 0 ) THEN
          CALL Fatal( 'EigenSolve', 'Memory allocation error.' )
@@ -902,7 +902,7 @@ INCLUDE "mpif.h"
         LinIter = ListGetInteger( Solver % Values, 'Linear System Max Iterations', stat )
         IF ( .NOT. Stat ) LinIter = 1000
         LinConv = ListGetConstReal( Solver % Values, 'Linear System Convergence Tolerance', stat )
-        IF ( .NOT. Stat ) LinConv = 1.0D-9
+        IF ( .NOT. Stat ) LinConv = 1.0d-9
 !        Preconditiong:
 !        --------------
         str = ListGetString( Solver % Values, 'Linear System Preconditioning', stat )
@@ -915,22 +915,19 @@ INCLUDE "mpif.h"
         ELSE IF ( str(1:3) == 'ilu' ) THEN
            k = ICHAR(str(4:4)) - ICHAR('0')
            IF ( k<0 .OR. k>9 ) k = 0
-           PMatrix % Cholesky = ListGetLogical( Solver % Values, &
-                'Linear System Symmetric ILU', stat )
            stat = CRS_ComplexIncompleteLU( PMatrix, k )
         END IF
       END IF
 
       IF ( .NOT. ASSOCIATED( Matrix % RHS ) ) THEN
-         ALLOCATE( Matrix % RHS(2*N) )
-         Matrix % RHS = 0._dp
+         ALLOCATE(Matrix % RHS(2*n)); Matrix % RHS = 0._dp
       END IF
 !
 !     %-------------------------------------------%
 !     | M A I N   L O O P (Reverse communication) |
 !     %-------------------------------------------%
 !
-      iter = 1
+      iter = 0
       NewSystem = .TRUE.
 
       Iterative = ListGetString( Solver % Values, &
@@ -942,6 +939,11 @@ INCLUDE "mpif.h"
 
       me = ParEnv % MyPe
       OwnerList =>  Matrix % ParallelInfo % NeighbourList
+j = 0
+do i=0,n-1
+  if(ownerlist(2*i+1) % neighbours(1)==me) j=j+1
+end do
+print*,me, j, pn
 
       DO WHILE( ido /= 99 )
 !
@@ -951,28 +953,14 @@ INCLUDE "mpif.h"
 !        | either convergence is indicated or maxitr   |
 !        | has been exceeded.                          |
 !        %---------------------------------------------%
-!
-!        IF ( Matrix % Symmetric ) THEN
-!           CALL PDSAUPD ( MPI_COMM_WORLD, ido, BMAT, PN, Which, NEIG, TOL, &
-!             RESID, NCV, V, PN, IPARAM, IPNTR, WORKD, WORKL, lWORKL, kinfo )
-!        ELSE
-            CALL PZNAUPD ( Matrix % Comm, ido, BMAT, pn, Which, NEIG, TOL, &
-              RESID, NCV, V, pn, IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, kinfo )
-
-!     subroutine pznaupd
-!    &   ( comm, ido, bmat, n, which, nev, tol, resid, ncv, v, ldv,
-!    &     iparam, ipntr, workd, workl, lworkl, rwork, info )
-
-
-
-!        END IF
-!
+         CALL PZNAUPD ( Matrix % Comm, ido, BMAT, pn, Which, NEIG, TOL, &
+           RESID, NCV, V, pn, IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, kinfo )
 
          IF (ido == -1 .OR. ido == 1) THEN
+            iter = iter + 1
 !           WRITE( Message, * ) ' Arnoldi iteration: ', Iter
 !           CALL Info( 'EigenSolve', Message, Level=5 )
             CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
-            iter = iter + 1
 !---------------------------------------------------------------------
 !             Perform  y <--- OP*x = inv[M]*A*x   (lumped mass)
 !                      ido =-1 inv(A-sigmaR*M)*M*x 
@@ -982,15 +970,13 @@ INCLUDE "mpif.h"
                x => WORKD(IPNTR(2):IPNTR(2)+pn-1)
                b => WORKD(IPNTR(3):IPNTR(3)+pn-1)
 
+               ForceVector = 0._dp
+               Solution    = 0._dp
                IF ( Direct .AND. DirectMethod == 'mumps' ) THEN
-                  ForceVector = 0
-                  Solution    = 0
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
+                     IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
                         j = j + 1
-                        Solution(2*i+1)    = REAL(x(j))
-                        Solution(2*i+2)    = AIMAG(x(j))
                         ForceVector(2*i+1) = REAL(b(j))
                         ForceVector(2*i+2) = AIMAG(b(j))
                      END IF
@@ -998,17 +984,15 @@ INCLUDE "mpif.h"
                   CALL DirectSolver( Matrix,Solution,ForceVector,Solver )
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
+                     IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
                         j = j + 1
                         x(j) = CMPLX(Solution(2*i+1),Solution(2*i+2),KIND=dp)
                      END IF
                   END DO
                ELSE IF ( Solver % MultiGridSolver ) THEN
-                  ForceVector = 0
-                  Solution    = 0
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
+                     IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
                         j = j + 1
                         Solution(2*i+1)    = REAL(x(j))
                         Solution(2*i+2)    = AIMAG(x(j))
@@ -1016,13 +1000,11 @@ INCLUDE "mpif.h"
                         ForceVector(2*i+2) = AIMAG(b(j))
                      END IF
                   END DO
-
                   CALL MultiGridSolve( Matrix, Solution, ForceVector,  DOFs, &
                         Solver, Solver % MultiGridLevel, NewSystem )
-
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
+                     IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
                         j = j + 1
                         x(j) = CMPLX(Solution(2*i+1),Solution(2*i+2),KIND=dp)
                      END IF
@@ -1042,38 +1024,33 @@ INCLUDE "mpif.h"
             ELSE
                x => WORKD(IPNTR(1):IPNTR(1)+pn-1)
                b => xx
-
                CALL CMGmv( Matrix, x, b, .FALSE., .TRUE. )
 
                x => WORKD(IPNTR(2):IPNTR(2)+pn-1)
 
+               ForceVector = 0._dp
+               Solution    = 0._dp
                IF ( Direct .AND. DirectMethod == 'mumps' ) THEN
-                  ForceVector = 0
-                  Solution    = 0
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
-                        j = j + 1
-                        Solution(2*i+1)    = REAL(x(j))
-                        Solution(2*i+2)    = AIMAG(x(j))
-                        ForceVector(2*i+1) = REAL(b(j))
-                        ForceVector(2*i+2) = AIMAG(b(j))
-                     END IF
+                    IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
+                       j = j + 1
+                       ForceVector(2*i+1) = REAL(b(j))
+                       ForceVector(2*i+2) = AIMAG(b(j))
+                    END IF
                   END DO
                   CALL DirectSolver( Matrix,Solution,ForceVector,Solver )
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
+                     IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
                         j = j + 1
                         x(j) = CMPLX(Solution(2*i+1),Solution(2*i+2),KIND=dp)
                      END IF
                   END DO
                ELSE IF ( Solver % MultiGridSolver ) THEN
-                  ForceVector = 0
-                  Solution    = 0
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
+                     IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
                         j = j + 1
                         Solution(2*i+1)    = REAL(x(j))
                         Solution(2*i+2)    = AIMAG(x(j))
@@ -1081,13 +1058,11 @@ INCLUDE "mpif.h"
                         ForceVector(2*i+2) = AIMAG(b(j))
                      END IF
                   END DO
-
                   CALL MultiGridSolve( Matrix, Solution, ForceVector,  DOFs, &
                         Solver, Solver % MultiGridLevel, NewSystem )
-
                   j = 0
                   DO i=0,n-1
-                     IF ( OwnerList(i+1) % Neighbours(1) == me ) THEN
+                     IF ( OwnerList(2*i+1) % Neighbours(1) == me ) THEN
                         j = j + 1
                         x(j) = CMPLX(Solution(2*i+1),Solution(2*i+2),KIND=dp)
                      END IF
@@ -1100,7 +1075,7 @@ INCLUDE "mpif.h"
                     ForceVector(2*i+2) = AIMAG(b(i+1))
                   END DO
                   CALL BiCGParEigen( Matrix,Solution,ForceVector,Residual,LinIter,LinConv )
-                  DO i=0,n-1
+                  DO i=0,pn-1
                     x(i+1) = CMPLX(Solution(2*i+1),Solution(2*i+2),KIND=dp)
                   END DO
                END IF
@@ -1507,10 +1482,11 @@ INCLUDE "mpif.h"
          xx(2*i+2) = AIMAG(x(i+1))
        END DO
 
+       bb = 0._dp
        CALL ParallelMatrixVector( A,xx,bb,updt,mass )
 
        DO i=0,size(x)-1
-         b(i+1) = CMPLX(bb(2*i+1),bb(2*i+2))
+         b(i+1) = CMPLX(bb(2*i+1),bb(2*i+2),KIND=dp)
        END DO
 !------------------------------------------------------------------------------
     END SUBROUTINE CMGmv
