@@ -68,9 +68,9 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       ActiveDirection,elem,TopNodes,NoVar,BotNodes
   INTEGER, POINTER :: MaskPerm(:),TopPointer(:),BotPointer(:),UpPointer(:),DownPointer(:),&
       NodeIndexes(:),TargetPointer(:),BotPerm(:),&
-      PermOut(:),PermIn(:),LevelsetPerm(:),TopPerm(:)
+      PermOut(:),PermIn(:),LevelsetPerm(:),TopPerm(:),UnitPerm(:)=>NULL()
   LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
-      Debug, MaskExist, GotVar, GotOper, BottomTarget, ReducedDimensional
+      Debug, MaskExist, GotVar, GotOldVar, GotOper, BottomTarget, ReducedDimensional
   REAL(KIND=dp) :: dx,UnitVector(3),ElemVector(3),DotPro,Eps,Length,Level,val,q,depth,height
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: FieldOut(:), FieldIn(:), Levelset(:), Coord(:),TopField(:)
@@ -82,7 +82,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
   
   SAVE Visited,Nodes,Initialized,UnitVector,Coord,MaskExist,MaskPerm,TopPointer,BotPointer,&
       UpPointer,DownPointer,FieldOut,FieldIn,TopNodes,TopPerm, TopField, BotNodes, BotPerm, &
-      nsize
+      nsize, UnitPerm
  
   CALL Info( 'StructuredProjectToPlane','------------------------------------------',Level=4 )
   CALL Info( 'StructuredProjectToPlane','Performing projection on a structured mesh ',Level=4 )
@@ -146,6 +146,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
   ! Go through the variables and compute the desired projections
   !------------------------------------------------------------------------------
   GotVar  = .TRUE.
+  GotOldVar = .FALSE.
   GotOper = .FALSE.
   NULLIFY(OldVar)
   NoVar = 0
@@ -169,6 +170,8 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       FieldIn => Var % Values
       PermIn => Var % Perm
       Dofs = Var % Dofs
+      GotOldVar = .TRUE.
+      OldVarName = VarName
     ELSE
       Dofs = 1
     END IF
@@ -195,6 +198,10 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       EXIT
     END IF
     OldOper = Oper
+    IF(GotOper .AND. .NOT. GotVar ) THEN
+      GotVar = GotOldVar
+      IF(GotVar) VarName = OldVarName
+    END IF
 
     ! Check that the variable exists for most of the operators 
     !----------------------------------------------------------
@@ -235,11 +242,21 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
               TargetName, Dofs, Perm = TopPerm)           
         END IF
       ELSE
+        IF(.NOT. ASSOCIATED( UnitPerm ) ) THEN
+          ALLOCATE( UnitPerm( nsize ) ) 
+          DO i=1,nsize
+            UnitPerm(i) = i
+          END DO
+        END IF
         CALL VariableAddVector( Mesh % Variables, Solver % Mesh, PSolver, &
-            TargetName, Dofs )
+            TargetName, Dofs, Perm = UnitPerm )
       END IF
       Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
-      CALL Info('StructuredProjectToPlane','Created TARGET Variable: '//TRIM(TargetName),Level=9)
+      IF( ASSOCIATED( Var ) ) THEN
+        CALL Info('StructuredProjectToPlane','Created variable: '//TRIM(TargetName),Level=9)
+      ELSE
+        CALL Warn('StructuredProjectToPlane','Could not create variable: '//TRIM(TargetName))
+      END IF 
     END IF
     IF( Var % Dofs /= Dofs ) THEN
       CALL Fatal('StructureProjectToPlane','Mismatch in the dofs in fields!')
@@ -359,7 +376,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
             END DO
             IF(ASSOCIATED(PermIn)) l = PermIn(l)
             l = Dofs*(l-1)+dof
-            TopField(TopPerm(i)) = FieldIn(l)
+            TopField(TopPerm(TopPointer(i))) = FieldIn(l)
           END IF
         END DO
         

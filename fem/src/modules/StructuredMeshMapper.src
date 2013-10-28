@@ -67,7 +67,7 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   INTEGER, POINTER :: MaskPerm(:),TopPerm(:),BotPerm(:),TopPointer(:),&
       BotPointer(:),NodeIndexes(:)
   LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
-      DisplacementMode, MaskExists, GotVeloVar, GotUpdateVar
+      DisplacementMode, MaskExists, GotVeloVar, GotUpdateVar, Tangled 
   REAL(KIND=dp) :: UnitVector(3),x0loc,x0bot,x0top,xloc,wtop,BotVal,TopVal,&
       TopVal0, BotVal0, ElemVector(3),DotPro,Eps,Length
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime,Heps
@@ -295,7 +295,17 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
       END IF       
     END IF
 
-    IF( TopVal - BotVal < Heps ) THEN
+    IF( DisplacementMode ) THEN
+      Tangled = ( TopVal + x0top < BotVal + x0bot ) 
+    ELSE
+      Tangled = ( TopVal < BotVal ) 
+    END IF
+
+    IF( Tangled ) THEN
+      PRINT *,'Mode',DisplacementMode
+      PRINT *,'TopVal',TopVal,x0top,TopVal+x0top
+      PRINT *,'Botval',BotVal,x0bot,BotVal+x0bot
+
       PRINT *,'Node',i,'Height',Coord(i),'W',wtop
       PRINT *,'Position',Mesh % Nodes % x(i),Mesh % Nodes % y(i),Mesh % Nodes % z(i)
       PRINT *,'TopVal',TopVal,'BotVal',Botval,'dVal',TopVal-BotVal
