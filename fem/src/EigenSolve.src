@@ -1233,15 +1233,9 @@ END SUBROUTINE CheckResiduals
 !        | has been exceeded.                          |
 !        %---------------------------------------------%
 !
-!        IF ( Matrix % Symmetric ) THEN
-!           CALL ZSAUPD ( ido, BMAT, n, Which, NEIG, TOL, &
-!             RESID, NCV, V, n, IPARAM, IPNTR, WORKD, WORKL, lWORKL, kinfo )
-!        ELSE
-            CALL ZNAUPD ( ido, BMAT, n, Which, NEIG, TOL, &
-              RESID, NCV, v, n, IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, kinfo )
-!        END IF
-!
-!
+         CALL ZNAUPD ( ido, BMAT, n, Which, NEIG, TOL, &
+           RESID, NCV, v, n, IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, kinfo )
+
          IF (ido == -1 .OR. ido == 1) THEN
 !           WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
 !           CALL Info( 'EigenSolveComplex', Message, Level=5 )
@@ -1359,17 +1353,8 @@ END SUBROUTINE CheckResiduals
 !        %-------------------------------------------%
 !           
          D = 0.0d0
-!        IF ( Matrix % Symmetric ) THEN
-!           CALL ZSEUPD ( .TRUE., 'A', Choose, D, V, N, SigmaR,  &
-!              BMAT, n, Which, NEIG, TOL, RESID, NCV, V, N, &
-!              IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, IERR )
-!        ELSE
-            CALL ZNEUPD ( .TRUE., 'A', Choose, D, &
-               V, N, Sigma, WORKEV, BMAT, N, &
-               Which, NEIG, TOL, RESID, NCV, V, N, &
-               IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, IERR )
-!        END IF
- 
+         CALL ZNEUPD ( .TRUE., 'A', Choose, D, V, N, Sigma, WORKEV, BMAT, N, Which, NEIG, &
+           TOL, RESID, NCV, V, N, IPARAM, IPNTR, WORKD, WORKL, lWORKL, RWORK, IERR )
 
 !        %----------------------------------------------%
 !        | Eigenvalues are returned in the First column |
@@ -1458,6 +1443,11 @@ END SUBROUTINE CheckResiduals
            END IF
            IF ( ABS(s) > 0 ) EigVectors(i,:) = EigVectors(i,:) / SQRT(s)
          END DO
+
+         IF ( ListGetLogical( Params, 'Eigen System Compute Residuals', stat ) ) THEN
+           CALL Info('EigenSolve','Computing eigen system residuals',Level=8)
+           CALL CheckResidualsComplex( Matrix, Neig, EigValues, EigVectors )
+         END IF
          CALL Info( 'EigenSolveComplex', '--------------------------------',Level=4 )
 !
       END IF
@@ -1469,6 +1459,47 @@ END SUBROUTINE CheckResiduals
 !
 !------------------------------------------------------------------------------
      END SUBROUTINE ArpackEigenSolveComplex
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE CheckResidualsComplex( Matrix, n, Eigs, EigVectors )
+!------------------------------------------------------------------------------
+      USE CRSMatrix
+      TYPE(Matrix_t), POINTER :: Matrix
+      INTEGER :: i,j,k,n,sz
+      COMPLEX(KIND=dp) :: Eigs(:), EigVectors(:,:)
+
+      REAL(KIND=dp), ALLOCATABLE, TARGET :: vals(:)
+      REAL(KIND=dp), POINTER :: svals(:)
+      COMPLEX(KIND=dp) :: c,m
+      COMPLEX(KIND=dp), ALLOCATABLE :: x(:), y(:)
+
+      sz = Matrix % NumberOfRows/2
+      ALLOCATE( x(sz), y(sz), vals(size(matrix % values)) ); vals=0
+      DO i=1,n
+        DO j=1,sz
+          DO k=Matrix % Rows(2*j-1), Matrix % Rows(2*j)-1,2
+            c = CMPLX(Matrix % Values(k), -Matrix % Values(k+1),KIND=dp)
+            m = CMPLX(Matrix % MassValues(k), -Matrix% MassValues(k+1),KIND=dp)
+            c = c - eigs(i) * m
+            vals(k) = REAL(c)
+            vals(k+1) = -AIMAG(c)
+          END DO
+        END DO
+
+        x = EigVectors(i,:)
+        svals => Matrix % Values
+        Matrix % Values => vals
+        CALL CRS_ComplexMatrixVectorMultiply( Matrix, x, y )
+        Matrix % Values => svals
+
+        WRITE( Message, * ) 'L^2 Norm of the residual: ', i, SQRT(SUM(ABS(y)**2))
+        CALL Info( 'CheckResiduals', Message, Level = 3 )
+      END DO
+      DEALLOCATE( x,y )
+!------------------------------------------------------------------------------
+END SUBROUTINE CheckResidualsComplex
 !------------------------------------------------------------------------------
 
 
