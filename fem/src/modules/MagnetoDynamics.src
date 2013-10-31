@@ -328,7 +328,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   TYPE(Element_t),POINTER :: Element, Edge
 
   REAL(KIND=dp) :: Norm, PrevDT=-1, RelChange
-  TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
+  TYPE(ValueList_t), POINTER :: BodyForce, Material, BC, BodyParams
 
   INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0, &
           NoIterationsMax,NoIterationsMin, nsize
@@ -338,11 +338,11 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   REAL (KIND=DP), POINTER :: Cwrk(:,:,:)
   REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:, :, :), &
                                 GapLength(:), AirGapMu(:), LamThick(:), &
-                                LamCond(:)
+                                LamCond(:), Wbase(:)
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
 
-  CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel
-  LOGICAL :: LaminateStack
+  CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel, CoilType
+  LOGICAL :: LaminateStack, CoilBody
 
   INTEGER, POINTER :: Perm(:)
   INTEGER, ALLOCATABLE :: FluxMap(:)
@@ -359,7 +359,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: Avals(:), Vvals(:)
 
   SAVE STIFF, LOAD, MASS, FORCE, Tcoef, GapLength, AirGapMu, &
-       Acoef, Cwrk, LamThick, LamCond, AllocationsDone
+       Acoef, Cwrk, LamThick, LamCond, Wbase, AllocationsDone
 !------------------------------------------------------------------------------
 
   !Allocate some permanent storage, this is done first time only:
@@ -374,7 +374,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
      ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
           MASS(N,N), Tcoef(3,3,N), GapLength(N), &
           AirGapMu(N), Acoef(N), LamThick(N), &
-          LamCond(N), STAT=istat )
+          LamCond(N), Wbase(N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'WhitneyAVSolver', 'Memory allocation error.' )
      END IF
@@ -505,6 +505,24 @@ CONTAINS
 	Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
      END IF
 
+    BodyParams => GetBodyParams( Element )
+    IF (.NOT. ASSOCIATED(BodyParams)) CALL Fatal ('WhitneyAVSolver', 'Body Parameters not found')
+
+    CoilBody = .False.
+    CoilType = GetString(BodyParams, 'Coil Type', Found)
+    IF (.NOT. Found) THEN
+      CoilType = ''
+    ELSE
+      SELECT CASE (CoilType)
+      CASE ('massive')
+        CoilBody = .True.
+      CASE ('stranded')
+        CoilBody = .True.
+      CASE DEFAULT
+        CALL Fatal ('WhitneyAVSolver', 'Non existent Coil Type Chosen!')
+      END SELECT
+    END IF
+
      Acoef = 0.0d0
      Tcoef = 0.0d0
      Material => GetMaterial( Element )
@@ -560,8 +578,8 @@ CONTAINS
      !Get element local matrix and rhs vector:
      !----------------------------------------
      CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
-        Tcoef, Acoef, LaminateStack, LaminateStackModel, LamThick, &
-        LamCond, Element, n, nd )
+        Tcoef, Acoef, LaminateStack, LaminateStackModel, &
+        LamThick, LamCond, CoilBody, CoilType, Element, n, nd )
 
 
     !Update global matrix and rhs vector from local matrix & vector:
@@ -1311,7 +1329,7 @@ CONTAINS
 !-----------------------------------------------------------------------------
   SUBROUTINE LocalMatrix( MASS, STIFF, FORCE, LOAD, &
             Tcoef, Acoef, LaminateStack, LaminateStackModel, &
-            LamThick, LamCond, Element, n, nd )
+            LamThick, LamCond, CoilBody, CoilType, Element, n, nd )
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: STIFF(:,:), FORCE(:), MASS(:,:)
     REAL(KIND=dp) :: LOAD(:,:), Tcoef(:,:,:), Acoef(:), &
@@ -1324,9 +1342,9 @@ CONTAINS
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ, L(3), G(3), M(3), FixJPot(nd)
     REAL(KIND=dp) :: LocalLamThick, LocalLamCond
 
-    CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel
+    CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel, CoilType
 
-    LOGICAL :: Stat, Found, Newton, Cubic, HBCurve, LaminateStack
+    LOGICAL :: Stat, Found, Newton, Cubic, HBCurve, LaminateStack, CoilBody
     INTEGER :: t, i, j, p, q, np, siz
     TYPE(GaussIntegrationPoints_t) :: IP
 
@@ -1425,70 +1443,75 @@ CONTAINS
        ! Compute element stiffness matrix and force vector:
        ! --------------------------------------------------
 
-       !
-       ! The constraint equation for time dep., potential eq.
-       ! in steady state: -div(C*(dA/dt+grad(V)))=0
-       ! ---------------------------------------------------
-       IF ( Transient ) THEN
-
-         DO i=1,np
-           p = i
-           DO j=1,np
-             q = j
-
-	     ! Compute the conductivity term <C grad V,grad v> for stiffness 
-             ! matrix (anisotropy taken into account)
-             ! -------------------------------------------
-
-             IF ( SUM(C) /= 0._dp ) THEN
-               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
-             ELSE
-!              STIFF(p,q) = STIFF(p,q) + &
-!                     Basis(q)*Basis(p)*detJ*IP % s(t)
-             END IF
-           END DO
-           DO j=1,nd-np
-             q = j+np
-
-	     ! Compute the conductivity term <C A,grad v> for 
-             ! mass matrix (anisotropy taken into account)
-             ! -------------------------------------------
-             MASS(p,q) = MASS(p,q) + SUM(MATMUL(C, dBasisdx(i,:))*Wbasis(j,:))*detJ*IP % s(t)
-
-	     ! Compute the conductivity term <C grad V, eta> for 
-             ! stiffness matrix (anisotropy taken into account)
-             ! ------------------------------------------------
-             STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C, WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
-           END DO
-         END DO
-       ELSE
+       ! If we calculate a coil, the nodal degrees of freedom are not used:
+       ! ------------------------------------------------------------------
+       IF (.NOT. CoilBody) THEN
          !
-         ! Adding the scalar pontential solver as done in the following
-         ! is reasonable only in the case where
-         ! the electrical conductivity is nonzero.
-         ! ------------------------------------------------------------------
-         IF (FixJ .and. .not. LaminateStack) THEN
+         ! The constraint equation for time dep., potential eq.
+         ! in steady state: -div(C*(dA/dt+grad(V)))=0
+         ! ---------------------------------------------------
+         IF ( Transient ) THEN
+
            DO i=1,np
              p = i
              DO j=1,np
                q = j
 
-               ! Compute the conductivity term <C grad V,grad v> for stiffness 
+	       ! Compute the conductivity term <C grad V,grad v> for stiffness 
                ! matrix (anisotropy taken into account)
                ! -------------------------------------------
-               STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(i,:)) * dBasisdx(j,:))*detJ*IP % s(t)
-             END DO
 
+               IF ( SUM(C) /= 0._dp ) THEN
+                 STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
+               ELSE
+!                STIFF(p,q) = STIFF(p,q) + &
+!                       Basis(q)*Basis(p)*detJ*IP % s(t)
+               END IF
+             END DO
              DO j=1,nd-np
                q = j+np
-               ! Compute the conductivity term <C grad V, eta> for 
+
+               ! Compute the conductivity term <C A,grad v> for 
+               ! mass matrix (anisotropy taken into account)
+               ! -------------------------------------------
+               MASS(p,q) = MASS(p,q) + SUM(MATMUL(C, dBasisdx(i,:))*Wbasis(j,:))*detJ*IP % s(t)
+
+	       ! Compute the conductivity term <C grad V, eta> for 
                ! stiffness matrix (anisotropy taken into account)
                ! ------------------------------------------------
                STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C, WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
              END DO
            END DO
+         ELSE
+           !
+           ! Adding the scalar pontential solver as done in the following
+           ! is reasonable only in the case where
+           ! the electrical conductivity is nonzero.
+           ! ------------------------------------------------------------------
+           IF (FixJ .and. .not. LaminateStack ) THEN
+             DO i=1,np
+               p = i
+               DO j=1,np
+                 q = j
+
+                 ! Compute the conductivity term <C grad V,grad v> for stiffness 
+                 ! matrix (anisotropy taken into account)
+                 ! -------------------------------------------
+                 STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(i,:)) * dBasisdx(j,:))*detJ*IP % s(t)
+               END DO
+
+               DO j=1,nd-np
+                 q = j+np
+                 ! Compute the conductivity term <C grad V, eta> for 
+                 ! stiffness matrix (anisotropy taken into account)
+                 ! ------------------------------------------------
+                 STIFF(q,p) = STIFF(q,p) + SUM(MATMUL(C, WBasis(j,:))*dBasisdx(i,:))*detJ*IP % s(t)
+               END DO
+             END DO
+           END IF
          END IF
-       END IF
+
+       END IF ! (.NOT. CoilBody)
 
        !
        ! C*dA/dt + curl(1/mu*curl(A)) + C*grad(P) =  ! the last one above^
@@ -1509,8 +1532,10 @@ CONTAINS
 
            ! Compute the conductivity term <C A,eta> for 
            ! mass matrix (anisotropy taken into account)
-           ! -------------------------------------------
-           MASS(p,q) = MASS(p,q) + SUM(MATMUL(C, WBasis(i,:))*WBasis(j,:) )*detJ*IP % s(t)
+           ! This is not used in the case of stranded coil:
+           ! ----------------------------------------------
+           IF (CoilType /= 'stranded') MASS(p,q) = MASS(p,q) + & 
+               SUM(MATMUL(C, WBasis(i,:))*WBasis(j,:) )*detJ*IP % s(t)
 
            ! Compute the low frequency eddy term for laminate stack model.
            ! Note that the conductivity term <C A, eta> above can be used to 
