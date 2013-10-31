@@ -467,9 +467,8 @@ CONTAINS
   LOGICAL FUNCTION DoSolve(IterNo) RESULT(Converged)
 !------------------------------------------------------------------------------
    CHARACTER(LEN=MAX_NAME_LEN) :: potname
-   INTEGER :: i,j,t,n,nd,IterNo
+   INTEGER :: i,j,k,t,n,nd,IterNo
 
-   REAL(KIND=dp), ALLOCATABLE :: Diag(:)
    LOGICAL :: Found
    REAL(KIND=dp)::TOL,Norm,PrevNorm
 
@@ -680,28 +679,7 @@ CONTAINS
   ! Dirichlet BCs in terms of magnetic flux density B:
   ! --------------------------------------------------
   CALL DirichletAfromB()
-
-  n = A % NumberOFRows
-  ALLOCATE(Diag(n)); Diag=0._dp
-  DO i=1,n
-    j=A % Diag(i)
-    IF (j>0) Diag(i) = A % Values(j)
-  END DO
-  IF (ParEnv % PEs>1) CALL ParallelSumVector(A, Diag)
-
-  k = 0
-  n = Mesh % NumberOfNodes
-  DO i=1,n
-    J = Solver % Variable % Perm(i)
-    IF(J>0) THEN
-      IF ( A % Values(A % Diag(j))==0._dp ) THEN
-        k = k + 1
-        CALL ZeroRow(A,j)
-        CALL SetMatrixElement(A,j,j,1._dp)
-        A % RHS(j)=0._dp
-      END IF
-    END IF
-  END DO
+  CALL ConstrainUnused(A)
 
   !
   ! Gauge tree, if requested or using direct solver:
@@ -757,6 +735,40 @@ CONTAINS
 
 !------------------------------------------------------------------------------
  END FUNCTION DoSolve
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+ SUBROUTINE ConstrainUnused(A)
+!------------------------------------------------------------------------------
+  TYPE(Matrix_t) :: A
+!------------------------------------------------------------------------------
+  INTEGER :: i,j,n
+
+  REAL(kind=dp), ALLOCATABLE :: dDiag(:)
+!------------------------------------------------------------------------------
+
+  n = A % NumberOfRows
+  ALLOCATE(dDiag(n)); dDiag = 0._dp
+
+  DO i=1,n
+    j = A % Diag(i)
+    IF (j>0) dDiag(i) = A % Values(j)
+  END DO
+  IF (ParEnv % PEs>1) CALL ParallelSumVector(A, dDiag)
+
+  n = Mesh % NumberOfNodes
+  DO i=1,n
+    J = Solver % Variable % Perm(i)
+    IF(J>0) THEN
+      IF ( dDiag(j)==0._dp ) THEN
+        CALL ZeroRow(A,j)
+        CALL SetMatrixElement(A,j,j,1._dp)
+        A % RHS(j)=0._dp
+      END IF
+    END IF
+  END DO
+!------------------------------------------------------------------------------
+ END SUBROUTINE ConstrainUnused
 !------------------------------------------------------------------------------
 
 
@@ -2893,37 +2905,7 @@ CONTAINS
     ! Fix unused potential DOFs:
     ! --------------------------
     A => GetMatrix()
-
-    n = A % NumberOFRows
-    ALLOCATE(Diag(n)); Diag=0._dp
-
-    DO i=1,n,2
-      j = A % Diag(i)
-      IF(j>0) THEN
-        Diag(i)   =  A % Values(j)
-        Diag(i+1) = -A % Values(j+1)
-      END IF
-    END DO
-    IF (ParEnv % PEs>1) CALL ParallelSumVector(A, Diag)
-
-    n = Mesh % NumberOfNodes
-    DO i=1,Mesh % NumberOfNodes
-      j = Solver % Variable % Perm(i)
-      IF (j==0) CYCLE
-
-      j = 2*(j-1)
-      Aval = CMPLX(Diag(j+1), Diag(j+2), KIND=dp)
-
-      IF (Aval==0._dp) THEN
-        A % RHS(j+1) = 0._dp
-        CALL ZeroRow(A,j+1)
-        A % Values(A % Diag(j+1)) = 1._dp
-
-        A % RHS(j+2) = 0._dp
-        CALL ZeroRow(A,j+2)
-        A % Values(A % Diag(j+2)) = 1._dp
-      END IF
-    END DO
+    CALL ConstrainUnused(A)
 
     !
     ! Linear system solution:
@@ -2944,6 +2926,50 @@ CONTAINS
 !------------------------------------------------------------------------------
   END FUNCTION DoSolve
 !------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ConstrainUnused(A)
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,n
+   
+    REAL(KIND=dp), ALLOCATABLE :: dDiag(:)
+!------------------------------------------------------------------------------
+    n = A % NumberOFRows
+    ALLOCATE(dDiag(n)); dDiag=0._dp
+
+    DO i=1,n,2
+      j = A % Diag(i)
+      IF(j>0) THEN
+        dDiag(i)   =  A % Values(j)
+        dDiag(i+1) = -A % Values(j+1)
+      END IF
+    END DO
+    IF (ParEnv % PEs>1) CALL ParallelSumVector(A, dDiag)
+
+    n = Mesh % NumberOfNodes
+    DO i=1,Mesh % NumberOfNodes
+      j = Solver % Variable % Perm(i)
+      IF (j==0) CYCLE
+
+      j = 2*(j-1)
+      Aval = CMPLX(dDiag(j+1), dDiag(j+2), KIND=dp)
+
+      IF (Aval==0._dp) THEN
+        A % RHS(j+1) = 0._dp
+        CALL ZeroRow(A,j+1)
+        A % Values(A % Diag(j+1)) = 1._dp
+
+        A % RHS(j+2) = 0._dp
+        CALL ZeroRow(A,j+2)
+        A % Values(A % Diag(j+2)) = 1._dp
+      END IF
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE ConstrainUnused
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE GaugeTree()
