@@ -429,7 +429,6 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   ! ----------------------------------------
   CALL ListAddInteger(GetSolverParams(),'Norm Permutation',nNodes+1)
 
-
   ! 
   ! Resolve internal non.linearities, if requeted:
   ! ----------------------------------------------
@@ -2583,6 +2582,7 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
 
   INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0
+  INTEGER :: NoIterationsMin, NoIterationsMax
 
   TYPE(Mesh_t), POINTER :: Mesh
 
@@ -2596,8 +2596,6 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
 
   REAL(KIND=dp), POINTER :: sValues(:), fixpot(:)
   TYPE(Variable_t), POINTER :: fixJpot
-
-  REAL(KIND=dp), ALLOCATABLE :: Diag(:)
 
   CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel
 
@@ -2644,265 +2642,307 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   IF (.NOT. Found ) FixJ=.TRUE.
   IF (FixJ) CALL JfixPotentialSolver(Model,Solver,dt,Transient)
 
-  ! System assembly:
-  !-----------------
-  CALL DefaultInitialize()
-  Active = GetNOFActive()
-  DO t=1,active
-     Element => GetActiveElement(t)
-     n  = GetElementNOFNodes() ! kulmat
-     nd = GetElementNOFDOFs()  ! vapausasteet
-
-     LOAD = 0.0d0
-     BodyForce => GetBodyForce()
-     IF ( ASSOCIATED(BodyForce) ) THEN
-        Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
-        Load(1,1:n) = CMPLX( REAL(Load(1,1:n)), &
-          GetReal( BodyForce, 'Current Density im 1', Found ),KIND=dp)
-
-        Load(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
-        Load(2,1:n) = CMPLX( REAL(Load(2,1:n)), & 
-          GetReal( BodyForce, 'Current Density im 2', Found), KIND=dp)
-
-        Load(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
-        Load(3,1:n) = CMPLX( REAL(Load(3,1:n)), &
-          GetReal( BodyForce, 'Current Density im 3', Found), KIND=dp)
-
-        Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
-        Load(4,1:n) = CMPLX( REAL(Load(4,1:n)), &
-              GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
-
-        Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
-        Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
-              GetReal( BodyForce, 'Magnetization im 2', Found),KIND=dp)
-
-        Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
-        Load(6,1:n) = CMPLX( REAL(Load(6,1:n)), &
-              GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
-
-        Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
-        Load(7,1:n) = CMPLX( REAL(Load(7,1:n)), &
-            GetReal( BodyForce, 'Electric Potential im', Found), KIND=dp)
-     END IF
-
-     Acoef = 0.0_dp
-     Tcoef = 0.0_dp
-     Material => GetMaterial( Element )
-     IF ( ASSOCIATED(Material) ) THEN
-       CALL GetReluctivity(Material,Acoef,n)
-
-!------------------------------------------------------------------------------
-!      Read conductivity values (might be a tensor)
-!------------------------------------------------------------------------------
-       CALL ListGetRealArray( Material, &
-              'Electric Conductivity', Cwrk, n, Element % NodeIndexes, Found )
-
-       IF (Found) THEN
-          IF ( SIZE(Cwrk,1) == 1 ) THEN
-             DO i=1,3
-                Tcoef( i,i,1:n ) = Cwrk( 1,1,1:n )
-             END DO
-          ELSE IF ( SIZE(Cwrk,2) == 1 ) THEN
-             DO i=1,MIN(3,SIZE(Cwrk,1))
-                Tcoef(i,i,1:n) = Cwrk(i,1,1:n)
-             END DO
-          ELSE
-             DO i=1,MIN(3,SIZE(Cwrk,1))
-                DO j=1,MIN(3,SIZE(Cwrk,2))
-                   Tcoef( i,j,1:n ) = Cwrk(i,j,1:n)
-                END DO
-             END DO
-          END IF
-       END IF
-
-       CALL ListGetRealArray( Material, &
-              'Electric Conductivity im', Cwrk_im, n, Element % NodeIndexes, Found )
-
-       IF (Found) THEN
-          IF ( SIZE(Cwrk_im,1) == 1 ) THEN
-             DO i=1,3
-                Tcoef( i,i,1:n ) = CMPLX( REAL(Tcoef( i,i,1:n )), Cwrk_im( 1,1,1:n ), KIND=dp)
-             END DO
-          ELSE IF ( SIZE(Cwrk_im,2) == 1 ) THEN
-             DO i=1,MIN(3,SIZE(Cwrk_im,1))
-                Tcoef(i,i,1:n) = CMPLX( REAL(Tcoef( i,i,1:n )), Cwrk_im( i,1,1:n ), KIND=dp)
-             END DO
-          ELSE
-             DO i=1,MIN(3,SIZE(Cwrk_im,1))
-                DO j=1,MIN(3,SIZE(Cwrk_im,2))
-                   Tcoef( i,j,1:n ) = CMPLX( REAL(Tcoef( i,j,1:n )), Cwrk_im( i,j,1:n ), KIND=dp)
-                END DO
-             END DO
-          END IF
-       END IF
-
-       LaminateStackModel = GetString( Material, 'Laminate Stack Model', LaminateStack )
-       IF (.NOT. LaminateStack) LaminateStackModel = ''
-
-     END IF
-
-     LamThick=0d0
-     LamCond=0d0
-     IF (LaminateStack) THEN
-       SELECT CASE(LaminateStackModel)
-       CASE('low-frequency model')
-         LamThick(1:n) = GetReal( Material, 'Laminate Thickness', Found )
-         IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Thickness not found!')
-
-         LamCond(1:n) = GetReal( Material, 'Laminate Stack Conductivity', Found )
-         IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Stack Conductivity not found!')
-         LamCond = CMPLX( REAL(LamCond(1:n)), &
-                GetReal( Material, 'Electric Conductivity im',  Found), KIND=dp)
-       CASE('wide-frequency-band model')
-         LamThick(1:n) = GetReal( Material, 'Laminate Thickness', Found )
-         IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Thickness not found!')
-
-         LamCond(1:n) = GetReal( Material, 'Laminate Stack Conductivity', Found )
-         IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Stack Conductivity not found!')
-         LamCond = CMPLX( REAL(LamCond(1:n)), &
-                GetReal( Material, 'Electric Conductivity im',  Found), KIND=dp)
-       CASE DEFAULT
-         CALL WARN('WhitneyAVSolver', 'Nonexistent Laminate Stack Model chosen!')
-       END SELECT
-     END IF
-
-     !Get element local matrix and rhs vector:
-     !----------------------------------------
-     CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
-        Tcoef, Acoef, LaminateStack, LaminateStackModel, LamThick, &
-        LamCond, Element, n, nd )
-
-     !Update global matrix and rhs vector from local matrix & vector:
-     !---------------------------------------------------------------
-     CALL DefaultUpdateEquations( STIFF, FORCE )
-  END DO
-
   !
-  ! Robin type of BC in terms of H:
-  !--------------------------------
-  Active = GetNOFBoundaryElements()
-  DO t=1,Active
-     Element => GetBoundaryElement(t)
-     IF (.NOT. ActiveBoundaryElement()) CYCLE
-     BC=>GetBC()
-     IF (.NOT. ASSOCIATED(BC) ) CYCLE
-     
-     SELECT CASE(GetElementFamily())
-     CASE(1)
-       CYCLE
-     CASE(2)
-       k = GetBoundaryEdgeIndex(Element,1); Element => Mesh % Edges(k)
-     CASE(3,4)
-       k = GetBoundaryFaceIndex(Element)  ; Element => Mesh % Faces(k)
-     END SELECT
+  ! Resolve internal non.linearities, if requeted:
+  ! ----------------------------------------------
+  NoIterationsMax = GetInteger( GetSolverParams(), &
+              'Nonlinear System Max Iterations',Found)
+  IF(.NOT. Found) NoIterationsMax = 1
 
-     nd = GetElementNOFDOFs(Element)
-     n  = GetElementNOFNodes(Element)
+  NoIterationsMin = GetInteger( GetSolverParams(), &
+              'Nonlinear System Min Iterations',Found)
+  IF(.NOT. Found) NoIterationsMin = 1
 
-     Load(1,1:n) = GetReal( BC, 'Magnetic Field Strength 1', Found )
-     Load(1,1:n) = CMPLX( REAL(Load(1,1:n)), &
-        GetReal(BC, 'Magnetic Field Strength im 1', Found), KIND=dp)
-
-     Load(2,1:n) = GetReal( BC, 'Magnetic Field Strength 2', Found )
-     Load(2,1:n) = CMPLX( REAL(Load(2,1:n)), &
-        GetReal(BC, 'Magnetic Field Strength im 2', Found), KIND=dp)
-
-     Load(3,1:n) = GetReal( BC, 'Magnetic Field Strength 3', Found )
-     Load(3,1:n) = CMPLX( REAL(Load(3,1:n)), &
-        GetReal(BC, 'Magnetic Field Strength im 3', Found), KIND=dp)
-
-     Load(4,1:n) = GetReal( BC, 'Electric Current Density', Found )
-     IF (.NOT. Found) Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
-
-     Load(4,1:n) = CMPLX( REAL(LOAD(4,1:n)), &
-          GetReal( BC, 'Electric Current Density im', Found), KIND=dp)
-     IF (.NOT. Found) Load(4,1:n) = CMPLX( REAL(LOAD(4,1:n)), &
-          GetReal( BC, 'Electric Flux im', Found), KIND=dp)
-
-     Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
-     Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
-       GetReal( BC, 'Electric Transfer Coefficient im', Found), KIND=dp)
-
-     Acoef(1:n) = GetReal( BC, 'Magnetic Transfer Coefficient', Found )
-     Acoef(1:n) = CMPLX( REAL(Acoef(1:n)), &
-       GetReal( BC, 'Magnetic Transfer Coefficient im', Found), KIND=dp)
-
-     CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
-     CALL DefaultUpdateEquations(STIFF,FORCE,Element)
-  END DO
-
-  CALL DefaultFinishAssembly()
-
-  ! And finally, solve:
-  !--------------------
-  
-  !
-  ! Dirichlet BCs in terms of vector potential A:
-  ! ---------------------------------------------
-  CALL DefaultDirichletBCs()
-
-  !
-  ! Dirichlet BCs in terms of magnetic flux density B:
-  ! --------------------------------------------------
-  CALL DirichletAfromB()
-
-  !
-  ! Gauge tree, if requested or using direct solver:
-  ! ------------------------------------------------
-  TG=GetLogical(GetSolverParams(), 'Use tree gauge', Found)
-  IF (.NOT. Found) TG=GetString(GetSolverParams(), &
-     'Linear System Solver',Found)=='direct'
-
-  IF (TG) THEN
-    CALL GaugeTree()
-    WRITE(Message,*) 'Volume tree edges: ', &
-           TRIM(i2s(COUNT(TreeEdges))),     &
-             ' of total: ',Mesh % NumberOfEdges
-    CALL Info('WhitneyAVHarmonicSolver: ', Message, Level=5)
-  END IF
-
-  !
-  ! Fix unused potential DOFs:
-  ! --------------------------
-  A => GetMatrix()
-
-  n = A % NumberOFRows
-  ALLOCATE(Diag(n)); Diag=0._dp
-
-  DO i=1,n,2
-    j = A % Diag(i)
-    IF(j>0) THEN
-      Diag(i)   =  A % Values(j)
-      Diag(i+1) = -A % Values(j+1)
+  DO i=1,NoIterationsMax
+    IF( DoSolve(i) ) THEN
+      IF(i>=NoIterationsMin) EXIT
     END IF
+    IF (i==1) CALL ListAddLogical( GetSolverParams(), 'Linear System Refactorize',.FALSE.)
   END DO
-  IF (ParEnv % PEs>1) CALL ParallelSumVector(A, Diag)
-
-  n = Mesh % NumberOfNodes
-  DO i=1,Mesh % NumberOfNodes
-    j = Solver % Variable % Perm(i)
-    IF (j==0) CYCLE
-
-    j = 2*(j-1)
-    Aval = CMPLX(Diag(j+1), Diag(j+2), KIND=dp)
-
-    IF (Aval==0._dp) THEN
-      A % RHS(j+1) = 0._dp
-      CALL ZeroRow(A,j+1)
-      A % Values(A % Diag(j+1)) = 1._dp
-
-      A % RHS(j+2) = 0._dp
-      CALL ZeroRow(A,j+2)
-      A % Values(A % Diag(j+2)) = 1._dp
-    END IF
-  END DO
-
-  !
-  ! Linear system solution:
-  ! -----------------------
-  Norm = DefaultSolve()
+  CALL ListAddLogical( GetSolverParams(), 'Linear System Refactorize',.TRUE.)
 
 CONTAINS
+
+!---------------------------------------------------------------------------------------------
+  FUNCTION DoSolve(iterNo) RESULT(Converged)
+!---------------------------------------------------------------------------------------------
+    INTEGER :: iterNo
+    LOGICAL :: Converged
+!---------------------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Norm, PrevNorm, TOL
+    REAL(KIND=dp), ALLOCATABLE :: Diag(:)
+!---------------------------------------------------------------------------------------------
+    ! System assembly:
+    !-----------------
+    CALL DefaultInitialize()
+    Active = GetNOFActive()
+    DO t=1,active
+       Element => GetActiveElement(t)
+       n  = GetElementNOFNodes() ! kulmat
+       nd = GetElementNOFDOFs()  ! vapausasteet
+  
+       LOAD = 0.0d0
+       BodyForce => GetBodyForce()
+       IF ( ASSOCIATED(BodyForce) ) THEN
+          Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
+          Load(1,1:n) = CMPLX( REAL(Load(1,1:n)), &
+            GetReal( BodyForce, 'Current Density im 1', Found ),KIND=dp)
+
+          Load(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
+          Load(2,1:n) = CMPLX( REAL(Load(2,1:n)), & 
+            GetReal( BodyForce, 'Current Density im 2', Found), KIND=dp)
+
+          Load(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
+          Load(3,1:n) = CMPLX( REAL(Load(3,1:n)), &
+            GetReal( BodyForce, 'Current Density im 3', Found), KIND=dp)
+
+          Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
+          Load(4,1:n) = CMPLX( REAL(Load(4,1:n)), &
+                GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
+
+          Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
+          Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
+                GetReal( BodyForce, 'Magnetization im 2', Found),KIND=dp)
+
+          Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
+          Load(6,1:n) = CMPLX( REAL(Load(6,1:n)), &
+                GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
+
+          Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
+          Load(7,1:n) = CMPLX( REAL(Load(7,1:n)), &
+              GetReal( BodyForce, 'Electric Potential im', Found), KIND=dp)
+       END IF
+
+       Acoef = 0.0_dp
+       Tcoef = 0.0_dp
+       Material => GetMaterial( Element )
+       IF ( ASSOCIATED(Material) ) THEN
+         CALL GetReluctivity(Material,Acoef,n)
+
+!------------------------------------------------------------------------------
+!        Read conductivity values (might be a tensor)
+!------------------------------------------------------------------------------
+         CALL ListGetRealArray( Material, &
+                'Electric Conductivity', Cwrk, n, Element % NodeIndexes, Found )
+
+         IF (Found) THEN
+            IF ( SIZE(Cwrk,1) == 1 ) THEN
+               DO i=1,3
+                  Tcoef( i,i,1:n ) = Cwrk( 1,1,1:n )
+               END DO
+            ELSE IF ( SIZE(Cwrk,2) == 1 ) THEN
+               DO i=1,MIN(3,SIZE(Cwrk,1))
+                  Tcoef(i,i,1:n) = Cwrk(i,1,1:n)
+               END DO
+            ELSE
+               DO i=1,MIN(3,SIZE(Cwrk,1))
+                  DO j=1,MIN(3,SIZE(Cwrk,2))
+                     Tcoef( i,j,1:n ) = Cwrk(i,j,1:n)
+                  END DO
+               END DO
+            END IF
+         END IF
+
+         CALL ListGetRealArray( Material, &
+                'Electric Conductivity im', Cwrk_im, n, Element % NodeIndexes, Found )
+
+         IF (Found) THEN
+            IF ( SIZE(Cwrk_im,1) == 1 ) THEN
+               DO i=1,3
+                  Tcoef( i,i,1:n ) = CMPLX( REAL(Tcoef( i,i,1:n )), Cwrk_im( 1,1,1:n ), KIND=dp)
+               END DO
+            ELSE IF ( SIZE(Cwrk_im,2) == 1 ) THEN
+               DO i=1,MIN(3,SIZE(Cwrk_im,1))
+                  Tcoef(i,i,1:n) = CMPLX( REAL(Tcoef( i,i,1:n )), Cwrk_im( i,1,1:n ), KIND=dp)
+               END DO
+            ELSE
+               DO i=1,MIN(3,SIZE(Cwrk_im,1))
+                  DO j=1,MIN(3,SIZE(Cwrk_im,2))
+                     Tcoef( i,j,1:n ) = CMPLX( REAL(Tcoef( i,j,1:n )), Cwrk_im( i,j,1:n ), KIND=dp)
+                  END DO
+               END DO
+            END IF
+         END IF
+
+         LaminateStackModel = GetString( Material, 'Laminate Stack Model', LaminateStack )
+         IF (.NOT. LaminateStack) LaminateStackModel = ''
+       END IF
+
+       LamThick=0d0
+       LamCond=0d0
+       IF (LaminateStack) THEN
+         SELECT CASE(LaminateStackModel)
+         CASE('low-frequency model')
+           LamThick(1:n) = GetReal( Material, 'Laminate Thickness', Found )
+           IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Thickness not found!')
+  
+           LamCond(1:n) = GetReal( Material, 'Laminate Stack Conductivity', Found )
+           IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Stack Conductivity not found!')
+           LamCond = CMPLX( REAL(LamCond(1:n)), &
+                  GetReal( Material, 'Electric Conductivity im',  Found), KIND=dp)
+         CASE('wide-frequency-band model')
+           LamThick(1:n) = GetReal( Material, 'Laminate Thickness', Found )
+           IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Thickness not found!')
+
+           LamCond(1:n) = GetReal( Material, 'Laminate Stack Conductivity', Found )
+           IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Stack Conductivity not found!')
+           LamCond = CMPLX( REAL(LamCond(1:n)), &
+                  GetReal( Material, 'Electric Conductivity im',  Found), KIND=dp)
+         CASE DEFAULT
+           CALL WARN('WhitneyAVSolver', 'Nonexistent Laminate Stack Model chosen!')
+         END SELECT
+       END IF
+
+       !Get element local matrix and rhs vector:
+       !----------------------------------------
+       CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
+          Tcoef, Acoef, LaminateStack, LaminateStackModel, LamThick, &
+          LamCond, Element, n, nd )
+
+       !Update global matrix and rhs vector from local matrix & vector:
+       !---------------------------------------------------------------
+       CALL DefaultUpdateEquations( STIFF, FORCE )
+    END DO
+
+    !
+    ! Robin type of BC in terms of H:
+    !--------------------------------
+    Active = GetNOFBoundaryElements()
+    DO t=1,Active
+       Element => GetBoundaryElement(t)
+       IF (.NOT. ActiveBoundaryElement()) CYCLE
+       BC=>GetBC()
+       IF (.NOT. ASSOCIATED(BC) ) CYCLE
+     
+       SELECT CASE(GetElementFamily())
+       CASE(1)
+         CYCLE
+       CASE(2)
+         k = GetBoundaryEdgeIndex(Element,1); Element => Mesh % Edges(k)
+       CASE(3,4)
+         k = GetBoundaryFaceIndex(Element)  ; Element => Mesh % Faces(k)
+       END SELECT
+
+       nd = GetElementNOFDOFs(Element)
+       n  = GetElementNOFNodes(Element)
+
+       Load(1,1:n) = GetReal( BC, 'Magnetic Field Strength 1', Found )
+       Load(1,1:n) = CMPLX( REAL(Load(1,1:n)), &
+          GetReal(BC, 'Magnetic Field Strength im 1', Found), KIND=dp)
+
+       Load(2,1:n) = GetReal( BC, 'Magnetic Field Strength 2', Found )
+       Load(2,1:n) = CMPLX( REAL(Load(2,1:n)), &
+          GetReal(BC, 'Magnetic Field Strength im 2', Found), KIND=dp)
+
+       Load(3,1:n) = GetReal( BC, 'Magnetic Field Strength 3', Found )
+       Load(3,1:n) = CMPLX( REAL(Load(3,1:n)), &
+          GetReal(BC, 'Magnetic Field Strength im 3', Found), KIND=dp)
+
+       Load(4,1:n) = GetReal( BC, 'Electric Current Density', Found )
+       IF (.NOT. Found) Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
+
+       Load(4,1:n) = CMPLX( REAL(LOAD(4,1:n)), &
+            GetReal( BC, 'Electric Current Density im', Found), KIND=dp)
+       IF (.NOT. Found) Load(4,1:n) = CMPLX( REAL(LOAD(4,1:n)), &
+            GetReal( BC, 'Electric Flux im', Found), KIND=dp)
+
+       Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
+       Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
+         GetReal( BC, 'Electric Transfer Coefficient im', Found), KIND=dp)
+
+       Acoef(1:n) = GetReal( BC, 'Magnetic Transfer Coefficient', Found )
+       Acoef(1:n) = CMPLX( REAL(Acoef(1:n)), &
+         GetReal( BC, 'Magnetic Transfer Coefficient im', Found), KIND=dp)
+
+       CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
+       CALL DefaultUpdateEquations(STIFF,FORCE,Element)
+    END DO
+
+    CALL DefaultFinishAssembly()
+
+    ! And finally, solve:
+    !--------------------
+  
+    !
+    ! Dirichlet BCs in terms of vector potential A:
+    ! ---------------------------------------------
+    CALL DefaultDirichletBCs()
+
+    !
+    ! Dirichlet BCs in terms of magnetic flux density B:
+    ! --------------------------------------------------
+    CALL DirichletAfromB()
+
+    !
+    ! Gauge tree, if requested or using direct solver:
+    ! ------------------------------------------------
+    TG=GetLogical(GetSolverParams(), 'Use tree gauge', Found)
+    IF (.NOT. Found) TG=GetString(GetSolverParams(), &
+       'Linear System Solver',Found)=='direct'
+
+    IF (TG) THEN
+      CALL GaugeTree()
+      WRITE(Message,*) 'Volume tree edges: ', &
+             TRIM(i2s(COUNT(TreeEdges))),     &
+               ' of total: ',Mesh % NumberOfEdges
+      CALL Info('WhitneyAVHarmonicSolver: ', Message, Level=5)
+    END IF
+
+    !
+    ! Fix unused potential DOFs:
+    ! --------------------------
+    A => GetMatrix()
+
+    n = A % NumberOFRows
+    ALLOCATE(Diag(n)); Diag=0._dp
+
+    DO i=1,n,2
+      j = A % Diag(i)
+      IF(j>0) THEN
+        Diag(i)   =  A % Values(j)
+        Diag(i+1) = -A % Values(j+1)
+      END IF
+    END DO
+    IF (ParEnv % PEs>1) CALL ParallelSumVector(A, Diag)
+
+    n = Mesh % NumberOfNodes
+    DO i=1,Mesh % NumberOfNodes
+      j = Solver % Variable % Perm(i)
+      IF (j==0) CYCLE
+
+      j = 2*(j-1)
+      Aval = CMPLX(Diag(j+1), Diag(j+2), KIND=dp)
+
+      IF (Aval==0._dp) THEN
+        A % RHS(j+1) = 0._dp
+        CALL ZeroRow(A,j+1)
+        A % Values(A % Diag(j+1)) = 1._dp
+
+        A % RHS(j+2) = 0._dp
+        CALL ZeroRow(A,j+2)
+        A % Values(A % Diag(j+2)) = 1._dp
+      END IF
+    END DO
+
+    !
+    ! Linear system solution:
+    ! -----------------------
+    PrevNorm = ParallelReduction(SQRT(SUM(Solver % Variable % Values**2)))
+    Norm = DefaultSolve()
+
+    TOL = GetCReal(GetSolverParams(),'Nonlinear system Convergence Tolerance',Found)
+    Norm = ParallelReduction(SQRT(SUM(Solver % Variable % Values**2)))
+
+    WRITE( Message, '(a,g15.8,g15.8,a)') &
+        'NS (ITER='//TRIM(i2s(IterNo))//') (NRM,RELC): (',Norm, &
+              2*ABS(Norm-PrevNorm)/(Norm+PrevNorm),&
+                 ' ) :: '// 'magnetodynamics'
+    CALL Info( 'ComputeChange', Message, Level=3)
+
+    Converged = 2*ABS(Norm-PrevNorm)/(Norm+PrevNorm)<TOL
+!------------------------------------------------------------------------------
+  END FUNCTION DoSolve
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   SUBROUTINE GaugeTree()
@@ -3247,7 +3287,6 @@ CONTAINS
   END SUBROUTINE DepthFirstSearch
 !------------------------------------------------------------------------------
 
-
 !-----------------------------------------------------------------------------
   SUBROUTINE LocalMatrix( MASS, STIFF, FORCE, LOAD, &
             Tcoef, Acoef, LaminateStack, LaminateStackModel, & 
@@ -3264,14 +3303,18 @@ CONTAINS
     COMPLEX(KIND=dp) :: A, C(3,3), L(3), G(3), M(3), FixJPotC(n)
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,FixJPot(2,nd)
 
-    COMPLEX(KIND=dp) :: LocalLamCond
-    REAL(KIND=dp) :: LocalLamThick, reluc, skind
+    COMPLEX(KIND=dp) :: LocalLamCond, JAC(nd,nd), B_ip(3), Aloc(nd)
+    REAL(KIND=dp) :: LocalLamThick, skind, babs, mu, muder, AlocR(2,nd)
 
     CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel
 
-    LOGICAL :: Stat, LaminateStack
-    INTEGER :: t, i, j, p, q, np
+    LOGICAL :: Stat, LaminateStack, Newton, Cubic, HBCurve
+    INTEGER :: t, i, j, p, q, np, siz
     TYPE(GaussIntegrationPoints_t) :: IP
+
+    REAL(KIND=dp), POINTER :: Bval(:), Hval(:), Cval(:),  &
+           CubicCoeff(:)=>NULL(),HB(:,:)=>NULL()
+    TYPE(ValueList_t), POINTER :: Lst
 
     TYPE(Nodes_t), SAVE :: Nodes
 !------------------------------------------------------------------------------
@@ -3287,6 +3330,42 @@ CONTAINS
       FixJPotC = CMPLX(FixJPot(1,1:n),FixJPot(2,1:n),dp)
     END IF
 
+    JAC = 0._dp
+    Newton = .FALSE.
+
+    CALL GetConstRealArray( Material, HB, 'H-B curve', HBCurve )
+    siz = 0
+    IF ( HBCurve ) THEN
+      siz = SIZE(HB,1)
+      IF(siz>1) THEN
+        Bval=>HB(:,1)
+        Hval=>HB(:,2)
+        Cubic = GetLogical( Material, 'Cubic spline for H-B curve',Found)
+        IF (Cubic.AND..NOT.ASSOCIATED(CubicCoeff) ) THEN
+          ALLOCATE(Cval(siz))
+          CALL CubicSpline(siz,Bval,Hval,CubicCoeff)
+        END IF
+        Cval=>CubicCoeff
+        HBCurve = .TRUE.
+      END IF
+    END IF
+
+    IF(siz<=1) THEN
+      Lst => ListFind(Material,'H-B Curve',HBcurve)
+      IF(HBcurve) THEN
+        Cval => Lst % CubicCoeff
+        Bval => Lst % TValues
+        Hval => Lst % FValues(1,1,:)
+      END IF
+    END IF
+
+    IF(HBCurve) THEN
+      CALL GetLocalSolution(AlocR)
+      Aloc = CMPLX( AlocR(1,1:nd), AlocR(2,1:nd), KIND=dp)
+      Newton = GetLogical( GetSolverParams(),'Newton-Raphson iteration',Found)
+    END IF
+
+
     !Numerical integration:
     !----------------------
     IP = GaussPoints( Element )
@@ -3298,8 +3377,7 @@ CONTAINS
 
        CALL GetEdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
 
-       A = SUM( Basis(1:n) * Acoef(1:n) )
-       reluc = A
+       mu = SUM( Basis(1:n) * Acoef(1:n) )
 
        ! Compute the conductivity tensor
        ! -------------------------------
@@ -3309,16 +3387,25 @@ CONTAINS
          END DO
        END DO
 
+       IF ( HBCurve ) THEN
+         B_ip = MATMUL( Aloc(np+1:nd), RotWBasis(1:nd-np,:) )
+         babs = MAX( SQRT(SUM(ABS(B_ip)**2)), 1.d-8 )
+         mu = InterpolateCurve(Bval,Hval,Babs,CubicCoeff=Cval)/babs
+         IF ( Newton ) THEN
+           muder=(DerivateCurve(Bval,Hval,Babs,CubicCoeff=Cval)-mu)/babs
+         END IF
+       END IF
+
        IF (LaminateStack) THEN
          LocalLamThick = SUM( Basis(1:n) * LamThick(1:n) )
          LocalLamCond = SUM( Basis(1:n) * LamCond(1:n) )
 
          SELECT CASE(LaminateStackModel)
          CASE('low-frequency model')
-           A = reluc + im*Omega* LocalLamCond* LocalLamThick **2 /12d0
+           mu = mu + im*Omega* LocalLamCond* LocalLamThick **2 /12d0
          CASE('wide-frequency-band model')
            skind=sqrt(2d0*A/(omega*LocalLamCond))
-           A = LocalLamCond * LocalLamThick * skind * omega* (1d0 + im)/8d0*&
+           mu = LocalLamCond * LocalLamThick * skind * omega* (1d0 + im)/8d0*&
             sinh((1d0+im)*LocalLamThick/skind)/sinh((1d0+im)*LocalLamThick/skind/2d0)**2d0
          END SELECT
        END IF
@@ -3348,11 +3435,6 @@ CONTAINS
            ! -------------------------------------------
            IF ( SUM(C) /= 0._dp ) THEN
              STIFF(p,q) = STIFF(p,q) + SUM(MATMUL(C, dBasisdx(p,:)) * dBasisdx(q,:))*detJ*IP % s(t)
-           ELSE
-!            STIFF(p,q) = STIFF(p,q) + &
-!                   Basis(q) * Basis(p)*detJ*IP % s(t)
-!            STIFF(p,q) = STIFF(p,q) + &
-!              SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
            END IF
          END DO
          DO j=1,nd-np
@@ -3379,9 +3461,16 @@ CONTAINS
          p = i+np
          FORCE(p) = FORCE(p) + (SUM(L*WBasis(i,:)) + &
             SUM(M*RotWBasis(i,:)))*detJ*IP%s(t) 
+
          DO j = 1,nd-np
            q = j+np
-           STIFF(p,q) = STIFF(p,q) + A * &
+
+           IF ( Newton ) THEN
+             JAC(p,q) = JAC(p,q) + muder * SUM(B_ip(:)*RotWBasis(j,:)) * &
+                 SUM(B_ip(:)*RotWBasis(i,:))*detJ*IP % s(t)/Babs
+           END IF
+
+           STIFF(p,q) = STIFF(p,q) + mu * &
               SUM(RotWBasis(i,:)*RotWBasis(j,:))*detJ*IP%s(t)
 
            ! Compute the conductivity term <j * omega * C A,eta> 
@@ -3392,10 +3481,14 @@ CONTAINS
          END DO
        END DO
     END DO
+
+    IF ( Newton ) THEN
+      STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + JAC
+      FORCE(1:nd) = FORCE(1:nd) + MATMUL(JAC,Aloc)
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
-
 
 !-----------------------------------------------------------------------------
   SUBROUTINE LocalMatrixBC(  STIFF, FORCE, LOAD, Bcoef, Element, n, nd )
