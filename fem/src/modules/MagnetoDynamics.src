@@ -3327,11 +3327,11 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3)
-    COMPLEX(KIND=dp) :: A, C(3,3), L(3), G(3), M(3), FixJPotC(n)
+    COMPLEX(KIND=dp) :: mu, C(3,3), L(3), G(3), M(3), FixJPotC(n)
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,FixJPot(2,nd)
 
     COMPLEX(KIND=dp) :: LocalLamCond, JAC(nd,nd), B_ip(3), Aloc(nd)
-    REAL(KIND=dp) :: LocalLamThick, skind, babs, mu, muder, AlocR(2,nd)
+    REAL(KIND=dp) :: LocalLamThick, skind, babs, muder, AlocR(2,nd)
 
     CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel
 
@@ -3405,7 +3405,6 @@ CONTAINS
        CALL GetEdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
 
        mu = SUM( Basis(1:n) * Acoef(1:n) )
-       A = mu
 
        ! Compute the conductivity tensor
        ! -------------------------------
@@ -3432,7 +3431,7 @@ CONTAINS
          CASE('low-frequency model')
            mu = mu + im*Omega* LocalLamCond* LocalLamThick **2 /12d0
          CASE('wide-frequency-band model')
-           skind=sqrt(2d0*mu/(omega*LocalLamCond))
+           skind = sqrt(2d0*mu/(omega*LocalLamCond))
            mu = LocalLamCond * LocalLamThick * skind * omega* (1d0 + im)/8d0*&
             sinh((1d0+im)*LocalLamThick/skind)/sinh((1d0+im)*LocalLamThick/skind/2d0)**2d0
          END SELECT
