@@ -81,7 +81,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
   LOGICAL :: AllocationsDone = .FALSE., Found, Convect, GotForceBC, NormalTangential, &
-       SkipPowerLaw=.True., Newton = .FALSE.
+       SkipPowerLaw=.TRUE., Newton = .FALSE.
   TYPE(Element_t), POINTER :: Element
 
   REAL(KIND=dp) :: Norm, NonlinearTol, NewtonThreshold, NonLinError
@@ -719,7 +719,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
            Solver % Variable % NonLinChange = NonLinError
 
            WRITE(Message,'(a,I4,ES12.3)') 'Residual for nonlinear iterate', &
-              Iter, NonLinError
+              Iter-1, NonLinError
            CALL Info('StokesSolver', Message, Level=3)            
 
            IF ( NonLinError < NonlinearTol .OR. Iter==NonlinearIter ) THEN
@@ -821,6 +821,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
                'Linear System Refactorize', .FALSE.)
            END IF
            CurrentModel % Solver => PressureSolver
+           CALL Info( 'Pressure Preconditioning', ' ', Level=4 )
+           CALL Info( 'Pressure Preconditioning', '-------------------------------------', Level=4 )
+           CALL Info( 'Pressure Preconditioning', 'Performing linear solve', Level=4 )
+           CALL Info( 'Pressure Preconditioning', '-------------------------------------', Level=4 )
+           CALL Info( 'Pressure Preconditioning', ' ', Level=4 )
            Norm = DefaultSolve(PressureSolver)
            CurrentModel % Solver => Solver
            CALL ListAddLogical(PressureSolver % Values, &
@@ -909,12 +914,18 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
            ! Adapt the preconditioning system convergence tolerance in terms of the 
            ! current convergence tolerance for the primary system
            !----------------------------------------------------------------------------
-           IF (AdaptiveTols) THEN
+           !IF (AdaptiveTols) THEN
+           IF (.FALSE.) THEN ! Disabled: Using a fixed tolerance may actually be a better strategy
               PrecondTol = 1/RelTolerance * MinTolerance
               IF (PrecondTol > BaseTolerance) PrecondTol = BaseTolerance
               CALL ListAddConstReal(VelocitySolver % Values, &
                    'Linear System Convergence Tolerance', BaseTolerance)
            END IF
+           CALL Info( 'Velocity Preconditioning', ' ', Level=4 )
+           CALL Info( 'Velocity Preconditioning', '-------------------------------------', Level=4 )
+           CALL Info( 'Velocity Preconditioning', 'Performing linear solve', Level=4 )
+           CALL Info( 'Velocity Preconditioning', '-------------------------------------', Level=4 )
+           CALL Info( 'Velocity Preconditioning', ' ', Level=4 )
            Norm = DefaultSolve(VelocitySolver)      
            CurrentModel % Solver => Solver
            CALL ListAddLogical(VelocitySolver % Values, &
@@ -1043,9 +1054,9 @@ CONTAINS
       r(1:n) = b(1:n)-r(1:n)
       res = MyNorm(n,r)/Mynorm(n,b)
       IF (Round==1) THEN
-         WRITE(Message,'(a,I4,ES12.3)') 'OuterIteration residual for iterate', &
+         WRITE(Message,'(a,I4,ES12.3)') 'GCR residual for iterate', &
               0, res
-         CALL Info('TwoLevelSolver',Message,Level=4)
+         CALL Info('Outer Iteration',Message,Level=4)
       END IF
      ELSE
       r(1:n) = RR(1:n)
@@ -1082,9 +1093,9 @@ CONTAINS
     RR(1:n) = r(1:n)
     res = MyNorm(n,r)/Mynorm(n,b)
 
-    WRITE(Message,'(a,I4,ES12.3)') 'OuterIteration residual for iterate', &
+    WRITE(Message,'(a,I4,ES12.3)') 'GCR residual for iterate', &
         Round, res
-    CALL Info('TwoLevelSolver',Message,Level=4)
+    CALL Info('Outer Iteration',Message,Level=4)
 
 !-------------------------------------------
   END SUBROUTINE GCRUpdate
