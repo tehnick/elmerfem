@@ -5,8 +5,10 @@ SET(matc_SRCS c3d.c clip.c dri_ps.c eig.c error.c eval.c files.c
 
 ADD_LIBRARY(matc SHARED ${matc_SRCS})
 
+TARGET_LINK_LIBRARIES(matc m)
+
 ADD_EXECUTABLE(Matc main.c)
-TARGET_LINK_LIBRARIES(Matc matc m)
+TARGET_LINK_LIBRARIES(Matc matc)
 
 SET_TARGET_PROPERTIES(Matc PROPERTIES OUTPUT_NAME matc)
 
