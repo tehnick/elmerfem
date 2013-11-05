@@ -3057,7 +3057,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   CHARACTER(MAX_NAME_LEN) :: BaseFile, VtuFile, PvtuFile, PvdFile, DataSetFile
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Variable_t), POINTER :: Var
-  INTEGER :: i, j, k, l, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
+  INTEGER :: i, j, k, l, n, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
              PrecSize, IntSize, FileIndex
   CHARACTER(MAX_NAME_LEN) :: Dir
   LOGICAL :: Visited = .FALSE.
@@ -3072,10 +3072,11 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER :: CurrentElement
   TYPE(ValueList_t),POINTER :: Params
   INTEGER :: MaxModes, BCOffset, ElemFirst, ElemLast
-  INTEGER, POINTER :: ActiveModes(:)
+  INTEGER, POINTER :: ActiveModes(:), Indexes(:)
   LOGICAL :: GotActiveModes, EigenAnalysis, WriteIds, SaveBoundariesOnly, SaveBulkOnly, &
-      GotMaskName, AllNodesUsed, SaveElemental, SaveNodal
+      GotMaskName, AllNodesUsed, SaveElemental, SaveNodal, GotMaskCond
   LOGICAL, ALLOCATABLE :: ActiveElem(:)
+  REAL(KIND=dp), ALLOCATABLE :: MaskCond(:)
 
 ! Parameters for buffered binary output
   INTEGER :: BufferSize
@@ -3165,6 +3166,15 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     GotMaskName = GotIt
   END IF
 
+  GotMaskCond = .FALSE.
+  IF( .NOT. GotMaskName ) THEN
+    MaskName = GetString( Params,'Mask Condition',GotMaskCond)
+    IF( GotMaskCond ) THEN
+      n = Mesh % MaxElementNodes
+      ALLOCATE( MaskCond(n) )
+    END IF
+  END IF
+
   SaveBoundariesOnly = GetLogical( Params,'Save Boundaries Only',GotIt ) 
   SaveBulkOnly = GetLogical( Params,'Save Bulk Only',GotIt ) 
   
@@ -3195,6 +3205,8 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       END IF
       
       CurrentElement => Mesh % Elements(i)
+      Model % CurrentElement => CurrentElement
+
       IF( GetElementFamily( CurrentElement ) == 1 ) CYCLE          
       
       IF( MaskExists ) THEN
@@ -3223,7 +3235,41 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
           END DO
         END IF
         IF(.NOT. Hit ) CYCLE
-      END IF 
+      END IF
+
+      IF( GotMaskCond ) THEN
+        n = CurrentElement % TYPE % NumberOfNodes
+        Indexes => CurrentElement % NodeIndexes
+
+        IF( i <= Mesh % NumberOfBulkElements ) THEN
+          l = CurrentElement % BodyId
+          k = ListGetInteger( Model % Bodies(l) % Values,'Body Force',GotIt)
+          IF( GotIt ) THEN
+            MaskCond(1:n) = ListGetReal( Model % BodyForces(k) % Values, TRIM(MaskName), &
+                n, Indexes, GotIt)
+          END  IF
+
+          IF( .NOT. Hit ) THEN
+            k = ListGetInteger( Model % Bodies(l) % Values,'Equation',GotIt)
+            IF( GotIt ) THEN
+              MaskCond(1:n) = ListGetReal( Model % Equations(k) % Values, TRIM(MaskName), &
+                  n, Indexes, GotIt)
+            END IF
+          END IF
+        ELSE
+          GotIt = .FALSE.
+          IF( ASSOCIATED( CurrentElement % BoundaryInfo ) ) THEN
+            DO l=1, Model % NumberOfBCs
+              IF ( Model % BCs(l) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
+              MaskCond(1:n) = ListGetReal(Model % BCs(l) % Values, MaskName, &
+                  n, Indexes, GotIt ) 
+              EXIT
+            END DO
+          END IF
+        END IF
+        IF( .NOT. GotIt ) CYCLE
+        IF( .NOT. ALL(MaskCond(1:n) > 0.0_dp ) ) CYCLE
+      END IF
 
       NodePerm( CurrentElement % NodeIndexes ) = 1
       ActiveElem(i) = .TRUE.
@@ -3233,6 +3279,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       ElemLast = MAX( ElemLast, i )
     END DO
     
+
     ! Make the numbered list of nodes used. 
     NumberOfNodes = COUNT( NodePerm > 0 ) 
     AllNodesUsed = ( NumberOfNodes == Mesh % NumberOfNodes )
