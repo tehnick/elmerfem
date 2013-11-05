@@ -250,7 +250,7 @@ c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
-      external   zcopy , pzgetv0 , pznaitr , pzneigh , pzngets , pznapps,
+      external zcopy , pzgetv0 , pznaitr , pzneigh , pzngets , pznapps,
      &           zsortc , zswap , pzmout , pzvout , pivout, second
 c
 c     %--------------------%
