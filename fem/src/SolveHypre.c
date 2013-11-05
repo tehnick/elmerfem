@@ -61,8 +61,9 @@ HYPRE_Solver solver, precond;
 
 } ElmerHypreContainer;
 
-/* For the moment FlexGMRES and LGMRES solvers are not included so they are commented out */
-#define HAVE_GMRES 0
+/* If the version of HYPRE is new enough, FlexGMRES and LGMRES solvers can be included
+   by turning the following flag on */
+#define HAVE_GMRES 1
 
 /* there are two possible procedures of calling HYPRE here, 
   the standard one (does everything once), and a step-wise
@@ -571,6 +572,16 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
       30 ... GMRes + ILUn 
       31 ... GMRes + ParaSails 
       32 ... GMRes + BoomerAMG    (This choice disabled currently)
+
+      with the flag HAVE_GMRES additionally
+      40 ... FlexGMRes + ILUn 
+      41 ... FlexGMRes + ParaSails 
+      42 ... FlexGMRes + BoomerAMG
+      50 ... LGMRes + ILUn 
+      51 ... LGMRes + ParaSails 
+      52 ... LGMRes + BoomerAMG
+
+
    */
    
    /* create preconditioner for Krylov methods */
@@ -770,26 +781,26 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      
      /* Set some parameters (See Reference Manual for more parameters) */
      i = 2*(verbosity >= 6);
-     HYPRE_ParCSRFlexGMRESSetPrintLevel(solver, i);   /* print solve info */
+     HYPRE_FlexGMRESSetPrintLevel(solver, i);   /* print solve info */
 
      i = (verbosity >= 6);
-     HYPRE_ParCSRFlexGMRESSetLogging(solver, i);      /* needed to get run info later */
+     HYPRE_FlexGMRESSetLogging(solver, i);      /* needed to get run info later */
 
-     HYPRE_ParCSRFlexGMRESSetKDim(solver,hypre_intpara[9]);
+     HYPRE_FlexGMRESSetKDim(solver,hypre_intpara[8]);
 
      /* Set the FlexGMRES preconditioner */
      if ( hypre_pre  == 0) {
-       HYPRE_ParCSRFlexGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
+       HYPRE_FlexGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
 			   (HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
      } else if ( hypre_pre == 1) { 
-       HYPRE_ParCSRFlexGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
+       HYPRE_FlexGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
 			   (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
      } else if( hypre_pre == 2){
-       HYPRE_ParCSRFlexGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
+       HYPRE_FlexGMRESSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
 			   (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
      }
-     /* compute the preconditioner */
-     if (myid == 0 && verbosity >= 6 ) fprintf(stdout,"create preconditioner...");
+     /* Pass the matrix and rhs into the solver */
+     if (myid == 0 && verbosity >= 6 ) fprintf(stdout,"Passing matrix and rhs into FlexGMRES solver...");
      HYPRE_ParCSRFlexGMRESSetup(solver, parcsr_A, par_b, par_x);
    }
 
@@ -806,7 +817,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
      i = (verbosity >= 6);
      HYPRE_ParCSRLGMRESSetLogging(solver, i);      /* needed to get run info later */
 
-     HYPRE_ParCSRLGMRESSetKDim(solver,hypre_intpara[9]);
+     HYPRE_ParCSRLGMRESSetKDim(solver,hypre_intpara[8]);
 
      /* Set the LGMRES preconditioner */
      if ( hypre_pre  == 0) {
@@ -820,7 +831,7 @@ void STDCALLBULL FC_FUNC(solvehypre1,SOLVEHYPRE1)
 			   (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
      }
      /* compute the preconditioner */
-     if (myid == 0 && verbosity >= 6 ) fprintf(stdout,"create preconditioner...");
+     if (myid == 0 && verbosity >= 6 ) fprintf(stdout,"Passing matrix and rhs into LGMRES solver...");
      HYPRE_ParCSRLGMRESSetup(solver, parcsr_A, par_b, par_x);
    }
 #endif
