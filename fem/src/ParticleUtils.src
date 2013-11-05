@@ -123,7 +123,7 @@ CONTAINS
   SUBROUTINE ParticleStatusCount(Particles)
     
     TYPE(Particle_t), POINTER :: Particles
-    INTEGER :: i,j,NoParticles
+    INTEGER :: i,j,k,NoParticles
     INTEGER :: StatusCount(PARTICLE_GHOST)
 !    CHARACTER (len=12), PARAMETER :: StatusString(14) = [CHARACTER(len=12) :: &
     CHARACTER (len=12), PARAMETER :: StatusString(14) = [ &
@@ -150,12 +150,14 @@ CONTAINS
     END DO
       
     CALL Info('ParticleStatusCount','Information on particle status:')
-    WRITE(Message,'(A,T18,I0)') 'Total: ',NoParticles
+    k = NINT( ParallelReduction( 1.0_dp * NoParticles ) )
+    WRITE(Message,'(A,T18,I0)') 'Total: ',k
     CALL Info('ParticleStatusCount',Message)
     DO i=1,PARTICLE_GHOST
       j = StatusCount(i)
-      IF( j == 0 ) CYCLE
-      WRITE(Message,'(A,T18,I0)') TRIM(StatusString(i))//': ',j
+      k = NINT( ParallelReduction( 1.0_dp * j ) )
+      IF( k == 0 ) CYCLE
+      WRITE(Message,'(A,T18,I0)') TRIM(StatusString(i))//': ',k
       CALL Info('ParticleStatusCount',Message)
     END DO
   END SUBROUTINE ParticleStatusCount
@@ -490,9 +492,11 @@ CONTAINS
     i = COUNT( InternalElements )
     j = NumberOfElements - i
     
+    i = NINT( ParallelReduction( 1.0_dp * i ) )
+    j = NINT( ParallelReduction( 1.0_dp * j ) )
+
     PRINT *,'Internal Elements',i
-    PRINT *,'Interface Elements',j
-    
+    PRINT *,'Interface Elements',j    
     
   END SUBROUTINE MarkInternalElements
   
@@ -1380,6 +1384,11 @@ RETURN
     END DO
     
     TotParticles = NINT( ParallelReduction( 1.0_dp * Cnt ) )
+    IF( TotParticles == 0 ) THEN
+      CALL Warn('MeanParticleCoordinate','No active particles!')
+      RETURN
+    END IF
+
     
     IF( TotParticles > Cnt ) THEN
       ! Compute parallel sums
@@ -1392,7 +1401,14 @@ RETURN
       END DO
     END IF
 
-    IF( TotParticles > 0 ) THEN
+    IF( TotParticles == 1 ) THEN
+      IF( ParEnv % myPE == 0 ) THEN       
+        PRINT *,'Particle info on '//TRIM(DataName) 
+        PRINT *,'Val: ',MinCoord(1:dim),&
+            ' Abs: ',SQRT(SUM( MinCoord(1:dim)**2 ))
+      END IF
+      
+    ELSE 
       MeanCoord = MeanCoord / TotParticles
       AbsCoord = AbsCoord / TotParticles
       
@@ -1414,8 +1430,6 @@ RETURN
         PRINT *,'Min: ',MinCoord(1:dim)
         PRINT *,'Max: ',MaxCoord(1:dim)
       END IF
-    ELSE
-      CALL Warn('MeanParticleCoordinate','No active particles!')
     END IF
     
   END SUBROUTINE ParticleStatistics
@@ -2730,7 +2744,7 @@ RETURN
     Mesh => GetMesh()
     Counter = Counter + 1
     Debug = .FALSE.
-
+ 
     IF( .NOT. Visited ) THEN
       Params => GetSolverParams()
       Robust = ListGetLogical( Params,'Particle Locate Robust',stat)
@@ -2847,6 +2861,7 @@ RETURN
         ! Reflect particle from face and continue the search in the same element
         !-----------------------------------------------------------------------
         GotBC2 = GotBC
+
         IF( GotBC ) THEN
           IF( ListGetLogical( BC,'Particle Outlet',Stat ) ) THEN
             ParticleStatus = PARTICLE_LOST
@@ -2872,8 +2887,10 @@ RETURN
                         
             IF( Debug ) THEN
               PRINT *,'Reflected',i,MinLambda,EPSILON(MinLambda)
+              PRINT *,'Normal:',Normal
               PRINT *,'Rtmp:',Rtmp
               PRINT *,'Rfin:',Rfin
+              PRINT *,'Abs(Velo):',SQRT(SUM(Velo**2))
               PRINT *,'Velo:',Velo
             END IF
             ParticleBounce = .TRUE.
@@ -3076,9 +3093,11 @@ RETURN
       ! If a boundary face is passed then repeat the process more diligently. 
       ! Note that if we want proper collisions they should be implemented below
       !----------------------------------------------------------------------------
+PRINT *,'Accurate Now:',AccurateNow,FaceIndex
       IF( .NOT. AccurateNow ) THEN
         AccurateNow = AccurateAtFace .AND. FaceIndex > 0
         IF( AccurateNow ) THEN
+
           FaceIndex0 = FaceIndex
           ElementIndex0 = ElementIndex
           Status0 = Status
@@ -4716,18 +4735,23 @@ RETURN
     TYPE(Variable_t), POINTER :: TimeVar
     TYPE(ValueList_t), POINTER :: Params 
     CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, FileName
-    LOGICAL :: Found, NumberFilesByParticles, NumberFilesBySteps
+    LOGICAL :: Found, NumberFilesByParticles, NumberFilesBySteps, ParticleMode
     REAL(KIND=dp), POINTER :: Coord(:,:), Velo(:,:), Dist(:)
     REAL(KIND=dp) :: time
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER, POINTER :: Status(:)
-    INTEGER :: i,j,dim, NoParticles, MinSaveStatus, MaxSaveStatus
+    INTEGER :: i,j,n,dofs,Vari,Rank,dim, NoParticles, MinSaveStatus, MaxSaveStatus
     INTEGER :: VisitedTimes = 0
+    INTEGER, POINTER :: Indexes(:),Perm(:)
     LOGICAL :: GotTimeVar, GotDistVar
     TYPE(Variable_t), POINTER :: PartTimeVar, PartDistVar    
+    REAL(KIND=dp), POINTER :: Basis(:)
+    TYPE(Nodes_t) :: Nodes      
+    INTEGER, PARAMETER :: TableUnit = 10
+
 
     SAVE :: VisitedTimes, Params, FilePrefix, NumberFilesByParticles, NumberFilesBySteps, &
-        MinSaveStatus, MaxSaveStatus, TimeVar
+        MinSaveStatus, MaxSaveStatus, TimeVar, Basis, Nodes
     
     VisitedTimes = VisitedTimes + 1
     
@@ -4744,6 +4768,11 @@ RETURN
     PartTimeVar => ParticleVariableGet( Particles,'particle time')
     GotTimeVar = ASSOCIATED( PartTimeVar )
 
+    ParticleMode = .NOT. ASSOCIATED( Particles % UVW ) 
+    IF(.NOT. ParticleMode ) THEN
+      n = Mesh % MaxElementNodes
+      ALLOCATE( Basis(n), Nodes % x(n), Nodes % y(n), Nodes % z(n) )
+    END IF
 
 
     IF( VisitedTimes == 1 ) THEN
@@ -4791,6 +4820,10 @@ RETURN
       END DO
     END IF
 
+    IF( .NOT. ParticleMode ) THEN
+      DEALLOCATE( Basis, Nodes % x, Nodes % y, Nodes % z )
+    END IF
+
 
   CONTAINS
 
@@ -4804,50 +4837,122 @@ RETURN
       INTEGER :: dim
 
       CHARACTER(LEN=MAX_NAME_LEN) :: FileName
-      INTEGER :: i,j
-      
+      INTEGER :: i,j,dofs
+      TYPE(Variable_t), POINTER :: Solution
+      LOGICAL :: ComponentVector, ThisOnly = .TRUE.
+      CHARACTER(LEN=1024) :: Txt, FieldName
+
+
       WRITE( FileName,'(A,A)') TRIM(FilePrefix),'.dat.names'
       
-      OPEN (10, FILE=FileName )
+      OPEN (TableUnit, FILE=FileName )
       
-      WRITE( 10, '(A)' ) 'Variables in file: '//TRIM(FilePrefix)//'*.dat'
-      WRITE( 10, '(A,I2)' ) 'Dimension of particle set is',dim
+      WRITE( TableUnit, '(A)' ) 'Variables in file: '//TRIM(FilePrefix)//'*.dat'
+      WRITE( TableUnit, '(A,I2)' ) 'Dimension of particle set is',dim
       i = 1
-      WRITE( 10, '(I2,A)' )  i,': time'
+      WRITE( TableUnit, '(I2,A)' )  i,': time'
 
       IF( NumberFilesBySteps ) THEN
-        WRITE( 10,'(I2, A)' ) i+1, ': particle id'
+        WRITE( TableUnit,'(I2, A)' ) i+1, ': particle id'
         i = i + 1
       ELSE IF( NumberFilesByParticles ) THEN
-        WRITE( 10,'(I2, A)' ) i+1, ': visited time'
+        WRITE( TableUnit,'(I2, A)' ) i+1, ': visited time'
         i = i + 1
       ELSE     
-        WRITE( 10,'(I2, A)' ) i+1, ': visited time'  
-        WRITE( 10,'(I2, A)' ) i+2, ': particle id'
+        WRITE( TableUnit,'(I2, A)' ) i+1, ': visited time'  
+        WRITE( TableUnit,'(I2, A)' ) i+2, ': particle id'
         i = i + 2
       END IF
-
-      WRITE( 10, '(I2,A)' )  i+1,': Coordinate_1'
-      WRITE( 10, '(I2,A)' )  i+2,': Coordinate_2'
-      IF(dim == 3) WRITE( 10, '(I2,A)' )  i+3,': Coordinate_3'
-      i = i + DIM
-      WRITE( 10, '(I2,A)' )  i+1,': Velocity_1'
-      WRITE( 10, '(I2,A)' )  i+2,': Velocity_2'
-      IF(dim == 3) WRITE( 10, '(I2,A)' )  i+3,': Velocity_3'
-      i = i + DIM
-      IF( GotDistVar ) THEN
-        WRITE( 10, '(I2,A)' )  i+1,': Particle Distance'
-        i = i + 1
-      END IF
-       IF( GotTimeVar ) THEN
-        WRITE( 10, '(I2,A)' )  i+1,': Particle Time'
-        i = i + 1
-      END IF
-   
-  
-      CLOSE( 10 )
       
-    END SUBROUTINE WriteParticleFileNames
+      WRITE( TableUnit, '(I2,A)' )  i+1,': Coordinate_1'
+      WRITE( TableUnit, '(I2,A)' )  i+2,': Coordinate_2'      
+      IF(dim == 3) WRITE( TableUnit, '(I2,A)' )  i+3,': Coordinate_3'
+      i = i + DIM
+
+      IF( ParticleMode ) THEN
+        WRITE( TableUnit, '(I2,A)' )  i+1,': Velocity_1'
+        WRITE( TableUnit, '(I2,A)' )  i+2,': Velocity_2'
+        IF(dim == 3) WRITE( TableUnit, '(I2,A)' )  i+3,': Velocity_3'
+        i = i + DIM
+        IF( GotDistVar ) THEN
+          WRITE( TableUnit, '(I2,A)' )  i+1,': Particle Distance'
+          i = i + 1
+        END IF
+        IF( GotTimeVar ) THEN
+          WRITE( TableUnit, '(I2,A)' )  i+1,': Particle Time'
+          i = i + 1
+        END IF
+      ELSE  
+              
+        DO Rank = 1,2
+
+          DO Vari = 1, 99
+            
+            IF( Rank == 1 ) THEN
+              WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+            ELSE
+              WRITE(Txt,'(A,I0)') 'Vector Field ',Vari             
+            END IF
+            
+            FieldName = ListGetString( Params, TRIM(Txt), Found )
+            IF(.NOT. Found) EXIT
+            
+            Solution => VariableGet( Mesh % Variables, &
+                TRIM(FieldName),ThisOnly )
+            ComponentVector = .FALSE.
+            IF( Rank == 2 ) THEN
+              IF(.NOT. ASSOCIATED(Solution)) THEN
+                Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 1', ThisOnly )
+                IF( ASSOCIATED(Solution)) THEN 
+                  ComponentVector = .TRUE.
+                ELSE
+                  WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+                  CALL Warn('WriteParticleLine', Txt)
+                  CYCLE
+                END IF
+              END IF
+            ELSE
+              IF(.NOT. ASSOCIATED(Solution)) THEN
+                WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+                CALL Warn('WriteParticleLine', Txt)
+                CYCLE
+              END IF
+            END IF
+            
+            IF( ASSOCIATED(Solution % EigenVectors)) THEN
+              CALL Warn('WriteParticleLine','Do the eigen values')
+            END IF
+            
+            dofs = Solution % DOFs
+                    
+            IF( ComponentVector ) THEN
+              Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
+              IF( ASSOCIATED(Solution)) THEN
+                dofs = 2 
+                Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
+                IF( ASSOCIATED(Solution)) THEN
+                  dofs = 3 
+                END IF
+              END IF
+            END IF
+            
+            IF( dofs == 1 ) THEN
+              WRITE( TableUnit, '(I2,A)' )  i+1,': '//TRIM(FieldName) 
+              i = i + 1
+            ELSE
+              DO j=1,dofs                
+               WRITE( TableUnit, '(I2,A)' )  i+j,': '//TRIM(FieldName)//'_'//TRIM(I2S(j))  
+             END DO
+             i = i + dofs
+           END IF
+
+         END DO
+       END DO
+     END IF
+     
+     CLOSE( TableUnit )
+      
+   END SUBROUTINE WriteParticleFileNames
 
 
 
@@ -4880,10 +4985,10 @@ RETURN
 
       
       IF( VisitedTimes == 1 .OR. NumberFilesBySteps ) THEN
-        OPEN (10, FILE=FileName )
-        WRITE( 10, '(A)', ADVANCE='no' ) ' ' ! delete old contents
+        OPEN (TableUnit, FILE=FileName )
+        WRITE( TableUnit, '(A)', ADVANCE='no' ) ' ' ! delete old contents
       ELSE
-        OPEN (10, FILE=FileName,POSITION='APPEND' )
+        OPEN (TableUnit, FILE=FileName,POSITION='APPEND' )
       END IF
 
       Visited = .TRUE.
@@ -4896,22 +5001,148 @@ RETURN
     !-------------------------------------------------------------------------
     SUBROUTINE WriteParticleLine( Dim, No )
       INTEGER :: Dim, No
-      
-      WRITE( 10,'(ES12.4)', ADVANCE = 'NO' ) time
-      
-      IF( NumberFilesBySteps ) THEN
-        WRITE( 10,'(I6)', ADVANCE = 'NO' ) No
-      ELSE IF( NumberFilesByParticles ) THEN
-        WRITE( 10,'(I6)', ADVANCE = 'NO' ) VisitedTimes
-      ELSE       
-        WRITE( 10,'(2I6)', ADVANCE = 'NO' ) VisitedTimes, No
-      END IF
+      TYPE(Variable_t), POINTER :: Solution
+      REAL(KIND=dp), POINTER :: Values(:)
+      REAL(KIND=dp) :: u,v,w,val,detJ
+      LOGICAL :: stat, ThisOnly=.TRUE., ComponentVector
+      CHARACTER(LEN=1024) :: Txt, FieldName
+      TYPE(Element_t), POINTER :: Element
+ 
 
-      WRITE( 10,'(6ES12.4)', ADVANCE = 'NO' ) Coord(No,1:dim), Velo(No,1:dim) !Dist(No) 
-       
-      IF( GotDistVar ) WRITE (10,'(ES12.4)',ADVANCE='NO') PartDistVar % Values(No)
-      IF( GotTimeVar ) WRITE (10,'(ES12.4)',ADVANCE='NO') PartTimeVar % Values(No)
-      WRITE(10,'(A)') ' '
+      WRITE( TableUnit,'(ES12.4)', ADVANCE = 'NO' ) time
+        
+      IF( NumberFilesBySteps ) THEN
+        WRITE( TableUnit,'(I6)', ADVANCE = 'NO' ) No
+      ELSE IF( NumberFilesByParticles ) THEN
+        WRITE( TableUnit,'(I6)', ADVANCE = 'NO' ) VisitedTimes
+      ELSE       
+        WRITE( TableUnit,'(2I6)', ADVANCE = 'NO' ) VisitedTimes, No
+      END IF
+      
+      IF( ParticleMode ) THEN
+        
+        WRITE( TableUnit,'(6ES12.4)', ADVANCE = 'NO' ) Coord(No,1:dim), Velo(No,1:dim) !Dist(No) 
+        
+        IF( GotDistVar ) WRITE (TableUnit,'(ES12.4)',ADVANCE='NO') PartDistVar % Values(No)
+        IF( GotTimeVar ) WRITE (TableUnit,'(ES12.4)',ADVANCE='NO') PartTimeVar % Values(No)
+        
+      ELSE
+
+        Element => Mesh % Elements( Particles % ElementIndex(No) )            
+        n = Element % TYPE % NumberOfNodes
+        Indexes => Element % NodeIndexes
+        
+        Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
+        Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
+        Nodes % z(1:n) = Mesh % Nodes % z( Indexes ) 
+        
+        u = Particles % uvw(No,1)
+        v = Particles % uvw(No,2)
+        IF( dim == 3 ) THEN
+          w = Particles % uvw(No,3)
+        ELSE
+          w = 0.0_dp
+        END IF
+        
+        stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
+
+        
+        val = SUM( Basis(1:n) * Nodes % x(1:n) )
+        WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val             
+
+        val = SUM( Basis(1:n) * Nodes % y(1:n) )
+        WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val             
+
+        IF( dim == 3 ) THEN
+          val = SUM( Basis(1:n) * Nodes % z(1:n) )
+          WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val             
+        END IF
+
+      
+        DO Rank = 1,2
+
+          DO Vari = 1, 99
+            
+            IF( Rank == 1 ) THEN
+              WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+            ELSE
+              WRITE(Txt,'(A,I0)') 'Vector Field ',Vari             
+            END IF
+            
+            FieldName = ListGetString( Params, TRIM(Txt), Found )
+            IF(.NOT. Found) EXIT
+            
+            Solution => VariableGet( Mesh % Variables, &
+                TRIM(FieldName),ThisOnly )
+            ComponentVector = .FALSE.
+            IF( Rank == 2 ) THEN
+              IF(.NOT. ASSOCIATED(Solution)) THEN
+                Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 1', ThisOnly )
+                IF( ASSOCIATED(Solution)) THEN 
+                  ComponentVector = .TRUE.
+                ELSE
+                  WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+                  CALL Warn('WriteParticleLine', Txt)
+                  CYCLE
+                END IF
+              END IF
+            ELSE
+              IF(.NOT. ASSOCIATED(Solution)) THEN
+                WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+                CALL Warn('WriteParticleLine', Txt)
+                CYCLE
+              END IF
+            END IF
+            
+            IF( ASSOCIATED(Solution % EigenVectors)) THEN
+              CALL Warn('WriteParticleLine','Do the eigen values')
+            END IF
+            
+            Perm => Solution % Perm
+            dofs = Solution % DOFs
+            Values => Solution % Values         
+            val = 0.0_dp
+            
+            IF( ComponentVector ) THEN
+              IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                val = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+              END IF
+              WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val             
+
+              Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
+              IF( ASSOCIATED(Solution)) THEN
+                Values => Solution % Values
+                IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                  val = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                END IF
+                WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val             
+
+                Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
+                IF( ASSOCIATED(Solution)) THEN
+                  Values => Solution % Values
+                  IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                    val = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                  END IF
+                  WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val             
+                END IF
+              END IF
+            ELSE IF( Dofs == 1 ) THEN
+              IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                val = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+              END IF
+              WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val             
+            ELSE
+              DO j = 1, Dofs
+                IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                  val = SUM( Basis(1:n) * Values(Dofs*(Perm(Indexes)-1)+j) )
+                END IF
+                WRITE( TableUnit,'(ES16.7E3)', ADVANCE='no') val                          
+              END DO
+            END IF
+          END DO
+        END DO
+        WRITE(TableUnit,'(A)') ' '
+      END IF
 
     END SUBROUTINE WriteParticleLine
     
@@ -4921,7 +5152,7 @@ RETURN
     !-------------------------------------------------------------------------
     SUBROUTINE CloseParticleFile( )
       
-      CLOSE( 10 )
+      CLOSE( TableUnit )
       
     END SUBROUTINE CloseParticleFile
            
