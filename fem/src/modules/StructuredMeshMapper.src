@@ -63,7 +63,7 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   TYPE(Solver_t), POINTER :: PSolver
   CHARACTER(LEN=MAX_NAME_LEN) :: VarName
   INTEGER :: i,j,k,n,dim,DOFs,itop,ibot,ii,jj,Rounds,BotMode,TopMode,nsize, &
-      ActiveDirection,elem, istat
+      ActiveDirection,elem, istat, TangledCount
   INTEGER, POINTER :: MaskPerm(:),TopPerm(:),BotPerm(:),TopPointer(:),&
       BotPointer(:),NodeIndexes(:)
   LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
@@ -250,6 +250,8 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   Heps = GetCReal(SolverParams,'Minimum Mesh Height',GotIt)
   IF(.NOT. GotIt) Heps = EPSILON( Heps )
 
+  TangledCount = 0
+
   DO i=1,nsize
 
     j = i
@@ -296,21 +298,22 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     END IF
 
     IF( DisplacementMode ) THEN
-      Tangled = ( TopVal + x0top < BotVal + x0bot ) 
+      Tangled = ( TopVal + x0top < BotVal + x0bot )
     ELSE
       Tangled = ( TopVal < BotVal ) 
     END IF
-
     IF( Tangled ) THEN
-      PRINT *,'Mode',DisplacementMode
-      PRINT *,'TopVal',TopVal,x0top,TopVal+x0top
-      PRINT *,'Botval',BotVal,x0bot,BotVal+x0bot
-
-      PRINT *,'Node',i,'Height',Coord(i),'W',wtop
-      PRINT *,'Position',Mesh % Nodes % x(i),Mesh % Nodes % y(i),Mesh % Nodes % z(i)
-      PRINT *,'TopVal',TopVal,'BotVal',Botval,'dVal',TopVal-BotVal
-      WRITE( Message,'(A,2ES12.3)') 'Top and bottom get tangled: ',TopVal, BotVal 
-      CALL Fatal( 'StructuredMeshMapper',Message )
+      TangledCount = TangledCount + 1
+      IF( .FALSE. ) THEN
+        PRINT *,'Mode',DisplacementMode
+        PRINT *,'TopVal',TopVal,x0top,TopVal+x0top
+        PRINT *,'Botval',BotVal,x0bot,BotVal+x0bot
+        
+        PRINT *,'Node',i,'Height',Coord(i),'W',wtop
+        PRINT *,'Position',Mesh % Nodes % x(i),Mesh % Nodes % y(i),Mesh % Nodes % z(i)
+        PRINT *,'TopVal',TopVal,'BotVal',Botval,'dVal',TopVal-BotVal
+        WRITE( Message,'(A,2ES12.3)') 'Top and bottom get tangled: ',TopVal, BotVal 
+      END IF
     END IF
 
     xloc = wtop * TopVal + (1.0_dp - wtop) * BotVal
@@ -369,8 +372,12 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     END IF
   END IF
  
-  at1 = CPUTime()
+  IF( TangledCount > 0 ) THEN
+    CALL Warn('SructuredMeshMapper','There seems to be '&
+        //TRIM(I2S(TangledCount))//' tangled nodes!')
+  END IF
 
+  at1 = CPUTime()
   WRITE(Message,* ) 'Active coordinate mapping time: ',at1-at0
   CALL Info('StructuredMeshMapper',Message)
 
