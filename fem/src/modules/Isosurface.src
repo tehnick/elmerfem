@@ -55,7 +55,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   LOGICAL :: Transient      !< Steady state or transient simulation
 !------------------------------------------------------------------------------
   CHARACTER(LEN=MAX_NAME_LEN) :: LevelVariableName
-  TYPE(Mesh_t), POINTER :: Mesh, IsoMesh => Null(), Pmesh, OrigMesh
+  TYPE(Mesh_t), POINTER :: Mesh, IsoMesh => NULL(), Pmesh, OrigMesh
   INTEGER :: i,j,k,l,n, dim,NoLevels,Level,NoNewElements
   REAL(KIND=dp) :: LevelValue, LevelDiff
 
@@ -66,18 +66,19 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   INTEGER :: NoOrigElements,calls=0,ierr
 
   TYPE(Variable_t), POINTER :: LevelVariable
-  LOGICAL :: CreateDummyMesh, MovingMesh, Found
+  LOGICAL :: MovingMesh, Found
   LOGICAL, ALLOCATABLE :: ElemSplit(:)
   INTEGER, ALLOCATABLE :: eperm(:), InvPerm(:), ElemPerm(:)
   INTEGER :: NewElemType, NewElemNodes, LevelDofs, NoEdges, IsAllocated, &
       NoIsoNodes, NoSurfaces
-  INTEGER :: ParSizes(6), ParTmp(6)
+  INTEGER :: ParSizes(6), ParTmp(6),ElemFirst,ElemLast
   REAL(KIND=dp), ALLOCATABLE :: x(:),y(:),z(:),ElemFun(:)
   REAL(KIND=dp), POINTER :: LevelFun(:), LevelValues(:,:), Interpolant(:)
   INTEGER, POINTER :: LevelPerm(:)
   TYPE(Element_t), POINTER  :: OrigElements(:), NewElements(:), Element
   TYPE(ValueList_t), POINTER :: Params
-  LOGICAL :: Visited = .FALSE., FixedSurface, SurfaceExist = .FALSE.
+  LOGICAL :: Visited = .FALSE., FixedSurface, SurfaceExist = .FALSE., &
+      GotIsoMask
 
   SAVE Visited, FixedSurface, SurfaceExist, Interpolant, InvPerm, Isomesh, &
 	NewElements, NoNewElements
@@ -93,9 +94,6 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   OrigElements => Mesh % Elements
   NoNewElements = 0
   NewElements => NULL()
-  dim = Mesh % MeshDim
-  ! this is just a temporary hack to live with old library
-  IF(dim < 1 .OR. dim > 3 ) dim = 3
 
   Params => GetSolverParams()
   FixedSurface = GetLogical( Params,'Isosurface Fixed',Found)
@@ -177,143 +175,183 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   QuadToTriangleMap(1,:) = [1,2,3]
   QuadToTriangleMap(2,:) = [1,3,4]
 
+  ElemFirst = 1
+  ElemLast = Mesh % NumberOfBulkElements 
+  GotIsoMask = .FALSE.
+
+  IF( ListGetLogicalAnyBC( Model,'Create Isosurface' ) ) THEN
+    GotIsoMask = .TRUE.
+    ElemFirst = Mesh % NumberOfBulkElements + 1
+    ElemLast = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+  ELSE IF( ListGetLogicalAnyBodyForce( Model,'Create Isosurface' ) ) THEN
+    GotIsoMask = .TRUE.
+  END IF
+
   !---------------------------------------------------------------
-  ! Check whether mesh is all-tets or all-triangles
+  ! Check the leading dimension
   !---------------------------------------------------------------
-  CreateDummyMesh = .FALSE.
-  DO i=1,Mesh % NumberOfBulkElements
+  dim = 0
+  DO i = ElemFirst,ElemLast 
     Element => Mesh % Elements( i ) 
+    Model % CurrentElement => Element
     j = GetElementFamily( Element )
-    IF( dim == 2 .AND. j /= 3 ) THEN
-      CreateDummyMesh = .TRUE.
-      EXIT
+
+    IF( GotIsoMask ) THEN
+      IF( i <= Mesh % NumberOfBulkElements ) THEN
+        IF( .NOT. GetLogical( GetBodyForce(Element),'Create Isosurface',Found) ) CYCLE
+      ELSE 
+        IF( .NOT. GetLogical( GetBC(Element),'Create Isosurface',Found) ) CYCLE
+      END IF        
     END IF
-    IF( dim == 3 .AND. j /= 5 ) THEN
-      CreateDummyMesh = .TRUE.
-      EXIT
+
+    IF( j <= 2 ) THEN
+      CYCLE
+    ELSE IF( j <= 4 ) THEN
+      dim = MAX( dim, 2 )
+    ELSE
+      dim = MAX( dim, 3 ) 
     END IF
   END DO
+  CALL Info('IsosurfaceSolver','Leading element dimension is '//TRIM(I2S(dim)) )
+
 
   IF( dim == 2 ) THEN
     NewElemType = 303
     NewElemNodes = 3
-  ELSE
+  ELSE IF( dim == 3 ) THEN
     NewElemType = 504
     NewElemNodes = 4
+  ELSE
+    CALL Warn('IsoSurfaceSolver','Isosurface mesh can be created only for 2D or 3D')
+    RETURN
   END IF
+
 
   !---------------------------------------------------------------
   ! Create a temporary mesh consisting only of tets (or triangles)
   ! in where the isosurface (or isoline) will be determined.
   ! The temporal mesh includes only potential master elements.
   !---------------------------------------------------------------
-  IF ( CreateDummyMesh ) THEN
-    CALL Info('IsoSurfaceSolver','Creating a temporal mesh')
-    IF( NoLevels > 1 ) ALLOCATE( ElemSplit( Mesh % NumberOfBulkElements ) )
+  CALL Info('IsoSurfaceSolver','Creating a temporal mesh')
+  IF( NoLevels > 1 ) ALLOCATE( ElemSplit( Mesh % NumberOfBulkElements ) )
+  
+  DO IsAllocated = 0, 1
     
-    DO IsAllocated = 0, 1
+    j = 0
+    IF( NoLevels > 1 ) ElemSplit = .FALSE.
+    
+    DO Level = 1, NoLevels
+      IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
       
-      j = 0
-      IF( NoLevels > 1 ) ElemSplit = .FALSE.
-      
-      DO Level = 1, NoLevels
-        IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
+      DO i=ElemFirst,ElemLast
         
-        DO i=1,Mesh % NumberOfBulkElements
-          
-          Element => Mesh % Elements(i)
-          Indexes => Element % NodeIndexes
-          n = Element % TYPE % NumberOfNodes
-          
-          IF( NoLevels > 1 ) THEN
-            IF( ElemSplit(i) ) CYCLE
-          END IF
-          
-          IF( ASSOCIATED( LevelPerm ) ) THEN
-            ElemPerm(1:n) = LevelPerm( Indexes ) 
-            IF( ANY ( LevelPerm( Indexes) == 0 ) ) CYCLE
+        Element => Mesh % Elements(i)
+        Model % CurrentElement => Element
+        
+        IF( GotIsoMask ) THEN
+          IF( i <= Mesh % NumberOfBulkElements ) THEN
+            IF( .NOT. GetLogical( GetBodyForce(Element),'Create Isosurface',Found) ) CYCLE
           ELSE 
-            ElemPerm(1:n) = Indexes(1:n)
+            IF( .NOT. GetLogical( GetBC(Element),'Create Isosurface',Found) ) CYCLE
           END IF
-          
-          SELECT CASE(GetElementFamily( Element ))
-          CASE(3); Map => TriangleToTriangleMap
-          CASE(4); Map => QuadToTriangleMap
-          CASE(5); Map => TetraToTetraMap
-          CASE(6); Map => PyramidToTetraMap
-          CASE(7); Map => WedgeToTetraMap
-          CASE(8); Map => BrickToTetraMap
-          END SELECT
-          
-          IF( LevelDofs == 1 ) THEN
-            ElemFun(1:n) =  LevelFun( ElemPerm(1:n) )
-          ELSE
-            ElemFun(1:n) = 0.0_dp
-            DO l=1,MIN(dim,LevelDofs)
-              ElemFun(1:n) = ElemFun(1:n) + LevelFun( LevelDofs * ( ElemPerm(1:n) - 1) + l )**2
-            END DO
-            ElemFun(1:n) = SQRT( ElemFun(1:n) )
-          END IF
-          ElemFun(1:n) = ElemFun(1:n) - LevelValue
-          IF( ALL ( ElemFun(1:n) < 0.0_dp ) ) CYCLE
-          IF( ALL ( ElemFun(1:n) > 0.0_dp ) ) CYCLE
-          
-          IF( NoLevels > 1 ) THEN
-            IF( ElemSplit(i) ) CYCLE
-          END IF
-          
-          IF( IsAllocated == 0 ) THEN
-            j = j + SIZE(Map,1)
-            CYCLE
-          END IF
-          
-          DO k=1,SIZE(Map,1)
-            j = j + 1
-            NewElements(j) = Element
-            NewElements(j) % TYPE => GetElementType(NewElemType)
-            ALLOCATE(NewElements(j) % NodeIndexes(NewElemNodes))
-            DO l=1,NewElemNodes
-              NewElements(j) % NodeIndexes(l) = &
-                  Element % NodeIndexes(Map(k,l))
-            END DO
+        END IF
+        
+        Indexes => Element % NodeIndexes
+        n = Element % TYPE % NumberOfNodes
+        
+        IF( NoLevels > 1 ) THEN
+          IF( ElemSplit(i) ) CYCLE
+        END IF
+        
+        IF( ASSOCIATED( LevelPerm ) ) THEN
+          ElemPerm(1:n) = LevelPerm( Indexes ) 
+          IF( ANY ( LevelPerm( Indexes) == 0 ) ) CYCLE
+        ELSE 
+          ElemPerm(1:n) = Indexes(1:n)
+        END IF
+        
+        SELECT CASE(GetElementFamily( Element ))
+        CASE(3); Map => TriangleToTriangleMap
+        CASE(4); Map => QuadToTriangleMap
+        CASE(5); Map => TetraToTetraMap
+        CASE(6); Map => PyramidToTetraMap
+        CASE(7); Map => WedgeToTetraMap
+        CASE(8); Map => BrickToTetraMap
+        END SELECT
+        
+        IF( LevelDofs == 1 ) THEN
+          ElemFun(1:n) =  LevelFun( ElemPerm(1:n) )
+        ELSE
+          ElemFun(1:n) = 0.0_dp
+          DO l=1,MIN(dim,LevelDofs)
+            ElemFun(1:n) = ElemFun(1:n) + LevelFun( LevelDofs * ( ElemPerm(1:n) - 1) + l )**2
+          END DO
+          ElemFun(1:n) = SQRT( ElemFun(1:n) )
+        END IF
+        ElemFun(1:n) = ElemFun(1:n) - LevelValue
+        IF( ALL ( ElemFun(1:n) < 0.0_dp ) ) CYCLE
+        IF( ALL ( ElemFun(1:n) > 0.0_dp ) ) CYCLE
+        
+        IF( NoLevels > 1 ) THEN
+          IF( ElemSplit(i) ) CYCLE
+        END IF
+        
+        IF( IsAllocated == 0 ) THEN
+          j = j + SIZE(Map,1)
+          CYCLE
+        END IF
+        
+        DO k=1,SIZE(Map,1)
+          j = j + 1
+          NewElements(j) = Element
+          NewElements(j) % TYPE => GetElementType(NewElemType)
+          ALLOCATE(NewElements(j) % NodeIndexes(NewElemNodes))
+          DO l=1,NewElemNodes
+            NewElements(j) % NodeIndexes(l) = &
+                Element % NodeIndexes(Map(k,l))
           END DO
         END DO
       END DO
-      
-      NoNewElements = j	
-      
-      IF( NoNewElements == 0 ) EXIT
-      
-      IF( IsAllocated == 0 ) THEN
-        ALLOCATE(NewElements(NoNewElements))
-      END IF
     END DO
     
-    IF( NoLevels > 1 ) DEALLOCATE( ElemSplit ) 
+    NoNewElements = j	
     
-    IF( NoNewElements > 0 ) THEN
-      Mesh % NumberOfBulkElements = NoNewElements
-      Mesh % Elements => NewElements
-    END IF
+    IF( NoNewElements == 0 ) EXIT
+    
+    IF( IsAllocated == 0 ) THEN
+      ALLOCATE(NewElements(NoNewElements))
+    END IF    
+  END DO
+
+  IF( NoLevels > 1 ) DEALLOCATE( ElemSplit ) 
+    
+  IF( NoNewElements == 0 ) THEN
+    CALL Warn('IsosurfaceSolver','No potential elements found for isosurface solver!')
+    RETURN
+  ELSE
+    CALL Info('IsosurfaceSolver','Found '//TRIM(I2S(NoNewElements))//' potential elements') 
   END IF
+
+  Mesh % NumberOfBulkElements = NoNewElements
+  Mesh % Elements => NewElements
 
   ! Find mesh edges in order to define the intersection points
   !-----------------------------------------------------------
   NoEdges = 0
-  IF( .NOT. CreateDummyMesh .OR. NoNewElements > 0 ) THEN
-    IF (.NOT.ASSOCIATED(Mesh % Edges)) THEN
-      IF( dim == 2 ) THEN
-        CALL FindMeshEdges2D(Mesh)
-      ELSE
-        CALL FindMeshEdges3D(Mesh)
-      END IF
+  CALL Info('IsosurfaceSolver','Creating mesh edges',Level=9)
+  IF (.NOT.ASSOCIATED(Mesh % Edges)) THEN
+    IF( dim == 2 ) THEN
+      CALL FindMeshEdges2D(Mesh)
+    ELSE
+      CALL FindMeshEdges3D(Mesh)
     END IF
-    NoEdges = Mesh % NumberOfEdges
   END IF
+  NoEdges = Mesh % NumberOfEdges
 
   ! If the mesh was previously created release it before recreating
   !----------------------------------------------------------------
   IF( SurfaceExist  ) THEN
+    CALL Info('IsosurfaceSolver','Releasing previous mesh',Level=9)
     Pmesh => Model % Meshes
     DO WHILE(ASSOCIATED(Pmesh % Next))
       IF ( ASSOCIATED(Pmesh % next, Isomesh)) THEN
@@ -328,6 +366,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   
   ! Create a new mesh for isosurface
   !----------------------------------------------------------------
+  CALL Info('IsosurfaceSolver','Creating a new mesh for isosurface')
   Isomesh => AllocateMesh()
   IsoMesh % Name = GetString( Params,'Mesh Name', Found )
   IF (.NOT. Found ) THEN
@@ -354,14 +393,17 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   
   ! Create nodes and elements on the edge intersections  
   !----------------------------------------------------------------
+  CALL Info('IsosurfaceSolver','Creating nodes on edge intersections',Level=9)
   NoIsoNodes = CreateNodes()    
+
+  CALL Info('IsosurfaceSolver','Creating surfaces or lines on edge intersections',Level=9)
   NoSurfaces = CreateSurfaces()
     
   ! Release temporary structures and revert original mesh
   !----------------------------------------------------------------------	
   IF(.NOT. FixedSurface ) THEN
     IF( NoEdges > 0 ) CALL ReleaseMeshEdgeTables( Mesh )
-    IF ( CreateDummyMesh .AND. ASSOCIATED( NewElements ) ) DEALLOCATE( NewElements )
+    IF ( ASSOCIATED( NewElements ) ) DEALLOCATE( NewElements )
   END IF
 
   IF( ALLOCATED( ElemFun ) ) DEALLOCATE( ElemFun, ElemPerm )  
@@ -397,16 +439,22 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   CALL Info('IsoSurfaceSolver',Message)
   WRITE ( Message,'(A,I0,A)') 'Initial mesh has ',ParSizes(2),' elements'
   CALL Info('IsoSurfaceSolver',Message)
-  IF( ParSizes(3) > 0 ) THEN
-    WRITE ( Message,'(A,I0,A)') 'Temporal mesh has ',ParSizes(3),' elements'
-    CALL Info('IsoSurfaceSolver',Message)
-  END IF
-  WRITE ( Message,'(A,I0,A)') 'Working mesh has ',ParSizes(4),' edges'
+
+  WRITE ( Message,'(A,I0,A)') 'Temporal mesh has ',ParSizes(3),' elements'
   CALL Info('IsoSurfaceSolver',Message)
+  WRITE ( Message,'(A,I0,A)') 'Temporal mesh has ',ParSizes(4),' edges'
+  CALL Info('IsoSurfaceSolver',Message)
+
   WRITE ( Message,'(A,I0,A)') 'Isosurface mesh has ',ParSizes(5),' nodes'
   CALL Info('IsoSurfaceSolver',Message)
   WRITE ( Message,'(A,I0,A)') 'Isosurface mesh has ',ParSizes(6),' elements'
   CALL Info('IsoSurfaceSolver',Message)
+
+
+  IF( GetLogical( Params,'Save Gmsh Geo File',Found ) ) THEN
+    CALL SaveGmshGeo2D(IsoMesh)
+  END IF
+
 
 CONTAINS
 
@@ -444,6 +492,7 @@ CONTAINS
       Vfull => VariableGet( Mesh % Variables, Vname(ints) )
       IF(.NOT. ASSOCIATED( Vfull ) ) THEN
         ints = ints - 1
+        EXIT
       END IF
     END DO
 
@@ -564,6 +613,8 @@ CONTAINS
       
 
       IF( IsAllocated == 0 ) THEN
+        CALL Info('IsosurfaceSolver','Creating '//TRIM(I2S(j))//' nodes for isosurface')
+
         NoIsoNodes = j
         ALLOCATE( IsoMesh % Nodes )
         Isomesh % NumberOfNodes = j
@@ -945,6 +996,140 @@ CONTAINS
     END IF
 
   END FUNCTION CreateLineFromTriangle
+
+
+
+  ! Saves a loop in gmsh geo format 
+  ! This is still not general and assumes one closed loop only!
+  !-------------------------------------------------------------- 
+  SUBROUTINE SaveGmshGeo2D(Mesh)
+    
+    TYPE(Mesh_t), POINTER :: Mesh
+    CHARACTER(LEN=MAX_NAME_LEN) :: Filename
+    LOGICAL :: Found, SaveNode
+    LOGICAL, ALLOCATABLE :: NodeUsed(:)
+    INTEGER, PARAMETER :: GeoUnit = 10
+    INTEGER :: i1,i2,i,j,jprev,jprevprev,UsedNodes,count
+    INTEGER, ALLOCATABLE :: Neighbours(:,:)
+    REAL(KIND=dp) :: Dx,Dy,Dz,MeshDiam,MeshParam,Coord(3),NodeEps,PrevCoord(3),Dist
+
+    IF( ParEnv % PEs > 1 ) THEN
+      CALL Warn('SaveGsmhGeo2D','Not implemented yet in parallel')
+    END IF
+    
+    Filename = ListGetString(Params,'Geo Filename',Found)
+    IF( .NOT. Found ) Filename = 'mesh.geo'
+    
+    OPEN( UNIT=GeoUnit, FILE=Filename, STATUS='UNKNOWN') 
+    
+    ALLOCATE( Neighbours(Mesh % NumberOfNodes, 2 ), NodeUsed( Mesh % NumberOfNodes ) ) 
+    Neighbours = 0
+    NodeUsed = .FALSE.
+    
+    DO i=1,Mesh % NumberOfBulkElements
+      Element => Mesh % Elements(i)
+      IF( Element % TYPE % ElementCode /= 202 ) THEN
+        CALL Warn('SaveGmshGeo2D','Only elements of type 202 can be saved in Gmsh geo format!')
+        RETURN
+      END IF
+      
+      i1 = Element % NodeIndexes(1) 
+      i2 = Element % NodeIndexes(2)
+      
+      IF( i1 == 0 .OR. i2 == 0 ) THEN
+        CALL Warn('SaveGmshGeo2D','Invalid indexes: '&
+            //TRIM(I2S(i1))//' and '//TRIM(I2S(i2)) )
+      END IF
+      
+      IF( Neighbours(i1,1) == 0 ) THEN
+        Neighbours(i1,1) = i2
+      ELSE
+        Neighbours(i1,2) = i2
+      END IF
+      
+      IF( Neighbours(i2,1) == 0 ) THEN
+        Neighbours(i2,1) = i1
+      ELSE
+        Neighbours(i2,2) = i1
+      END IF
+    END DO
+
+    IF( ANY( Neighbours(:,2) == 0 ) ) THEN
+      CALL Warn('SaveGmshGeo2D','This is not a closed loop!')
+      RETURN
+    END IF
+
+    Dx = MAXVAL( Mesh % Nodes % x ) - MINVAL( Mesh % Nodes % x )
+    Dy = MAXVAL( Mesh % Nodes % y ) - MINVAL( Mesh % Nodes % y )
+    Dz = MAXVAL( Mesh % Nodes % z ) - MINVAL( Mesh % Nodes % z )
+    MeshDiam = MAX( Dx, MAX( Dy, Dz ) )
+    
+    ! Currently defines a constant mesh parameter!
+    MeshParam = ListGetCReal( Params,'Mesh Parameter',Found )
+    IF( .NOT. Found ) MeshParam = MeshDiam / 50
+    
+    NodeEps = ListGetCReal( Params,'Mesh Node Epsilon',Found ) 
+    IF( .NOT. Found ) NodeEps = 1.0e-3*MeshDiam
+
+
+    CALL Info('IsosurfaceSolver','Writing points in geo file',Level=10)
+    j = 1
+    UsedNodes = 0
+    DO i = 1, Mesh % NumberOfNodes
+      Coord(1) = Mesh % Nodes % x(j)
+      Coord(2) = Mesh % Nodes % y(j)
+      Coord(3) = Mesh % Nodes % z(j)
+
+      ! Check that the nodes are not so close to each other that Gmsh cannot handle the spline
+      SaveNode = .TRUE.
+      IF( UsedNodes > 0 ) THEN
+        Dist = SUM( (Coord-PrevCoord)**2)
+        IF( Dist < NodeEps**2 ) THEN
+          CALL Info('IsosurfaceSolver','Skipping node '//TRIM(I2S(j))//' too close',Level=12)
+          PRINT *,'Dist',SQRT(Dist),' vs ',NodeEps
+          SaveNode = .FALSE.
+        END IF
+      END IF
+
+      IF( SaveNode ) THEN
+        UsedNodes = UsedNodes + 1
+        WRITE( GeoUnit,'(A,I0,A,ES12.3,A,ES12.3,A,ES12.3,A,ES12.3,A)') 'Point(',UsedNodes,') = {',&
+            Coord(1),',',Coord(2),',',Coord(3),',',MeshParam,'};'
+      END IF
+
+      ! Now find the next candidate node
+      ! This assumes closed loop!
+      IF( .NOT. NodeUsed( Neighbours(j,1) ) ) THEN
+        j = Neighbours(j,1)
+      ELSE IF( .NOT. NodeUsed( Neighbours(j,2) ) ) THEN
+        j = Neighbours(j,2)
+      ELSE
+        CALL Warn('IsosurfaceSolver','Is this not a singly closed loop?')
+        EXIT
+      END IF
+      NodeUsed(j) = .TRUE.
+     
+      PrevCoord = Coord
+    END DO
+
+    IF( UsedNodes == Mesh % NumberOfNodes ) THEN
+      CALL Info('IsosurfaceSolver','All nodes used')
+    ELSE
+      CALL Info('IsosurfaceSolver',TRIM(I2S(UsedNodes))//' nodes used')
+    END IF
+
+    CALL Info('IsosurfaceSolver','Writing spline in geo file',Level=10)
+    WRITE( GeoUnit,'(A)', ADVANCE='NO') 'Spline(1) = {'
+    DO i=1,UsedNodes
+      WRITE( GeoUnit,'(I0,A)', ADVANCE='NO') i,', '
+    END DO
+    WRITE( GeoUnit,'(I0,A)') 1,'};'
+    
+    WRITE( GeoUnit,'(A)') 'Line Loop(3) = {1};'
+    WRITE( GeoUnit,'(A)') 'Plane Surface(3) = {3};'
+
+
+  END SUBROUTINE SaveGmshGeo2D
 
 !------------------------------------------------------------------------------
 END SUBROUTINE IsosurfaceSolver
