@@ -647,28 +647,33 @@ CONTAINS
   ! IF ( Transient ) CALL Default1stOrderTimeGlobal()
   CALL DefaultFinishAssembly()
 
-
-  ! Check that the auxliary potential fixed somehow,
-  ! if not disable the variable (set to zero)
-  ! ------------------------------------------------
-  IF  (FixJ) THEN
-    Found = .FALSE.
-    potname = Solver % Variable % Name(1:Solver % Variable % NameLen)
-    DO i=1,Model % NumberOfBCs
-      IF (ListCheckPresent(Model % BCs(i) % Values,potname) ) THEN
-        Found = .TRUE.; EXIT
-      END IF
-    END DO
-    IF (.NOT. Found ) THEN
-      DO i=1,Mesh % NumberOfNodes
-        J = Solver % Variable % Perm(i)
-        IF(J>0) THEN
-          CALL ZeroRow(A,j)
-          CALL SetMatrixElement(A,j,j,1._dp)
-          A % RHS(j)=0._dp
+  ! The following is now commented out intentionally, as ensuring the uniqueness of the scalar
+  ! potential via using a Dirichlet constraint should not be a prerequisite for obtaining 
+  ! a solution (although not unique) if the data satisfies a compatibility condition.
+  ! ----------------------------------------------------------------------------------------
+  IF (.FALSE.) THEN
+     ! Check that the auxliary potential fixed somehow,
+     ! if not disable the variable (set to zero)
+     ! ------------------------------------------------
+     IF  (FixJ) THEN
+        Found = .FALSE.
+        potname = Solver % Variable % Name(1:Solver % Variable % NameLen)
+        DO i=1,Model % NumberOfBCs
+           IF (ListCheckPresent(Model % BCs(i) % Values,potname) ) THEN
+              Found = .TRUE.; EXIT
+           END IF
+        END DO
+        IF (.NOT. Found ) THEN
+           DO i=1,Mesh % NumberOfNodes
+              J = Solver % Variable % Perm(i)
+              IF(J>0) THEN
+                 CALL ZeroRow(A,j)
+                 CALL SetMatrixElement(A,j,j,1._dp)
+                 A % RHS(j)=0._dp
+              END IF
+           END DO
         END IF
-      END DO
-    END IF
+     END IF
   END IF
 
   !
