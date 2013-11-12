@@ -231,7 +231,7 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
    REAL(KIND=dp) :: x, y, zbed, xb0, yb0, x1, x2, y1, y2, zi(2,2) 
    REAL(KIND=dp) :: R, Rmin, lbx, lby, dbx, dby
    REAL(KIND=dp) :: xb(Nbx*Nby), yb(Nbx*Nby), zb(Nbx*Nby)       
-   REAL(KIND=dp), PARAMETER :: nodata = -9999.0, nodataTol = 0.001
+   REAL(KIND=dp), PARAMETER :: noData = -9999.0, noDataTol = 0.001
 
    ! Find zbed for that point from the Bedrock MNT 
    dbx = lbx / (Nbx-1.0)
@@ -261,9 +261,18 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
    zi(1,1) = zb(ib)
    zi(1,2) = zb(ib + Nbx)
 
-   IF ((zi(1,1)<-9990.0).OR.(zi(1,2)<-9990.0).OR.(zi(2,1)<-9990.0).OR.(zi(2,2)<-9990.0)) THEN
-      IF ((zi(1,1)<-9990.0).AND.(zi(1,2)<-9990.0).AND.(zi(2,1)<-9990.0).AND.(zi(2,2)<-9990.0)) THEN
-         ! Find the nearest point avalable
+!   IF ((zi(1,1)<-9990.0).OR.(zi(1,2)<-9990.0).OR.(zi(2,1)<-9990.0).OR.(zi(2,2)<-9990.0)) THEN
+!      IF ((zi(1,1)<-9990.0).AND.(zi(1,2)<-9990.0).AND.(zi(2,1)<-9990.0).AND.(zi(2,2)<-9990.0)) THEN
+   IF ( (isNoData(zi(1,1))).OR. &
+        (isNoData(zi(1,2))).OR. &
+        (isNoData(zi(2,1))).OR. &
+        (isNoData(zi(2,2))) ) THEN
+      IF ( (isNoData(zi(1,1))).AND. &
+           (isNoData(zi(1,2))).AND. &
+           (isNoData(zi(2,1))).AND. &
+           (isNoData(zi(2,2))) ) THEN
+
+         ! Find the nearest point avalable if all neighbouring points have noData
          Rmin = 9999.0
          DO i=1, Nb
             IF (zb(i)>-9990.0) THEN
@@ -277,12 +286,12 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
          zbed = zb(imin)
                         
       ELSE
-         ! Mean value over the avalable data
+         ! Mean value over the avalable data if only some points have noData
          zbed = 0.0
          Npt = 0
          DO i=1, 2
             DO J=1, 2
-               IF (zi(i,j) > -9990.0) THEN 
+               IF (.NOT. isNoData(zi(i,j))) THEN 
                   zbed = zbed + zi(i,j)
                   Npt = Npt + 1
                END IF   
@@ -291,7 +300,27 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
          zbed = zbed / Npt
       END IF
    ELSE
+      ! linear interpolation is only carried out if all 4 neighbouring points have data.
       zbed = (zi(1,1)*(x2-x)*(y2-y)+zi(2,1)*(x-x1)*(y2-y)+zi(1,2)*(x2-x)*(y-y1)+zi(2,2)*(x-x1)*(y-y1))/(dbx*dby)      
    END IF
+
+
+ CONTAINS
+
+   LOGICAL FUNCTION isNoData(val)
+
+     IMPLICIT NONE
+     REAL(KIND=dp),INTENT(IN) :: val
+
+     IF ((val .GT. noData-noDataTol) .AND. (val .LT. noData+noDataTol)) THEN
+        isNoData = .TRUE.
+     ELSE
+        isNoData = .FALSE.
+     END IF
+
+   RETURN 
+
+ END FUNCTION isNoData
+
 END SUBROUTINE InterpolateDEM
 
