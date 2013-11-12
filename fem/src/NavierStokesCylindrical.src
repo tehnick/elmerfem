@@ -702,11 +702,12 @@ MODULE NavierStokesCylindrical
          IF ( Compressible ) THEN
            A(c,i) = A(c,i) + (Density / Pressure) * Basis(q) * &
                       dPressuredx(i) * BaseP / 2
+
            A(c,c) = A(c,c) + (Density / Pressure) * Velo(i)  * &
                       dBasisdx(q,i) * BaseP / 2
 
-           A(c,c) = A(c,c) - (Density/(Temperature*Pressure)) * &
-                Velo(i) * dTemperaturedx(i) * Basis(q) * BaseP
+           A(c,i) = A(c,i) - (Density/Temperature) * &
+                 Basis(q) * dTemperaturedx(i) * BaseP
 
            A(c,i) = A(c,i) + Density * dBasisdx(q,i) * BaseP
          ELSE

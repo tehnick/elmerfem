@@ -246,7 +246,6 @@ MODULE NavierStokes
 
      LaplaceDiscretization = GetLogical( Params,'Laplace Discretization', Found)
 
-
      Transient = GetString(GetSimulation(),'Simulation Type',Found)=='transient'
      IF ( VMS .AND. Transient ) THEN
        dt = CurrentModel % Solver % dt
@@ -254,6 +253,7 @@ MODULE NavierStokes
      END IF
 
      Compressible = Cmodel /= Incompressible
+     drhodp_found = .FALSE.
      drhodp_n(1:n) = GetReal( Material, 'drho/dp', drhodp_found )
 
      Stabilize = StabilizeFlag == 'stabilized'
@@ -376,6 +376,8 @@ MODULE NavierStokes
 !     rho at the integration point
 !------------------------------------------------------------------------------
       rho  = SUM( Nodalrho(1:n)*Basis(1:n) )
+      dPressuredx = 0._dp
+      dTemperaturedx = 0._dp
       SELECT CASE(Cmodel)
       CASE(PerfectGas1)
         IF ( P2P1 ) THEN
@@ -668,6 +670,12 @@ MODULE NavierStokes
           G = MATMUL( G, VC )
         END IF
 
+     IF ( P2P1 .AND. p<=LinearBasis ) THEN
+        BaseP = PBasis(p)
+     ELSE
+        BaseP =  Basis(p)
+     END IF
+
      DO q=1,NBasis
          i = c*(p-1)
          j = c*(q-1)
@@ -677,13 +685,6 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 !      First plain Navier-Stokes
 !------------------------------------------------------------------------------
-
-
-       IF ( P2P1 .AND. p<=LinearBasis ) THEN
-          BaseP = PBasis(p)
-       ELSE
-          BaseP =  Basis(p)
-       END IF
 !------------------------------------------------------------------------------
 !      Mass matrix:
 !------------------------------------------------------------------------------
@@ -802,11 +803,12 @@ MODULE NavierStokes
            CASE(PerfectGas1)
              A(c,i) = A(c,i) + s * ( rho / Pressure ) * &
                  Basis(q) * dPressuredx(i) * BaseP / 2
+
              A(c,c) = A(c,c) + s * ( rho / Pressure ) * &
                  Velo(i) * dBasisdx(q,i) * BaseP / 2
 
-             A(c,c) = A(c,c) - s * ( rho /(Temperature*Pressure) ) * &
-                 dTemperaturedx(i) * Basis(q) * BaseP
+             A(c,i) = A(c,i) - s * ( rho / Temperature ) * &
+                 Basis(q) * dTemperaturedx(i) *  BaseP
 
            CASE(UserDefined1, Thermal)
              A(c,i) = A(c,i) + s * drhodx(i) * Basis(q) * BaseP
@@ -936,7 +938,7 @@ MODULE NavierStokes
        DO i=1,c
          Load(i) = Load(i) + s * rho * Force(i) * Basis(p)
        END DO
-       IF ( Cmodel==PerfectGas1 ) Load(c) = Load(c) / Temperature
+       IF ( Compressible.AND.Cmodel==PerfectGas1 ) Load(c) = Load(c) / Temperature
 
 !#ifdef LES
 !       DO i=1,dim
