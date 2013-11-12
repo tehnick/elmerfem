@@ -215,7 +215,6 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
       DEALLOCATE(xb, yb, zb)
    END DO
 
-
    CALL INFO(Trim(SolverName), '----------ALL DONE----------',Level=5)
 
 END SUBROUTINE Grid2DInterpolator
@@ -232,6 +231,7 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
    REAL(KIND=dp) :: x, y, zbed, xb0, yb0, x1, x2, y1, y2, zi(2,2) 
    REAL(KIND=dp) :: R, Rmin, lbx, lby, dbx, dby
    REAL(KIND=dp) :: xb(Nbx*Nby), yb(Nbx*Nby), zb(Nbx*Nby)       
+   REAL(KIND=dp), PARAMETER :: nodata = -9999.0, nodataTol = 0.001
 
    ! Find zbed for that point from the Bedrock MNT 
    dbx = lbx / (Nbx-1.0)
@@ -241,17 +241,26 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
    ix = INT((x-xb0)/dbx)+1
    iy = INT((y-yb0)/dbx)+1
    ib = Nbx * (iy - 1) + ix
-        
+   
+   ! if we are already at the end of the domain then collapse the 2 by 2 interpolation 
+   ! square to just 2 points at the end of the domain (else we get interpolation involving 
+   ! points at the beginning of the domain).  This comment refers to the x direction.
+   IF (MOD(ib,Nbx) .eq. 0.0) THEN
+      zi(2,1) = -9999.0
+      zi(2,2) = -9999.0
+   ELSE
+      zi(2,1) = zb(ib+1)
+      zi(2,2) = zb(ib + Nbx + 1)
+   END IF
+
    x1 = xb(ib)
    x2 = xb(ib+1)
    y1 = yb(ib)
    y2 = yb(ib + Nbx)
         
    zi(1,1) = zb(ib)
-   zi(2,1) = zb(ib+1)
-   zi(2,2) = zb(ib + Nbx + 1)
    zi(1,2) = zb(ib + Nbx)
-        
+
    IF ((zi(1,1)<-9990.0).OR.(zi(1,2)<-9990.0).OR.(zi(2,1)<-9990.0).OR.(zi(2,2)<-9990.0)) THEN
       IF ((zi(1,1)<-9990.0).AND.(zi(1,2)<-9990.0).AND.(zi(2,1)<-9990.0).AND.(zi(2,2)<-9990.0)) THEN
          ! Find the nearest point avalable
@@ -273,7 +282,7 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
          Npt = 0
          DO i=1, 2
             DO J=1, 2
-               IF (zi(i,j) > 0.0) THEN 
+               IF (zi(i,j) > -9990.0) THEN 
                   zbed = zbed + zi(i,j)
                   Npt = Npt + 1
                END IF   
