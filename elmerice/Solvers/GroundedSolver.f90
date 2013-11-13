@@ -76,23 +76,26 @@ SUBROUTINE GroundedSolver( Model,Solver,dt,TransientSimulation )
 
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t), POINTER :: Material, SolverParams
-  TYPE(Variable_t), POINTER :: PointerToVariable
+  TYPE(Variable_t), POINTER :: PointerToVariable, bedrockVar
   TYPE(Nodes_t), SAVE :: Nodes
 
   LOGICAL :: AllocationsDone = .FALSE., GotIt, stat, Parallel, Quadratic
 
   INTEGER :: i, mn, n, t, Nn, istat, DIM, MSum, ZSum
-  INTEGER, POINTER :: Permutation(:)
+  INTEGER, POINTER :: Permutation(:), bedrockPerm(:)
 
   REAL(KIND=dp), POINTER :: VariableValues(:)
   REAL(KIND=dp) :: z, toler
   REAL(KIND=dp), ALLOCATABLE :: zb(:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName = 'GroundedSolver'
+  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName = 'GroundedSolver', bedrockVarName
        
   SAVE AllocationsDone, DIM, SolverName, zb
   SAVE toler, Parallel, Quadratic
   !------------------------------------------------------------------------------
+
+  NULLIFY(bedrockPerm)
+  NULLIFY(bedrockVar)
 
   PointerToVariable => Solver % Variable
   Permutation  => PointerToVariable % Perm
@@ -148,13 +151,24 @@ SUBROUTINE GroundedSolver( Model,Solver,dt,TransientSimulation )
       CALL FATAL(SolverName, 'No tolerance given for the Grounded Mask.')
     END IF
 
-    Material => GetMaterial( Element )
-    zb(1:n) = ListGetReal( Material,'Min Zs Bottom',n , & 
-                   Element % NodeIndexes, GotIt ) + toler
+    bedrockVarName = GetString(SolverParams, 'Bedrock Variable', GotIt)
+    IF (GotIt) THEN
+       bedrockVar => VariableGet(Model % Mesh % Variables, bedrockVarName )
+       bedrockPerm => bedrockVar % Perm
+       zb(1:n) =  bedrockVar % values(bedrockPerm(Element % NodeIndexes)) + toler
+       NULLIFY(bedrockPerm)
+       NULLIFY(bedrockVar)
+    ELSE
+       CALL info(SolverName, 'Bedrock Variable name not found, searching for material property \"Min Zs Bottom\".')
+       Material => GetMaterial( Element )
+       zb(1:n) = ListGetReal( Material,'Min Zs Bottom',n , & 
+            Element % NodeIndexes, GotIt ) + toler
+    END IF
 
     CALL GetElementNodes( Nodes )
 
     DO i = 1, n
+
       Nn = Permutation(Element % NodeIndexes(i))
       IF (Nn==0) CYCLE
 
