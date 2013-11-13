@@ -2641,7 +2641,7 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   IF ( .NOT. AllocationsDone ) THEN
      N = Mesh % MaxElementDOFs  ! just big enough
      ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
-          MASS(N,N), Tcoef(N,N,N), Acoef(N), LamCond(N), &
+          MASS(N,N), Tcoef(3,3,N), Acoef(N), LamCond(N), &
           LamThick(N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'WhitneyAVHarmonicSolver', 'Memory allocation error.' )
@@ -4348,6 +4348,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    COMPLEX(KIND=dp) ::  Magnetization(3,32), MG_ip(3)
 
    COMPLEX(KIND=dp) :: CST(3,3)
+   COMPLEX(KIND=dp) :: CMat_ip(3,3)  
 
    INTEGER, PARAMETER :: ind1(6) = [1,2,3,1,2,1]
    INTEGER, PARAMETER :: ind2(6) = [1,2,3,2,3,3]
@@ -4373,6 +4374,9 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Mesh_t), POINTER :: Mesh
    REAL(KIND=dp), ALLOCATABLE, TARGET :: Gforce(:,:), MASS(:,:), FORCE(:,:)
    REAL(KIND=dp), ALLOCATABLE :: BodyLoss(:)
+
+   REAL(KIND=DP), POINTER :: Cwrk(:,:,:), Cwrk_im(:,:,:)   
+   COMPLEX(KIND=dp), ALLOCATABLE :: Tcoef(:,:,:)
 
    Mesh => GetMesh()
 
@@ -4420,7 +4424,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    ALLOCATE(GForce(SIZE(Solver % Matrix % RHS),DOFs)); Gforce=0._dp
 
    n = Mesh % MaxElementDOFs
-   ALLOCATE( MASS(n,n), FORCE(n,DOFs) ) 
+   ALLOCATE( MASS(n,n), FORCE(n,DOFs), Tcoef(3,3,n) ) 
    SOL = 0._dp; PSOL=0._dp
 
    Omega = GetAngularFrequency(Found=Found)
@@ -4478,7 +4482,54 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      END IF
 
      CALL GetPermittivity(Material,PR,n)
-     C(1:n) = GetReal(Material,'Electric Conductivity',Found)
+ 
+     !------------------------------------------------------------------------------
+     !  Read conductivity values (might be a tensor)
+     !------------------------------------------------------------------------------
+     !C(1:n) = GetReal(Material,'Electric Conductivity',Found)
+     CALL ListGetRealArray( Material, &
+          'Electric Conductivity', Cwrk, n, Element % NodeIndexes, Found )
+
+     Tcoef = CMPLX(0.0d0, 0.0d0, KIND=dp)
+     IF (Found) THEN
+        IF ( SIZE(Cwrk,1) == 1 ) THEN
+           DO k=1,3
+              Tcoef( k,k,1:n ) = Cwrk( 1,1,1:n )
+           END DO
+        ELSE IF ( SIZE(Cwrk,2) == 1 ) THEN
+           DO k=1,MIN(3,SIZE(Cwrk,1))
+              Tcoef(k,k,1:n) = Cwrk(k,1,1:n)
+           END DO
+        ELSE
+           DO k=1,MIN(3,SIZE(Cwrk,1))
+              DO j=1,MIN(3,SIZE(Cwrk,2))
+                 Tcoef( k,j,1:n ) = Cwrk(k,j,1:n)
+              END DO
+           END DO
+        END IF
+     END IF
+
+     CALL ListGetRealArray( Material, &
+          'Electric Conductivity im', Cwrk_im, n, Element % NodeIndexes, Found )
+
+     IF (Found) THEN
+        IF ( SIZE(Cwrk_im,1) == 1 ) THEN
+           DO k=1,3
+              Tcoef( k,k,1:n ) = CMPLX( REAL(Tcoef( k,k,1:n )), Cwrk_im( 1,1,1:n ), KIND=dp)
+           END DO
+        ELSE IF ( SIZE(Cwrk_im,2) == 1 ) THEN
+           DO k=1,MIN(3,SIZE(Cwrk_im,1))
+              Tcoef(k,k,1:n) = CMPLX( REAL(Tcoef( k,k,1:n )), Cwrk_im( k,1,1:n ), KIND=dp)
+           END DO
+        ELSE
+           DO k=1,MIN(3,SIZE(Cwrk_im,1))
+              DO j=1,MIN(3,SIZE(Cwrk_im,2))
+                 Tcoef( k,j,1:n ) = CMPLX( REAL(Tcoef( k,j,1:n )), Cwrk_im( k,j,1:n ), KIND=dp)
+              END DO
+           END DO
+        END IF
+     END IF
+     !---------------------------------------------------------------------------------------------
 
      CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
      IF ( ASSOCIATED(HB) ) THEN
@@ -4512,13 +4563,26 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
                    MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
        ELSE
-         DO k=1,vDOFs
-           E(k,:) = -im*Omega*MATMUL(SOL(k,np+1:nd),WBasis(1:nd-np,:)) - &
-                     MATMUL(SOL(k,1:np), dBasisdx(1:np,:))
-         END DO
+          IF (vDOFs > 1) THEN
+             E(1,:) = Omega*MATMUL(SOL(2,np+1:nd),WBasis(1:nd-np,:)) - &
+                  MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+             E(2,:) = -Omega*MATMUL(SOL(1,np+1:nd),WBasis(1:nd-np,:)) - &
+                  MATMUL(SOL(2,1:np), dBasisdx(1:np,:))
+          ELSE
+             E(1,:) = -MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+          END IF
        END IF
 
-       C_ip  = SUM( Basis(1:n)*C(1:n) )
+       !-------------------------------
+       ! The conductivity as a tensor
+       ! -------------------------------
+       !C_ip  = SUM( Basis(1:n)*C(1:n) )
+       DO k=1,3
+         DO l=1,3
+           CMat_ip(k,l) = SUM( Tcoef(k,l,1:n) * Basis(1:n) )
+         END DO
+       END DO
+       
        PR_ip = SUM( Basis(1:n)*PR(1:n) )
 
        IF(ASSOCIATED(EL_MFD)) THEN
@@ -4577,12 +4641,32 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        END IF
 
        IF ( ASSOCIATED(EL_CD)) THEN
-         DO l=1,Vdofs
-           DO k=1,dim
-             EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
-                   Element % DGIndexes(j))-1)+dim*(l-1)+k) = C_ip*E(l,k)
-           END DO
-         END DO
+         !DO l=1,Vdofs
+         !  DO k=1,dim
+         !    EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
+         !          Element % DGIndexes(j))-1)+dim*(l-1)+k) = C_ip*E(l,k)
+         !  END DO
+         !END DO
+         IF (Vdofs == 1) THEN
+            l = 1
+            DO k=1,dim
+               EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
+                    Element % DGIndexes(j))-1)+dim*(l-1)+k) =  SUM( REAL(CMat_ip(k,1:dim)) * E(l,1:dim) )
+            END DO
+         ELSE
+            l = 1
+            DO k=1,dim
+               EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
+                    Element % DGIndexes(j))-1)+dim*(l-1)+k) =  SUM( REAL(CMat_ip(k,1:dim)) * E(1,1:dim) ) - &
+                    SUM( AIMAG(CMat_ip(k,1:dim)) * E(2,1:dim) )
+            END DO
+            l = 2
+            DO k=1,dim
+               EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
+                    Element % DGIndexes(j))-1)+dim*(l-1)+k) =  SUM( AIMAG(CMat_ip(k,1:dim)) * E(1,1:dim) ) + &
+                    SUM( REAL(CMat_ip(k,1:dim)) * E(2,1:dim) )
+            END DO           
+         END IF
        END IF
 
        IF ( ASSOCIATED(EL_JH) ) THEN
@@ -4655,13 +4739,64 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
                    MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
        ELSE
-         DO k=1,vDOFs
-           E(k,:) = -im*Omega*MATMUL(SOL(k,np+1:nd),WBasis(1:nd-np,:)) - &
-                     MATMUL(SOL(k,1:np), dBasisdx(1:np,:))
-         END DO
+          IF (vDOFs > 1) THEN
+             E(1,:) = Omega*MATMUL(SOL(2,np+1:nd),WBasis(1:nd-np,:)) - &
+                  MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+             E(2,:) = -Omega*MATMUL(SOL(1,np+1:nd),WBasis(1:nd-np,:)) - &
+                  MATMUL(SOL(2,1:np), dBasisdx(1:np,:))
+          ELSE
+             E(1,:) = -MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+          END IF
        END IF
 
-       C_ip = SUM( Basis(1:n)*C(1:n) )
+       !------------------------------------------------------------------------------
+       !  Read conductivity values (might be a tensor)
+       !------------------------------------------------------------------------------
+       !C_ip = SUM( Basis(1:n)*C(1:n) )
+       CALL ListGetRealArray( Material, &
+            'Electric Conductivity', Cwrk, n, Element % NodeIndexes, Found )
+
+       Tcoef = CMPLX(0.0d0, 0.0d0, KIND=dp)
+       IF (Found) THEN
+          IF ( SIZE(Cwrk,1) == 1 ) THEN
+             DO k=1,3
+                Tcoef( k,k,1:n ) = Cwrk( 1,1,1:n )
+             END DO
+          ELSE IF ( SIZE(Cwrk,2) == 1 ) THEN
+             DO k=1,MIN(3,SIZE(Cwrk,1))
+                Tcoef(k,k,1:n) = Cwrk(k,1,1:n)
+             END DO
+          ELSE
+             DO k=1,MIN(3,SIZE(Cwrk,1))
+                DO l=1,MIN(3,SIZE(Cwrk,2))
+                   Tcoef( k,l,1:n ) = Cwrk(k,l,1:n)
+                END DO
+             END DO
+          END IF
+       END IF
+
+       CALL ListGetRealArray( Material, &
+            'Electric Conductivity im', Cwrk_im, n, Element % NodeIndexes, Found )
+
+       IF (Found) THEN
+          IF ( SIZE(Cwrk_im,1) == 1 ) THEN
+             DO k=1,3
+                Tcoef( k,k,1:n ) = CMPLX( REAL(Tcoef( k,k,1:n )), Cwrk_im( 1,1,1:n ), KIND=dp)
+             END DO
+          ELSE IF ( SIZE(Cwrk_im,2) == 1 ) THEN
+             DO k=1,MIN(3,SIZE(Cwrk_im,1))
+                Tcoef(k,k,1:n) = CMPLX( REAL(Tcoef( k,k,1:n )), Cwrk_im( k,1,1:n ), KIND=dp)
+             END DO
+          ELSE
+             DO k=1,MIN(3,SIZE(Cwrk_im,1))
+                DO l=1,MIN(3,SIZE(Cwrk_im,2))
+                   Tcoef( k,l,1:n ) = CMPLX( REAL(Tcoef( k,l,1:n )), Cwrk_im( k,l,1:n ), KIND=dp)
+                END DO
+             END DO
+          END IF
+       END IF
+       !---------------------------------------------------------------------------------------------
+
        IF ( ASSOCIATED(HB) ) THEN
          Babs=SQRT(SUM(B(1,:)**2))
          R_ip = InterpolateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)/Babs
@@ -4696,9 +4831,25 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
              BodyLoss(BodyId) = BodyLoss(BodyId) + Coeff
           END DO
        END IF
-       !------------------------------------------------
 
-       Power = Power + SUM(E**2)*C_ip*s
+       !Power = Power + SUM(E**2)*C_ip*s
+       IF (vDOFS == 1) THEN
+          Power = Power + SUM( MATMUL( REAL(CMat_ip(1:dim,1:dim)), TRANSPOSE(E(1:1,1:dim)) ) * &
+               TRANSPOSE(E(1:1,1:dim)) ) * s
+       ELSE
+          ! Now Power = J.conjugate(E), with the possible imaginary component neglected.
+          ! Perhaps we should set Power = 1/2 J.conjugate(E) so that the average power
+          ! would be obtained.
+          Power = Power + SUM( MATMUL( REAL(CMat_ip(1:dim,1:dim)), TRANSPOSE(E(1:1,1:dim)) ) * &
+               TRANSPOSE(E(1:1,1:dim)) ) * s - &
+               SUM( MATMUL( AIMAG(CMat_ip(1:dim,1:dim)), TRANSPOSE(E(2:2,1:dim)) ) * &
+               TRANSPOSE(E(1:1,1:dim)) ) * s + &
+               SUM( MATMUL( AIMAG(CMat_ip(1:dim,1:dim)), TRANSPOSE(E(1:1,1:dim)) ) * &
+               TRANSPOSE(E(2:2,1:dim)) ) * s + &               
+               SUM( MATMUL( REAL(CMat_ip(1:dim,1:dim)), TRANSPOSE(E(2:2,1:dim)) ) * &
+               TRANSPOSE(E(2:2,1:dim)) ) * s
+       END IF
+
        Energy = Energy + s*(PR_ip*SUM(E**2) + R_ip*SUM(B**2))/2
        DO p=1,n
          DO q=1,n
@@ -4731,10 +4882,28 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
            END DO
          END IF
          IF ( ASSOCIATED(CD)) THEN
-           DO l=1,vDOFs
-             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*C_ip*E(l,:)*Basis(p)
-             k = k+3
-           END DO
+           !DO l=1,vDOFs
+           !  FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*C_ip*E(l,:)*Basis(p)
+           !  k = k+3
+           !END DO
+           IF (Vdofs == 1) THEN
+              DO l=1,dim
+                 FORCE(p,k+l) = FORCE(p,k+l)+s*SUM( REAL(CMat_ip(l,1:dim)) * E(1,1:dim) )*Basis(p)
+              END DO
+              k = k+3
+           ELSE
+              DO l=1,dim
+                 FORCE(p,k+l) = FORCE(p,k+l)+s*SUM( REAL(CMat_ip(l,1:dim)) * E(1,1:dim) )*Basis(p) - &
+                      s * SUM( AIMAG(CMat_ip(l,1:dim)) * E(2,1:dim) ) * Basis(p)
+              END DO
+              k = k+3
+              DO l=1,dim
+                 FORCE(p,k+l) = FORCE(p,k+l)+s*SUM( AIMAG(CMat_ip(l,1:dim)) * E(1,1:dim) )*Basis(p) + &
+                      s * SUM( REAL(CMat_ip(l,1:dim)) * E(2,1:dim) ) * Basis(p) 
+              END DO
+              k = k+3
+           END IF
+
          END IF
          IF ( ASSOCIATED(JH) ) THEN
            FORCE(p,k+1) = FORCE(p,k+1)+s*SUM(E(:,:)**2)*Basis(p)
@@ -4887,7 +5056,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    WRITE(Message,*) '(Electro)Magnetic Field Energy: ', Energy
    CALL Info( 'MagnetoDynamics', Message )
    CALL ListAddConstReal(Model % Simulation,'res: Magnetic Field Energy',Energy)
-   DEALLOCATE( Gforce,MASS,FORCE )
+   DEALLOCATE( Gforce,MASS,FORCE,Tcoef )
 
    IF (LossEstimation) THEN
       CALL ListAddConstReal( Model % Simulation,'res: fourier loss',TotalLoss )
