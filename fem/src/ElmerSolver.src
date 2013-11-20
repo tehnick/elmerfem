@@ -455,6 +455,8 @@ END INTERFACE
 
        DO i=1,CurrentModel % NumberOfSolvers
           Solver => CurrentModel % Solvers(i)
+          IF(Solver % Procedure == 0 ) CYCLE
+          IF(.NOT.ASSOCIATED(Solver % Variable % Values)) CYCLE
           When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
           IF ( GotIt ) THEN
              IF ( When == 'after simulation' .OR. When == 'after all' ) THEN
@@ -1473,6 +1475,7 @@ END INTERFACE
 100   DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
         IF ( Solver % PROCEDURE == 0 ) CYCLE
+        IF ( .NOT.ASSOCIATED(Solver % Variable % Values) ) CYCLE
         When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
         IF ( GotIt ) THEN
            IF ( When == 'after simulation' .OR. When == 'after all' ) THEN
@@ -1508,7 +1511,7 @@ END INTERFACE
 !------------------------------------------------------------------------------
   SUBROUTINE SaveCurrent( CurrentStep )
 !------------------------------------------------------------------------------
-    INTEGER :: i, CurrentStep,nlen
+    INTEGER :: i, j,k,l,n,q,CurrentStep,nlen
     TYPE(Variable_t), POINTER :: Var
     LOGICAL :: EigAnal, GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: Simul
@@ -1557,9 +1560,14 @@ END INTERFACE
                   IF ( TotalTimesteps == 1 ) THEN
                     DO j=1,CurrentModel % Solvers(i) % NOFEigenValues
                       IF ( CurrentModel % Solvers(i) % Matrix % COMPLEX ) THEN
-                        DO k=1,SIZE(Var % Values)/2
-                          Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
-                          Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
+
+                        n = SIZE(Var % Values)/Var % DOFs
+                        DO k=1,n
+                          DO l=1,Var % DOFs/2
+                            q = Var % DOFs*(k-1)
+                            Var % Values(q+l) = REAL(Var % EigenVectors(j,q/2+l))
+                            Var % Values(q+l+Var % DOFs/2) = AIMAG(Var % EigenVectors(j,q/2+l))
+                          END DO
                         END DO
                       ELSE
                         Var % Values = REAL( Var % EigenVectors(j,:) )
@@ -1570,9 +1578,13 @@ END INTERFACE
                   ELSE
                     j = MIN( CurrentStep, SIZE( Var % EigenVectors,1 ) )
                     IF ( CurrentModel % Solvers(i) % Matrix % COMPLEX ) THEN
-                      DO k=1,SIZE(Var % Values)/2
-                        Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
-                        Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
+                      n = SIZE(Var % Values)/Var % DOFs
+                      DO k=1,n
+                        DO l=1,Var % DOFs/2
+                          q = Var % DOFs*(k-1)
+                          Var % Values(q+l) = REAL(Var % EigenVectors(j,q/2+l))
+                          Var % Values(q+l+Var % DOFs/2) = AIMAG(Var % EigenVectors(j,q/2+l))
+                        END DO
                       END DO
                     ELSE
                       Var % Values = REAL(Var % EigenVectors(j,:))
@@ -1613,7 +1625,7 @@ END INTERFACE
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var
     LOGICAL :: EigAnal = .FALSE., Found
-    INTEGER :: i, CurrentStep,nlen,timesteps,SavedEigenValues
+    INTEGER :: i, j,k,l,n,q,CurrentStep,nlen,timesteps,SavedEigenValues
     CHARACTER(LEN=MAX_NAME_LEN) :: Simul, SaveWhich
     
     Simul = ListGetString( CurrentModel % Simulation,  'Simulation Type' )
@@ -1717,7 +1729,6 @@ END INTERFACE
                     Var => Var % Next
                     CYCLE
                   END IF
-
                   
                   IF ( CurrentModel % Solvers(i) % Matrix % COMPLEX ) THEN
                     IF(Var % DOFs==1) THEN
@@ -1725,10 +1736,15 @@ END INTERFACE
                       CYCLE
                     END IF
 
-                    DO k=1,SIZE(Var % Values) / 2
-                      Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k))
-                      Var % Values(2*k-0) = AIMAG(Var % EigenVectors(j,k))
+                    n = SIZE(Var % Values)/Var % DOFs
+                    DO k=1,n
+                      DO l=1,Var % DOFs/2
+                        q = Var % DOFs*(k-1)
+                        Var % Values(q+l) = REAL(Var % EigenVectors(j,q/2+l))
+                        Var % Values(q+l+Var % DOFs/2) = AIMAG(Var % EigenVectors(j,q/2+l))
+                      END DO
                     END DO
+
                   ELSE
                     SELECT CASE( SaveWhich )
                     CASE('real part')

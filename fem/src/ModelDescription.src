@@ -2378,8 +2378,10 @@ CONTAINS
         FName = TRIM(OutputPath) // '/' // TRIM(FileName)
       END IF
     END IF
-    CALL Info('SaveResult','-----------------------------------------',Level=4)
-    CALL Info('SaveResult','Saving results to file: '//TRIM(FName), Level=4 )
+    IF( Mesh % SavesDone == 0) THEN
+      CALL Info('SaveResult','-----------------------------------------',Level=4)
+      CALL Info('SaveResult','Saving results to file: '//TRIM(FName), Level=4 )
+    END IF
 
     PosName = TRIM(FName) // ".pos"
 
@@ -2412,11 +2414,11 @@ CONTAINS
       IF( ListGetLogical( CurrentModel % Simulation,'Output Coordinates',&
           Found ) ) SaveCoordinates = .TRUE.      
       IF( SaveCoordinates ) THEN
-        CALL Info('SaveResult','Saving also coordinates',Level=12)
+        IF ( Mesh % SavesDone==0) CALL Info('SaveResult','Saving also coordinates',Level=12)
       END IF
       
       ! Write the header to file
-      CALL Info('SaveResult','Writing the header part',Level=12)
+      IF(Mesh % SavesDone==0) CALL Info('SaveResult','Writing the header part',Level=12)
       CALL InitializeFile( OutputUnit, FName, PosUnit, PosName )
 
       DateStr = FormatDate()
@@ -2517,7 +2519,7 @@ CONTAINS
       CALL AppendOpen( OutputUnit,FName,PosUnit,PosName )
     END IF
 
-    CALL Info('SaveResult','Writing data for the current timestep',Level=12)
+    IF(Mesh % SavesDone==0) CALL Info('SaveResult','Writing data for the current timestep',Level=12)
     CALL WriteTime( OutputUnit,PosUnit,Mesh % SavesDone+1, Time, SimulationTime )
 
 !------------------------------------------------------------------------------
@@ -2588,11 +2590,14 @@ CONTAINS
       CLOSE( OutputUnit )
     END IF
 
+
+    IF( Mesh % SavesDone == 0 ) THEN
+      CALL Info('SaveResult','Done writing results file',Level=12)
+      CALL Info('SaveResult','-----------------------------------------',Level=4)
+    END IF
+
     Mesh % SavesDone = Mesh % SavesDone + 1
     SaveCount = Mesh % SavesDone 
-
-    CALL Info('SaveResult','Done writing results file',Level=12)
-    CALL Info('SaveResult','-----------------------------------------',Level=4)
 
 
   CONTAINS
