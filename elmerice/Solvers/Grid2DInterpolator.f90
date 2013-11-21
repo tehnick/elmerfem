@@ -67,6 +67,8 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
    REAL(KIND=DP) :: Rmin, Rmax
    REAL(KIND=DP) :: x, y, z, x0, y0, lx, ly, dx, dy
    REAL(KIND=DP), ALLOCATABLE :: xb(:), yb(:), zb(:)
+   REAL(KIND=dp) :: noDataVal, noDataTol
+   REAL(KIND=dp), PARAMETER :: noDataValDefault = -9999.0, noDataTolDefault = 0.001
 
    INTEGER,parameter :: io=20
    INTEGER :: ok, Nx, Ny, Nb, OutNode
@@ -103,7 +105,6 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
 
       WRITE (FName,'(A,I0,A)') 'Variable ',NoVar,' Data File'
       DataF = ListGetString( Params, TRIM(FName), Found )
-
       IF (.NOT.Found) then
          WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
@@ -112,43 +113,61 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
       WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' x0'
       x0 = ListGetConstReal( Params, TRIM(ParaName), Found )
       IF (.NOT.Found) then
-         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(ParaName),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
       END IF
 
       WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' y0'
       y0 = ListGetConstReal( Params, TRIM(ParaName), Found )
       IF (.NOT.Found) then
-         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(ParaName),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
       END IF
             
       WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' lx'
       lx = ListGetConstReal( Params, TRIM(ParaName), Found )
       IF (.NOT.Found) then
-         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(ParaName),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
       END IF
             
       WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' ly'
       ly = ListGetConstReal( Params, TRIM(ParaName), Found )
       IF (.NOT.Found) then
-         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(ParaName),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
       END IF
 
       WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Nx'
       Nx = ListGetInteger( Params, TRIM(ParaName), Found )
       IF (.NOT.Found) then
-         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(ParaName),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
       END IF
 
       WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Ny'
       Ny = ListGetInteger( Params, TRIM(ParaName), Found )
       IF (.NOT.Found) then
-         WRITE(message,'(A,A,A)')'Keyword <',Trim(Fname),'> not found'
+         WRITE(message,'(A,A,A)')'Keyword <',Trim(ParaName),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
+      END IF
+
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' no data'
+      noDataVal = ListGetConstReal( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         noDataVal = noDataValDefault
+         WRITE(message,'(A,A,A,e14.8)')'Keyword <',Trim(ParaName), & 
+              '> not found, using default ',noDataValDefault
+         CALL INFO(SolverName, Message, Level=3)
+      END IF
+
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' no data tol'
+      noDataTol = ListGetConstReal( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         noDataTol = noDataTolDefault
+         WRITE(message,'(A,A,A,e14.8)')'Keyword <',Trim(ParaName), & 
+              '> not found, using default ',noDataTolDefault
+         CALL INFO(SolverName, Message, Level=3)
       END IF
 
       OPEN(unit = io, file = TRIM(DataF), status = 'old',iostat = ok)
@@ -193,7 +212,7 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
          x = Model % Mesh % Nodes % x(i)
          y = Model % Mesh % Nodes % y(i)
          Rmin = 0.0
-         CALL InterpolateDEM(x,y,xb,yb,zb,Nx,Ny,x0,y0,lx,ly,Rmin,z)
+         CALL InterpolateDEM(x,y,xb,yb,zb,Nx,Ny,x0,y0,lx,ly,Rmin,z,noDataVal,noDataTol)
          Values(Perm(i)) = z
          IF (Rmin > 0.0) THEN
             OutNode = OutNode + 1
@@ -223,15 +242,15 @@ END SUBROUTINE Grid2DInterpolator
 !!!!!!!!!!!!!!!!!!!
 ! Subroutine InterpolateDEM
 !!------------------------------------------------------------------------------!!
-SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin, zbed)
+SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin, zbed, noDataVal, noDataTol)
    USE DefUtils
    IMPLICIT NONE
+   REAL(KIND=dp),INTENT(IN) :: noDataVal, noDataTol
    INTEGER :: imin, Npt, t
    INTEGER :: NMAX, i, j, Nb, Nbx, Nby, ib, ix, iy
    REAL(KIND=dp) :: x, y, zbed, xb0, yb0, x1, x2, y1, y2, zi(2,2) 
    REAL(KIND=dp) :: R, Rmin, lbx, lby, dbx, dby
    REAL(KIND=dp) :: xb(Nbx*Nby), yb(Nbx*Nby), zb(Nbx*Nby)       
-   REAL(KIND=dp), PARAMETER :: noData = -9999.0, noDataTol = 0.001
 
    ! Find zbed for that point from the Bedrock MNT 
    dbx = lbx / (Nbx-1.0)
@@ -312,7 +331,7 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
      IMPLICIT NONE
      REAL(KIND=dp),INTENT(IN) :: val
 
-     IF ((val .GT. noData-noDataTol) .AND. (val .LT. noData+noDataTol)) THEN
+     IF ((val .GT. noDataVal-noDataTol) .AND. (val .LT. noDataVal+noDataTol)) THEN
         isNoData = .TRUE.
      ELSE
         isNoData = .FALSE.
