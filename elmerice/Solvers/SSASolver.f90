@@ -30,10 +30,6 @@
 ! * 
 ! *****************************************************************************
 !> SSolver to inquire the velocity from the SSA solution            
-!> Variables IntVisco dof = 1                                                 
-!> Exported Variables SSABasalFlow, dof=dim-1                                 
-!> Exported Variables SSAFlow, dof=dim                                         
-!> Need to first compute the Depth and the FreeSurfGrad using FlowDepth Solver
 SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -73,37 +69,39 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t),POINTER :: CurrentElement, Element, ParentElement, BoundaryElement
   TYPE(Matrix_t),POINTER  :: StiffMatrix
   TYPE(ValueList_t), POINTER :: SolverParams, BodyForce, Material, BC
-  TYPE(Variable_t), POINTER :: PointerToVariable, Grad1Sol, Grad2Sol, &
-                               DepthSol, VeloSol, ViscoSol, DensSol
+  TYPE(Variable_t), POINTER :: PointerToVariable, ZsSol, ZbSol, &
+                               VeloSol
 
-  LOGICAL :: AllocationsDone = .FALSE., Found, GotIt, CalvingFront
+  LOGICAL :: AllocationsDone = .FALSE., Found, GotIt, CalvingFront 
+  LOGICAL :: Newton
 
   INTEGER :: i, n, m, t, istat, DIM, p, STDOFs
-  INTEGER :: NonlinearIter, iter, other_body_id
+  INTEGER :: NonlinearIter, NewtonIter, iter, other_body_id
           
   INTEGER, POINTER :: Permutation(:), &
-       DepthPerm(:), GradSurface1Perm(:), GradSurface2Perm(:), &
-       NodeIndexes(:), ViscoPerm(:), DensPerm(:)
+       ZsPerm(:), ZbPerm(:), &
+       NodeIndexes(:)
 
   REAL(KIND=dp), POINTER :: ForceVector(:)
-  REAL(KIND=dp), POINTER :: VariableValues(:), Depth(:), GradSurface1(:), &
-                            GradSurface2(:), Viscosity(:), Density(:) 
-  REAL(KIND=dp) :: UNorm, cn, dd, NonlinearTol, MinSRInv, rhow, &
-                   PrevUNorm, relativeChange
+  REAL(KIND=dp), POINTER :: VariableValues(:), Zs(:), Zb(:)
+                            
+  REAL(KIND=dp) :: UNorm, cn, dd, NonlinearTol, NewtonTol, MinSRInv, rhow, sealevel, &
+                   PrevUNorm, relativeChange,minv
 
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
            NodalGravity(:), NodalViscosity(:), NodalDensity(:), &
-           NodalDepth(:), NodalSurfGrad1(:), NodalSurfGrad2(:), &
+           NodalZs(:), NodalZb(:),   &
            NodalU(:), NodalV(:), NodalSliding(:,:)
 
   CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
   REAL(KIND=dp) :: at, at0, CPUTime, RealTime
        
-
+  SAVE rhow,sealevel
   SAVE STIFF, LOAD, FORCE, AllocationsDone, DIM, SolverName, ElementNodes
   SAVE NodalGravity, NodalViscosity, NodalDensity, &
-           NodalDepth, NodalSurfGrad1, NodalSurfGrad2, &
+           NodalZs, NodalZb,   &
            NodalU, NodalV, NodeIndexes, NodalSliding
+
 !------------------------------------------------------------------------------
   PointerToVariable => Solver % Variable
   Permutation  => PointerToVariable % Perm
@@ -116,64 +114,59 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
         DIM = CoordinateSystemDimension()
 
-        ViscoSol => VariableGet( Solver % Mesh % Variables, & 
-                          'Integrated Viscosity' ) 
-        IF (ASSOCIATED(ViscoSol)) THEN
-           Viscosity => ViscoSol % Values
-           ViscoPerm => ViscoSol % Perm
+
+        ZbSol => VariableGet( Solver % Mesh % Variables, 'Zb' )
+        IF (ASSOCIATED(ZbSol)) THEN
+           Zb => ZbSol % Values
+           ZbPerm => ZbSol % Perm
         ELSE
-           CALL FATAL(SolverName,'Could not find variable >Integrated Viscosity<')
-        END IF
-        DensSol => VariableGet( Solver % Mesh % Variables, & 
-                          'Mean Density' ) 
-        IF (ASSOCIATED(DensSol)) THEN
-           Density => DensSol % Values
-           DensPerm => DensSol % Perm
-        ELSE
-           CALL FATAL(SolverName,'Could not find variable >Integrated Viscosity<')
+           CALL FATAL(SolverName,'Could not find variable >Zb<')
         END IF
 
-        DepthSol => VariableGet( Solver % Mesh % Variables, 'Depth' )
-        IF (ASSOCIATED(DepthSol)) THEN
-           Depth => DepthSol % Values
-           DepthPerm => DepthSol % Perm
+        ZsSol => VariableGet( Solver % Mesh % Variables, 'Zs' )
+        IF (ASSOCIATED(ZsSol)) THEN
+           Zs => ZsSol % Values
+           ZsPerm => ZsSol % Perm
         ELSE
-           CALL FATAL(SolverName,'Could not find variable >Depth<')
+           CALL FATAL(SolverName,'Could not find variable >Zs<')
         END IF
-        Grad1Sol => VariableGet( Solver % Mesh % Variables, 'FreeSurfGrad1')
-        IF (ASSOCIATED(Grad1Sol)) THEN
-           GradSurface1 => Grad1Sol % Values
-           GradSurface1Perm => Grad1Sol % Perm
-        ELSE
-           CALL FATAL(SolverName,'Could not find variable >FreeSurfGrad1<')
-        END IF
-        IF (dim > 2) THEN
-           Grad2Sol => VariableGet( Solver % Mesh % Variables, 'FreeSurfGrad2')
-           IF (ASSOCIATED(Grad2Sol)) THEN
-              GradSurface2 => Grad2Sol % Values
-              GradSurface2Perm => Grad2Sol % Perm
-           ELSE
-              CALL FATAL(SolverName,'Could not find variable >FreeSurfGrad2<')
-           END IF
-        END IF
-
   !--------------------------------------------------------------
   !Allocate some permanent storage, this is done first time only:
   !--------------------------------------------------------------
   IF ( (.NOT. AllocationsDone) .OR. Solver % Mesh % Changed  ) THEN
-     N = Solver % Mesh % MaxElementNodes ! just big enough for elemental arrays
+
+     ! Get some constants
+     rhow = GetConstReal( Model % Constants, 'Water Density', Found )
+     If (.NOT.Found) Then
+            WRITE(Message,'(A)') 'Constant Water Density not found. &
+                   &Setting to 1.03225e-18'
+            CALL INFO(SolverName, Message, level=20)
+            rhow = 1.03225e-18_dp
+     End if
+
+     sealevel = GetConstReal( Model % Constants, 'Sea Level', Found )
+     If (.NOT.Found) Then
+            WRITE(Message,'(A)') 'Constant >Sea Level< not found. &
+                   &Setting to 0.0'
+            CALL INFO(SolverName, Message, level=20)
+            sealevel=0.0_dp
+     End if
+
+     ! Allocate
+
+     N = Model % MaxElementNodes
      M = Model % Mesh % NumberOfNodes
      IF (AllocationsDone) DEALLOCATE(FORCE, LOAD, STIFF, NodalGravity, &
-                       NodalViscosity, NodalDensity, NodalDepth, &
-                       NodalSurfGrad1, NodalSurfGrad2, NodalU, NodalV, &
+                       NodalViscosity, NodalDensity,  &
+                       NodalZb, NodalZs,  NodalU, NodalV, &
                        NodalSliding, ElementNodes % x, &
                        ElementNodes % y, ElementNodes % z )
 
-     ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N), &
+     ALLOCATE( FORCE(STDOFs*N), LOAD(N), STIFF(STDOFs*N,STDOFs*N), &
           NodalGravity(N), NodalDensity(N), NodalViscosity(N), &
-          NodalDepth(N), NodalSurfGrad1(N), NodalSurfGrad2(N), &
+          NodalZb(N), NodalZs(N) ,&
           NodalU(N), NodalV(N), NodalSliding(2,N), &
-          ElementNodes % x(M), ElementNodes % y(M), ElementNodes % z(M), &
+          ElementNodes % x(N), ElementNodes % y(N), ElementNodes % z(N), &
            STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( SolverName, 'Memory allocation error.' )
@@ -199,6 +192,16 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 
       IF ( .NOT.GotIt ) NonlinearIter = 1
 
+      NewtonTol = ListGetConstReal( Solver % Values, &
+              'Nonlinear System Newton After Tolerance', minv=0.0d0 )
+
+      NewtonIter = ListGetInteger( Solver % Values, &
+              'Nonlinear System Newton After Iterations', GotIt )
+      if (.NOT.Gotit) NewtonIter = NonlinearIter + 1
+
+    
+      Newton=.False.
+
 !------------------------------------------------------------------------------
       DO iter=1,NonlinearIter
 
@@ -209,22 +212,22 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
        CALL Info( SolverName, ' ', Level=4 )
        CALL Info( SolverName, &
                    '-------------------------------------',Level=4 )
-       WRITE( Message, * ) 'SSA BASAL VELCOITY NON-LINEAR ITERATION', iter
+       WRITE( Message, * ) 'SSA BASAL VELOCITY NON-LINEAR ITERATION', iter
+       CALL Info( SolverName, Message, Level=4 )
+       If (Newton) Then
+           WRITE( Message, * ) 'Newton linearisation is used'
+           CALL Info( SolverName, Message, Level=4 )
+       Endif
        CALL Info( SolverName, ' ', Level=4 )
        CALL Info( SolverName, &
                    '-------------------------------------',Level=4 )
        CALL Info( SolverName, ' ', Level=4 )
 
-  ! Loop over the velocity components and pressure 
-  ! If DIM = 2 u, w, p
-  ! If DIM = 3 u, v, w, p
-  !-----------------------------------------------
-
-! VariableValues = 0.0d0
 
   !Initialize the system and do the assembly:
   !------------------------------------------
   CALL DefaultInitialize()
+
   ! bulk assembly
   DO t=1,Solver % NumberOfActiveElements
      Element => GetActiveElement(t)
@@ -236,16 +239,16 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
  ! set coords of highest occuring dimension to zero (to get correct path element)
         !-------------------------------------------------------------------------------
         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-        IF (DIM == 2) THEN
+        IF (STDOFs == 1) THEN !1D SSA
            ElementNodes % y(1:n) = 0.0_dp
            ElementNodes % z(1:n) = 0.0_dp
-        ELSE IF (DIM == 3) THEN
+        ELSE IF (STDOFs == 2) THEN !2D SSA
            ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
            ElementNodes % z(1:n) = 0.0_dp
         ELSE
            WRITE(Message,'(a,i1,a)')&
-                'It is not possible to compute SSA problems in DIM=',&
-                DIM, ' dimensions. Aborting'
+                'It is not possible to compute SSA problems with DOFs=',&
+                STDOFs, ' . Aborting'
            CALL Fatal( SolverName, Message)
            STOP
         END IF
@@ -254,7 +257,7 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      BodyForce => GetBodyForce()
      NodalGravity = 0.0_dp
      IF ( ASSOCIATED( BodyForce ) ) THEN
-           IF (DIM==2) THEN 
+           IF (STDOFs==1) THEN 
            NodalGravity(1:n) = ListGetReal( &
                    BodyForce, 'Flow BodyForce 2', n, NodeIndexes, Found)
            ELSE 
@@ -262,47 +265,65 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
                    BodyForce, 'Flow BodyForce 3', n, NodeIndexes, Found)
            END IF
      END IF
-     
-     ! Read the Viscosity eta, density, and exponent m in Material Section
-     ! Same definition as NS Solver in Elmer - n=1/m , A = 1/ (2 eta^n) 
-     Material => GetMaterial()
 
-     NodalDensity(1:n) = Density(DensPerm(NodeIndexes(1:n)))
-     NodalViscosity(1:n) = Viscosity(ViscoPerm(NodeIndexes(1:n)))
+     ! Read the Viscosity eta, density, and exponent m in MMaterial Section
+     ! Same definition as NS Solver in Elmer - n=1/m , A = 1/ (2 eta^n) 
+     Material => GetMaterial(Element)
+
      
      cn = ListGetConstReal( Material, 'Viscosity Exponent',Found)
      MinSRInv = ListGetConstReal( Material, 'Critical Shear Rate',Found)
-     rhow = GetConstReal( Model % Constants, 'Water Density', Found )
-
-     ! Get the Nodal value of Depth, FreeSurfGrad1 and FreeSurfGrad2
-     NodalDepth(1:n) = Depth(DepthPerm(NodeIndexes(1:n)))
 
 
-     NodalSurfGrad1(1:n) = GradSurface1(GradSurface1Perm(NodeIndexes(1:n)))
-     NodalSurfGrad2 = 0.0_dp
-     IF (DIM==3) NodalSurfGrad2(1:n) = GradSurface2(GradSurface2Perm(NodeIndexes(1:n)))
+     NodalDensity=0.0_dp
+     NodalDensity(1:n) = ListGetReal( Material, 'SSA Mean Density',n,NodeIndexes,Found)
+     IF (.NOT.Found) &
+           CALL FATAL(SolverName,'Could not find Material prop.  >SSA Mean Density<')
+
+     NodalViscosity=0.0_dp
+     NodalViscosity(1:n) = ListGetReal( Material, 'SSA Mean Viscosity',n, NodeIndexes,Found)
+     IF (.NOT.Found) &
+          CALL FATAL(SolverName,'Could not find Material prop. >SSA Mean Viscosity<')
+
+     NodalSliding = 0.0_dp
+     NodalSliding(1,1:n) = ListGetReal( &
+           Material, 'SSA Slip Coefficient 1', n, NodeIndexes(1:n), Found )
+     IF (STDOFs==2) THEN
+        NodalSliding(2,1:n) = ListGetReal( &
+             Material, 'SSA Slip Coefficient 2', n, NodeIndexes(1:n), Found )  
+     END IF
+
+
+     ! Get the Nodal value of Zb and Zs
+     NodalZb(1:n) = Zb(ZbPerm(NodeIndexes(1:n)))
+     NodalZs(1:n) = Zs(ZsPerm(NodeIndexes(1:n)))
 
      ! Previous Velocity 
      NodalU(1:n) = VariableValues(STDOFs*(Permutation(NodeIndexes(1:n))-1)+1)
      NodalV = 0.0
-     IF (DIM.EQ.3) NodalV(1:n) = VariableValues(STDOFs*(Permutation(NodeIndexes(1:n))-1)+2)
-
+     IF (STDOFs.EQ.2) NodalV(1:n) = VariableValues(STDOFs*(Permutation(NodeIndexes(1:n))-1)+2)
+      
 
      CALL LocalMatrixUVSSA (  STIFF, FORCE, Element, n, ElementNodes, NodalGravity, &
-        NodalDensity, NodalViscosity, NodalDepth, NodalSurfGrad1, &
-        NodalSurfGrad2, NodalU, NodalV, cn, MinSRInv)
+        NodalDensity, NodalViscosity, NodalZb, NodalZs, &
+        NodalU, NodalV, NodalSliding, cn, MinSRInv , STDOFs, Newton)
 
      CALL DefaultUpdateEquations( STIFF, FORCE )
+
   END DO
+  CALL DefaultFinishBulkAssembly()
   
 !  
-! Calving front condition and basal friction
+! Neumann condition
 !
-  DO t=1,Solver % Mesh % NUmberOfBoundaryElements
+  DO t=1,GetNOFBoundaryElements()
      BoundaryElement => GetBoundaryElement(t)
+     IF ( .NOT. ActiveBoundaryElement() ) CYCLE
      IF ( GetElementFamily() == 1 ) CYCLE
+
      NodeIndexes => BoundaryElement % NodeIndexes
      IF (ParEnv % myPe .NE. BoundaryElement % partIndex) CYCLE
+
      n = GetElementNOFNodes()
      FORCE = 0.0e0
      STIFF = 0.0e0
@@ -310,51 +331,65 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
  ! set coords of highest occuring dimension to zero (to get correct path element)
         !-------------------------------------------------------------------------------
         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-        IF (DIM == 2) THEN
+        IF (STDOFs == 1) THEN
            ElementNodes % y(1:n) = 0.0_dp
            ElementNodes % z(1:n) = 0.0_dp
-        ELSE IF (DIM == 3) THEN
+        ELSE IF (STDOFs == 2) THEN
            ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
            ElementNodes % z(1:n) = 0.0_dp
         ELSE
            WRITE(Message,'(a,i1,a)')&
-                'It is not possible to compute SSA problems in DIM=',&
-                DIM, ' dimensions. Aborting'
+                'It is not possible to compute SSA with SSA var DOFs=',&
+                STDOFs, '. Aborting'
            CALL Fatal( SolverName, Message)
            STOP
         END IF
-     BC => GetBC()
-     IF ( ASSOCIATED( BC ) ) THEN
 
-! Basal Friction (We should go only for bedrock BC)            
-! Find the keyword 'SSA Slip Coefficient'
-     NodalSliding = 0.0_dp
-     NodalSliding(1,1:n) = ListGetReal( &
-           BC, 'SSA Slip Coefficient 1', n, NodeIndexes(1:n), Found )
-     IF (DIM==3) THEN
-        NodalSliding(2,1:n) = ListGetReal( &
-             Material, 'SSA Slip Coefficient 2', n, NodeIndexes(1:n), Found )  
-     END IF
-     IF (ANY(NodalSliding(:,1:n)>0.0)) THEN 
-        CALL LocalMatrixSliding( STIFF, FORCE,  &
-                    BoundaryElement, n,  ElementNodes, NodalSliding )
-        CALL DefaultUpdateEquations( STIFF, FORCE )
-     END IF
+
+     BC => GetBC()
+     IF (.NOT.ASSOCIATED( BC ) ) CYCLE
 
 ! Find the nodes for which 'Calving Front' = True             
-        CalvingFront=.False. 
-        CalvingFront = ListGetLogical( BC, &
-                             'Calving Front', GotIt )
-                             
-        IF (CalvingFront) THEN
-           NodalDensity(1:n) = Density(DensPerm(NodeIndexes(1:n)))
-           NodalViscosity(1:n) = Viscosity(ViscoPerm(NodeIndexes(1:n)))
-           NodalDepth(1:n) = Depth(DepthPerm(NodeIndexes(1:n)))
-
-           CALL LocalMatrixBCSSA(  STIFF, FORCE, BoundaryElement, n, &
-                  NodalDensity, NodalGravity, NodalDepth, rhow )
-           CALL DefaultUpdateEquations( STIFF, FORCE )
+     CalvingFront=.False. 
+     CalvingFront = ListGetLogical( BC, 'Calving Front', GotIt )
+     IF (CalvingFront) THEN
+        NodalZs(1:n) = Zs(ZsPerm(NodeIndexes(1:n)))
+        NodalZb(1:n) = Zb(ZbPerm(NodeIndexes(1:n)))
+     
+       ! Need to access Parent Element to get Material properties
+        other_body_id = BoundaryElement % BoundaryInfo % outbody
+        IF (other_body_id < 1) THEN ! only one body in calculation
+          ParentElement => BoundaryElement % BoundaryInfo % Right
+          IF ( .NOT. ASSOCIATED(ParentElement) ) ParentElement => BoundaryElement % BoundaryInfo % Left
+        ELSE ! we are dealing with a body-body boundary and asume that the normal is pointing outwards
+          ParentElement => BoundaryElement %  BoundaryInfo % Right
+          IF (ParentElement % BodyId == other_body_id) ParentElement =>  BoundaryElement % BoundaryInfo % Left
         END IF
+
+        ! Read Density in the Material Section
+        Material => GetMaterial(ParentElement)
+
+        NodalDensity=0.0_dp
+        NodalDensity(1:n) = ListGetReal( Material, 'SSA Mean Density',n, NodeIndexes,Found)
+        IF (.NOT.Found) &
+           CALL FATAL(SolverName,'Could not find Material prop.  >SSA Mean Density<')
+
+        ! Read the gravity in the Body Force Section 
+        BodyForce => GetBodyForce(ParentElement)
+        NodalGravity = 0.0_dp
+        IF ( ASSOCIATED( BodyForce ) ) THEN
+           IF (STDOFs==1) THEN 
+           NodalGravity(1:n) = ListGetReal( &
+                   BodyForce, 'Flow BodyForce 2', n, NodeIndexes, Found)
+           ELSE 
+           NodalGravity(1:n) = ListGetReal( &
+                   BodyForce, 'Flow BodyForce 3', n, NodeIndexes, Found)
+           END IF
+        END IF
+
+        CALL LocalMatrixBCSSA(  STIFF, FORCE, BoundaryElement, n, ElementNodes,&
+               NodalDensity, NodalGravity, NodalZb, NodalZs, rhow, sealevel )
+        CALL DefaultUpdateEquations( STIFF, FORCE )
      END IF
   END DO
 
@@ -370,21 +405,25 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 
       UNorm = DefaultSolve()
 
-      IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
-         RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
-      ELSE
-         RelativeChange = 0.0d0
-      END IF
+
+      RelativeChange = Solver % Variable % NonlinChange
+      !IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
+      !   RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
+      !ELSE
+      !   RelativeChange = 0.0d0
+      !END IF
 
       WRITE( Message, * ) 'Result Norm   : ', UNorm, PrevUNorm
       CALL Info(SolverName, Message, Level=4 )
       WRITE( Message, * ) 'Relative Change : ', RelativeChange
       CALL Info(SolverName, Message, Level=4 )
 
+
+      IF ( RelativeChange < NewtonTol .OR. &
+                   iter > NewtonIter ) Newton = .TRUE.
+
 !------------------------------------------------------------------------------
-
       IF ( RelativeChange < NonLinearTol ) EXIT
-
 !------------------------------------------------------------------------------
 
   END DO ! Loop Non-Linear Iterations
@@ -393,29 +432,36 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrixUVSSA(  STIFF, FORCE, Element, n, Nodes, gravity, &
-           Density, Viscosity, LocalDepth, SurfGrad1, SurfGrad2, LocalU, &
-           LocalV, cm, MinSRInv )
+           Density, Viscosity, LocalZb, LocalZs, LocalU, &
+           LocalV, LocalSliding, cm, MinSRInv, STDOFs , Newton )
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: STIFF(:,:), FORCE(:), gravity(:), Density(:), &
-                     Viscosity(:), LocalDepth(:), SurfGrad1(:), SurfGrad2(:), &
-                     LocalU(:), LocalV(:)
-    INTEGER :: n, cp
+                     Viscosity(:), LocalZb(:), LocalZs(:), &
+                     LocalU(:), LocalV(:) , LocalSliding(:,:)
+    INTEGER :: n, cp , STDOFs
     REAL(KIND=dp) :: cm
     TYPE(Element_t), POINTER :: Element
+    LOGICAL :: Newton
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ 
-    REAL(KIND=dp) :: g, rho, eta, h, dhdx, dhdy, dU2dz2
-    REAL(KIND=dp) :: gradS(2), A(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv                            
-    LOGICAL :: Stat
+    REAL(KIND=dp) :: g, rho, eta, h, dhdx, dhdy , muder
+    REAL(KIND=dp) :: gradS(2),Slip(2),  A(2,2), StrainA(2,2),StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv                            
+    REAL(KIND=dp) :: Jac(2*n,2*n),SOL(2*n)
+    LOGICAL :: Stat, NewtonLin
     INTEGER :: i, j, t, p, q , dim
     TYPE(GaussIntegrationPoints_t) :: IP
 
     TYPE(Nodes_t) :: Nodes
 !------------------------------------------------------------------------------
+    dim = CoordinateSystemDimension()
+
     STIFF = 0.0d0
     FORCE = 0.0d0
+    Jac=0.0d0
 
-    dim = CoordinateSystemDimension()
+! Use Newton Linearisation
+    NewtonLin=(Newton.AND.(cm.NE.1.0_dp))
+
 
     IP = GaussPoints( Element )
     DO t=1,IP % n
@@ -427,33 +473,67 @@ CONTAINS
        g = ABS(SUM( Gravity(1:n) * Basis(1:n) ))
        rho = SUM( Density(1:n) * Basis(1:n) )
        eta = SUM( Viscosity(1:n) * Basis(1:n) )
-       gradS(1) = SUM( SurfGrad1(1:n) * Basis(1:n) )
-       gradS(2) = SUM( SurfGrad2(1:n) * Basis(1:n) )
-       h = SUM( LocalDepth(1:n) * Basis(1:n) )
+       gradS = 0._dp
+       gradS(1) = SUM( LocalZs(1:n) * dBasisdx(1:n,1) )
+       if (STDOFs == 2) gradS(2) = SUM( LocalZs(1:n) * dBasisdx(1:n,2) )
+       h = SUM( (LocalZs(1:n)-LocalZb(1:n)) * Basis(1:n) )
        
+       slip = 0.0_dp
+       DO i=1,STDOFs
+          slip(i) = SUM( LocalSliding(i,1:n) * Basis(1:n) )
+       END DO
+
+
+!------------------------------------------------------------------------------
 ! In the non-linear case, effective viscosity       
        IF (cm.NE.1.0_dp) THEN
            Exx = SUM(LocalU(1:n)*dBasisdx(1:n,1))
            Eyy = 0.0
-           IF (DIM.EQ.3) THEN
+           Exy = 0.0
+           IF (STDOFs.EQ.2) THEN
               Eyy = SUM(LocalV(1:n)*dBasisdx(1:n,2))
               Ezz = -Exx - Eyy
               Exy = SUM(LocalU(1:n)*dBasisdx(1:n,2))
               Exy = 0.5*(Exy + SUM(LocalV(1:n)*dBasisdx(1:n,1)))
               Ee = 0.5*(Exx**2.0 + Eyy**2.0 + Ezz**2.0) + Exy**2.0
-              Ee = SQRT(Ee)
+              !Ee = SQRT(Ee)
            ELSE
-              Ee = ABS(Exx)
+              !Ee = ABS(Exx)
+              Ee = Exx * Exx
            END IF
-           IF (Ee < MinSRInv) Ee = MinSRInv
-           eta = eta * 0.5 * (2**cm) * Ee**(cm-1.0)
+           muder = eta * 0.5 * (2**cm) * ((cm-1.0)/2.0) *  Ee**((cm-1.0)/2.0 - 1.0)
+           IF (sqrt(Ee) < MinSRInv) then
+                Ee = MinSRInv*MinSRInv
+                muder = 0.0_dp
+           Endif
+           eta = eta * 0.5 * (2**cm) * Ee**((cm-1.0)/2.0)
        END IF 
+
+       StrainA=0.0_dp
+       StrainB=0.0_dp
+       If (NewtonLin) then
+          StrainA(1,1)=SUM(2.0*dBasisdx(1:n,1)*LocalU(1:n))
+
+          IF (STDOFs.EQ.2) THEN
+             StrainB(1,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
+
+             StrainA(1,2)=SUM(dBasisdx(1:n,2)*LocalV(1:n))
+             StrainB(1,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
+
+             StrainA(2,1)=SUM(dBasisdx(1:n,1)*LocalU(1:n))
+             StrainB(2,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
+
+             StrainA(2,2)=SUM(2.0*dBasisdx(1:n,2)*LocalV(1:n))
+             StrainB(2,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
+
+          End if
+       Endif
 
        A = 0.0_dp
        DO p=1,n
          DO q=1,n
          A(1,1) = 2.0*dBasisdx(q,1)*dBasisdx(p,1)  
-           IF (DIM.EQ.3) THEN
+           IF (STDOFs.EQ.2) THEN
            A(1,1) = A(1,1) + 0.5*dBasisdx(q,2)*dBasisdx(p,2)
            A(1,2) = dBasisdx(q,2)*dBasisdx(p,1) + &
                              0.5*dBasisdx(q,1)*dBasisdx(p,2)
@@ -462,184 +542,140 @@ CONTAINS
            A(2,2) = 2.0*dBasisdx(q,2)*dBasisdx(p,2) +&
                              0.5*dBasisdx(q,1)*dBasisdx(p,1)  
          END IF
-           A = 2.0 * eta * A
-           DO i=1,DIM-1
-             DO j=1,DIM-1
-                STIFF((dim-1)*(p-1)+i,(dim-1)*(q-1)+j) = STIFF((dim-1)*(p-1)+i,(dim-1)*(q-1)+j) +& 
+           A = 2.0 * h * eta * A
+           DO i=1,STDOFs
+             STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
+                  slip(i) * Basis(q) * Basis(p) * IP % S(t) * detJ
+             DO j=1,STDOFs
+                STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +& 
                       A(i,j) * IP % S(t) * detJ 
              END DO 
-           END DO 
+           END DO
+
+           If (NewtonLin) then
+            ! Maybe a more elegant formulation to get the Jacobian??.......
+            IF (STDOFs.EQ.1) THEN
+                  Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
+                        IP % S(t) * detJ * 2.0 * h * StrainA(1,1)*dBasisdx(p,1) * &
+                         muder * 2.0 * Exx*dBasisdx(q,1) 
+
+             ELSE IF (STDOFs.EQ.2) THEN
+                  Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
+             IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+(StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * &
+             muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+
+                  Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
+             IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+(StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * &
+             muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+
+                  Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
+             IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+(StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * &
+             muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+
+                  Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
+             IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+(StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * &
+             muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+             End if
+           Endif
+
          END DO
-         DO i=1,DIM-1
-         FORCE((dim-1)*(p-1)+i) =   FORCE((dim-1)*(p-1)+i) - &   
+
+         DO i=1,STDOFs
+         FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) - &   
             rho*g*h*gradS(i) * IP % s(t) * detJ * Basis(p) 
          END DO
        END DO
     END DO
+
+    If (NewtonLin) then
+         SOL(1:STDOFs*n:STDOFs)=LocalU(1:n)
+         If (STDOFs.EQ.2) SOL(2:STDOFs*n:STDOFs)=LocalV(1:n)
+
+         STIFF(1:STDOFs*n,1:STDOFs*n) = STIFF(1:STDOFs*n,1:STDOFs*n) + &
+                                        Jac(1:STDOFs*n,1:STDOFs*n)
+         FORCE(1:STDOFs*n) = FORCE(1:STDOFs*n) + &
+                             MATMUL(Jac(1:STDOFs*n,1:STDOFs*n),SOL(1:STDOFs*n))
+    Endif
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrixUVSSA
 !------------------------------------------------------------------------------
 
-
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalMatrixSliding(  STIFF, FORCE, Element, n, Nodes,  &
-            Sliding )
+  SUBROUTINE LocalMatrixBCSSA(  STIFF, FORCE, Element, n, ENodes, Density, & 
+                      Gravity, LocalZb, LocalZs, rhow, sealevel)
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: STIFF(:,:), FORCE(:), Sliding(:,:) 
-    INTEGER :: n
     TYPE(Element_t), POINTER :: Element
-!------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ 
-    REAL(KIND=dp) :: s(2)
-    LOGICAL :: Stat
-    INTEGER :: i, j, t, p, q , DIM
-    TYPE(GaussIntegrationPoints_t) :: IP
-
-    TYPE(Nodes_t) :: Nodes
-!------------------------------------------------------------------------------
-    STIFF = 0.0d0
-    FORCE = 0.0d0
-
-    DIM = CoordinateSystemDimension()
-
-    IP = GaussPoints( Element )
-    DO t=1,IP % n
-       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-        IP % W(t),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
-
-! Needed Integration Point value
-
-       s = 0.0_dp
-       DO i=1,DIM-1
-          s(i) = SUM( Sliding(i,1:n) * Basis(1:n) )
-       END DO
-
-       DO p=1,n
-         DO q=1,n
-           DO i=1,DIM-1
-             STIFF((DIM-1)*(p-1)+i,(DIM-1)*(q-1)+i) = STIFF((DIM-1)*(p-1)+i,(DIM-1)*(q-1)+i) +& 
-                    s(i) * Basis(q) * Basis(p) * IP % S(t) * detJ 
-           END DO 
-         END DO
-       END DO
-    END DO
-!------------------------------------------------------------------------------
-  END SUBROUTINE LocalMatrixSliding
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
-  SUBROUTINE LocalMatrixBCSSA(  STIFF, FORCE, Element, n, Density, & 
-                      Gravity, Depth, rhow)
-!------------------------------------------------------------------------------
-    REAL(KIND=dp) :: STIFF(:,:), FORCE(:), density(:), Gravity(:), Depth(:),&
-                         rhow
+    TYPE(Nodes_t) ::  ENodes
+    REAL(KIND=dp) :: STIFF(:,:), FORCE(:),  density(:), Gravity(:), LocalZb(:),&
+                         LocalZs(:),rhow, sealevel
     INTEGER :: n
-    TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    TYPE(Element_t), TARGET :: SideElement
-    TYPE(Element_t), POINTER :: EdgeElement 
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3), &
-                      DetJ,Normal(3), rhoi, g, alpha, h, norm, MeanDepth
+                      DetJ,Normal(3), rhoi, g, alpha, h, h_im,norm
     LOGICAL :: Stat
-    INTEGER :: t, DIM, iNode(2), i, j, nn
+    INTEGER :: t, i
     TYPE(GaussIntegrationPoints_t) :: IP
 
-    TYPE(Nodes_t) :: FaceNodes, Nodes
-    SAVE FaceNodes
-!------------------------------------------------------------------------------
-    CALL GetElementNodes( FaceNodes, Element )
 !------------------------------------------------------------------------------
     STIFF = 0.0d0
     FORCE = 0.0d0
 
-    DIM = CoordinateSystemDimension()
+! The front force is a concentrated nodal force in 1D-SSA and
+! a force distributed along a line in 2D-SSA    
 
-! The front force is a concentrated nodal force in 2D and
-! a force distributed along a line in 3D    
-! 2D Case : concentrated force at each nodes
-    IF (DIM==2) THEN
+! 1D-SSA Case : concentrated force at each nodes
+    IF (STDOFs==1) THEN  !1D SSA but should be 2D problem (does elmer work in 1D?)
       DO i = 1, n
          g = ABS( Gravity(i) )
          rhoi = Density(i)
-         h = Depth(i) 
-         alpha = 0.5*rhoi/rhow * (rhow - rhoi) * g * h**2.0 
+         h = LocalZs(i)-LocalZb(i) 
+         h_im=max(0._dp,sealevel-LocalZb(i))
+         alpha=0.5 * g * (rhoi * h**2.0 - rhow * h_im**2.0)
          FORCE(i) = FORCE(i) + alpha
       END DO
 
-! 3D Case : force distributed along the deepest line       
-    ELSE IF (DIM==3) THEN 
-      ALLOCATE( Nodes % x(2), Nodes % y(2), Nodes % z(2) )
-      IF (n <=4) THEN     
-          ! T3 or Q4 elements 
-          nn = 2
-          SideElement % TYPE => GetElementType( 202, .FALSE.)
-          SideElement % Bdofs = 0
-          EdgeElement => SideElement
+! 2D-SSA Case : force distributed along the line       
+! This will work in DIM=3D only if working with Extruded Mesh and Preserve
+! Baseline as been set to True to keep the 1D-BC 
+    ELSE IF (STDOFs==2) THEN
 
-! Find the two nodes on the deepest line      
-          MeanDepth = Depth(1)
-          DO i=2,n
-             MeanDepth = MeanDepth + Depth(i)
-          END DO
-          MeanDepth = MeanDepth/n
-
-          j=1
-          DO i=1,n
-             IF (Depth(i) > MeanDepth) THEN
-                iNode(j)=i
-                j=j+1
-             END IF
-          END DO
-! triangle with only one node on the boundary          
-          IF ((n==3).AND.(j==1)) RETURN
-
-          Nodes % x(1:nn) = FaceNodes % x(iNode(1:nn))
-          Nodes % y(1:nn) = FaceNodes % y(iNode(1:nn))
-          Nodes % z(1:nn) = 0.0  
-
-          IP = GaussPoints( EdgeElement )
+          IP = GaussPoints( Element )
           DO t=1,IP % n
-             stat = ElementInfo( EdgeElement, Nodes, IP % U(t), IP % V(t), &
+             stat = ElementInfo( Element, ENodes, IP % U(t), IP % V(t), &
                  IP % W(t),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
  
-             g = ABS(SUM( Gravity(iNode(1:nn)) * Basis(1:nn) ))
-             rhoi = SUM( Density(iNode(1:nn)) * Basis(1:nn) )
-             h = SUM( Depth(iNode(1:nn)) * Basis(1:nn))
-             alpha = 0.5*rhoi/rhow * (rhow - rhoi) * g * h**2.0 
-
+             g = ABS(SUM( Gravity(1:n) * Basis(1:n) ))
+             rhoi = SUM( Density(1:n) * Basis(1:n) )
+             h = SUM( (LocalZs(1:n)-LocalZb(1:n)) * Basis(1:n))
+             h_im = max(0.0_dp , SUM( (sealevel-LocalZb(1:n)) * Basis(1:n)) )
+             alpha=0.5 * g * (rhoi * h**2.0 - rhow * h_im**2.0)
 
 ! Normal in the (x,y) plane
-             Normal = NormalVector( EdgeElement, Nodes, IP % U(t), IP % V(t), .TRUE.)
+             Normal = NormalVector( Element, ENodes, IP % U(t), IP % V(t), .TRUE.)
              norm=SQRT(normal(1)**2.0+normal(2)**2.0)
              Normal(1) = Normal(1)/norm
              Normal(2) = Normal(2)/norm
 
-             DO p=1,nn
-                DO i=1,DIM-1
-                   FORCE((DIM-1)*(iNode(p)-1)+i) =   FORCE((DIM-1)*(iNode(p)-1)+i) +&   
+             DO p=1,n
+                DO i=1,STDOFs
+                   FORCE(STDOFs*(p-1)+i) =   FORCE(STDOFs*(p-1)+i) +&   
                     alpha * Normal(i) * IP % s(t) * detJ * Basis(p) 
                 END DO
              END DO
           END DO
 
-         DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
-      ELSE
-         CALL FATAL('SSASolver-SSABasalSolver','Do not work for non-linear elements')
-      END IF 
-    
     ELSE   
-      CALL FATAL('SSASolver-SSABasalSolver','Do not work for DIM <> 2 or 3')
+
+      CALL FATAL('SSASolver-SSABasalSolver','Do not work for STDOFs <> 1 or 2')
+
     END IF
-
-
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrixBCSSA
+
+
 !------------------------------------------------------------------------------
 END SUBROUTINE SSABasalSolver
 !------------------------------------------------------------------------------
-
-
-
 
 ! *****************************************************************************
 !>   Compute the depth integrated viscosity = sum_zb^zs eta dz
@@ -706,12 +742,12 @@ SUBROUTINE GetMeanValueSolver( Model,Solver,dt,TransientSimulation )
   VariableValues => PointerToVariable % Values
   WRITE(SolverName, '(A)') 'SSASolver-IntValue'
 
-  IntViscoSol => VariableGet( Solver % Mesh % Variables, 'Integrated Viscosity' )
+  IntViscoSol => VariableGet( Solver % Mesh % Variables, 'Mean Viscosity' )
   IF (ASSOCIATED(IntViscoSol)) THEN
      IntVisco => IntViscoSol % Values
      IntViscoPerm => IntViscoSol % Perm
   ELSE
-     CALL FATAL(SolverName,'Could not find variable >Integrated Viscosity<')
+     CALL FATAL(SolverName,'Could not find variable >Mean Viscosity<')
   END IF
   IntDensSol => VariableGet( Solver % Mesh % Variables, 'Mean Density' )
   IF (ASSOCIATED(IntDensSol)) THEN
@@ -820,7 +856,7 @@ DO COMP=1, 2
   ! Dirichlet 
   IF (COMP==1) THEN
      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          'Integrated Viscosity', 1,1, Permutation )
+          'Mean Viscosity', 1,1, Permutation )
   ELSE
      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
           'Mean Density', 1,1, Permutation )
@@ -832,6 +868,8 @@ DO COMP=1, 2
      DO i = 1, Model % Mesh % NumberOfNodes
         IF (IntViscoPerm(i)>0) THEN
             IntVisco(IntViscoPerm(i)) = VariableValues(Permutation(i)) 
+            IF (Depth(DepthPerm(i))>0.0_dp) IntVisco(IntViscoPerm(i)) = &
+                 IntVisco(IntViscoPerm(i)) / Depth(DepthPerm(i))
         END IF
      END DO
   ELSE IF (COMP==2) THEN
