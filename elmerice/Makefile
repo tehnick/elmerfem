@@ -32,6 +32,7 @@ Solvers/PorousSolve.f90 \
 Solvers/pointwise.f90 \
 Solvers/SIASolver.f90 \
 Solvers/SSASolver.f90 \
+Solvers/ThicknessSolver.f90\
 Solvers/TemperateIce.f90\
 Solvers/ExportVertically.f90\
 Solvers/AdjointSolver.f90\
