@@ -2688,12 +2688,14 @@ END SUBROUTINE GetMaxDefs
         IF(ASSOCIATED(Mesh_in % Elements(k) % BoundaryInfo % Left)) THEN
           l=Mesh_in % Elements(k) % BoundaryInfo % Left % ElementIndex
           Mesh_out % Elements(cnt) % BoundaryInfo % Left => &
-             Mesh_out % Elements(Mesh_in % NumberOfBulkElements*i+l)
+             Mesh_out % Elements(Mesh_in %  NumberOfBulkElements*(in_levels+1)+ &
+	                   (in_levels+2)*Mesh_in % NumberOfBoundaryElements+l)
         END IF
         IF(ASSOCIATED(Mesh_in % Elements(k) % BoundaryInfo % Right)) THEN
           l=Mesh_in % Elements(k) % BoundaryInfo % Right % ElementIndex
           Mesh_out % Elements(cnt) % BoundaryInfo % Right => &
-             Mesh_out % Elements(Mesh_in % NumberOfBulkElements*i+l)
+              Mesh_out % Elements(Mesh_in % NumberOfBulkElements*(in_levels+1)+ &
+	      (in_levels+2)*Mesh_in % NumberOfBoundaryElements+l)
         END IF
 
         IF(Mesh_in % Elements(k) % TYPE % ElementCode>=200) THEN
