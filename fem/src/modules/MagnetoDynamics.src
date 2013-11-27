@@ -2637,7 +2637,11 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   Perm => Solver % Variable % Perm
 
   A => GetMatrix()
-  A %  COMPLEX = .TRUE.
+
+  A %  COMPLEX = .NOT.( GetLogical(GetSolverParams(), 'Edge Basis', Found) .AND. &
+                        GetLogical(GetSolverParams(), 'Apply Mortar BCs', Found) )
+a % complex = .true.
+
   IF ( .NOT. AllocationsDone ) THEN
      N = Mesh % MaxElementDOFs  ! just big enough
      ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
@@ -4687,7 +4691,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
            IF (ASSOCIATED(EL_MST)) THEN
              DO k=1,EL_MST % DOFs
                EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
-                     Element % DGIndexes(j))-1)+k) = ST(ind1(l),ind2(l))
+                     Element % DGIndexes(j))-1)+k) = ST(ind1(k),ind2(k))
              END DO
            END IF
          ELSE
