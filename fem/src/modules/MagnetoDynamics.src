@@ -2638,10 +2638,6 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
 
   A => GetMatrix()
 
-  A %  COMPLEX = .NOT.( GetLogical(GetSolverParams(), 'Edge Basis', Found) .AND. &
-                        GetLogical(GetSolverParams(), 'Apply Mortar BCs', Found) )
-a % complex = .true.
-
   IF ( .NOT. AllocationsDone ) THEN
      N = Mesh % MaxElementDOFs  ! just big enough
      ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
