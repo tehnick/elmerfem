@@ -468,8 +468,8 @@ CONTAINS
    CHARACTER(LEN=MAX_NAME_LEN) :: potname
    INTEGER :: i,j,k,t,n,nd,IterNo
 
-   LOGICAL :: Found
    REAL(KIND=dp)::TOL,Norm,PrevNorm
+   LOGICAL :: Found, FoundMagnetization
 
   !System assembly:
   !----------------
@@ -491,18 +491,30 @@ CONTAINS
 
      LOAD = 0.0d0
      BodyForce => GetBodyForce()
+     FoundMagnetization = .FALSE.
      IF ( ASSOCIATED(BodyForce) ) THEN
 	Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
 	Load(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
 	Load(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
 
 	Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
+        FoundMagnetization = FoundMagnetization .OR. Found
 	Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
+        FoundMagnetization = FoundMagnetization .OR. Found
 	Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
+        FoundMagnetization = FoundMagnetization .OR. Found
 
 	Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
      END IF
 
+     Material => GetMaterial( Element )
+
+     IF(ASSOCIATED(Material).AND..NOT.FoundMagnetization) THEN
+       Load(4,1:n) = GetReal( Material, 'Magnetization 1', Found )
+       Load(5,1:n) = GetReal( Material, 'Magnetization 2', Found )
+       Load(6,1:n) = GetReal( Material, 'Magnetization 3', Found )
+     END IF
+     
     BodyParams => GetBodyParams( Element )
     IF (.NOT. ASSOCIATED(BodyParams)) CALL Fatal ('WhitneyAVSolver', 'Body Parameters not found')
 
@@ -2732,6 +2744,7 @@ CONTAINS
     REAL(KIND=dp) :: Norm, PrevNorm, TOL
     INTEGER :: i,j,k,n,nd,t
     REAL(KIND=dp), ALLOCATABLE :: Diag(:)
+    LOGICAL  :: FoundMagnetization, Found
 !---------------------------------------------------------------------------------------------
     ! System assembly:
     !-----------------
@@ -2744,6 +2757,7 @@ CONTAINS
   
        LOAD = 0.0d0
        BodyForce => GetBodyForce()
+       FoundMagnetization = .FALSE.
        IF ( ASSOCIATED(BodyForce) ) THEN
           Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
           Load(1,1:n) = CMPLX( REAL(Load(1,1:n)), &
@@ -2758,20 +2772,42 @@ CONTAINS
             GetReal( BodyForce, 'Current Density im 3', Found), KIND=dp)
 
           Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
+          FoundMagnetization = FoundMagnetization .OR. Found
           Load(4,1:n) = CMPLX( REAL(Load(4,1:n)), &
                 GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
+          FoundMagnetization = FoundMagnetization .OR. Found
 
           Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
+          FoundMagnetization = FoundMagnetization .OR. Found
           Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
                 GetReal( BodyForce, 'Magnetization im 2', Found),KIND=dp)
+          FoundMagnetization = FoundMagnetization .OR. Found
 
           Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
+          FoundMagnetization = FoundMagnetization .OR. Found
           Load(6,1:n) = CMPLX( REAL(Load(6,1:n)), &
                 GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
+          FoundMagnetization = FoundMagnetization .OR. Found
 
           Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
           Load(7,1:n) = CMPLX( REAL(Load(7,1:n)), &
               GetReal( BodyForce, 'Electric Potential im', Found), KIND=dp)
+       END IF
+
+       Material => GetMaterial( Element )
+
+       IF(ASSOCIATED(Material).AND..NOT.FoundMagnetization) THEN
+          Load(4,1:n) = GetReal( Material, 'Magnetization 1', Found )
+          Load(4,1:n) = CMPLX( REAL(Load(4,1:n)), &
+                GetReal( Material, 'Magnetization im 1', Found),KIND=dp)
+
+          Load(5,1:n) = GetReal( Material, 'Magnetization 2', Found )
+          Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
+                GetReal( Material, 'Magnetization im 2', Found),KIND=dp)
+
+          Load(6,1:n) = GetReal( Material, 'Magnetization 3', Found )
+          Load(6,1:n) = CMPLX( REAL(Load(6,1:n)), &
+                GetReal( Material, 'Magnetization im 1', Found),KIND=dp)
        END IF
 
        Acoef = 0.0_dp
