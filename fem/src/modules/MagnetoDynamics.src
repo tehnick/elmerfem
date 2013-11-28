@@ -4440,8 +4440,8 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Solver_t), POINTER :: pSolver
    CHARACTER(LEN=MAX_NAME_LEN) :: Pname
 
-   LOGICAL :: Found, stat, Cubic, LossEstimation, CalcFluxLogical
-   TYPE(ValueList_t), POINTER :: Material, BC
+   TYPE(ValueList_t), POINTER :: Material, BC, BodyForce
+   LOGICAL :: Found, FoundMagnetization, stat, Cubic, LossEstimation, CalcFluxLogical
 
    TYPE(GaussIntegrationPoints_t) :: IP
    TYPE(Nodes_t), SAVE :: Nodes
@@ -4547,17 +4547,41 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      BodyId = GetBody()
      Material => GetMaterial()
      IF ( ASSOCIATED(MFS) ) THEN
-       Magnetization(1,1:n) = GetReal( Material,'Magnetization 1', Found )
-       Magnetization(1,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
-              GetReal( Material,'Magnetization 1 im', Found ), KIND=dp )
+       BodyForce => GetBodyForce()
+       FoundMagnetization = .FALSE.
+       IF(ASSOCIATED(BodyForce)) THEN
+         Magnetization(1,1:n) = GetReal( BodyForce,'Magnetization 1', Found )
+         FoundMagnetization = FoundMagnetization .OR. Found
+         Magnetization(1,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+                GetReal( BodyForce,'Magnetization 1 im', Found ), KIND=dp )
+         FoundMagnetization = FoundMagnetization .OR. Found
 
-       Magnetization(2,1:n) = GetReal( Material,'Magnetization 2', Found )
-       Magnetization(2,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
-              GetReal( Material,'Magnetization 2 im', Found ), KIND=dp )
+         Magnetization(2,1:n) = GetReal( BodyForce,'Magnetization 2', Found )
+         FoundMagnetization = FoundMagnetization .OR. Found
+         Magnetization(2,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+                GetReal( BodyForce,'Magnetization 2 im', Found ), KIND=dp )
+         FoundMagnetization = FoundMagnetization .OR. Found
 
-       Magnetization(3,1:n) = GetReal( Material,'Magnetization 3', Found )
-       Magnetization(3,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
-              GetReal( Material,'Magnetization 3 im', Found ), KIND=dp )
+         Magnetization(3,1:n) = GetReal( BodyForce,'Magnetization 3', Found )
+         FoundMagnetization = FoundMagnetization .OR. Found
+         Magnetization(3,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+                GetReal( BodyForce,'Magnetization 3 im', Found ), KIND=dp )
+         FoundMagnetization = FoundMagnetization .OR. Found
+       END IF
+
+       IF(.NOT.FoundMagnetization) THEN
+         Magnetization(1,1:n) = GetReal( Material,'Magnetization 1', Found )
+         Magnetization(1,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+                GetReal( Material,'Magnetization 1 im', Found ), KIND=dp )
+
+         Magnetization(2,1:n) = GetReal( Material,'Magnetization 2', Found )
+         Magnetization(2,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+                GetReal( Material,'Magnetization 2 im', Found ), KIND=dp )
+
+         Magnetization(3,1:n) = GetReal( Material,'Magnetization 3', Found )
+         Magnetization(3,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+                GetReal( Material,'Magnetization 3 im', Found ), KIND=dp )
+       END IF
      END IF
 
      CALL GetPermittivity(Material,PR,n)
