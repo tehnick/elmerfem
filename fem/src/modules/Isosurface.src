@@ -1012,11 +1012,11 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: NodeUsed(:)
     INTEGER, PARAMETER :: GeoUnit = 10
     INTEGER :: i1,i2,i,j,jprev,jprevprev,UsedNodes,count
-    INTEGER, ALLOCATABLE :: Neighbours(:,:)
+    INTEGER, ALLOCATABLE :: Neighbours(:,:),NodeOrder(:)
     REAL(KIND=dp) :: Dx,Dy,Dz,MeshDiam,MeshParam,Coord(3),NodeEps,PrevCoord(3),Dist
 
     INTEGER, PARAMETER :: MaxLoops = 20
-    INTEGER :: LoopOffset(MaxLoops),LoopSize(MaxLoops),NoLoop,SaveLoops
+    INTEGER :: LoopOffset(MaxLoops),LoopSize(MaxLoops),NoLoop,SaveLoops,NodeIndex 
     LOGICAL :: NewLoop
 
 
@@ -1029,10 +1029,12 @@ CONTAINS
     
     OPEN( UNIT=GeoUnit, FILE=Filename, STATUS='UNKNOWN') 
     
-    ALLOCATE( Neighbours(Mesh % NumberOfNodes, 2 ), NodeUsed( Mesh % NumberOfNodes ) ) 
+    n = Mesh % NumberOfNodes
+    ALLOCATE( Neighbours(n, 2 ), NodeUsed( n ), NodeOrder( n ) ) 
     Neighbours = 0
     NodeUsed = .FALSE.
-    
+    NodeOrder = 0
+
     
     ! Create a list of neighbours.
     ! Each node should have exactly two neighbours.
@@ -1085,10 +1087,8 @@ CONTAINS
     NodeEps = ListGetCReal( Params,'Mesh Node Epsilon',Found ) 
     IF( .NOT. Found ) NodeEps = 1.0e-3*MeshDiam
 
-    ! Write the points into a geo file skipping nodes too close
-    ! to each other.
-    !---------------------------------------------------------------
-    CALL Info('IsosurfaceSolver','Writing points in geo file',Level=10)
+    ! Find the continuous loops and neglect points that are redundant 
+    !-----------------------------------------------------------------
     j = 1
     UsedNodes = 0
 
@@ -1117,8 +1117,7 @@ CONTAINS
       IF( SaveNode ) THEN
         LoopSize(NoLoop) = LoopSize(NoLoop) + 1
         UsedNodes = UsedNodes + 1
-        WRITE( GeoUnit,'(A,I0,A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4,A)') 'Point(',UsedNodes,') = {',&
-            Coord(1),',',Coord(2),',',Coord(3),',',MeshParam,'};'
+        NodeOrder(UsedNodes) = j 
         PrevCoord = Coord
       END IF
       NewLoop = .FALSE.
@@ -1165,11 +1164,50 @@ CONTAINS
 
     CALL Info('IsoSurfaceSolver','Number of loops found: '//TRIM(I2S(NoLoop)))
 
-    CALL Info('IsosurfaceSolver','Writing spline in geo file',Level=10)
-    
+    CALL Info('IsosurfaceSolver','Writing points in geo file',Level=10)
+
     SaveLoops = ListGetInteger(Params,'Save Number Of Loops',Found ) 
     IF(.NOT. Found ) SaveLoops = NoLoop
+
+    NodeIndex =  0
+    DO l=1,SaveLoops
+
+      ! Find the biggest unsaved loop
+      n = 0
+      DO k=1,NoLoop 
+        IF( LoopSize(k) > n ) THEN
+          j = k
+          n = LoopSize(k)
+        END IF
+      END DO
+
+      CALL Info('IsosurfaceSolver','Size of spline: '&
+          //TRIM(I2S(LoopSize(j))),Level=10)
+
+      DO i=1,LoopSize(j)
+        NodeIndex = NodeIndex + 1
+
+        k = NodeOrder(LoopOffset(j) + i)
+        Coord(1) = Mesh % Nodes % x(k)
+        Coord(2) = Mesh % Nodes % y(k)
+        Coord(3) = Mesh % Nodes % z(k)
+       
+        WRITE( GeoUnit,'(A,I0,A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4,A)') 'Point(',NodeIndex,') = {',&
+            Coord(1),',',Coord(2),',',Coord(3),',',MeshParam,'};'
+      END DO
+
+      ! Ok, this was saved, earese the list
+      LoopSize(j) = -LoopSize(j)
+    END DO
+
+    ! Revert from the negative values, to be able to use the logic again
+    LoopSize = ABS( LoopSize ) 
     
+
+    
+    CALL Info('IsosurfaceSolver','Writing spline in geo file',Level=10)
+
+    NodeIndex = 0
     DO l=1,SaveLoops
 
       ! Find the biggest unsaved loop
@@ -1185,12 +1223,13 @@ CONTAINS
           //TRIM(I2S(LoopSize(j))),Level=10)
       WRITE( GeoUnit,'(A)', ADVANCE='NO') 'Spline('//TRIM(I2S(l))//') = {'
       DO i=1,LoopSize(j)
-        WRITE( GeoUnit,'(I0,A)', ADVANCE='NO') i+LoopOffset(j),', '
+        WRITE( GeoUnit,'(I0,A)', ADVANCE='NO') NodeIndex+i,', '
       END DO
-      WRITE( GeoUnit,'(I0,A)') LoopOffset(j)+1,'};'
+      WRITE( GeoUnit,'(I0,A)') NodeIndex+1,'};'
+      NodeIndex = NodeIndex + LoopSize(j)
 
       ! Ok, this was saved, earese the list
-      LoopSize(j) = 0
+      LoopSize(j) = -LoopSize(j)
     END DO
 
     DO j=1,SaveLoops
