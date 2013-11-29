@@ -1323,7 +1323,8 @@ CONTAINS
      TYPE(Solver_t), POINTER :: StSolver
 
      LOGICAL :: FirstTime = .TRUE., OptimizeBW, GlobalBubbles, &
-          Factorize, FoundFactorize, FreeFactorize, FoundFreeFactorize
+          Factorize, FoundFactorize, FreeFactorize, FoundFreeFactorize, &
+          LimiterOn
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      CHARACTER(LEN=MAX_NAME_LEN) :: eqname
@@ -1343,6 +1344,14 @@ CONTAINS
      
      CALL Info('StressSolver','------------------------------------------',Level=5)
      CALL Info('StressSolver','Starting Stress Computation',Level=5)
+
+     ! Temporarily remove application of limiters as they are not needed
+     ! for stress computation. 
+     !-------------------------------------------------------------------
+     LimiterOn = ListGetLogical( SolverParams,'Apply Limiter',Found)
+     IF( LimiterOn ) THEN
+       CALL ListAddLogical( SolverParams,'Apply Limiter',.FALSE.) 
+     END IF
 
      CALL ListSetNameSpace('stress:')
 
@@ -1728,6 +1737,10 @@ CONTAINS
       CALL ListAddConstReal( SolverParams,'Nonlinear System Relaxation Factor', Relax )
 
       Model % Solver => Solver
+
+      IF( LimiterOn ) THEN
+        CALL ListAddLogical( SolverParams,'Apply Limiter',.TRUE.) 
+      END IF
 
       CALL Info('StressSolver','Finished Stress Computation',Level=5)
       CALL Info('StressSolver','------------------------------------------',Level=5)
