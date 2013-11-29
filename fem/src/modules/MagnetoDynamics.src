@@ -339,7 +339,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:,:,:), &
                                 GapLength(:), AirGapMu(:), LamThick(:), &
                                 LamCond(:), Wbase(:), RotM(:,:,:)
-  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:), PrevSol(:)
 
   CHARACTER(LEN=MAX_NAME_LEN):: LaminateStackModel, CoilType
   LOGICAL :: LaminateStack, CoilBody
@@ -348,7 +348,9 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   INTEGER, ALLOCATABLE :: FluxMap(:)
   LOGICAL, ALLOCATABLE :: TreeEdges(:)
   LOGICAL :: Stat, EigenAnalysis, TG, DoneAssembly=.FALSE., &
-         SkipAssembly, ConstantSystem, ConstantBulk, FixJ
+         SkipAssembly, ConstantSystem, ConstantBulk, FixJ, FoundRelax
+
+  REAL(KIND=dp) :: Relax
 
   TYPE(Variable_t), POINTER :: Var, FixJVar, CoordVar
   TYPE(Matrix_t), POINTER :: A
@@ -439,6 +441,16 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 	      'Nonlinear System Min Iterations',Found)
   IF(.NOT. Found) NoIterationsMin = 1
 
+  Relax = GetCReal( GetSolverParams(), &
+              'Nonlinear System Relaxation Factor', FoundRelax)
+  IF(.NOT.FoundRelax) Relax = 1._dp
+
+  IF(Relax/=1._dp) THEN
+    ALLOCATE(PrevSol(SIZE(Solver % Variable % Values)))
+    CALL ListAddConstReal( GetSolverParams(), &
+              'Nonlinear System Relaxation Factor', 1._dp) 
+  END IF
+
   DO i=1,NoIterationsMax
     IF( DoSolve(i) ) THEN
       IF(i>=NoIterationsMin) EXIT
@@ -446,6 +458,10 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
     IF (i==1) CALL ListAddLogical( GetSolverParams(), 'Linear System Refactorize',.FALSE.)
   END DO
   CALL ListAddLogical( GetSolverParams(), 'Linear System Refactorize',.TRUE.)
+
+  IF(FoundRelax) &
+    CALL ListAddConstReal( GetSolverParams(), &
+              'Nonlinear System Relaxation Factor', Relax) 
 
   CALL CalculateLumped(Model % NumberOfBodyForces)
 
@@ -475,6 +491,9 @@ CONTAINS
   !----------------
 
   A => GetMatrix()
+
+300 CONTINUE
+
   IF ( SkipAssembly) THEN
     A % RHS = A % BulkRHS
     A % Values = A % BulkValues
@@ -729,7 +748,14 @@ CONTAINS
   END IF
 
   PrevNorm = ParallelReduction(SQRT(SUM(Solver % Variable % Values**2)))
+
+  IF(Relax/=1._dp) PrevSol = Solver % Variable % Values
+
   norm = DefaultSolve()
+
+  IF(Relax/=1._dp) THEN
+    Solver % Variable % Values = (1-Relax)*PrevSol + Relax*Solver % Variable % Values
+  END IF
 
   IF ( Found .AND. dt /= PrevDT ) THEN
     CALL ListAddLogical( GetSolverParams(), &
