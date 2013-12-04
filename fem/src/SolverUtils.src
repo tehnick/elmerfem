@@ -1873,6 +1873,7 @@ CONTAINS
             DO l=1,NDOFs
               m=NDOFs*(k-1)+l
               CALL ZeroRow(A,m)
+              IF(ALLOCATED(A % ConstrainedDOF)) A % ConstrainedDOF(m) = .TRUE.
               A % Values(A % Diag(m))=1._dp
               b(m)=Solver % Variable % Values(m)/DiagScaling(m)
             END DO
@@ -2010,6 +2011,7 @@ CONTAINS
                   IF( .NOT. OffDiagonal ) THEN
                     CALL SetMatrixElement( A,k,k,1.0d0 )
                     b(k) = Work(j)/DiagScaling(k)
+                    IF(ALLOCATED(A % ConstrainedDOF)) A % ConstrainedDOF(k) = .TRUE.
                   END IF
                 END IF
               END IF
@@ -2027,6 +2029,7 @@ CONTAINS
 	          IF( .NOT. OffDiagonal ) THEN
                     CALL SetMatrixElement( A,k1,k1,1.0d0 )
                     b(k1) = WorkA(l,1,j)/DiagScaling(k1)
+                    IF(ALLOCATED(A % ConstrainedDOF)) A % ConstrainedDOF(k1) = .TRUE.
                   END IF
                 END IF
               END DO
@@ -2082,6 +2085,7 @@ CONTAINS
                 IF( .NOT. OffDiagonal ) THEN
                   CALL SetMatrixElement( A,k,k,1.0d0 )
                   b(k) = Work(j)/DiagScaling(k)
+                  IF(ALLOCATED(A % ConstrainedDOF)) A % ConstrainedDOF(k) = .TRUE.
                 END IF
               END IF
             ELSE
@@ -2098,6 +2102,7 @@ CONTAINS
                   IF(.NOT. OffDiagonal ) THEN
                     CALL SetMatrixElement( A,k1,k1,1.0d0 )
                     b(k1) = WorkA(l,1,j)/DiagScaling(k1)
+                    IF(ALLOCATED(A % ConstrainedDOF)) A % ConstrainedDOF(k1) = .TRUE.
                   END IF
                 END IF
               END DO
@@ -2135,6 +2140,7 @@ CONTAINS
             IF( .NOT. OffDiagonal ) THEN
               CALL SetMatrixElement( A,k,k,1.0d0 )
               b(k) = Work(j)/DiagScaling(k)
+              IF(ALLOCATED(A % ConstrainedDOF)) A % ConstrainedDOF(k) = .TRUE.
             END IF
           END IF
         END DO
@@ -2201,6 +2207,7 @@ CONTAINS
 
           CALL AddToMatrixElement( A, k, k, 1.0_dp )
           b(k) = 0.0_dp
+          IF(ALLOCATED(A % ConstrainedDOF)) A % ConstrainedDOF(k) = .TRUE.
 
           DO l = Projector % Rows(i), Projector % Rows(i+1)-1
             IF ( Projector % Cols(l) <= 0 ) CYCLE
@@ -2459,6 +2466,7 @@ CONTAINS
         ForceVector(PermIndex) = NodeValue * s
         CALL ZeroRow( StiffMatrix,PermIndex )
         CALL SetMatrixElement( StiffMatrix,PermIndex,PermIndex,1.0d0*s )
+        IF(ALLOCATED(StiffMatrix % ConstrainedDOF)) StiffMatrix % ConstrainedDOF(PermIndex) = .TRUE.
         
       END IF
     END IF
@@ -4508,9 +4516,9 @@ END FUNCTION SearchNodeL
     !--------------------------------------------------------------------------
     A => Solver % Matrix
     b => Solver % Matrix % rhs
-    
+
     ALLOCATE(r(n))
-    CALL MatrixVectorMultiply( A, x, r)      
+    CALL MatrixVectorMultiply( A, x, r)
     DO i=1,n
       r(i) = r(i) - b(i)
     END DO
@@ -4564,14 +4572,17 @@ END FUNCTION SearchNodeL
       RETURN
     END IF
 
+
     ! Start with no relaxation 
     !-----------------------------------------------------------------------------
-    IF( FirstTrial ) Alpha = 1.0_dp
+    IF( FirstTrial ) THEN
+      Alpha = 1.0_dp
+    END IF
 
     ! Armijo-GoldStein Criterion for accepting stepsize
     !-----------------------------------------------------------------
     Tests = Tests + 1
-    ReduceStep = ( PrevResidual - Residual < Myy * Alpha * PrevResidual)
+    ReduceStep = ( PrevResidual - Residual < Myy * Alpha * PrevResidual )
 
     IF( Tests >= MaxTests .AND. ReduceStep ) THEN
       CALL Warn('CheckStepSize','Maximum number of linesearch steps taken without success!')
@@ -6392,11 +6403,15 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
       CALL AddToMatrixElement( CollectionMatrix,k,k,0._dp )
 
       DO j=RestMatrix % Rows(i+1)-1,RestMatrix % Rows(i),-1
-        CALL AddToMatrixElement( CollectionMatrix, &
-             k, RestMatrix % Cols(j), RestMatrix % Values(j))
+        Found = ALLOCATED(StiffMAtrix % ConstrainedDOF)
+        IF(Found) Found=.NOT.StiffMatrix % ConstrainedDOF(RestMatrix % Cols(j))
+        IF(Found) THEN
+          CALL AddToMatrixElement( CollectionMatrix, &
+             RestMatrix % Cols(j), k, RestMatrix % Values(j))
+        END IF
 
         CALL AddToMatrixElement( CollectionMatrix, &
-             RestMatrix % Cols(j), k, RestMatrix % Values(j))
+             k, RestMatrix % Cols(j), RestMatrix % Values(j))
       END DO
       CollectionVector(k) = RestVector(i)
     END DO
@@ -6406,12 +6421,17 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
 ! Put the AddMatrix to upper part of CollectionMatrix
 !------------------------------------------------------------------------------
   IF(ASSOCIATED(AddMatrix)) THEN
+    Found = ALLOCATED(StiffMatrix % ConstrainedDOF)
     DO i=AddMatrix % NumberOfRows,1,-1
-      DO j=AddMatrix % Rows(i+1)-1,AddMatrix % Rows(i),-1
-        CALL AddToMatrixElement( CollectionMatrix, &
-             i, AddMatrix % Cols(j), AddMatrix % Values(j))
-      END DO
-      CollectionVector(i) = CollectionVector(i) + AddVector(i)
+      Found = ALLOCATED(StiffMAtrix % ConstrainedDOF)
+      IF(Found) Found=.NOT.StiffMatrix % ConstrainedDOF(i)
+      IF(Found) THEN
+        DO j=AddMatrix % Rows(i+1)-1,AddMatrix % Rows(i),-1
+            CALL AddToMatrixElement( CollectionMatrix, &
+               i, AddMatrix % Cols(j), AddMatrix % Values(j))
+        END DO
+        CollectionVector(i) = CollectionVector(i) + AddVector(i)
+      END IF
     END DO
   END IF
 !------------------------------------------------------------------------------
@@ -6438,16 +6458,6 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
 ! END DO
 ! ! try not to interfere with dirichlet conditions:
 ! ! -----------------------------------------------
-! DO i=1,stiffmatrix % numberofrows
-!    scl = stiffmatrix % values(stiffmatrix % diag(i))
-!    stiffmatrix % values(stiffmatrix % diag(i))=0
-!    IF ( ALL( stiffmatrix % values( stiffmatrix % rows(i):stiffmatrix % rows(i+1)-1 ) == 0 ) ) THEN
-!      collectionmatrix % values( collectionmatrix % rows(i): &
-!           collectionmatrix % rows(i+1)-1 )  = 0
-!      stiffmatrix % values( stiffmatrix % diag(i) ) = scl
-!      collectionmatrix % values( collectionmatrix % diag(i) ) = scl
-!    END IF
-! END DO
 
 
   CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix done', Level=5 )

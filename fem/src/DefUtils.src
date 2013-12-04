@@ -3320,6 +3320,8 @@ CONTAINS
      CHARACTER(LEN=MAX_NAME_LEN) :: name
      LOGICAL :: BUpd
 
+integer::iii=0
+
      SAVE gInd, lInd, STIFF, Work
 
      IF ( PRESENT( USolver ) ) THEN
@@ -3359,6 +3361,10 @@ CONTAINS
      ELSE
        x => Solver % Variable
      END IF
+
+     IF(.NOT.ALLOCATED(A % ConstrainedDOF)) &
+       ALLOCATE(A % ConstrainedDOF(A % NumberOfRows))
+     A % ConstrainedDOF = .FALSE.
 
      ScaleSystem=GetLogical(Params,'Linear System Dirichlet Scaling',Found)
      IF(.NOT.Found) THEN
@@ -3454,6 +3460,7 @@ CONTAINS
              ELSE
                CALL ZeroRow( A, nb )
                A % RHS(nb) = 0._dp
+               A % ConstrainedDOF(nb) = .TRUE.
              END IF
            END DO
         END DO
@@ -3520,6 +3527,7 @@ CONTAINS
                      CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1)/DiagScaling(nb))
                    ELSE
                      CALL ZeroRow( A, nb )
+                     A % ConstrainedDOF(nb) = .TRUE.
                      A % RHS(nb) = Work(1)/DiagScaling(nb)
                      CALL SetMatrixElement(A,nb,nb,1._dp)
                    END IF
@@ -3553,7 +3561,8 @@ CONTAINS
                      IF ( A % Symmetric ) THEN
                        CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1)/DiagScaling(nb))
                      ELSE
-                       CALL ZeroRow( A, nb )
+                       CALL ZeroRow(A,nb)
+                       A % ConstrainedDOF(nb) = .TRUE.
                        A % RHS(nb) = Work(1)/DiagScaling(nb)
                        CALL SetMatrixElement(A,nb,nb,1._dp)
                      END IF
@@ -3573,6 +3582,7 @@ CONTAINS
 
                CALL ZeroRow( A, nb )
                CALL SetMatrixElement(A,nb,nb,1._dp)
+               A % ConstrainedDOF(nb) = .TRUE.
                A % RHS(nb) = Work(1)/DiagScaling(nb)
              END DO
            END IF
@@ -3635,6 +3645,7 @@ CONTAINS
                    nb = x % Perm( gInd(k) )
                    IF ( nb <= 0 ) CYCLE
                    nb = Offset + x % DOFs * (nb-1) + DOF
+                   A % ConstrainedDOF(nb) = .TRUE.
                    A % RHS(nb) = A % RHS(nb) + Work(k)/DiagScaling(nb)
                    DO l=1,numEdgeDofs
                       mb = x % Perm( gInd(l) )
@@ -3686,6 +3697,7 @@ CONTAINS
                 nb = x % Perm( gInd(k) )
                 IF ( nb <= 0 ) CYCLE
                 nb = Offset + x % DOFs * (nb-1) + DOF
+                A % ConstrainedDOF(nb) = .TRUE.
                 A % RHS(nb) = A % RHS(nb) + Work(k)/DiagScaling(nb)
                 DO l=n_start,numEdgeDOFs
                   mb = x % Perm( gInd(l) )
