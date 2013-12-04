@@ -6425,10 +6425,9 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
 ! Put the AddMatrix to upper part of CollectionMatrix
 !------------------------------------------------------------------------------
   IF(ASSOCIATED(AddMatrix)) THEN
-    Found = ALLOCATED(StiffMatrix % ConstrainedDOF)
     DO i=AddMatrix % NumberOfRows,1,-1
-      Found = ALLOCATED(StiffMAtrix % ConstrainedDOF)
-      IF(Found) Found=.NOT.StiffMatrix % ConstrainedDOF(i)
+      Found = ALLOCATED(StiffMatrix % ConstrainedDOF)
+      IF(i<=StiffMatrix % NumberOFRows.AND.Found) Found=.NOT.StiffMatrix % ConstrainedDOF(i)
       IF(.NOT.EnforceDirichlet.OR.Found) THEN
         DO j=AddMatrix % Rows(i+1)-1,AddMatrix % Rows(i),-1
             CALL AddToMatrixElement( CollectionMatrix, &
