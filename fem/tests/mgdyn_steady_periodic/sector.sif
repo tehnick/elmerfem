@@ -1,5 +1,4 @@
-Check Keywords "Warn"
-
+Check Keywords "Warn" 
 INCLUDE sector/mesh.names
 
 Header
@@ -11,8 +10,8 @@ Simulation
 
   Coordinate System = "Cartesian"
   Simulation Type = Steady State
-  Steady State Max Iterations = 3
-!  Post File = sector.ep
+  Steady State Max Iterations = 1
+   Post File = sector.ep
 !  Output Intervals(1) = 1
 End
 
@@ -28,10 +27,14 @@ Solver 1
 
    Procedure = "MagnetoDynamics" "WhitneyAVSolver"
 
-   Apply Mortar BCs=Logical True
+   Apply Mortar BCs = Logical True
    Edge Basis = Logical True
 
-   Linear System Symmetric = Logical false
+   ! use this to restore old behaviour when dirichlet & mortar constraints
+   ! co-exist for some of the boundary edges
+!  Enforce Exact Dirichlet BCs = Logical False
+
+!  Linear System Symmetric = Logical True
    Linear System Solver = "Iterative"
    Linear System Preconditioning = ilu2
    Linear System Convergence Tolerance = 1e-6
@@ -127,5 +130,5 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=0.19790956E-02,EPS=1e-3\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=0.20552684E-02,EPS=1e-3\n" );
 
