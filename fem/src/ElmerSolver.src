@@ -455,6 +455,7 @@ END INTERFACE
 
        DO i=1,CurrentModel % NumberOfSolvers
           Solver => CurrentModel % Solvers(i)
+          IF(.NOT.ASSOCIATED(Solver % Variable)) CYCLE
           IF(.NOT.ASSOCIATED(Solver % Variable % Values)) CYCLE
           When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
           IF ( GotIt ) THEN
