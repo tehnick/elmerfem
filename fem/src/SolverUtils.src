@@ -6304,7 +6304,7 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
   INTEGER :: i, j, k, l
   TYPE(Variable_t), POINTER :: MultVar
   REAL(KIND=dp) :: scl
-  LOGICAL :: Found, ExportMultiplier, NotExplicit, Refactorize
+  LOGICAL :: Found, ExportMultiplier, NotExplicit, Refactorize, EnforceDirichlet
   SAVE MultiplierValues, SolverPointer
   CHARACTER(LEN=MAX_NAME_LEN) :: MultiplierName
 !------------------------------------------------------------------------------
@@ -6394,6 +6394,10 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
 !------------------------------------------------------------------------------
 ! Put the RestMatrix to lower part of CollectionMatrix
 !------------------------------------------------------------------------------
+
+  EnforceDirichlet = ListGetLogical( Solver % Values, 'Enforce Exact Dirichlet BCs',Found)
+  IF(.NOT.Found) EnforceDirichlet = .TRUE.
+
   IF(ASSOCIATED(RestMatrix)) THEN
     DO i=RestMatrix % NumberOfRows,1,-1
       k=StiffMatrix % NumberOfRows
@@ -6405,7 +6409,7 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
       DO j=RestMatrix % Rows(i+1)-1,RestMatrix % Rows(i),-1
         Found = ALLOCATED(StiffMAtrix % ConstrainedDOF)
         IF(Found) Found=.NOT.StiffMatrix % ConstrainedDOF(RestMatrix % Cols(j))
-        IF(Found) THEN
+        IF(.NOT.EnforceDirichlet.OR.Found) THEN
           CALL AddToMatrixElement( CollectionMatrix, &
              RestMatrix % Cols(j), k, RestMatrix % Values(j))
         END IF
@@ -6425,7 +6429,7 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
     DO i=AddMatrix % NumberOfRows,1,-1
       Found = ALLOCATED(StiffMAtrix % ConstrainedDOF)
       IF(Found) Found=.NOT.StiffMatrix % ConstrainedDOF(i)
-      IF(Found) THEN
+      IF(.NOT.EnforceDirichlet.OR.Found) THEN
         DO j=AddMatrix % Rows(i+1)-1,AddMatrix % Rows(i),-1
             CALL AddToMatrixElement( CollectionMatrix, &
                i, AddMatrix % Cols(j), AddMatrix % Values(j))
