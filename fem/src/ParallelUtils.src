@@ -347,13 +347,14 @@ CONTAINS
            n = MAX(n,MAXVAL(Element % DGIndexes))
          END DO
 
-         ALLOCATE( MatrixPI % GlobalDOFs(n) )
+         ALLOCATE( MatrixPI % GlobalDOFs(n) ); MatrixPI % GlobalDOFs=0
 
          DO i=1,Mesh % NumberOfBulkElements
            Element => Mesh % Elements(i)
            IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
            DO j=1,SIZE(Element % DGIndexes)
              k = Matrix % Perm(Element % DGIndexes(j))
+             IF(K==0) CYCLE
              MatrixPI % GlobalDOFs(k) = 8*(Element % GElementIndex-1)+j
            END DO
          END DO
