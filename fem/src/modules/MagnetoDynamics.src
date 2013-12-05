@@ -4252,6 +4252,17 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
       CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
                 "Joule Field E" )
     END IF
+
+    IF ( GetLogical( Solver % Values, 'Calculate Winding Voltage', Found ) ) THEN
+      i = i + 1
+      IF ( Vdofs==1 ) THEN
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Winding Voltage E" )
+      ELSE
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Winding Voltage E[Winding Voltage re E:1 Winding Voltage im E:1]" )
+      END IF
+    END IF
   END IF
 
   DEALLOCATE(Model % Solvers)
@@ -4389,6 +4400,17 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
       CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
                "Joule Field" )
     END IF
+
+    IF ( GetLogical( Solver % Values, 'Calculate Winding Voltage', Found ) ) THEN
+      i = i + 1
+      IF ( Var % DOFs==1 ) THEN
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Winding Voltage" )
+      ELSE
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Winding Voltage[Winding Voltage re:1 Winding Voltage im:1]" )
+      END IF
+    END IF
   END IF
 
   ! add these in the beginning, so that SaveData sees these existing, even
@@ -4441,10 +4463,11 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
   
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: s,u,v,w,WBasis(32,3), SOL(2,32), PSOL(32), R(32), C(32), Norm
-   REAL(KIND=dp) :: RotWBasis(32,3), Basis(32), dBasisdx(32,3), B(2,3), E(2,3),VP_ip(2,3)
+   REAL(KIND=dp) :: RotWBasis(32,3), Basis(32), dBasisdx(32,3), B(2,3), E(2,3), &
+                    VP_ip(2,3), Wbase(32), alpha(32)
    REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
    REAL(KIND=dp) :: Freq, FreqPower, FieldPower, ComponentLoss(2), LossCoeff, ValAtIP
-   REAL(KIND=dp) :: Coeff, TotalLoss
+   REAL(KIND=dp) :: Coeff, TotalLoss, localAlpha, localV(2), nofturns, coilthickness
    REAL(KIND=dp) :: Flux(2), AverageFluxDensity(2), Area
    COMPLEX(KIND=dp) ::  Magnetization(3,32), MG_ip(3)
 
@@ -4454,16 +4477,17 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    INTEGER, PARAMETER :: ind1(6) = [1,2,3,1,2,1]
    INTEGER, PARAMETER :: ind2(6) = [1,2,3,2,3,3]
 
-   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH, VP
-   TYPE(Variable_t), POINTER :: EL_MFD, EL_MFS, EL_CD, EL_EF, EL_MST, EL_JH, EL_VP
+   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH, VP, FWP, LagrangeVar
+   TYPE(Variable_t), POINTER :: EL_MFD, EL_MFS, EL_CD, EL_EF, EL_MST, EL_JH, EL_VP, EL_FWP
 
-   INTEGER :: Active,i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs,dim,BodyId
+   INTEGER :: Active,i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs,dim,BodyId,VvarDofs,VvarId
 
    TYPE(Solver_t), POINTER :: pSolver
-   CHARACTER(LEN=MAX_NAME_LEN) :: Pname
+   CHARACTER(LEN=MAX_NAME_LEN) :: Pname, CoilType
 
-   TYPE(ValueList_t), POINTER :: Material, BC, BodyForce
-   LOGICAL :: Found, FoundMagnetization, stat, Cubic, LossEstimation, CalcFluxLogical
+   TYPE(ValueList_t), POINTER :: Material, BC, BodyForce, BodyParams
+   LOGICAL :: Found, FoundMagnetization, stat, Cubic, LossEstimation, &
+              CalcFluxLogical, CoilBody
 
    TYPE(GaussIntegrationPoints_t) :: IP
    TYPE(Nodes_t), SAVE :: Nodes
@@ -4474,12 +4498,13 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    REAL(KIND=dp) :: Babs
    TYPE(Mesh_t), POINTER :: Mesh
    REAL(KIND=dp), ALLOCATABLE, TARGET :: Gforce(:,:), MASS(:,:), FORCE(:,:)
-   REAL(KIND=dp), ALLOCATABLE :: BodyLoss(:)
+   REAL(KIND=dp), ALLOCATABLE :: BodyLoss(:), RotM(:,:,:)
 
    REAL(KIND=DP), POINTER :: Cwrk(:,:,:), Cwrk_im(:,:,:)   
    COMPLEX(KIND=dp), ALLOCATABLE :: Tcoef(:,:,:)
 
    Mesh => GetMesh()
+   LagrangeVar => VariableGet( Solver % Mesh % Variables,'LagrangeMultiplier')
 
    MFD => VariableGet( Mesh % Variables, 'Magnetic Flux Density' )
    IF ( .NOT. ASSOCIATED(MFD) ) RETURN
@@ -4509,6 +4534,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      EL_JH => VariableGet( Mesh % Variables, 'Joule Field E' )
      EL_EF => VariableGet( Mesh % Variables, 'Electric Field E' )
      EL_CD => VariableGet( Mesh % Variables, 'Current Density E' )
+     EL_FWP => VariableGet( Mesh % Variables, 'Winding Voltage E' )
    END IF
 
    MST => variableGet( Mesh % Variables, 'Maxwell stress' )
@@ -4518,6 +4544,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    IF ( ASSOCIATED(MFS)) DOFs=DOFs+3
    IF ( ASSOCIATED(VP))  DOFs=DOFs+3
    IF ( ASSOCIATED(CD))  DOFs=DOFs+3
+   IF ( ASSOCIATED(FWP))  DOFs=DOFs+1
    IF ( ASSOCIATED(EF))  DOFs=DOFs+3
    IF ( ASSOCIATED(MST)) DOFs=DOFs+6
    DOFs = DOFs*vDOFs
@@ -4525,7 +4552,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    ALLOCATE(GForce(SIZE(Solver % Matrix % RHS),DOFs)); Gforce=0._dp
 
    n = Mesh % MaxElementDOFs
-   ALLOCATE( MASS(n,n), FORCE(n,DOFs), Tcoef(3,3,n) ) 
+   ALLOCATE( MASS(n,n), FORCE(n,DOFs), Tcoef(3,3,n), RotM(3,3,n) ) 
    SOL = 0._dp; PSOL=0._dp
 
    Omega = GetAngularFrequency(Found=Found)
@@ -4654,6 +4681,49 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
            END DO
         END IF
      END IF
+
+     ! in case of a foil winding, transform the conductivity tensor:
+     ! -------------------------------------------------------------
+     BodyParams => GetBodyParams( Element )
+     IF (.NOT. ASSOCIATED(BodyParams)) CALL Fatal ('MagnetoDynamicsCalcFields', 'Body Parameters not found!')
+
+     CoilType = GetString(BodyParams, 'Coil Type', Found)
+     IF (.NOT. Found) THEN
+       CoilType = ''
+     ELSE
+
+       CALL GetLocalSolution(Wbase,'W')
+       VvarId = GetInteger (BodyParams, 'Circuit Voltage Variable Id', Found)
+       IF (.NOT. Found) CALL Fatal ('MagnetoDynamicsCalcFields', 'Circuit Voltage Variable Id not found!')
+  
+       SELECT CASE (CoilType)
+       CASE ('stranded')
+         CoilBody = .True.
+       CASE ('massive')
+         CoilBody = .True.
+       CASE ('foil winding')
+         CoilBody = .True.
+         CALL GetLocalSolution(alpha,'Alpha')
+         CALL GetElementRotM(Element, RotM, n)
+
+         coilthickness = GetConstReal(BodyParams, 'Coil Thickness', Found)
+         IF (.NOT. Found) CALL Fatal('MagnetoDynamicsCalcFields','Foil Winding: Coil Thickness not found!')
+
+         nofturns = GetInteger(BodyParams, 'Number of Turns', Found)
+         IF (.NOT. Found) CALL Fatal('MagnetoDynamicsCalcFields','Foil Winding: Number of Turns not found!')
+
+         VvarDofs = GetInteger (BodyParams, 'Circuit Voltage Variable dofs', Found)
+         IF (.NOT. Found) CALL Fatal ('MagnetoDynamicsCalcFields', 'Circuit Voltage Variable dofs not found!')
+
+         DO k = 1,n
+           Tcoef(1:3,1:3,k) = MATMUL(MATMUL(RotM(1:3,1:3,k), Tcoef(1:3,1:3,k)), TRANSPOSE(RotM(1:3,1:3,k)))
+         END DO
+       CASE DEFAULT
+         CALL Fatal ('MagnetoDynamicsCalcFields', 'Non existent Coil Type Chosen!')
+       END SELECT
+     END IF
+
+
      !---------------------------------------------------------------------------------------------
 
      CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
@@ -4685,8 +4755,23 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        END DO
 
        IF ( Transient ) THEN
-         E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
-                   MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+         E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:))
+         localV=0._dp
+         SELECT CASE (CoilType)
+         CASE ('stranded')
+         CASE ('massive')
+             localV(1) = localV(1) + LagrangeVar % Values(VvarId)
+             E(1,:) = E(1,:)-localV(1) * MATMUL(Wbase(1:np), dBasisdx(1:np,:))
+         CASE ('foil winding')
+           localAlpha = coilthickness *SUM(alpha(1:np) * Basis(1:np)) 
+           DO k = 1, VvarDofs-1
+             localV(1) = localV(1) + LagrangeVar % Values(VvarId+k) * localAlpha**(k-1)
+           END DO
+           E(1,:) = E(1,:)-localV(1) * MATMUL(Wbase(1:np), dBasisdx(1:np,:))
+
+         CASE DEFAULT
+           E(1,:) = E(1,:)-MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+         END SELECT
        ELSE
           IF (vDOFs > 1) THEN
              E(1,:) = Omega*MATMUL(SOL(2,np+1:nd),WBasis(1:nd-np,:)) - &
@@ -4794,6 +4879,27 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          END IF
        END IF
 
+       IF ( ASSOCIATED(EL_FWP)) THEN
+         IF (Vdofs == 1) THEN
+            l = 1
+            DO k=1,EL_FWP % DOFs
+               EL_FWP % Values( EL_FWP % DOFs*(EL_FWP % Perm( &
+                    Element % DGIndexes(j))-1)+dim*(l-1)+k) = LocalV(1)
+            END DO
+         ELSE
+            l = 1
+            DO k=1,EL_FWP % DOFs
+               EL_FWP % Values( EL_FWP % DOFs*(EL_FWP % Perm( &
+                    Element % DGIndexes(j))-1)+dim*(l-1)+k) = LocalV(1)
+            END DO
+            l = 2
+            DO k=1,EL_FWP % DOFs
+               EL_FWP % Values( EL_FWP % DOFs*(EL_FWP % Perm( &
+                    Element % DGIndexes(j))-1)+dim*(l-1)+k) = LocalV(2)
+            END DO
+         END IF
+       END IF
+
        IF ( ASSOCIATED(EL_JH) ) THEN
          DO k=1,EL_JH % DOFs
            EL_JH % Values( EL_JH % DOFs*(EL_JH % Perm( &
@@ -4861,8 +4967,23 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
          B(k,:) = MATMUL( SOL(k,np+1:nd), RotWBasis(1:nd-np,:) )
        END DO
        IF ( Transient ) THEN
-         E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
-                   MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+         E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:))
+         localV=0._dp
+         SELECT CASE (CoilType)
+         CASE ('stranded')
+         CASE ('massive')
+             localV(1) = localV(1) + LagrangeVar % Values(VvarId)
+             E(1,:) = E(1,:)-localV(1) * MATMUL(Wbase(1:np), dBasisdx(1:np,:))
+         CASE ('foil winding')
+           localAlpha = coilthickness *SUM(alpha(1:np) * Basis(1:np)) 
+           DO k = 1, VvarDofs-1
+             localV(1) = localV(1) + LagrangeVar % Values(VvarId+k) * localAlpha**(k-1)
+           END DO
+           E(1,:) = E(1,:)-localV(1) * MATMUL(Wbase(1:np), dBasisdx(1:np,:))
+
+         CASE DEFAULT
+           E(1,:) = E(1,:)-MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+         END SELECT
        ELSE
           IF (vDOFs > 1) THEN
              E(1,:) = Omega*MATMUL(SOL(2,np+1:nd),WBasis(1:nd-np,:)) - &
@@ -5030,6 +5151,19 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
            END IF
 
          END IF
+
+         IF ( ASSOCIATED(FWP)) THEN
+           IF (Vdofs == 1) THEN
+              FORCE(p,k+1) = FORCE(p,k+1)+s*LocalV(1)*Basis(p)
+              k = k+1
+           ELSE
+              FORCE(p,k+1) = FORCE(p,k+1)+s*LocalV(1) * Basis(p)
+              k = k+1
+              FORCE(p,k+1) = FORCE(p,k+1)+s*LocalV(2) * Basis(p)
+              k = k+1
+           END IF
+         END IF
+
          IF ( ASSOCIATED(JH) ) THEN
            FORCE(p,k+1) = FORCE(p,k+1)+s*SUM(E(:,:)**2)*Basis(p)
            k = k+1
@@ -5155,6 +5289,16 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      END DO
    END IF
 
+   IF ( ASSOCIATED(FWP) ) THEN
+     DO i=1,vDOFs
+      DOFs = DOFs+1
+      Solver % Matrix % RHS => Gforce(:,DOFs)
+      Solver % Variable % Values=0
+      Norm = DefaultSolve()
+      FWP % Values(i::vDOFs) = Solver % Variable % Values
+     END DO
+   END IF
+
    IF ( ASSOCIATED(JH) ) THEN
      DOFs = DOFs+1
      Solver % Matrix % RHS => Gforce(:,DOFs)
@@ -5181,7 +5325,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    WRITE(Message,*) '(Electro)Magnetic Field Energy: ', Energy
    CALL Info( 'MagnetoDynamics', Message )
    CALL ListAddConstReal(Model % Simulation,'res: Magnetic Field Energy',Energy)
-   DEALLOCATE( Gforce,MASS,FORCE,Tcoef )
+   DEALLOCATE( Gforce,MASS,FORCE,Tcoef,RotM )
 
    IF (LossEstimation) THEN
       CALL ListAddConstReal( Model % Simulation,'res: fourier loss',TotalLoss )
@@ -5289,6 +5433,39 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
 
 CONTAINS
+
+!------------------------------------------------------------------------------
+ SUBROUTINE GetElementRotM(Element,RotM,n)
+!------------------------------------------------------------------------------
+   TYPE(Element_t) :: Element
+   INTEGER :: k, l, m, j, n
+   REAL(KIND=dp) :: RotM(3,3,n)
+   INTEGER, PARAMETER :: ind1(9) = [1,1,1,2,2,2,3,3,3]
+   INTEGER, PARAMETER :: ind2(9) = [1,2,3,1,2,3,1,2,3]
+   TYPE(Variable_t), POINTER, SAVE :: RotMvar
+   LOGICAL, SAVE :: visited = .FALSE.
+ 
+
+   IF(.NOT. visited) THEN
+     visited = .TRUE.
+     RotMvar => VariableGet( Mesh % Variables, 'RotM E')
+     IF(.NOT. ASSOCIATED(RotMVar)) THEN
+       CALL Fatal('GetElementRotM','RotM E variable not found')
+     END IF
+   END IF
+
+   RotM = 0._dp
+   DO j = 1, n
+     DO k=1,RotMvar % DOFs
+       RotM(ind1(k),ind2(k),j) = RotMvar % Values( &
+             RotMvar % DOFs*(RotMvar % Perm(Element % DGIndexes(j))-1)+k)
+     END DO
+   END DO
+
+!------------------------------------------------------------------------------
+ END SUBROUTINE GetElementRotM
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE AddLocalFaceTerms(STIFF,FORCE)
