@@ -258,7 +258,7 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
    Nb = Nbx*Nby
 
    ix = INT((x-xb0)/dbx)+1
-   iy = INT((y-yb0)/dbx)+1
+   iy = INT((y-yb0)/dby)+1
    ib = Nbx * (iy - 1) + ix
    
    ! if we are already at the end of the domain then collapse the 2 by 2 interpolation 
