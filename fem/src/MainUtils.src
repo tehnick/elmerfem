@@ -80,14 +80,14 @@ CONTAINS
           IF ( str /= 'mumps' ) &
               CALL Warn( 'CheckSolverOptions', 'Only MUMPS direct solver' // &
               ' interface implemented in parallel, trying MUMPS!')
-             str = 'mumps' 
-            CALL ListAddString( Params,'Linear System Direct Method', str)
+          str = 'mumps' 
+          CALL ListAddString( Params,'Linear System Direct Method', str)
         ELSE
           IF ( str == 'mumps' ) &
               CALL Warn( 'CheckSolverOptions', 'Currently no serial interface' // &
               ' to the MUMPS solver implemented, trying UMFPACK!')
-             str = 'umfpack'
-             CALL ListAddString( Params,'Linear System Direct Method', str)
+          str = 'umfpack'
+          CALL ListAddString( Params,'Linear System Direct Method', str)
         END IF
         
         SELECT CASE( str )
@@ -96,7 +96,7 @@ CONTAINS
         CASE( 'umfpack', 'big umfpack' )
 #include "../config.h"
 #ifndef HAVE_UMFPACK
-        CALL Fatal( 'GetMatrixFormat', 'UMFPACK solver has not been installed.' )
+          CALL Fatal( 'GetMatrixFormat', 'UMFPACK solver has not been installed.' )
 #endif
         CASE( 'mumps' )
 #ifndef HAVE_MUMPS
@@ -117,7 +117,7 @@ CONTAINS
         CASE DEFAULT
           CALL Fatal( 'CheckSolverOptions', 'Unknown direct solver method: ' // TRIM(str) )
         END SELECT
-
+        
       ELSE
         IF ( ParEnv % PEs <= 1 ) THEN
 #ifdef HAVE_UMFPACK
@@ -135,8 +135,34 @@ CONTAINS
         CALL Info('CheckSolverOptions','Setting > Linear System Direct Method < to:'//TRIM(str) )
         CALL ListAddString( Params,'Linear System Direct Method', str )
       END IF
-    END IF
 
+    ELSE IF ( str == 'feti' ) THEN
+      IF( ParEnv % PEs <= 1 ) THEN
+        CALL Fatal('CheckSolverOptions','Feti not usable in serial!')
+      END IF
+
+    ELSE
+      IF (ListGetLogical( Params,  &
+          'Linear System Use Hypre', Found )) THEN
+        IF( ParEnv % PEs <= 1 ) THEN
+          CALL Fatal('CheckSolverOptions','Hypre not usable in serial!')
+        END IF
+#ifndef HAVE_HYPRE
+        CALL Fatal('CheckSolverOptions','Hypre requested but not compiled with!')
+#endif
+      END IF
+
+      IF (ListGetLogical( Params,  &
+          'Linear System Use Trilinos', Found )) THEN        
+        IF( ParEnv % PEs <= 1 ) THEN
+          CALL Fatal('CheckSolverOptions','Trilinos not usable in serial!')
+        END IF
+#ifndef HAVE_TRILINOS
+        CALL Fatal('CheckSolverOptions','Trilinos requested but not compiled with!')
+#endif
+      END IF
+    END IF
+  
 !------------------------------------------------------------------------------
   END SUBROUTINE CheckSolverOptions
 !------------------------------------------------------------------------------
@@ -3348,7 +3374,7 @@ CONTAINS
      ! -----------------------------------
      FoundMortar = .FALSE.
      IF (GetLogical(Solver % Values,'Apply Mortar BCs',Found)) THEN
-       CM => Null()
+       CM => NULL()
        DO i=1,Model % NumberOFBCs
          j=GetInteger(Model % BCs(i) % Values,'Mortar BC',FoundMortar)
          IF(FoundMortar) THEN
@@ -3363,7 +3389,7 @@ CONTAINS
 
        IF(FoundMortar) THEN
          CM0 => CM
-         CMP => Null()
+         CMP => NULL()
          DO WHILE(ASSOCIATED(CM0))
            CM0 % Cols = Solver % Variable % Perm(CM0 % Cols)
 
@@ -3420,7 +3446,7 @@ CONTAINS
 
              CM1 % ConstraintMatrix => CM0 % ConstraintMatrix
              IF(ASSOCIATED(CM0,CM)) CM=>CM1
-             CM0 % ConstraintMatrix => Null(); CALL FreeMatrix(CM0)
+             CM0 % ConstraintMatrix => NULL(); CALL FreeMatrix(CM0)
              CM0 => CM1
              IF(ASSOCIATED(CMP)) CMP % ConstraintMatrix => CM0
            END IF
@@ -3453,7 +3479,7 @@ CONTAINS
       DO WHILE(.NOT.ASSOCIATED(CM,CM0 % ConstraintMatrix))
         CM0 => CM0 % ConstraintMatrix
       END DO
-      CM0 % ConstraintMatrix => Null()
+      CM0 % ConstraintMatrix => NULL()
       CALL FreeMatrix(CM)
     END IF
 !------------------------------------------------------------------------------
