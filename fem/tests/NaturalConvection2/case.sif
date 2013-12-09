@@ -22,7 +22,8 @@ Simulation
   Timestep intervals(1) = 10
   Timestep Sizes(1) = 10.0
   Output Intervals(1) = 0 
-!  Post File = case.ep
+
+  Post File = case.vtu
 
 !  Output File = case.result
 !  Binary Output = Logical True
@@ -73,9 +74,9 @@ Solver 1
 End
 
 Solver 2
-  Equation = Navier-Stokes
-! Procedure = "FlowSolve" "FlowSolver"
-! Variable = Flow Solution[Velocity:2 Pressure:1]
+  Equation = N-S
+  Procedure = "FlowSolve" "FlowSolver"
+  Variable = Flow Solution[Velocity:2 Pressure:1]
   Stabilize = True
   Bubbles = False
   Optimize Bandwidth = True
@@ -122,14 +123,12 @@ Body Force 1
   Name = "Bouancy"
   Boussinesq = True
 End
-
+ 
 Initial Condition 1
   Name = "Initial Guess"
   Velocity 2 = 0.0
   Velocity 1 = 1.0e-9
   Temperature = 295
-!Variable Coordinate 1
-!    Real MATC "293+400*tx"
 End
 
 Boundary Condition 1
@@ -164,4 +163,4 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n")$
 RUN
-$fprintf( stderr,"END TEST CASE 1: Target NRM=0.27503667E-03\n");
+$fprintf( stderr,"END TEST CASE 1: Target NRM=0.27900834E-03\n");
