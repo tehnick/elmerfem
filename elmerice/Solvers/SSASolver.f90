@@ -69,38 +69,38 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t),POINTER :: CurrentElement, Element, ParentElement, BoundaryElement
   TYPE(Matrix_t),POINTER  :: StiffMatrix
   TYPE(ValueList_t), POINTER :: SolverParams, BodyForce, Material, BC
-  TYPE(Variable_t), POINTER :: PointerToVariable, ZsSol, ZbSol, &
-                               VeloSol
+  TYPE(Variable_t), POINTER :: PointerToVariable, ZsSol, ZbSol, VeloSol, Nsol
 
   LOGICAL :: AllocationsDone = .FALSE., Found, GotIt, CalvingFront 
   LOGICAL :: Newton
 
-  INTEGER :: i, n, m, t, istat, DIM, p, STDOFs
+  INTEGER :: i, n, m, t, istat, DIM, p, STDOFs, iFriction
   INTEGER :: NonlinearIter, NewtonIter, iter, other_body_id
           
-  INTEGER, POINTER :: Permutation(:), &
-       ZsPerm(:), ZbPerm(:), &
-       NodeIndexes(:)
+  INTEGER, POINTER :: Permutation(:), ZsPerm(:), ZbPerm(:), &
+       NodeIndexes(:), NPerm(:)
 
   REAL(KIND=dp), POINTER :: ForceVector(:)
-  REAL(KIND=dp), POINTER :: VariableValues(:), Zs(:), Zb(:)
+  REAL(KIND=dp), POINTER :: VariableValues(:), Zs(:), Zb(:), Nval(:)
                             
   REAL(KIND=dp) :: UNorm, cn, dd, NonlinearTol, NewtonTol, MinSRInv, rhow, sealevel, &
-                   PrevUNorm, relativeChange,minv
+                   PrevUNorm, relativeChange, minv, fm, PostPeak
 
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
            NodalGravity(:), NodalViscosity(:), NodalDensity(:), &
-           NodalZs(:), NodalZb(:),   &
-           NodalU(:), NodalV(:), NodalSliding(:,:)
+           NodalZs(:), NodalZb(:), NodalU(:), NodalV(:),  &
+           NodalBeta(:), NodalLinVelo(:), NodalC(:), NodalN(:)
+           
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, Friction
   REAL(KIND=dp) :: at, at0, CPUTime, RealTime
        
   SAVE rhow,sealevel
   SAVE STIFF, LOAD, FORCE, AllocationsDone, DIM, SolverName, ElementNodes
   SAVE NodalGravity, NodalViscosity, NodalDensity, &
            NodalZs, NodalZb,   &
-           NodalU, NodalV, NodeIndexes, NodalSliding
+           NodalU, NodalV, NodeIndexes, &
+           NodalBeta, NodalLinVelo, NodalC, NodalN
 
 !------------------------------------------------------------------------------
   PointerToVariable => Solver % Variable
@@ -113,7 +113,6 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
         DIM = CoordinateSystemDimension()
-
 
         ZbSol => VariableGet( Solver % Mesh % Variables, 'Zb' )
         IF (ASSOCIATED(ZbSol)) THEN
@@ -129,6 +128,12 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
            ZsPerm => ZsSol % Perm
         ELSE
            CALL FATAL(SolverName,'Could not find variable >Zs<')
+        END IF
+
+        NSol => VariableGet( Solver % Mesh % Variables, 'Effective Pressure' )
+        IF (ASSOCIATED(NSol)) THEN
+           Nval => NSol % Values
+           NPerm => NSol % Perm
         END IF
   !--------------------------------------------------------------
   !Allocate some permanent storage, this is done first time only:
@@ -159,13 +164,14 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      IF (AllocationsDone) DEALLOCATE(FORCE, LOAD, STIFF, NodalGravity, &
                        NodalViscosity, NodalDensity,  &
                        NodalZb, NodalZs,  NodalU, NodalV, &
-                       NodalSliding, ElementNodes % x, &
+                       NodalBeta, NodalLinVelo, NodalC, NodalN, &
+                       ElementNodes % x, &
                        ElementNodes % y, ElementNodes % z )
 
      ALLOCATE( FORCE(STDOFs*N), LOAD(N), STIFF(STDOFs*N,STDOFs*N), &
           NodalGravity(N), NodalDensity(N), NodalViscosity(N), &
-          NodalZb(N), NodalZs(N) ,&
-          NodalU(N), NodalV(N), NodalSliding(2,N), &
+          NodalZb(N), NodalZs(N), NodalU(N), NodalV(N), &
+          NodalBeta(N), NodalLinVelo(N), NodalC(N), NodalN(N), &
           ElementNodes % x(N), ElementNodes % y(N), ElementNodes % z(N), &
            STAT=istat )
      IF ( istat /= 0 ) THEN
@@ -269,11 +275,9 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      ! Read the Viscosity eta, density, and exponent m in MMaterial Section
      ! Same definition as NS Solver in Elmer - n=1/m , A = 1/ (2 eta^n) 
      Material => GetMaterial(Element)
-
      
      cn = ListGetConstReal( Material, 'Viscosity Exponent',Found)
      MinSRInv = ListGetConstReal( Material, 'Critical Shear Rate',Found)
-
 
      NodalDensity=0.0_dp
      NodalDensity(1:n) = ListGetReal( Material, 'SSA Mean Density',n,NodeIndexes,Found)
@@ -285,12 +289,60 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      IF (.NOT.Found) &
           CALL FATAL(SolverName,'Could not find Material prop. >SSA Mean Viscosity<')
 
-     NodalSliding = 0.0_dp
-     NodalSliding(1,1:n) = ListGetReal( &
-           Material, 'SSA Slip Coefficient 1', n, NodeIndexes(1:n), Found )
-     IF (STDOFs==2) THEN
-        NodalSliding(2,1:n) = ListGetReal( &
-             Material, 'SSA Slip Coefficient 2', n, NodeIndexes(1:n), Found )  
+     Friction = GetString(Material, 'SSA Friction Law', Found) 
+     IF (.NOT.Found) &
+          CALL FATAL(SolverName,'Could not find Material keyword >SSA Friction Law<')
+          
+     SELECT CASE(Friction) 
+        CASE('linear')
+        iFriction = 1
+        fm = 1.0_dp
+        CASE('weertman')
+        iFriction = 2
+        CASE('coulomb')
+        iFriction = 3
+        CASE DEFAULT
+        CALL FATAL(SolverName,'Friction should be linear, Weertman or Coulomb')
+     END SELECT
+    
+     ! for all friction law
+     NodalBeta = 0.0_dp
+     NodalBeta(1:n) = ListGetReal( &
+           Material, 'SSA Friction Parameter', n, NodeIndexes(1:n), Found )
+     IF (.NOT.Found) &
+        CALL FATAL(SolverName,'Could not find Material prop. >SSA Friction Parameter<')
+
+     ! for Weertman and Coulomb friction
+     IF (iFriction > 1) THEN
+        fm = ListGetConstReal( Material, 'SSA Friction Exponent', Found )
+        IF (.NOT.Found) &
+           CALL FATAL(SolverName,'Could not find Material prop. >SSA Friction Exponent<')
+
+        NodalLinVelo = 0.0_dp
+        NodalLinVelo(1:n) = ListGetReal( &
+              Material, 'SSA Friction Linear Velocity', n, NodeIndexes(1:n), Found )
+        IF (.NOT.Found) &
+           CALL FATAL(SolverName,'Could not find Material prop. >SSA Friction Linear Velocity<')
+     END IF      
+
+     ! only for Coulomb friction
+     IF (iFriction > 2) THEN
+        PostPeak = ListGetConstReal( Material, 'SSA Friction Post-Peak', Found )
+        IF (.NOT.Found) &
+           CALL FATAL(SolverName,'Could not find Material prop. >SSA Friction Post-Peak<')
+
+        NodalC = 0.0_dp
+        NodalC(1:n) = ListGetReal( &
+              Material, 'SSA Friction Maximum Value', n, NodeIndexes(1:n), Found )
+        IF (.NOT.Found) &
+           CALL FATAL(SolverName,'Could not find Material prop. >SSA Friction Maximum Value<')
+        
+        ! Get the effective pressure
+        IF (ASSOCIATED(NSol)) THEN
+           NodalN(1:n) = Nval(NPerm(NodeIndexes(1:n)))
+        ELSE
+           CALL FATAL(SolverName,'Could not find variable >Effective Pressure<')
+        END IF
      END IF
 
 
@@ -300,13 +352,14 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 
      ! Previous Velocity 
      NodalU(1:n) = VariableValues(STDOFs*(Permutation(NodeIndexes(1:n))-1)+1)
-     NodalV = 0.0
+     NodalV = 0.0_dp
      IF (STDOFs.EQ.2) NodalV(1:n) = VariableValues(STDOFs*(Permutation(NodeIndexes(1:n))-1)+2)
       
 
      CALL LocalMatrixUVSSA (  STIFF, FORCE, Element, n, ElementNodes, NodalGravity, &
-        NodalDensity, NodalViscosity, NodalZb, NodalZs, &
-        NodalU, NodalV, NodalSliding, cn, MinSRInv , STDOFs, Newton)
+        NodalDensity, NodalViscosity, NodalZb, NodalZs, NodalU, NodalV, &
+        iFriction, NodalBeta, fm, NodalLinVelo, PostPeak, NodalC, NodalN, &
+        cn, MinSRInv , STDOFs, Newton)
 
      CALL DefaultUpdateEquations( STIFF, FORCE )
 
@@ -431,171 +484,214 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 CONTAINS
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalMatrixUVSSA(  STIFF, FORCE, Element, n, Nodes, gravity, &
-           Density, Viscosity, LocalZb, LocalZs, LocalU, &
-           LocalV, LocalSliding, cm, MinSRInv, STDOFs , Newton )
+SUBROUTINE LocalMatrixUVSSA(  STIFF, FORCE, Element, n, Nodes, gravity, &
+           Density, Viscosity, LocalZb, LocalZs, LocalU, LocalV, &
+           Friction, LocalBeta, fm, LocalLinVelo, fq, LocalC, LocalN, &
+           cm, MinSRInv, STDOFs , Newton )
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: STIFF(:,:), FORCE(:), gravity(:), Density(:), &
+REAL(KIND=dp) :: STIFF(:,:), FORCE(:), gravity(:), Density(:), &
                      Viscosity(:), LocalZb(:), LocalZs(:), &
-                     LocalU(:), LocalV(:) , LocalSliding(:,:)
-    INTEGER :: n, cp , STDOFs
-    REAL(KIND=dp) :: cm
-    TYPE(Element_t), POINTER :: Element
-    LOGICAL :: Newton
+                     LocalU(:), LocalV(:) , LocalBeta(:), &
+                     LocalLinVelo(:), LocalC(:), LocalN(:)
+INTEGER :: n, cp , STDOFs, Friction
+REAL(KIND=dp) :: cm, fm, fq
+TYPE(Element_t), POINTER :: Element
+LOGICAL :: Newton
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ 
-    REAL(KIND=dp) :: g, rho, eta, h, dhdx, dhdy , muder
-    REAL(KIND=dp) :: gradS(2),Slip(2),  A(2,2), StrainA(2,2),StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv                            
-    REAL(KIND=dp) :: Jac(2*n,2*n),SOL(2*n)
-    LOGICAL :: Stat, NewtonLin
-    INTEGER :: i, j, t, p, q , dim
-    TYPE(GaussIntegrationPoints_t) :: IP
+REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ 
+REAL(KIND=dp) :: g, rho, eta, h, dhdx, dhdy , muder
+REAL(KIND=dp) :: beta, LinVelo, fC, fN, Velo(2), ub, alpha, fB
+REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv                            
+REAL(KIND=dp) :: Jac(2*n,2*n), SOL(2*n), Slip, Slip2
+LOGICAL :: Stat, NewtonLin, fNewtonLIn
+INTEGER :: i, j, t, p, q , dim
+TYPE(GaussIntegrationPoints_t) :: IP
 
-    TYPE(Nodes_t) :: Nodes
+TYPE(Nodes_t) :: Nodes
 !------------------------------------------------------------------------------
-    dim = CoordinateSystemDimension()
+dim = CoordinateSystemDimension()
 
-    STIFF = 0.0d0
-    FORCE = 0.0d0
-    Jac=0.0d0
+STIFF = 0.0d0
+FORCE = 0.0d0
+Jac=0.0d0
 
 ! Use Newton Linearisation
-    NewtonLin=(Newton.AND.(cm.NE.1.0_dp))
+NewtonLin = (Newton.AND.(cm.NE.1.0_dp))
+fNewtonLin = (Newton.AND.(fm.NE.1.0_dp))
 
-
-    IP = GaussPoints( Element )
-    DO t=1,IP % n
-       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-        IP % W(t),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+IP = GaussPoints( Element )
+DO t=1,IP % n
+   stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+   IP % W(t),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
 
 ! Needed Intergration Point value
 
-       g = ABS(SUM( Gravity(1:n) * Basis(1:n) ))
-       rho = SUM( Density(1:n) * Basis(1:n) )
-       eta = SUM( Viscosity(1:n) * Basis(1:n) )
-       gradS = 0._dp
-       gradS(1) = SUM( LocalZs(1:n) * dBasisdx(1:n,1) )
-       if (STDOFs == 2) gradS(2) = SUM( LocalZs(1:n) * dBasisdx(1:n,2) )
-       h = SUM( (LocalZs(1:n)-LocalZb(1:n)) * Basis(1:n) )
-       
-       slip = 0.0_dp
-       DO i=1,STDOFs
-          slip(i) = SUM( LocalSliding(i,1:n) * Basis(1:n) )
-       END DO
+   g = ABS(SUM( Gravity(1:n) * Basis(1:n) ))
+   rho = SUM( Density(1:n) * Basis(1:n) )
+   eta = SUM( Viscosity(1:n) * Basis(1:n) )
+   gradS = 0.0_dp
+   gradS(1) = SUM( LocalZs(1:n) * dBasisdx(1:n,1) )
+   IF (STDOFs == 2) gradS(2) = SUM( LocalZs(1:n) * dBasisdx(1:n,2) )
+   h = SUM( (LocalZs(1:n)-LocalZb(1:n)) * Basis(1:n) )
 
+   beta = SUM( LocalBeta(1:n) * Basis(1:n) )
+   IF (iFriction > 1) THEN
+      LinVelo = SUM( LocalLinVelo(1:n) * Basis(1:n) )
+      IF ((iFriction == 2).AND.(fm==1.0_dp)) iFriction=1
+         Velo = 0.0_dp
+         Velo(1) = SUM(LocalU(1:n) * Basis(1:n))
+         IF (STDOFs == 2) Velo(2) = SUM(LocalV(1:n) * Basis(1:n))
+         ub = SQRT(Velo(1)*Velo(1)+Velo(2)*Velo(2))
+         IF (ub < LinVelo) ub = LinVelo
+      END IF
+
+   IF (iFriction==3) THEN
+      fC = SUM( LocalC(1:n) * Basis(1:n) )
+      fN = SUM( LocalN(1:n) * Basis(1:n) )
+   END IF
+       
+   IF (iFriction==1) THEN
+      Slip = beta
+      fNewtonLin = .FALSE.
+   ELSE IF (iFriction==2) THEN
+      Slip = beta * ub**(fm-1.0_dp) 
+      Slip2 = Slip*(fm-1.0_dp)/ub**2.0
+   ELSE IF (iFriction==3) THEN
+      IF (PostPeak.NE.1.0_dp) THEN
+         alpha = (PostPeak-1.0_dp)**(PostPeak-1.0_dp) / PostPeak**PostPeak
+      ELSE
+         alpha = 1.0_dp
+      END IF
+      fB = alpha * (beta / (fC*fN))**(PostPeak/fm)
+      Slip = beta * ub**(fm-1.0_dp) / (1.0_dp + fB * ub**PostPeak)**fm
+      Slip2 = Slip * (fm-1.0_dp) / ub**2.0 - &
+         Slip * fm*PostPeak*fB*ub**(PostPeak-2.0)/(1.0_dp+fB*ub**PostPeak)
+   END IF
 
 !------------------------------------------------------------------------------
 ! In the non-linear case, effective viscosity       
-       IF (cm.NE.1.0_dp) THEN
-           Exx = SUM(LocalU(1:n)*dBasisdx(1:n,1))
-           Eyy = 0.0
-           Exy = 0.0
-           IF (STDOFs.EQ.2) THEN
-              Eyy = SUM(LocalV(1:n)*dBasisdx(1:n,2))
-              Ezz = -Exx - Eyy
-              Exy = SUM(LocalU(1:n)*dBasisdx(1:n,2))
-              Exy = 0.5*(Exy + SUM(LocalV(1:n)*dBasisdx(1:n,1)))
-              Ee = 0.5*(Exx**2.0 + Eyy**2.0 + Ezz**2.0) + Exy**2.0
-              !Ee = SQRT(Ee)
-           ELSE
-              !Ee = ABS(Exx)
-              Ee = Exx * Exx
-           END IF
-           muder = eta * 0.5 * (2**cm) * ((cm-1.0)/2.0) *  Ee**((cm-1.0)/2.0 - 1.0)
-           IF (sqrt(Ee) < MinSRInv) then
-                Ee = MinSRInv*MinSRInv
-                muder = 0.0_dp
-           Endif
-           eta = eta * 0.5 * (2**cm) * Ee**((cm-1.0)/2.0)
-       END IF 
+   IF (cm.NE.1.0_dp) THEN
+      Exx = SUM(LocalU(1:n)*dBasisdx(1:n,1))
+      Eyy = 0.0
+      Exy = 0.0
+      IF (STDOFs.EQ.2) THEN
+         Eyy = SUM(LocalV(1:n)*dBasisdx(1:n,2))
+         Ezz = -Exx - Eyy
+         Exy = SUM(LocalU(1:n)*dBasisdx(1:n,2))
+         Exy = 0.5*(Exy + SUM(LocalV(1:n)*dBasisdx(1:n,1)))
+         Ee = 0.5*(Exx**2.0 + Eyy**2.0 + Ezz**2.0) + Exy**2.0
+         !Ee = SQRT(Ee)
+      ELSE
+         !Ee = ABS(Exx)
+         Ee = Exx * Exx
+      END IF
+      muder = eta * 0.5 * (2**cm) * ((cm-1.0)/2.0) *  Ee**((cm-1.0)/2.0 - 1.0)
+      IF (sqrt(Ee) < MinSRInv) THEN
+         Ee = MinSRInv*MinSRInv
+         muder = 0.0_dp
+      END IF
+         eta = eta * 0.5 * (2**cm) * Ee**((cm-1.0)/2.0)
+   END IF 
 
-       StrainA=0.0_dp
-       StrainB=0.0_dp
-       If (NewtonLin) then
-          StrainA(1,1)=SUM(2.0*dBasisdx(1:n,1)*LocalU(1:n))
+   StrainA=0.0_dp
+   StrainB=0.0_dp
+   IF (NewtonLin) THEN
+      StrainA(1,1)=SUM(2.0*dBasisdx(1:n,1)*LocalU(1:n))
 
-          IF (STDOFs.EQ.2) THEN
-             StrainB(1,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
+      IF (STDOFs.EQ.2) THEN
+         StrainB(1,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
 
-             StrainA(1,2)=SUM(dBasisdx(1:n,2)*LocalV(1:n))
-             StrainB(1,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
+         StrainA(1,2)=SUM(dBasisdx(1:n,2)*LocalV(1:n))
+         StrainB(1,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
 
-             StrainA(2,1)=SUM(dBasisdx(1:n,1)*LocalU(1:n))
-             StrainB(2,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
+         StrainA(2,1)=SUM(dBasisdx(1:n,1)*LocalU(1:n))
+         StrainB(2,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
 
-             StrainA(2,2)=SUM(2.0*dBasisdx(1:n,2)*LocalV(1:n))
-             StrainB(2,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
+         StrainA(2,2)=SUM(2.0*dBasisdx(1:n,2)*LocalV(1:n))
+         StrainB(2,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
+      END IF
+   END IF
 
-          End if
-       Endif
-
-       A = 0.0_dp
-       DO p=1,n
-         DO q=1,n
+   A = 0.0_dp
+   DO p=1,n
+      DO q=1,n
          A(1,1) = 2.0*dBasisdx(q,1)*dBasisdx(p,1)  
-           IF (STDOFs.EQ.2) THEN
-           A(1,1) = A(1,1) + 0.5*dBasisdx(q,2)*dBasisdx(p,2)
-           A(1,2) = dBasisdx(q,2)*dBasisdx(p,1) + &
+         IF (STDOFs.EQ.2) THEN
+            A(1,1) = A(1,1) + 0.5*dBasisdx(q,2)*dBasisdx(p,2)
+            A(1,2) = dBasisdx(q,2)*dBasisdx(p,1) + &
                              0.5*dBasisdx(q,1)*dBasisdx(p,2)
-           A(2,1) = dBasisdx(q,1)*dBasisdx(p,2) + &
+            A(2,1) = dBasisdx(q,1)*dBasisdx(p,2) + &
                              0.5*dBasisdx(q,2)*dBasisdx(p,1)
-           A(2,2) = 2.0*dBasisdx(q,2)*dBasisdx(p,2) +&
+            A(2,2) = 2.0*dBasisdx(q,2)*dBasisdx(p,2) +&
                              0.5*dBasisdx(q,1)*dBasisdx(p,1)  
          END IF
-           A = 2.0 * h * eta * A
-           DO i=1,STDOFs
-             STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
-                  slip(i) * Basis(q) * Basis(p) * IP % S(t) * detJ
-             DO j=1,STDOFs
-                STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +& 
-                      A(i,j) * IP % S(t) * detJ 
-             END DO 
-           END DO
-
-           If (NewtonLin) then
-            ! Maybe a more elegant formulation to get the Jacobian??.......
-            IF (STDOFs.EQ.1) THEN
-                  Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-                        IP % S(t) * detJ * 2.0 * h * StrainA(1,1)*dBasisdx(p,1) * &
-                         muder * 2.0 * Exx*dBasisdx(q,1) 
-
-             ELSE IF (STDOFs.EQ.2) THEN
-                  Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-             IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+(StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * &
-             muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
-
-                  Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
-             IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+(StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * &
-             muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
-
-                  Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
-             IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+(StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * &
-             muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
-
-                  Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
-             IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+(StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * &
-             muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
-             End if
-           Endif
-
-         END DO
-
+         A = 2.0 * h * eta * A
          DO i=1,STDOFs
-         FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) - &   
-            rho*g*h*gradS(i) * IP % s(t) * detJ * Basis(p) 
+            STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
+                  Slip * Basis(q) * Basis(p) * IP % S(t) * detJ
+            DO j=1,STDOFs
+               STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +& 
+                      A(i,j) * IP % S(t) * detJ 
+            END DO 
          END DO
-       END DO
-    END DO
 
-    If (NewtonLin) then
-         SOL(1:STDOFs*n:STDOFs)=LocalU(1:n)
-         If (STDOFs.EQ.2) SOL(2:STDOFs*n:STDOFs)=LocalV(1:n)
+         IF ((fNewtonLin).AND.(iFriction > 1)) THEN
+            DO i=1,STDOFs
+               STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
+                  Slip2*Velo(i)**2.0 * Basis(q) * Basis(p) * IP % S(t) * detJ
+            END DO
+         END IF
 
-         STIFF(1:STDOFs*n,1:STDOFs*n) = STIFF(1:STDOFs*n,1:STDOFs*n) + &
-                                        Jac(1:STDOFs*n,1:STDOFs*n)
-         FORCE(1:STDOFs*n) = FORCE(1:STDOFs*n) + &
-                             MATMUL(Jac(1:STDOFs*n,1:STDOFs*n),SOL(1:STDOFs*n))
-    Endif
+         IF (NewtonLin) then
+            IF (STDOFs.EQ.1) THEN
+               Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
+                   IP % S(t) * detJ * 2.0 * h * StrainA(1,1)*dBasisdx(p,1) * &
+                   muder * 2.0 * Exx*dBasisdx(q,1) 
+            ELSE IF (STDOFs.EQ.2) THEN
+               Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
+                 IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
+                 (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+
+               Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
+                 IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ & 
+                 (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+
+               Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
+                 IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ & 
+                 (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+
+               Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
+                 IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
+                 (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+            END IF
+         END IF
+
+      END DO
+
+      DO i=1,STDOFs
+         FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) - &   
+               rho*g*h*gradS(i) * IP % s(t) * detJ * Basis(p) 
+      END DO
+         
+      IF ((fNewtonLin).AND.(iFriction>1)) THEN
+         DO i=1,STDOFs
+            FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &   
+               Slip2*Velo(i)**3.0 * IP % s(t) * detJ * Basis(p) 
+         END DO
+      END IF
+          
+   END DO
+END DO
+
+IF (NewtonLin) THEN
+   SOL(1:STDOFs*n:STDOFs)=LocalU(1:n)
+   IF (STDOFs.EQ.2) SOL(2:STDOFs*n:STDOFs)=LocalV(1:n)
+
+   STIFF(1:STDOFs*n,1:STDOFs*n) = STIFF(1:STDOFs*n,1:STDOFs*n) + &
+       Jac(1:STDOFs*n,1:STDOFs*n)
+   FORCE(1:STDOFs*n) = FORCE(1:STDOFs*n) + &
+       MATMUL(Jac(1:STDOFs*n,1:STDOFs*n),SOL(1:STDOFs*n))
+END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrixUVSSA
 !------------------------------------------------------------------------------

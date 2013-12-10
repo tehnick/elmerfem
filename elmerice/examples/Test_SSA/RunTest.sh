@@ -21,3 +21,9 @@ ElmerSolver ismip_SSA_1D.sif
 
 ## Grow an ice cap
 #ElmerSolver SSA_IceSheet.sif 
+
+## Test the Weertman friction law with SSA
+#ElmerSolver ismip_SSA_2D_Weertman.sif 
+
+## Test the Coulomb friction law with SSA
+#ElmerSolver ismip_SSA_2D_Coulomb.sif 
