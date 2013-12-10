@@ -862,9 +862,9 @@ CONTAINS
        IF ( .NOT. InsideQuotes .AND. readstr(i:i) == CHAR(92) .AND. i==inlen ) THEN
           readstr(i:i) = ' '
           IF ( IncludeUnit < IncludeUnitBase ) THEN
-            READ( Unit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
-          ELSE
             READ( IncludeUnit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
+          ELSE
+            READ( Unit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
           END IF
           DO j=LEN(readstr),i+1,-1
              IF ( readstr(j:j) /= ' ' ) EXIT
