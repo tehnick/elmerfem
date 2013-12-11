@@ -83,7 +83,7 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: ForceVector(:)
   REAL(KIND=dp), POINTER :: VariableValues(:), Zs(:), Zb(:), Nval(:)
                             
-  REAL(KIND=dp) :: UNorm, cn, dd, NonlinearTol, NewtonTol, MinSRInv, rhow, sealevel, &
+  REAL(KIND=dp) :: UNorm, cn, dd, NonlinearTol, NewtonTol, MinSRInv, MinH, rhow, sealevel, &
                    PrevUNorm, relativeChange, minv, fm, PostPeak
 
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
@@ -113,6 +113,9 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
         DIM = CoordinateSystemDimension()
+
+ ! IF DIM = STDOFs+1  Normal-Tangential can not be used => trick temporary set Model Dimension to STDOFs
+       IF (DIM.eq.(STDOFs+1)) CurrentModel % Dimension = STDOFs
 
         ZbSol => VariableGet( Solver % Mesh % Variables, 'Zb' )
         IF (ASSOCIATED(ZbSol)) THEN
@@ -278,6 +281,9 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      
      cn = ListGetConstReal( Material, 'Viscosity Exponent',Found)
      MinSRInv = ListGetConstReal( Material, 'Critical Shear Rate',Found)
+     MinH = ListGetConstReal( Material, 'SSA Critical Thickness',Found)
+     If (.NOT.Found) MinH=EPSILON(MinH)
+
 
      NodalDensity=0.0_dp
      NodalDensity(1:n) = ListGetReal( Material, 'SSA Mean Density',n,NodeIndexes,Found)
@@ -359,7 +365,7 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      CALL LocalMatrixUVSSA (  STIFF, FORCE, Element, n, ElementNodes, NodalGravity, &
         NodalDensity, NodalViscosity, NodalZb, NodalZs, NodalU, NodalV, &
         iFriction, NodalBeta, fm, NodalLinVelo, PostPeak, NodalC, NodalN, &
-        cn, MinSRInv , STDOFs, Newton)
+        cn, MinSRInv, MinH , STDOFs, Newton)
 
      CALL DefaultUpdateEquations( STIFF, FORCE )
 
@@ -427,6 +433,9 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
         IF (.NOT.Found) &
            CALL FATAL(SolverName,'Could not find Material prop.  >SSA Mean Density<')
 
+        MinH = ListGetConstReal( Material, 'SSA Critical Thickness',Found)
+        If (.NOT.Found) MinH=EPSILON(MinH)
+
         ! Read the gravity in the Body Force Section 
         BodyForce => GetBodyForce(ParentElement)
         NodalGravity = 0.0_dp
@@ -441,7 +450,7 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
         END IF
 
         CALL LocalMatrixBCSSA(  STIFF, FORCE, BoundaryElement, n, ElementNodes,&
-               NodalDensity, NodalGravity, NodalZb, NodalZs, rhow, sealevel )
+               NodalDensity, NodalGravity, NodalZb, NodalZs, rhow, sealevel,MinH )
         CALL DefaultUpdateEquations( STIFF, FORCE )
      END IF
   END DO
@@ -481,13 +490,16 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 
   END DO ! Loop Non-Linear Iterations
 
+  !!! reset Model Dimension to dim
+  IF (DIM.eq.(STDOFs+1)) CurrentModel % Dimension = DIM
+
 CONTAINS
 
 !------------------------------------------------------------------------------
 SUBROUTINE LocalMatrixUVSSA(  STIFF, FORCE, Element, n, Nodes, gravity, &
            Density, Viscosity, LocalZb, LocalZs, LocalU, LocalV, &
            Friction, LocalBeta, fm, LocalLinVelo, fq, LocalC, LocalN, &
-           cm, MinSRInv, STDOFs , Newton )
+           cm, MinSRInv, MinH, STDOFs , Newton )
 !------------------------------------------------------------------------------
 REAL(KIND=dp) :: STIFF(:,:), FORCE(:), gravity(:), Density(:), &
                      Viscosity(:), LocalZb(:), LocalZs(:), &
@@ -501,7 +513,7 @@ LOGICAL :: Newton
 REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ 
 REAL(KIND=dp) :: g, rho, eta, h, dhdx, dhdy , muder
 REAL(KIND=dp) :: beta, LinVelo, fC, fN, Velo(2), ub, alpha, fB
-REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv                            
+REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv ,MinH                           
 REAL(KIND=dp) :: Jac(2*n,2*n), SOL(2*n), Slip, Slip2
 LOGICAL :: Stat, NewtonLin, fNewtonLIn
 INTEGER :: i, j, t, p, q , dim
@@ -533,6 +545,7 @@ DO t=1,IP % n
    gradS(1) = SUM( LocalZs(1:n) * dBasisdx(1:n,1) )
    IF (STDOFs == 2) gradS(2) = SUM( LocalZs(1:n) * dBasisdx(1:n,2) )
    h = SUM( (LocalZs(1:n)-LocalZb(1:n)) * Basis(1:n) )
+   h=max(h,MinH)
 
    beta = SUM( LocalBeta(1:n) * Basis(1:n) )
    IF (iFriction > 1) THEN
@@ -542,8 +555,12 @@ DO t=1,IP % n
          Velo(1) = SUM(LocalU(1:n) * Basis(1:n))
          IF (STDOFs == 2) Velo(2) = SUM(LocalV(1:n) * Basis(1:n))
          ub = SQRT(Velo(1)*Velo(1)+Velo(2)*Velo(2))
-         IF (ub < LinVelo) ub = LinVelo
-      END IF
+         Slip2=1.0_dp
+         IF (ub < LinVelo) then 
+            ub = LinVelo
+            Slip2=0.0_dp
+         ENDIF
+   END IF
 
    IF (iFriction==3) THEN
       fC = SUM( LocalC(1:n) * Basis(1:n) )
@@ -555,7 +572,7 @@ DO t=1,IP % n
       fNewtonLin = .FALSE.
    ELSE IF (iFriction==2) THEN
       Slip = beta * ub**(fm-1.0_dp) 
-      Slip2 = Slip*(fm-1.0_dp)/ub**2.0
+      Slip2 = Slip2*Slip*(fm-1.0_dp)/ub**2.0
    ELSE IF (iFriction==3) THEN
       IF (PostPeak.NE.1.0_dp) THEN
          alpha = (PostPeak-1.0_dp)**(PostPeak-1.0_dp) / PostPeak**PostPeak
@@ -564,8 +581,8 @@ DO t=1,IP % n
       END IF
       fB = alpha * (beta / (fC*fN))**(PostPeak/fm)
       Slip = beta * ub**(fm-1.0_dp) / (1.0_dp + fB * ub**PostPeak)**fm
-      Slip2 = Slip * (fm-1.0_dp) / ub**2.0 - &
-         Slip * fm*PostPeak*fB*ub**(PostPeak-2.0)/(1.0_dp+fB*ub**PostPeak)
+      Slip2 = Slip2 * Slip * ((fm-1.0_dp) / ub**2.0 - &
+           fm*PostPeak*fB*ub**(PostPeak-2.0)/(1.0_dp+fB*ub**PostPeak))
    END IF
 
 !------------------------------------------------------------------------------
@@ -637,8 +654,10 @@ DO t=1,IP % n
 
          IF ((fNewtonLin).AND.(iFriction > 1)) THEN
             DO i=1,STDOFs
-               STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
-                  Slip2*Velo(i)**2.0 * Basis(q) * Basis(p) * IP % S(t) * detJ
+              Do j=1,STDOFs
+               STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +&
+                  Slip2 * Velo(i) * Velo(j) * Basis(q) * Basis(p) * IP % S(t) * detJ
+              End do
             END DO
          END IF
 
@@ -676,7 +695,7 @@ DO t=1,IP % n
       IF ((fNewtonLin).AND.(iFriction>1)) THEN
          DO i=1,STDOFs
             FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &   
-               Slip2*Velo(i)**3.0 * IP % s(t) * detJ * Basis(p) 
+               Slip2 * Velo(i) * ub**2.0 * IP % s(t) * detJ * Basis(p) 
          END DO
       END IF
           
@@ -698,12 +717,12 @@ END IF
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrixBCSSA(  STIFF, FORCE, Element, n, ENodes, Density, & 
-                      Gravity, LocalZb, LocalZs, rhow, sealevel)
+                      Gravity, LocalZb, LocalZs, rhow, sealevel, MinH)
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: Element
     TYPE(Nodes_t) ::  ENodes
     REAL(KIND=dp) :: STIFF(:,:), FORCE(:),  density(:), Gravity(:), LocalZb(:),&
-                         LocalZs(:),rhow, sealevel
+                         LocalZs(:),rhow, sealevel, MinH
     INTEGER :: n
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3), &
@@ -725,6 +744,7 @@ END IF
          g = ABS( Gravity(i) )
          rhoi = Density(i)
          h = LocalZs(i)-LocalZb(i) 
+         h = max(h,MinH)
          h_im=max(0._dp,sealevel-LocalZb(i))
          alpha=0.5 * g * (rhoi * h**2.0 - rhow * h_im**2.0)
          FORCE(i) = FORCE(i) + alpha
