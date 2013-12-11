@@ -3173,7 +3173,7 @@ END SUBROUTINE GetMaxDefs
     Nsymmetry = 360.0_dp / dFii2 
     WRITE(Message,'(A,ES12.3)') 'Symmetric sections in target:',Nsymmetry
     CALL Info('RotationalInterfaceMeshes',Message,Level=8)        
-    IF( Nsymmetry - NINT( Nsymmetry ) > 0.01 ) THEN
+    IF( ABS( Nsymmetry - NINT( Nsymmetry ) ) > 0.01 ) THEN
       IF( dFii1 < dFii2 ) THEN
         CALL Info('RotationalInterfaceMeshes','You might try to switch master and target!',Level=3)
       END IF
