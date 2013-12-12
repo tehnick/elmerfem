@@ -38,11 +38,11 @@
 !     - csa-c libary (http://code.google.com/p/csa-c): cubic spline approximation
 !
 ! TODO: - add possibility to prescibe std for csa method
-!       - netcdf reader ??
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         SUBROUTINE Scattered2DDataInterpolator( Model,Solver,dt,TransientSimulation )
 
+        USE Netcdf
         USE DefUtils
         USE NearestNeighbour
 
@@ -58,22 +58,29 @@
         REAL(KIND=dp), POINTER :: Values(:)
         INTEGER, POINTER :: Perm(:)
 
-        REAL(KIND=DP) :: Win,NaNVal
+        REAL(KIND=DP) :: Win,NaNVal,fillv
         REAL(KIND=DP) :: x,y,z,MinD,D
+        REAL(KIND=DP),allocatable :: xx(:),yy(:),DEM(:,:)
 
         INTEGER,parameter :: io=20
         INTEGER :: ok,nNaN
-        INTEGER :: i,k,kmin,NoVar
+        INTEGER :: i,j,k,kmin,NoVar
         INTEGER :: nppcin,csakin
+        INTEGER :: NetcdfStatus,varid,ncid
+        INTEGER :: compt,nx,ny
 
         CHARACTER(LEN=MAX_NAME_LEN) :: VariableName,DataF
-        CHARACTER(LEN=MAX_NAME_LEN) :: Name,FName,WName,MName,CSVName
+        CHARACTER(LEN=MAX_NAME_LEN) :: Name,FName,WName,MName,CSVName,tmpName
         CHARACTER(LEN=MAX_NAME_LEN),parameter :: &
                          SolverName='Scattered2DDataInterpolator'
+        CHARACTER(LEN=MAX_NAME_LEN) :: Xdim,dimName,FillName
         CHARACTER(2) :: method
 
         LOGICAL :: GotVar,Found
-        LOGICAL :: CheckNaN,ReplaceNaN
+        LOGICAL :: CheckNaN,ReplaceNaN,NETCDFFormat
+        LOGICAL :: GoodVal,HaveFillv
+        LOGICAL,dimension(:,:), allocatable :: mask
+        LOGICAL :: Debug=.False.
 
         ! Variables to pass to the nn C library
         type(POINT),dimension(:),allocatable :: pout,pin
@@ -92,11 +99,16 @@
        ! Mesh nodes coordinates for the NN iterpolation
        nout=Model % Mesh % NumberOfNodes
        allocate(pout(nout))
+   
+       IF (DEBUG) open(10,file='MeshNodes.dat') !tmp
 
         Do i=1,Model % Mesh % NumberOfNodes
            pout(i)%x = Model % Mesh % Nodes % x(i)
            pout(i)%y = Model % Mesh % Nodes % y(i)
+           IF (DEBUG) write(10,*) pout(i)%x,pout(i)%y
         End Do
+
+        IF (DEBUG) close(10) !tmp
 
        ! Read variable to initialize and Data
         NoVar=0
@@ -111,11 +123,11 @@
 
             Var => VariableGet(Model %  Mesh % Variables, VariableName )
             IF(.NOT.ASSOCIATED(Var)) Then
-                
-            ELSE
-                Values => Var % Values
-                Perm => Var % Perm
-            END IF
+               CALL VariableAddVector(Model % Mesh % Variables,Model % Mesh,Solver,VariableName,1)
+               Var => VariableGet(Model %  Mesh % Variables, VariableName )
+            ENDIF
+            Values => Var % Values
+            Perm => Var % Perm
 
             WRITE (FName,'(A,I0,A)') 'Variable ',NoVar,' Data File'
             DataF = ListGetString( Params, TRIM(FName), Found )
@@ -125,6 +137,15 @@
                         'Keyword <',Trim(Fname),'> not found'
                CALL Fatal(Trim(SolverName),Trim(message))
             END IF
+            k = INDEX( DataF,'.nc' )
+            NETCDFFormat = ( k /= 0 )
+
+            IF (NETCDFFormat) then
+              CALL INFO(Trim(SolverName),'Data File is in netcdf format', Level=5)
+            Else
+               CALL INFO(Trim(SolverName),'Data File is in ascii', Level=5)
+            Endif
+            
 
             WRITE (WName,'(A,I0,A)') 'Variable ',NoVar,' W'
             Win = ListGetConstReal( Params, TRIM(WName), Found )
@@ -140,31 +161,170 @@
                 method='n'
             endif
             
-            
-            open(unit = io, file = TRIM(DataF), status = 'old',iostat = ok)
+           IF (.NOT.NETCDFFormat) Then
+               open(unit = io, file = TRIM(DataF), status = 'old',iostat = ok)
 
-            if(ok /= 0) then
-               write(message,'(A,A)') 'Unable to open file ',TRIM(DataF)
-               CALL Fatal(Trim(SolverName),Trim(message))
-            end if
+               if(ok /= 0) then
+                  write(message,'(A,A)') 'Unable to open file ',TRIM(DataF)
+                  CALL Fatal(Trim(SolverName),Trim(message))
+               end if
             
-            nin=0
-            !count the line number in the file
-            do while(ok == 0) 
-              read(io,*,iostat = ok)
-              if (ok == 0) nin = nin + 1
-            end do 
+               nin=0
+               !count the line number in the file
+               do while(ok == 0) 
+                 read(io,*,iostat = ok)
+                 if (ok == 0) nin = nin + 1
+               end do 
+
+               IF (nin.eq.0) then
+                   write(message,'(A,A)') 'No Data found in',TRIM(DataF)
+                   CALL Fatal(Trim(SolverName),Trim(message))
+               ENDIF
+                                        
           
-            allocate(pin(nin))
+               allocate(pin(nin))
 
-            ! comes back to begining of file
-            rewind(unit=io,iostat=ok)
+               ! comes back to begining of file
+               rewind(unit=io,iostat=ok)
 
-            ! read datas
-            do i = 1, nin
-                read(io,*,iostat = ok) pin(i)%x,pin(i)%y,pin(i)%z
-            end do
-            close(io)
+               ! read datas
+               do i = 1, nin
+                   read(io,*,iostat = ok) pin(i)%x,pin(i)%y,pin(i)%z
+               end do
+               close(io)
+           ELSE
+               NetCDFstatus = NF90_OPEN(trim(DataF),NF90_NOWRITE,ncid)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   CALL Fatal(Trim(SolverName), &
+                       'Unable to open NETCDF File')
+               END IF
+               WRITE (dimName,'(A,I0,A)') 'Variable ',&
+                         NoVar,' x-dim Name'
+               Xdim=ListGetString( Params, TRIM(dimName), Found )
+               if (.NOT.Found) Xdim='x'
+               NetCDFstatus = nf90_inq_dimid(ncid, trim(Xdim) , varid)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                    CALL Fatal(Trim(SolverName), &
+                        'Unable to  get netcdf x-dim Id')
+               ENDIF
+               NetCDFstatus = nf90_inquire_dimension(ncid,varid,len=nx)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                    CALL Fatal(Trim(SolverName), &
+                        'Unable to  get netcdf nx')
+               ENDIF
+               WRITE (dimName,'(A,I0,A)') 'Variable ',&
+                         NoVar,' y-dim Name'
+               Xdim=ListGetString( Params, TRIM(dimName), Found )
+               if (.NOT.Found) Xdim='y'
+               NetCDFstatus = nf90_inq_dimid(ncid, trim(Xdim) , varid)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                    CALL Fatal(Trim(SolverName), &
+                        'Unable to  get netcdf y-dim Id')
+               ENDIF
+               NetCDFstatus = nf90_inquire_dimension(ncid,varid,len=ny)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                    CALL Fatal(Trim(SolverName), &
+                        'Unable to  get netcdf ny')
+               ENDIF
+               !! allocate good size
+               allocate(xx(nx),yy(ny),DEM(nx,ny),mask(nx,ny))
+               !! Get the variable
+               NetCDFstatus = nf90_inq_varid(ncid,TRIM(VariableName),varid)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   CALL Fatal(Trim(SolverName), &
+                        'Unable to get netcdf variable id')
+               ENDIF
+               NetCDFstatus = nf90_get_var(ncid, varid,DEM)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   CALL Fatal(Trim(SolverName), &
+                        'Unable to get netcdf variable')
+               ENDIF
+               HaveFillV=.True.
+               NetCDFstatus = nf90_get_att(ncid, varid,"_FillValue",fillv)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   WRITE (FillName,'(A,I0,A)') 'Variable ',&
+                           NoVar,' Fill Value'
+                   fillv=ListGetConstReal(Params, TRIM(FillName) , Found)
+                   if (.NOT.Found) HaveFillV=.False.
+               ENDIF
+
+               !! Get X variable
+               WRITE (dimName,'(A,I0,A)') 'Variable ',&
+                       NoVar,'x-Var Name'
+               Xdim=ListGetString( Params, TRIM(dimName), Found )
+               if (.NOT.Found) Xdim='x'
+               NetCDFstatus = nf90_inq_varid(ncid,trim(Xdim),varid)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   CALL Fatal(Trim(SolverName), &
+                        'Unable to get netcdf x-variable id')
+               ENDIF
+               NetCDFstatus = nf90_get_var(ncid, varid,xx)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   CALL Fatal(Trim(SolverName), &
+                        'Unable to get netcdf x-variable ')
+               ENDIF
+               !! Get Y variable
+               WRITE (dimName,'(A,I0,A)') 'Variable ',&
+                       NoVar,'y-Var Name'
+               Xdim=ListGetString( Params, TRIM(dimName), Found )
+               if (.NOT.Found) Xdim='y'
+               NetCDFstatus = nf90_inq_varid(ncid,trim(Xdim),varid)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   CALL Fatal(Trim(SolverName), &
+                        'Unable to get netcdf y-variable id')
+               ENDIF
+               NetCDFstatus = nf90_get_var(ncid, varid,yy)
+               IF ( NetCDFstatus /= NF90_NOERR ) THEN
+                   CALL Fatal(Trim(SolverName), &
+                        'Unable to get netcdf y-variable')
+               ENDIF
+               !! Close NETCDF
+               NetCDFstatus = nf90_close(ncid)
+
+               !! Fill Data values
+               IF (HaveFillV) then
+                  mask(:,:)=(DEM(:,:).NE.fillv)
+                  nin=COUNT(mask)
+               Else
+                  nin=nx*ny
+               Endif
+
+               write(message,'(A,I0,A,I0)') 'NETCDF: I Found ',nin,&
+                     ' data points with non-missing  value over ',nx*ny
+              CALL INFO(Trim(SolverName),Trim(message),Level=5)
+
+               if (nin.eq.0) CALL Fatal(Trim(SolverName), &
+                                  'no data with non-missing value??')
+
+               allocate(pin(nin))
+                
+               IF (DEBUG) write(tmpName,'(A,A)') &
+                          TRIM(VariableName),'Data.dat'
+               IF (DEBUG) open(10,file=trim(tmpName)) !tmp
+
+               compt=0
+               Do i=1,nx
+                  Do j=1,ny
+                     GoodVal=.True.
+                     IF (HaveFillV) GoodVal=(DEM(i,j).NE.fillv)
+                     if (GoodVal) then
+                       compt=compt+1
+                       IF (compt.GT.nin) then
+                          CALL Fatal(Trim(SolverName),&
+                               'get more Non-Nan values than expected')
+                       ENDIF
+                       pin(compt)%x = xx(i)
+                       pin(compt)%y = yy(j)
+                       pin(compt)%z = DEM(i,j)
+                       IF (DEBUG) write(10,*) pin(compt)%x,pin(compt)%y,pin(compt)%z
+                     endif         
+                  End do
+               End do
+               IF (DEBUG) close(10) !tmp
+               if (compt.ne.nin) CALL Fatal(Trim(SolverName),&
+                       'sorry I didn t found the good number of values')
+               deallocate(xx,yy,DEM,mask)
+           ENDIF
 
             ! call the nn C library
             SELECT CASE (method(1:1))
@@ -211,7 +371,7 @@
                    call nnpi_interpolate_points(nin,pin,w,nout,pout)
            END SELECT
             
-            
+             CALL INFO(Trim(SolverName),'-----Interpolation Done---', Level=5)
             !update variable value
             nNaN=0
             Do i=1,nout

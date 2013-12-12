@@ -32,8 +32,8 @@ Simulation
   Steady State Min Iterations = 1
   Steady State Max Iterations = 1
 
-  Output File = "Reference.result"
-  Post File = "Reference.ep"
+!  Output File = "Reference.result"
+  Post File = "Reference.vtu"
   max output level = 5
 End
 
@@ -91,7 +91,7 @@ Solver 2
 
   Equation = "ScatteredInter"
 
-  procedure = "ElmerIceSolvers" "Scattered2DDataInterpolator"
+  procedure = "Scattered2DDataInterpolator" "Scattered2DDataInterpolator"
 
   CheckNaN = Logical True ! Default True; check is interpolation method gives NaN 
 	! By default replace NaN by nearest available value
@@ -141,21 +141,6 @@ Solver 2
 ! set the spline sensitivity (default = 140, reduce to get
 !                     smoother results)
 End
-
-Solver 3
-
-  Equation = "ResultOutput"
-
-  Procedure = File "ResultOutputSolve" "ResultOutputSolver"
-
-  Output File Name  = string "Test"
-  Vtu Format = logical true
-  Binary Output = True
-  Single Precision = True
-
-End
-
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

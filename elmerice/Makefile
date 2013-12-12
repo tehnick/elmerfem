@@ -61,7 +61,6 @@ usfobjects := $(patsubst %.f90,%.o,$(USFSOURCE))
 
 all: compile
 
-include Solvers/MakefileScattered2D.inc
 
 compile:  $(EXECUTABLES)
 
