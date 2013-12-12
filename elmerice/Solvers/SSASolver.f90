@@ -207,10 +207,8 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
       NewtonIter = ListGetInteger( Solver % Values, &
               'Nonlinear System Newton After Iterations', GotIt )
       if (.NOT.Gotit) NewtonIter = NonlinearIter + 1
-
     
       Newton=.False.
-
 !------------------------------------------------------------------------------
       DO iter=1,NonlinearIter
 
@@ -384,8 +382,8 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      IF (ParEnv % myPe .NE. BoundaryElement % partIndex) CYCLE
 
      n = GetElementNOFNodes()
-     FORCE = 0.0e0
-     STIFF = 0.0e0
+     FORCE = 0.0_dp
+     STIFF = 0.0_dp
 
  ! set coords of highest occuring dimension to zero (to get correct path element)
         !-------------------------------------------------------------------------------
@@ -523,9 +521,9 @@ TYPE(Nodes_t) :: Nodes
 !------------------------------------------------------------------------------
 dim = CoordinateSystemDimension()
 
-STIFF = 0.0d0
-FORCE = 0.0d0
-Jac=0.0d0
+STIFF = 0.0_dp
+FORCE = 0.0_dp
+Jac=0.0_dp
 
 ! Use Newton Linearisation
 NewtonLin = (Newton.AND.(cm.NE.1.0_dp))
@@ -572,7 +570,7 @@ DO t=1,IP % n
       fNewtonLin = .FALSE.
    ELSE IF (iFriction==2) THEN
       Slip = beta * ub**(fm-1.0_dp) 
-      Slip2 = Slip2*Slip*(fm-1.0_dp)/ub**2.0
+      Slip2 = Slip2*Slip*(fm-1.0_dp)/(ub*ub)
    ELSE IF (iFriction==3) THEN
       IF (PostPeak.NE.1.0_dp) THEN
          alpha = (PostPeak-1.0_dp)**(PostPeak-1.0_dp) / PostPeak**PostPeak
@@ -581,68 +579,66 @@ DO t=1,IP % n
       END IF
       fB = alpha * (beta / (fC*fN))**(PostPeak/fm)
       Slip = beta * ub**(fm-1.0_dp) / (1.0_dp + fB * ub**PostPeak)**fm
-      Slip2 = Slip2 * Slip * ((fm-1.0_dp) / ub**2.0 - &
-           fm*PostPeak*fB*ub**(PostPeak-2.0)/(1.0_dp+fB*ub**PostPeak))
+      Slip2 = Slip2 * Slip * ((fm-1.0_dp) / (ub*ub) - &
+           fm*PostPeak*fB*ub**(PostPeak-2.0_dp)/(1.0_dp+fB*ub**PostPeak))
    END IF
 
 !------------------------------------------------------------------------------
 ! In the non-linear case, effective viscosity       
    IF (cm.NE.1.0_dp) THEN
       Exx = SUM(LocalU(1:n)*dBasisdx(1:n,1))
-      Eyy = 0.0
-      Exy = 0.0
+      Eyy = 0.0_dp
+      Exy = 0.0_dp
       IF (STDOFs.EQ.2) THEN
          Eyy = SUM(LocalV(1:n)*dBasisdx(1:n,2))
          Ezz = -Exx - Eyy
          Exy = SUM(LocalU(1:n)*dBasisdx(1:n,2))
-         Exy = 0.5*(Exy + SUM(LocalV(1:n)*dBasisdx(1:n,1)))
-         Ee = 0.5*(Exx**2.0 + Eyy**2.0 + Ezz**2.0) + Exy**2.0
-         !Ee = SQRT(Ee)
+         Exy = 0.5_dp*(Exy + SUM(LocalV(1:n)*dBasisdx(1:n,1)))
+         Ee = 0.5_dp*(Exx*Exx + Eyy*Eyy + Ezz*Ezz) + Exy*Exy
       ELSE
-         !Ee = ABS(Exx)
-         Ee = Exx * Exx
+         Ee = Exx*Exx
       END IF
-      muder = eta * 0.5 * (2**cm) * ((cm-1.0)/2.0) *  Ee**((cm-1.0)/2.0 - 1.0)
+      muder = eta * 0.5_dp * (2.0_dp**cm) * ((cm-1.0_dp)/2.0_dp) *  Ee**((cm-1.0_dp)/2.0_dp - 1.0_dp)
       IF (sqrt(Ee) < MinSRInv) THEN
          Ee = MinSRInv*MinSRInv
          muder = 0.0_dp
       END IF
-         eta = eta * 0.5 * (2**cm) * Ee**((cm-1.0)/2.0)
+         eta = eta * 0.5_dp * (2.0_dp**cm) * Ee**((cm-1.0_dp)/2.0_dp)
    END IF 
 
    StrainA=0.0_dp
    StrainB=0.0_dp
    IF (NewtonLin) THEN
-      StrainA(1,1)=SUM(2.0*dBasisdx(1:n,1)*LocalU(1:n))
+      StrainA(1,1)=SUM(2.0_dp*dBasisdx(1:n,1)*LocalU(1:n))
 
       IF (STDOFs.EQ.2) THEN
-         StrainB(1,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
+         StrainB(1,1)=SUM(0.5_dp*dBasisdx(1:n,2)*LocalU(1:n))
 
          StrainA(1,2)=SUM(dBasisdx(1:n,2)*LocalV(1:n))
-         StrainB(1,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
+         StrainB(1,2)=SUM(0.5_dp*dBasisdx(1:n,1)*LocalV(1:n))
 
          StrainA(2,1)=SUM(dBasisdx(1:n,1)*LocalU(1:n))
-         StrainB(2,1)=SUM(0.5*dBasisdx(1:n,2)*LocalU(1:n))
+         StrainB(2,1)=SUM(0.5_dp*dBasisdx(1:n,2)*LocalU(1:n))
 
-         StrainA(2,2)=SUM(2.0*dBasisdx(1:n,2)*LocalV(1:n))
-         StrainB(2,2)=SUM(0.5*dBasisdx(1:n,1)*LocalV(1:n))
+         StrainA(2,2)=SUM(2.0_dp*dBasisdx(1:n,2)*LocalV(1:n))
+         StrainB(2,2)=SUM(0.5_dp*dBasisdx(1:n,1)*LocalV(1:n))
       END IF
    END IF
 
    A = 0.0_dp
    DO p=1,n
       DO q=1,n
-         A(1,1) = 2.0*dBasisdx(q,1)*dBasisdx(p,1)  
+         A(1,1) = 2.0_dp*dBasisdx(q,1)*dBasisdx(p,1)  
          IF (STDOFs.EQ.2) THEN
-            A(1,1) = A(1,1) + 0.5*dBasisdx(q,2)*dBasisdx(p,2)
+            A(1,1) = A(1,1) + 0.5_dp*dBasisdx(q,2)*dBasisdx(p,2)
             A(1,2) = dBasisdx(q,2)*dBasisdx(p,1) + &
-                             0.5*dBasisdx(q,1)*dBasisdx(p,2)
+                             0.5_dp*dBasisdx(q,1)*dBasisdx(p,2)
             A(2,1) = dBasisdx(q,1)*dBasisdx(p,2) + &
-                             0.5*dBasisdx(q,2)*dBasisdx(p,1)
+                             0.5_dp*dBasisdx(q,2)*dBasisdx(p,1)
             A(2,2) = 2.0*dBasisdx(q,2)*dBasisdx(p,2) +&
-                             0.5*dBasisdx(q,1)*dBasisdx(p,1)  
+                             0.5_dp*dBasisdx(q,1)*dBasisdx(p,1)  
          END IF
-         A = 2.0 * h * eta * A
+         A = 2.0_dp * h * eta * A
          DO i=1,STDOFs
             STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
                   Slip * Basis(q) * Basis(p) * IP % S(t) * detJ
@@ -664,24 +660,24 @@ DO t=1,IP % n
          IF (NewtonLin) then
             IF (STDOFs.EQ.1) THEN
                Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-                   IP % S(t) * detJ * 2.0 * h * StrainA(1,1)*dBasisdx(p,1) * &
-                   muder * 2.0 * Exx*dBasisdx(q,1) 
+                   IP % S(t) * detJ * 2.0_dp * h * StrainA(1,1)*dBasisdx(p,1) * &
+                   muder * 2.0_dp * Exx*dBasisdx(q,1) 
             ELSE IF (STDOFs.EQ.2) THEN
                Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-                 IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
-                 (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+                 IP % S(t) * detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
+                 (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
 
                Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
-                 IP % S(t) * detJ * 2.0 * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ & 
-                 (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+                 IP % S(t) * detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ & 
+                 (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
 
                Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
-                 IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ & 
-                 (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+                 IP % S(t) * detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ & 
+                 (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
 
                Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
-                 IP % S(t) * detJ * 2.0 * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
-                 (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+                 IP % S(t) * detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
+                 (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
             END IF
          END IF
 
@@ -695,7 +691,7 @@ DO t=1,IP % n
       IF ((fNewtonLin).AND.(iFriction>1)) THEN
          DO i=1,STDOFs
             FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &   
-               Slip2 * Velo(i) * ub**2.0 * IP % s(t) * detJ * Basis(p) 
+               Slip2 * Velo(i) * ub * ub * IP % s(t) * detJ * Basis(p) 
          END DO
       END IF
           
@@ -732,8 +728,8 @@ END IF
     TYPE(GaussIntegrationPoints_t) :: IP
 
 !------------------------------------------------------------------------------
-    STIFF = 0.0d0
-    FORCE = 0.0d0
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
 
 ! The front force is a concentrated nodal force in 1D-SSA and
 ! a force distributed along a line in 2D-SSA    
@@ -745,8 +741,8 @@ END IF
          rhoi = Density(i)
          h = LocalZs(i)-LocalZb(i) 
          h = max(h,MinH)
-         h_im=max(0._dp,sealevel-LocalZb(i))
-         alpha=0.5 * g * (rhoi * h**2.0 - rhow * h_im**2.0)
+         h_im = max(0.0_dp,sealevel-LocalZb(i))
+         alpha=0.5-dp * g * (rhoi * h*h - rhow * h_im*h_im)
          FORCE(i) = FORCE(i) + alpha
       END DO
 
@@ -764,11 +760,11 @@ END IF
              rhoi = SUM( Density(1:n) * Basis(1:n) )
              h = SUM( (LocalZs(1:n)-LocalZb(1:n)) * Basis(1:n))
              h_im = max(0.0_dp , SUM( (sealevel-LocalZb(1:n)) * Basis(1:n)) )
-             alpha=0.5 * g * (rhoi * h**2.0 - rhow * h_im**2.0)
+             alpha=0.5_dp * g * (rhoi * h*h - rhow * h_im*h_im)
 
 ! Normal in the (x,y) plane
              Normal = NormalVector( Element, ENodes, IP % U(t), IP % V(t), .TRUE.)
-             norm=SQRT(normal(1)**2.0+normal(2)**2.0)
+             norm=SQRT(normal(1)*normal(1) +normal(2)*normal(2))
              Normal(1) = Normal(1)/norm
              Normal(2) = Normal(2)/norm
 
