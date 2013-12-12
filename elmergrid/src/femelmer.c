@@ -609,8 +609,10 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     if(info) printf("Loading %d boundary elements from %s\n",nosides,filename);
   }
 
-  AllocateBoundary(bound,nosides);
-  data->noboundaries = 1;
+  if( nosides > 0 ) {
+    AllocateBoundary(bound,nosides);
+    data->noboundaries = 1;
+  }
 
   i = 0;
   for(k=1; k <= nosides; k++) {
@@ -2508,9 +2510,14 @@ int PartitionConnectedElements1D(struct FemType *data,int partz,int info) {
     cumz[IndZ] += 1;
   }
 
-  printf("Differential categories\n");
+  printf("Differential categories (shwoing only 20 active ones from %d)\n",MAXCATEGORY);
+  k = 0;
   for(j=0;j<=MAXCATEGORY;j++) {
-    if( cumz[j] > 0 ) printf("%d : %d\n",j,cumz[j]);
+    if( cumz[j] > 0 ) {
+      k++;
+      printf("%d : %d\n",j,cumz[j]);
+      if( k == 20 ) break;
+    }
   }   
 
   /* Count the cumulative numbers and map them to number of partitions */
@@ -3037,7 +3044,7 @@ int PartitionMetisGraph(struct FemType *data,struct BoundaryType *bound,
       nn = noelements - data->elemconnectexist;
       nparts -= maxconset;
 
-      printf("maxconset=%d\n",maxconset);
+      if(info) printf("Maximum partition for connected set: %d\n",maxconset);
     }
     else {
       nn = noelements;

@@ -2230,6 +2230,7 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
   mat1old = mat2old = 0;
   doublesides = 0;
 
+  /* Compute the number of duplicate boundary elements */
   for(bc=0;bc<MAXBOUNDARIES;bc++) {
 
     if(bound[bc].created == FALSE) continue;
@@ -2252,22 +2253,32 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
     }
   }  
    
-  
-
   if(!doublesides) return(1);
     
-  if(mat1old > 0) material = mat1old;
-  else if(mat2old > 0) material = mat2old;
+  if( mat1old > 0 && mat2old > 0 ) 
+    material = MIN( mat1old, mat2old );
+  else if(mat1old > 0) 
+    material = mat1old;
+  else if(mat2old > 0) 
+    material = mat2old;
   else {
     printf("SetDiscontinuousBoundary: impossible to make the boundary of several materials\n");
     return(2);
   }
+
+  if(info) {
+    printf("Creating discontinuous boundary between materials %d and %d\n",mat1old,mat2old);
+    printf("New set of nodes will be created for material %d\n",material);
+  }
+
 
   noelements = data->noelements;    
   order = Ivector(1,data->noknots);
   for(i=1;i<=data->noknots;i++)
     order[i] = i;
     
+  /* Compute the endnodes by the fact that they have different number of
+     hits */
   if(endnodes == 1) {
     if(!hitsexist) {
       hitslength = 1.1*data->noknots;
@@ -2290,7 +2301,7 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
     }
   }
     
-
+  /* If requested create a secondary boundary at the other side */
   if(newbc) {
     maxtype = 0;
     for(bc=0;bc<MAXBOUNDARIES;bc++) {
@@ -6449,6 +6460,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     }
 
   }
+
   bcset = dataxy->noboundaries-1;
 
 
@@ -6456,6 +6468,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
      Here number all parent combinations so that each pair gets 
      a new BC index. They are numbered by their order of appearance. */
   layerbcoffset = grid->layerbcoffset;
+
   if(grid->layeredbc) {
 
     if( !layerbcoffset ) sidetype = maxsidetype;
