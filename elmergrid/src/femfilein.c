@@ -45,6 +45,8 @@
 
 #define getline fgets(line,MAXLINESIZE,in) 
 
+static int linenumber;
+
 static int Getrow(char *line1,FILE *io,int upper) 
 {
   int i,isend;
@@ -54,8 +56,9 @@ static int Getrow(char *line1,FILE *io,int upper)
     line0[i] = ' ';
 
  newline:
-
   charend = fgets(line0,MAXLINESIZE,io);
+  linenumber += 1;
+
   isend = (charend == NULL);
 
   if(isend) return(1);
@@ -84,8 +87,9 @@ static int GetrowDouble(char *line1,FILE *io)
     line0[i] = ' ';
 
  newline:
-
   charend = fgets(line0,MAXLINESIZE,io);
+  linenumber += 1;
+
   isend = (charend == NULL);
 
   if(isend) return(1);
@@ -116,6 +120,8 @@ static int Comsolrow(char *line1,FILE *io)
     line0[i] = ' ';
 
   charend = fgets(line0,MAXLINESIZE,io);
+  linenumber += 1;
+
   isend = (charend == NULL);
 
   if(isend) return(1);
@@ -3676,7 +3682,7 @@ static int UnvToElmerType(int unvtype)
 
   default:
     elmertype = 0;
-    printf("Unknown elementtype in universal mesh format: %d\n",unvtype);
+    if(0) printf("Unknown elementtype in universal mesh format: %d\n",unvtype);
   }
 
   return(elmertype);
@@ -3807,6 +3813,9 @@ int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,
     
 omstart:
 
+  /* this is a global variable in the module */
+  linenumber = 0;
+
   if(info) {
     if(allocated) 
       printf("Second round for reading data\n");
@@ -3828,7 +3837,9 @@ omstart:
 
   nextline:
     if( !strncmp(line,"    -1",6)) mode = 0;
-    if( Getrow(line,in,FALSE)) goto end;
+    if( Getrow(line,in,FALSE)) {
+      goto end;
+    }
     if(line[0]=='\0') goto end;
 
     if( !strncmp(line,"    -1",6)) mode = 0;
@@ -3840,7 +3851,7 @@ omstart:
     else if( !strncmp(line,"   781",6)) mode = 781;
     else if( !strncmp(line,"   780",6)) mode = 780;
     else if( !strncmp(line,"   164",6)) mode = 164;
-    else if( allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
+    else if( allocated && strncmp(line,"      ",6)) printf("Unknown mode line %d: %s",linenumber,line);
 
 
     if(debug && mode) printf("Current mode is %d\n",mode);
@@ -3850,14 +3861,17 @@ omstart:
       if(allocated && info) printf("Reading node coordinates\n");
       for(;;) {
 	GetrowDouble(line,in);
-	if( !strncmp(line,"    -1",6)) goto nextline;
+	if( !strncmp(line,"    -1",6)) {
+	  if(!allocated && info) printf("There are %d nodes in the mesh\n",noknots);
+	  goto nextline;
+	}
 
 	cp = line;
 	nodeind = next_int(&cp);
 	/* Three other fields omitted: two coordinate systems and color */
 	noknots += 1;
 	GetrowDouble(line,in);
-	
+
 	if(allocated) {
 	  if(reordernodes) {
 	    if(u2eind[nodeind]) 
@@ -3886,7 +3900,7 @@ omstart:
       if(allocated && info) printf("Reading element topologies\n");
       for(;;) {
 	Getrow(line,in,FALSE);
-	if( !strncmp(line,"    -1",6)) {
+	if( strstr(line,"-1")) {
 	  if(info && !allocated) printf("Element type range in mesh [%d,%d]\n",minelemtype,maxelemtype);
 	  goto nextline;
 	}	
@@ -3900,7 +3914,7 @@ omstart:
 	colorind = next_int(&cp);
 	nonodes = next_int(&cp);
 
-	if(allocated ) {
+	if(!allocated ) {
 	  if(0) printf("elem = %d %d %d %d\n",noelements,unvtype,physind,matind);
 	}	
 
@@ -3918,9 +3932,9 @@ omstart:
 
 	elmertype = UnvToElmerType(unvtype); 
 	if(!elmertype) {
-	  printf("Unknown elementtype %d %d %d %d %d %d\n",
-		 elid,unvtype,physind,matind,colorind,nonodes);
-	  printf("line: %s\n",line);
+	  printf("Unknown elementtype %d %d %d %d %d %d %d\n",
+		 noelements,elid,unvtype,physind,matind,colorind,nonodes);
+	  printf("line %d: %s\n",linenumber,line);
 	  bigerror("done");
 	}
 
@@ -3965,8 +3979,9 @@ omstart:
 	else {
 	  minelemtype = MIN( minelemtype, elmertype );
 	  maxelemtype = MAX( maxelemtype, elmertype );
-	  for(i=1;i<=lines;i++) 
-	    Getrow(line,in,FALSE);	  
+	  for(i=1;i<=lines;i++) {
+	    Getrow(line,in,FALSE);
+	  }	  
 	}
       }
     }
@@ -4242,7 +4257,8 @@ end:
 
     if(info) {
       printf("Physical index interval is [%d,%d]\n",minphys,maxphys);
-      printf("Group index interval is [%d,%d]\n",mingroup,maxgroup);
+      if( maxgroup ) 
+	printf("Group index interval is [%d,%d]\n",mingroup,maxgroup);
       if(physoffset) printf("Using offset %d for physical indexes\n",physoffset);
     }
 
