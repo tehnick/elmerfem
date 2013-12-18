@@ -20,6 +20,7 @@ Solvers/ComputeEigenValues.f90 \
 Solvers/ComputeNormal.f90 \
 Solvers/ComputeStrainRate.f90 \
 Solvers/DeformationalHeat.f90 \
+Solvers/EPLSolver.f90 \
 Solvers/fAandfB_in.f90 \
 Solvers/FabricSolve.f90 \
 Solvers/Flowdepth.f90 \
@@ -28,6 +29,7 @@ Solvers/GetHydrostaticLoads.f90 \
 Solvers/GolfLaw.f90 \
 Solvers/GroundedSolver.f90 \
 Solvers/IntegratedVelocity.f90 \
+Solvers/IDSSolver.f90 \
 Solvers/PorousSolve.f90 \
 Solvers/pointwise.f90 \
 Solvers/SIASolver.f90 \
@@ -54,7 +56,8 @@ UserFunctions/USF_LateralFriction.f90 \
 UserFunctions/USF_ShapeFactor.f90 \
 UserFunctions/USF_Sliding.f90 \
 UserFunctions/USF_Zs.f90\
-UserFunctions/USF_GetFrictionHeating.f90
+UserFunctions/USF_GetFrictionHeating.f90 \
+UserFunctions/USF_WaterTransfer.f90
 
 solverobjects := $(filter %.o,$(patsubst %.f90,%.o,$(SOLVERSOURCE))) $(filter %.o,$(patsubst %.f,%.o,$(SOLVERSOURCE)))
 usfobjects := $(patsubst %.f90,%.o,$(USFSOURCE))
