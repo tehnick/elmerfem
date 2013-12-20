@@ -58,7 +58,7 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
 
   LOGICAL :: FirstTime = .TRUE., FirstTimeTime = .TRUE., GotIt, Yeschange, GLmoves
 
-  REAL (KIND=dp) ::  y, relChange, relChangeOld, Sliding_Weertman, Friction_Coulomb, C, m
+  REAL (KIND=dp) ::  y, relChange, relChangeOld, Sliding_Budd, Sliding_Weertman, Friction_Coulomb, C, m
 
   REAL(KIND=dp) :: NonLinIter, comp, cond
   CHARACTER*20 :: USF_Name='SlidCoef_Contact', Sl_Law
@@ -317,9 +317,21 @@ FUNCTION SlidCoef_Contact ( Model, nodenumber, y) RESULT(Bdrag)
     cond = GroundedMask(GroundedMaskPerm(nodenumber))
 
     IF (cond >= -0.5_dp) THEN
-    ! grounded node
-      IF (Sl_Law == 'weertman') Bdrag = Sliding_weertman(Model, nodenumber, y)
-      IF (Sl_Law == 'coulomb') Bdrag = Friction_Coulomb(Model, nodenumber, y)
+       ! grounded node
+       SELECT CASE(Sl_law)
+       CASE ('weertman')
+          Bdrag = Sliding_weertman(Model, nodenumber, y)
+       CASE ('budd')
+          Bdrag = Sliding_Budd(Model, nodenumber, y)
+       CASE ('coulomb')
+          Bdrag = Friction_Coulomb(Model, nodenumber, y)
+       CASE DEFAULT
+          WRITE(Message, '(A,A)') 'Sliding law not recognised ',Sl_law
+          CALL FATAL( USF_Name, Message)
+       END SELECT
+!      IF (Sl_Law == 'weertman') Bdrag = Sliding_weertman(Model, nodenumber, y)
+!      IF (Sl_Law == 'budd')     Bdrag = Sliding_Budd(Model, nodenumber, y)
+!      IF (Sl_Law == 'coulomb')  Bdrag = Friction_Coulomb(Model, nodenumber, y)
     ELSE
     ! floating node
       Bdrag = 0.0_dp
