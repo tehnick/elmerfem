@@ -6,5 +6,5 @@ run:
 
 clean:
 	/bin/rm test.log temp.log mon.out
-	/bin/rm -r angle
+	/bin/rm -r isoline angle
 	/bin/rm mesh.geo
