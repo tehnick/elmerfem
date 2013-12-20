@@ -46,7 +46,8 @@
 !    (x0, y0) the left-bottom corner coordinate
 !    (lx, ly) the x and y lengths of the covered domain
 !    (Nx, Ny) the number of cells in x and y directions 
-!    No data are given by -9999
+!    No data are given by -9999 with a tolerance of 0.001
+!    These can be over-ridden in the sif by 'no data' and 'no data tol'
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
@@ -265,8 +266,8 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
    ! square to just 2 points at the end of the domain (else we get interpolation involving 
    ! points at the beginning of the domain).  This comment refers to the x direction.
    IF (MOD(ib,Nbx) .eq. 0.0) THEN
-      zi(2,1) = -9999.0
-      zi(2,2) = -9999.0
+      zi(2,1) = noDataVal
+      zi(2,2) = noDataVal
    ELSE
       zi(2,1) = zb(ib+1)
       zi(2,2) = zb(ib + Nbx + 1)
@@ -292,9 +293,9 @@ SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin,
            (isNoData(zi(2,2))) ) THEN
 
          ! Find the nearest point avalable if all neighbouring points have noData
-         Rmin = 9999.0
+         Rmin = 9999999.0
          DO i=1, Nb
-            IF (zb(i)>-9990.0) THEN
+            IF (isNoData(zb(i))) THEN
                R = SQRT((x-xb(i))**2.0+(y-yb(i))**2.0)
                IF (R<Rmin) THEN
                   Rmin = R
