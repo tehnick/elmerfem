@@ -3262,10 +3262,11 @@ CONTAINS
      LOGICAL :: TransientSimulation
      REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, GB, MeActive
+     LOGICAL :: stat, Found, GB, MeActive, GotIt
      INTEGER :: i, j, k, l, col, row, n, SolverAddr, BDOFs, maxdim
      TYPE(Element_t), POINTER :: CurrentElement
-     CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
+     TYPE(ValueList_t), POINTER :: SolverParams
+     CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str, Message, Equation
 
      INTEGER, ALLOCATABLE :: memb(:)
      TYPE(Matrix_t), POINTER :: M
@@ -3466,6 +3467,13 @@ CONTAINS
        END IF
      END IF
 
+     CALL INFO("SingleSolver", "Attempting to call solver", level=5)
+     SolverParams => GetSolverParams(Solver)
+     Equation = GetString(SolverParams, 'Equation', GotIt)
+     IF (GotIt) THEN
+        WRITE(Message,'(A,A)') 'Solver Equation string is: ', TRIM(Equation)
+        CALL INFO("SingleSolver", Message, level=5)
+     END IF
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
      CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation)
@@ -3490,7 +3498,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !> Runs a solver as defined in the command file. There are several
 !> ways how to skip the execution. The are also three different ways
-!> how the metrices may be assmebled and solver: standard (single), coupled and
+!> how the matrices may be assembled and solved: standard (single), coupled and
 !> block. 
 !------------------------------------------------------------------------------
   SUBROUTINE SolverActivate( Model, Solver, dt, TransientSimulation )
@@ -3635,7 +3643,6 @@ CONTAINS
      ELSE 
        CALL SingleSolver( Model, Solver, DTScal * dt, TimeDerivativeActive )
      END IF
-   
      CALL ListSetNamespace('')
      Solver % dt = dt
 
