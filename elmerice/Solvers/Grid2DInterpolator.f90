@@ -67,19 +67,19 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
 
    REAL(KIND=DP) :: Rmin, Rmax
    REAL(KIND=DP) :: x, y, z, x0, y0, lx, ly, dx, dy
-   REAL(KIND=DP), ALLOCATABLE :: xb(:), yb(:), zb(:)
+   REAL(KIND=DP), ALLOCATABLE :: xb(:), yb(:), zb(:), xbaux(:), ybaux(:), zbaux(:)
    REAL(KIND=dp) :: noDataVal, noDataTol
    REAL(KIND=dp), PARAMETER :: noDataValDefault = -9999.0, noDataTolDefault = 0.001
 
    INTEGER,parameter :: io=20
-   INTEGER :: ok, Nx, Ny, Nb, OutNode
-   INTEGER :: i, j, k, kmin, NoVar
+   INTEGER :: ok, Nx, Ny, Nb, Nbaux, OutNode
+   INTEGER :: i, j, k, l, kmin, NoVar
 
    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, DataF
    CHARACTER(LEN=MAX_NAME_LEN) :: Name, FName, ParaName
    CHARACTER(LEN=MAX_NAME_LEN), PARAMETER :: SolverName='Grid2DInterpolator'
 
-   LOGICAL :: GotVar, Found
+   LOGICAL :: GotVar, Found, InvertOrder, FillIn
 
    Params => GetSolverParams()
 
@@ -152,7 +152,23 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
          WRITE(message,'(A,A,A)')'Keyword <',Trim(ParaName),'> not found'
          CALL FATAL(Trim(SolverName),Trim(message))
       END IF
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Invert'
+      InvertOrder = GetLogical( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) THEN
+         InvertOrder = .FALSE.
+      ELSE
+         WRITE(message,'(A,A,I0)')'Inverting order (row major) for variable ', 'Variable ',NoVar
+         CALL INFO(Trim(SolverName),Trim(message),Level=1)
+      END IF
 
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' Fill'
+      FillIn = GetLogical( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) THEN
+         FillIn = .FALSE.
+      ELSE
+         WRITE(message,'(A,A,I0)')'Filling empty entries for ', 'Variable ',NoVar
+         CALL INFO(Trim(SolverName),Trim(message),Level=1)
+      END IF
       WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' no data'
       noDataVal = ListGetConstReal( Params, TRIM(ParaName), Found )
       IF (.NOT.Found) then
@@ -180,32 +196,92 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
             
       Nb = Nx*Ny 
           
-      ALLOCATE(xb(Nb), yb(Nb), zb(Nb))
+      ALLOCATE(xb(Nb), yb(Nb), zb(Nb), xbaux(Nb), ybaux(Nb), zbaux(Nb))
 
       ! read datas
       DO i = 1, Nb 
-         READ(io,*,iostat = ok) xb(i), yb(i), zb(i)
+         READ(io,*,iostat = ok, end=100) xbaux(i), ybaux(i), zbaux(i)
       END DO
+100   Nbaux = Nb - i
+      IF (Nbaux > 0) THEN
+         WRITE(message,'(I0,A,I0,A,A)') Nbaux,' out of ',Nb,' datasets in file ', TRIM(DataF)
+         CALL INFO(Trim(SolverName),Trim(message))         
+      END IF
       CLOSE(io)
 
-      ! Make some verifications on the DEM structure
+      ! Make some verifications and - in case - manipulation 
+      !on the DEM structure
       dx = lx / (Nx-1.0)
       dy = ly / (Ny-1.0)
       k = 0 
-      DO j = 1, Ny
-         y = y0 + dy*(j-1)
-         DO i = 1, Nx 
-             k = k + 1
-             x = x0 + dx*(i-1)
-             IF ((ABS(x-xb(k))>1.0e-6*dx).OR.(ABS(y-yb(k))>1.0e-6*dy)) THEN
-                WRITE(Message,'(A,A)')'Structure of the DEM is not conforming to what is given in the sif for ',TRIM(FName) 
-                CALL INFO(SolverName, Message, Level=1)
-                WRITE(Message,'(A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
-                   'Found that point ',k,' coordinate is (',xb(k),yb(k),'), whereas it should be (',x,y,')' 
-                CALL FATAL(SolverName, Message) 
-             END IF
+      l = 0
+      IF (.NOT.InvertOrder) THEN
+         DO j = 1, Ny
+            y = y0 + dy*(j-1)
+            DO i = 1, Nx 
+               k = k + 1
+               x = x0 + dx*(i-1)
+               IF (.NOT.FillIn) THEN
+                  xb(k) = xbaux(k)
+                  yb(k) = ybaux(k)
+                  zb(k) = zbaux(k)
+                  IF ((ABS(x-xbaux(k))>1.0e-6*dx).OR.(ABS(y-ybaux(k))>1.0e-6*dy)) THEN
+                     
+                     WRITE(Message,'(A,A)')'Structure of the DEM is not conforming to what is given in the sif for ',TRIM(FName) 
+                     CALL INFO(SolverName, Message, Level=1)
+                     WRITE(Message,'(A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
+                          'Found that point ',k,' coordinate is (',xb(k),yb(k),'), whereas it should be (',x,y,')' 
+                     CALL FATAL(SolverName, Message)                      
+                  END IF
+               ELSE
+                  IF ((ABS(x-xbaux(l+1))>1.0e-6*dx).OR.(ABS(y-ybaux(l+1))>1.0e-6*dy)) THEN
+                     xb(k) = x
+                     yb(k) = y
+                     zb(k) = noDataVal ! setting to NaN
+                  ELSE
+                     l=l+1
+                     xb(k) = xbaux(l)
+                     yb(k) = ybaux(l)
+                     zb(k) = zbaux(l)
+                  END IF
+               END IF
+            END DO
          END DO
-      END DO
+      ELSE ! inverse order
+         DO i = 1, Nx 
+            x = x0 + dx*(i-1) 
+            DO j = 1, Ny
+               k = k + 1
+               y = y0 + dy*(j-1)
+
+               IF (.NOT.FillIn) THEN
+                  xb((j-1)*Nx + i) = xbaux(k)
+                  yb((j-1)*Nx + i) = ybaux(k)
+                  zb((j-1)*Nx + i) = zbaux(k)
+                  IF ((ABS(x-xb((j-1)*Nx + i))>1.0e-6*dx).OR.(ABS(y-yb((j-1)*Nx + i))>1.0e-6*dy)) THEN
+                     
+                     WRITE(Message,'(A,A)')'Structure of the DEM is not conforming to what is given in the sif for ',TRIM(FName) 
+                     CALL INFO(SolverName, Message, Level=1)
+                     WRITE(Message,'(A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
+                          'Found that point ',k,' coordinate is (',xb(k),yb(k),'), whereas it should be (',x,y,')' 
+                     CALL FATAL(SolverName, Message)                      
+                  END IF
+               ELSE
+                  IF ((ABS(x-xbaux(l+1))>1.0e-6*dx).OR.(ABS(y-ybaux(l+1))>1.0e-6*dy)) THEN
+                     xb((j-1)*Nx + i) = x
+                     yb((j-1)*Nx + i) = y
+                     zb((j-1)*Nx + i) = noDataVal ! setting to NaN
+                  ELSE
+                     l=l+1
+                     xb((j-1)*Nx + i) = xbaux(l)
+                     yb((j-1)*Nx + i) = ybaux(l)
+                     zb((j-1)*Nx + i) = zbaux(l)
+                  END IF
+               END IF
+
+            END DO
+         END DO
+      END IF
 
       OutNode = 0
       Rmax = 0.0
@@ -232,7 +308,7 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
          CALL Info( TRIM(SolverName), Message, Level=3 )
       END IF
             
-      DEALLOCATE(xb, yb, zb)
+      DEALLOCATE(xb, yb, zb, xbaux, ybaux, zbaux)
    END DO
 
    CALL INFO(Trim(SolverName), '----------ALL DONE----------',Level=5)
