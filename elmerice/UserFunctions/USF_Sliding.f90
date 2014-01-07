@@ -306,19 +306,18 @@ FUNCTION Friction_Coulomb (Model, nodenumber, y) RESULT(Bdrag)
 &      (= n Glen law) for the Coulomb Friction Law')
    END IF
 !
-!   
-! Get the water Pressure 
-! Use the convention Pw > 0 => Compression
-! TODO Verifier signe + mot clef!
+! Get the water Pressure from the Stokes keyword 'External Pressure'
+! Use the convention for the water pressure Pw > 0 => Compression
 
    auxReal(1:n) = GetReal( BC, 'External Pressure', GotIt )
    DO i=1, n
       IF (NodeNumber== BoundaryElement % NodeIndexes( i )) EXIT 
    END DO
-   Pw = auxReal(i)
+! Because the convention is External Pressure < 0 => Compression,
+! need to change the sign
+   Pw = -auxReal(i)
 
    DEALLOCATE(auxReal)
-
    
    ! Get the variables to compute tau_b
    StressVariable => VariableGet( Model % Variables, 'Stress' )
