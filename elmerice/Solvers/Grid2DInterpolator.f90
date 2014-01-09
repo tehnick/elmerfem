@@ -68,8 +68,8 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
    REAL(KIND=DP) :: Rmin, Rmax
    REAL(KIND=DP) :: x, y, z, x0, y0, lx, ly, dx, dy
    REAL(KIND=DP), ALLOCATABLE :: xb(:), yb(:), zb(:), xbaux(:), ybaux(:), zbaux(:)
-   REAL(KIND=dp) :: noDataVal, noDataTol
-   REAL(KIND=dp), PARAMETER :: noDataValDefault = -9999.0, noDataTolDefault = 0.001
+   REAL(KIND=dp) :: noDataVal, noDataTol, posTol
+   REAL(KIND=dp), PARAMETER :: noDataValDefault = -9999.0, noDataTolDefault = 0.001, posTolDefault= 1.0D-06
 
    INTEGER,parameter :: io=20
    INTEGER :: ok, Nx, Ny, Nb, Nbaux, OutNode
@@ -187,6 +187,15 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
          CALL INFO(SolverName, Message, Level=3)
       END IF
 
+      WRITE (ParaName,'(A,I0,A)') 'Variable ',NoVar,' position tol'
+      posTol = ListGetConstReal( Params, TRIM(ParaName), Found )
+      IF (.NOT.Found) then
+         posTol = posTolDefault
+         WRITE(message,'(A,A,A,e14.8)')'Keyword <',Trim(ParaName), & 
+              '> not found, using default ',posTolDefault
+         CALL INFO(SolverName, Message, Level=3)
+      END IF
+
       OPEN(unit = io, file = TRIM(DataF), status = 'old',iostat = ok)
 
       IF (ok /= 0) THEN
@@ -225,19 +234,21 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
                   xb(k) = xbaux(k)
                   yb(k) = ybaux(k)
                   zb(k) = zbaux(k)
-                  IF ((ABS(x-xbaux(k))>1.0e-6*dx).OR.(ABS(y-ybaux(k))>1.0e-6*dy)) THEN
+                  IF ((ABS(x-xbaux(k))>posTol*dx).OR.(ABS(y-ybaux(k))>posTol*dy)) THEN
                      
                      WRITE(Message,'(A,A)')'Structure of the DEM is not conforming to what is given in the sif for ',TRIM(FName) 
                      CALL INFO(SolverName, Message, Level=1)
-                     WRITE(Message,'(A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
-                          'Found that point ',k,' coordinate is (',xb(k),yb(k),'), whereas it should be (',x,y,')' 
+                     WRITE(Message,'(A,i4,A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
+                          'Variable', NoVar, ': Found that point ',k,&
+                          ' coordinate is (',xbaux(k),ybaux(k),&
+                          '), whereas it should be (',x,y,')' 
                      CALL FATAL(SolverName, Message)                      
                   END IF
                ELSE
-                  IF ((ABS(x-xbaux(l+1))>1.0e-6*dx).OR.(ABS(y-ybaux(l+1))>1.0e-6*dy)) THEN
+                  IF ((ABS(x-xbaux(l+1))>posTol*dx).OR.(ABS(y-ybaux(l+1))>posTol*dy)) THEN
                      xb(k) = x
                      yb(k) = y
-                     zb(k) = noDataVal ! setting to NaN
+                     zb(k) = noDataVal ! setting to NaN                   
                   ELSE
                      l=l+1
                      xb(k) = xbaux(l)
@@ -258,16 +269,18 @@ SUBROUTINE Grid2DInterpolator( Model,Solver,dt,TransientSimulation )
                   xb((j-1)*Nx + i) = xbaux(k)
                   yb((j-1)*Nx + i) = ybaux(k)
                   zb((j-1)*Nx + i) = zbaux(k)
-                  IF ((ABS(x-xb((j-1)*Nx + i))>1.0e-6*dx).OR.(ABS(y-yb((j-1)*Nx + i))>1.0e-6*dy)) THEN
+                  IF ((ABS(x-xb((j-1)*Nx + i))>posTol*dx).OR.(ABS(y-yb((j-1)*Nx + i))>posTol*dy)) THEN
                      
                      WRITE(Message,'(A,A)')'Structure of the DEM is not conforming to what is given in the sif for ',TRIM(FName) 
                      CALL INFO(SolverName, Message, Level=1)
-                     WRITE(Message,'(A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
-                          'Found that point ',k,' coordinate is (',xb(k),yb(k),'), whereas it should be (',x,y,')' 
+                     WRITE(Message,'(A,i4,A,i4,A,e14.8,2x,e14.8,A,e14.8,2x,e14.8,A)') &
+                          'Variable', NoVar, ':Found that point ',k,&
+                          ' coordinate is (',xb((j-1)*Nx),yb((j-1)*Nx + i),'),&
+                          whereas 3 it should be (',x,y,')' 
                      CALL FATAL(SolverName, Message)                      
                   END IF
                ELSE
-                  IF ((ABS(x-xbaux(l+1))>1.0e-6*dx).OR.(ABS(y-ybaux(l+1))>1.0e-6*dy)) THEN
+                  IF ((ABS(x-xbaux(l+1))>posTol*dx).OR.(ABS(y-ybaux(l+1))>posTol*dy)) THEN
                      xb((j-1)*Nx + i) = x
                      yb((j-1)*Nx + i) = y
                      zb((j-1)*Nx + i) = noDataVal ! setting to NaN
@@ -320,103 +333,104 @@ END SUBROUTINE Grid2DInterpolator
 ! Subroutine InterpolateDEM
 !!------------------------------------------------------------------------------!!
 SUBROUTINE InterpolateDEM (x, y, xb, yb, zb, Nbx, Nby, xb0, yb0, lbx, lby, Rmin, zbed, noDataVal, noDataTol)
-   USE DefUtils
-   IMPLICIT NONE
-   REAL(KIND=dp),INTENT(IN) :: noDataVal, noDataTol
-   INTEGER :: imin, Npt, t
-   INTEGER :: NMAX, i, j, Nb, Nbx, Nby, ib, ix, iy
-   REAL(KIND=dp) :: x, y, zbed, xb0, yb0, x1, x2, y1, y2, zi(2,2) 
-   REAL(KIND=dp) :: R, Rmin, lbx, lby, dbx, dby
-   REAL(KIND=dp) :: xb(Nbx*Nby), yb(Nbx*Nby), zb(Nbx*Nby)       
+  USE DefUtils
+  IMPLICIT NONE
+  REAL(KIND=dp),INTENT(IN) :: noDataVal, noDataTol
+  INTEGER :: imin, Npt, t
+  INTEGER :: NMAX, i, j, Nb, Nbx, Nby, ib, ix, iy
+  REAL(KIND=dp) :: x, y, zbed, xb0, yb0, x1, x2, y1, y2, zi(2,2) 
+  REAL(KIND=dp) :: R, Rmin, lbx, lby, dbx, dby
+  REAL(KIND=dp) :: xb(Nbx*Nby), yb(Nbx*Nby), zb(Nbx*Nby)       
 
-   ! Find zbed for that point from the Bedrock MNT 
-   dbx = lbx / (Nbx-1.0)
-   dby = lby / (Nby-1.0)
-   Nb = Nbx*Nby
+  ! Find zbed for that point from the Bedrock MNT 
+  dbx = lbx / (Nbx-1.0)
+  dby = lby / (Nby-1.0)
+  Nb = Nbx*Nby
 
-   ix = INT((x-xb0)/dbx)+1
-   iy = INT((y-yb0)/dby)+1
-   ib = Nbx * (iy - 1) + ix
-   
-   ! if we are already at the end of the domain then collapse the 2 by 2 interpolation 
-   ! square to just 2 points at the end of the domain (else we get interpolation involving 
-   ! points at the beginning of the domain).  This comment refers to the x direction.
-   IF (MOD(ib,Nbx) .eq. 0.0) THEN
-      zi(2,1) = noDataVal
-      zi(2,2) = noDataVal
-   ELSE
-      zi(2,1) = zb(ib+1)
-      zi(2,2) = zb(ib + Nbx + 1)
-   END IF
+  ix = INT((x-xb0)/dbx)+1
+  iy = INT((y-yb0)/dby)+1
+  ib = Nbx * (iy - 1) + ix
 
-   x1 = xb(ib)
-   x2 = xb(ib+1)
-   y1 = yb(ib)
-   y2 = yb(ib + Nbx)
-        
-   zi(1,1) = zb(ib)
-   zi(1,2) = zb(ib + Nbx)
+  ! if we are already at the end of the domain then collapse the 2 by 2 interpolation 
+  ! square to just 2 points at the end of the domain (else we get interpolation involving 
+  ! points at the beginning of the domain).  This comment refers to the x direction.
+  IF (MOD(ib,Nbx) .eq. 0.0) THEN
+     zi(2,1) = noDataVal
+     zi(2,2) = noDataVal
+  ELSE
+     zi(2,1) = zb(ib+1)
+     zi(2,2) = zb(ib + Nbx + 1)
+  END IF
 
-!   IF ((zi(1,1)<-9990.0).OR.(zi(1,2)<-9990.0).OR.(zi(2,1)<-9990.0).OR.(zi(2,2)<-9990.0)) THEN
-!      IF ((zi(1,1)<-9990.0).AND.(zi(1,2)<-9990.0).AND.(zi(2,1)<-9990.0).AND.(zi(2,2)<-9990.0)) THEN
-   IF ( (isNoData(zi(1,1))).OR. &
-        (isNoData(zi(1,2))).OR. &
-        (isNoData(zi(2,1))).OR. &
-        (isNoData(zi(2,2))) ) THEN
-      IF ( (isNoData(zi(1,1))).AND. &
-           (isNoData(zi(1,2))).AND. &
-           (isNoData(zi(2,1))).AND. &
-           (isNoData(zi(2,2))) ) THEN
+  x1 = xb(ib)
+  x2 = xb(ib+1)
+  y1 = yb(ib)
+  y2 = yb(ib + Nbx)
 
-         ! Find the nearest point avalable if all neighbouring points have noData
-         Rmin = 9999999.0
-         DO i=1, Nb
-            IF (isNoData(zb(i))) THEN
-               R = SQRT((x-xb(i))**2.0+(y-yb(i))**2.0)
-               IF (R<Rmin) THEN
-                  Rmin = R
-                  imin = i
-               END IF
-            END IF
-         END DO
-         zbed = zb(imin)
-                        
-      ELSE
-         ! Mean value over the avalable data if only some points have noData
-         zbed = 0.0
-         Npt = 0
-         DO i=1, 2
-            DO J=1, 2
-               IF (.NOT. isNoData(zi(i,j))) THEN 
-                  zbed = zbed + zi(i,j)
-                  Npt = Npt + 1
-               END IF   
-            END DO
-         END DO
-         zbed = zbed / Npt
-      END IF
-   ELSE
-      ! linear interpolation is only carried out if all 4 neighbouring points have data.
-      zbed = (zi(1,1)*(x2-x)*(y2-y)+zi(2,1)*(x-x1)*(y2-y)+zi(1,2)*(x2-x)*(y-y1)+zi(2,2)*(x-x1)*(y-y1))/(dbx*dby)      
-   END IF
+  zi(1,1) = zb(ib)
+  zi(1,2) = zb(ib + Nbx)
 
+  !   IF ((zi(1,1)<-9990.0).OR.(zi(1,2)<-9990.0).OR.(zi(2,1)<-9990.0).OR.(zi(2,2)<-9990.0)) THEN
+  !      IF ((zi(1,1)<-9990.0).AND.(zi(1,2)<-9990.0).AND.(zi(2,1)<-9990.0).AND.(zi(2,2)<-9990.0)) THEN
+  IF ( (isNoData(zi(1,1))).OR. &
+       (isNoData(zi(1,2))).OR. &
+       (isNoData(zi(2,1))).OR. &
+       (isNoData(zi(2,2))) ) THEN
+     IF ( (isNoData(zi(1,1))).AND. &
+          (isNoData(zi(1,2))).AND. &
+          (isNoData(zi(2,1))).AND. &
+          (isNoData(zi(2,2))) ) THEN
 
- CONTAINS
+        ! Find the nearest point avalable if all neighbouring points have noData
+        Rmin = 9999999.0
+        DO i=1, Nb
+           IF (.NOT.isNoData(zb(i))) THEN
+              R = SQRT((x-xb(i))**2.0+(y-yb(i))**2.0)
+              IF (R<Rmin) THEN
+                 Rmin = R
+                 imin = i
+              END IF
+           END IF
+        END DO
+        PRINT *, "r_min = ", rmin
+        zbed = zb(imin)
 
-   LOGICAL FUNCTION isNoData(val)
-
-     IMPLICIT NONE
-     REAL(KIND=dp),INTENT(IN) :: val
-
-     IF ((val .GT. noDataVal-noDataTol) .AND. (val .LT. noDataVal+noDataTol)) THEN
-        isNoData = .TRUE.
      ELSE
-        isNoData = .FALSE.
+        ! Mean value over the avalable data if only some points have noData
+        zbed = 0.0
+        Npt = 0
+        DO i=1, 2
+           DO J=1, 2
+              IF (.NOT. isNoData(zi(i,j))) THEN 
+                 zbed = zbed + zi(i,j)
+                 Npt = Npt + 1
+              END IF
+           END DO
+        END DO
+        zbed = zbed / Npt
      END IF
+  ELSE
+     ! linear interpolation is only carried out if all 4 neighbouring points have data.
+     zbed = (zi(1,1)*(x2-x)*(y2-y)+zi(2,1)*(x-x1)*(y2-y)+zi(1,2)*(x2-x)*(y-y1)+zi(2,2)*(x-x1)*(y-y1))/(dbx*dby)      
+  END IF
 
-   RETURN 
 
- END FUNCTION isNoData
+CONTAINS
+
+  LOGICAL FUNCTION isNoData(val)
+
+    IMPLICIT NONE
+    REAL(KIND=dp),INTENT(IN) :: val
+
+    IF ((val .GT. noDataVal-noDataTol) .AND. (val .LT. noDataVal+noDataTol)) THEN
+       isNoData = .TRUE.
+    ELSE
+       isNoData = .FALSE.
+    END IF
+
+    RETURN 
+
+  END FUNCTION isNoData
 
 END SUBROUTINE InterpolateDEM
 
