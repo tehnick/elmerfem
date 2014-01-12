@@ -49,6 +49,7 @@ MODULE DefUtils
 
    USE Adaptive
    USE SolverUtils
+
    IMPLICIT NONE
 
    INTERFACE DefaultUpdateEquations
@@ -2258,14 +2259,40 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultInitialize( USolver )
 !------------------------------------------------------------------------------
+    USE MainUtils
+
+
      TYPE(Solver_t), OPTIONAL, TARGET, INTENT(IN) :: USolver
-     TYPE(Solver_t), POINTER :: Solver
-     LOGICAL :: Found
+
+     TYPE(Solver_t), POINTER :: Solver, SlaveSolver
+     TYPE(ValueList_t), POINTER :: Params
+     INTEGER, POINTER :: SlaveSolverIndexes(:)
+     INTEGER :: j,k
+     REAL(KIND=dp) :: dt
+     LOGICAL :: Transient, Found
 
      IF ( PRESENT( USolver ) ) THEN
        Solver => USolver
      ELSE
        Solver => CurrentModel % Solver
+     END IF
+
+     ! One can enforce weak coupling by calling a dependent solver at the start of 
+     ! initialization of the master solver. The strategy will be particularly 
+     ! efficient when the slave solver is cheap and a stepsize control is applied
+     ! to the master solver.
+     !-----------------------------------------------------------------------------
+     SlaveSolverIndexes =>  ListGetIntegerArray( Solver % Values,'Slave Solvers',Found )
+     IF( Found ) THEN
+       dt = GetTimeStep()
+       Transient = GetString(CurrentModel % Simulation,'Simulation type',Found)=='transient'
+       DO j=1,SIZE(SlaveSolverIndexes)
+         k = SlaveSolverIndexes(j)
+         SlaveSolver => CurrentModel % Solvers(k)
+         CurrentModel % Solver => SlaveSolver
+         CALL SolverActivate( CurrentModel,SlaveSolver,dt,Transient)
+       END DO
+       CurrentModel % Solver => Solver
      END IF
 
      IF(.NOT. ASSOCIATED( Solver % Matrix ) ) THEN
@@ -3320,7 +3347,7 @@ CONTAINS
      CHARACTER(LEN=MAX_NAME_LEN) :: name
      LOGICAL :: BUpd
 
-integer::iii=0
+INTEGER::iii=0
 
      SAVE gInd, lInd, STIFF, Work
 
@@ -3958,7 +3985,13 @@ integer::iii=0
     IF ( PRESENT(BulkUpdate) ) THEN
       BUpd = BulkUpdate 
     ELSE
-      BUpd = BUpd .OR. GetLogical( Params,'Calculate Loads', Found )
+      BUpd = GetLogical( Params,'Calculate Loads', Found )
+      IF( BUpd ) THEN
+        str = GetString( Params,'Calculate Loads Slot', Found )
+        IF(Found) THEN
+          BUpd = ( TRIM( str ) == 'bulk assembly')
+        END IF
+      END IF
       BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk System', Found )
       BUpd = BUpd .OR. GetLogical( Params,'Save Bulk System', Found )
       BUpd = BUpd .OR. GetLogical( Params,'Constant Bulk Matrix', Found )
@@ -4008,13 +4041,23 @@ integer::iii=0
 
     Params => GetSolverParams(PSolver)
 
-    ! Save bulk system before setting Dirichlet BCs
     BUpd = .FALSE.
     IF ( PRESENT(BulkUpdate) ) THEN
       BUpd = BulkUpdate 
       IF ( .NOT. BUpd ) RETURN
     END IF
-    BUpd = BUpd .OR. GetLogical( Params,'Constant System', Found )
+
+    BUpd = GetLogical( Params,'Calculate Loads', Found )
+    IF( BUpd ) THEN
+      str = GetString( Params,'Calculate Loads Slot', Found )
+      IF(Found) THEN
+        BUpd = ( TRIM( str ) == 'boundary assembly') 
+      ELSE
+        BUpd = .FALSE.
+      END IF
+      BUpd = BUpd .OR. GetLogical( Params,'Constant System', Found )
+    END IF
+
     IF( BUpd ) THEN
       CALL Info('DefaultFinishBoundaryAssembly','Saving system values for Solver: '&
           //TRIM(PSolver % Variable % Name), Level=8)
