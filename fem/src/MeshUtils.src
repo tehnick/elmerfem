@@ -440,18 +440,12 @@ END SUBROUTINE GetMaxDefs
              'Coordinate Mapping',GotIt )
 
     IF ( GotIt ) THEN
-      IF ( SIZE( CoordMap ) /= 3 ) THEN
-         WRITE( Message, * ) 'Inconsistent Coordinate Mapping: ', CoordMap
-         CALL Error( 'LoadMesh', Message )
-         WRITE( Message, * ) 'Coordinate mapping should be a permutation of 1,2 and 3'
-         CALL Fatal( 'LoadMesh', Message )
-      END IF
-
-      IF ( MINVAL( CoordMap ) < 1 .OR. MAXVAL( CoordMap ) > 3 ) THEN
-         WRITE( Message, * ) 'Inconsistent Coordinate Mapping: ', CoordMap
-         CALL Error( 'LoadMesh', Message )
-         WRITE( Message, * ) 'Coordinate mapping should be a permutation of 1,2 and 3'
-         CALL Fatal( 'LoadMesh', Message )
+      IF ( SIZE( CoordMap ) /= 3 .OR. &
+          ALL( CoordMap /= 1) .OR. ALL( CoordMap /= 2 ) .OR. ALL( CoordMap /= 3 ) ) THEN
+        WRITE( Message, * ) 'Inconsistent Coordinate Mapping: ', CoordMap
+        CALL Error( 'LoadMesh', Message )
+        WRITE( Message, * ) 'Coordinate mapping should be a permutation of 1,2 and 3'
+        CALL Fatal( 'LoadMesh', Message )
       END IF
 
       Mesh % Nodes % x = cCoord(CoordMap(1):3*Mesh % NumberOfNodes:3)
