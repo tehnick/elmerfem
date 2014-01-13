@@ -2259,9 +2259,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultInitialize( USolver )
 !------------------------------------------------------------------------------
-    USE MainUtils
-
-
      TYPE(Solver_t), OPTIONAL, TARGET, INTENT(IN) :: USolver
 
      TYPE(Solver_t), POINTER :: Solver, SlaveSolver
@@ -2270,6 +2267,16 @@ CONTAINS
      INTEGER :: j,k
      REAL(KIND=dp) :: dt
      LOGICAL :: Transient, Found
+
+     INTERFACE
+        SUBROUTINE SolverActivate_x(Model,Solver,dt,Transient)
+          USE Types
+          TYPE(Model_t)::Model
+          TYPE(Solver_t),POINTER::Solver
+          REAL(KIND=dp) :: dt
+          LOGICAL :: Transient
+        END SUBROUTINE SolverActivate_x
+     END INTERFACE
 
      IF ( PRESENT( USolver ) ) THEN
        Solver => USolver
@@ -2290,7 +2297,7 @@ CONTAINS
          k = SlaveSolverIndexes(j)
          SlaveSolver => CurrentModel % Solvers(k)
          CurrentModel % Solver => SlaveSolver
-         CALL SolverActivate( CurrentModel,SlaveSolver,dt,Transient)
+         CALL SolverActivate_x( CurrentModel,SlaveSolver,dt,Transient)
        END DO
        CurrentModel % Solver => Solver
      END IF
@@ -4045,17 +4052,18 @@ INTEGER::iii=0
     IF ( PRESENT(BulkUpdate) ) THEN
       BUpd = BulkUpdate 
       IF ( .NOT. BUpd ) RETURN
-    END IF
 
-    BUpd = GetLogical( Params,'Calculate Loads', Found )
-    IF( BUpd ) THEN
-      str = GetString( Params,'Calculate Loads Slot', Found )
-      IF(Found) THEN
-        BUpd = ( TRIM( str ) == 'boundary assembly') 
-      ELSE
-        BUpd = .FALSE.
+    ELSE
+      BUpd = GetLogical( Params,'Calculate Loads', Found )
+      IF( BUpd ) THEN
+        str = GetString( Params,'Calculate Loads Slot', Found )
+        IF(Found) THEN
+          BUpd = ( TRIM( str ) == 'boundary assembly') 
+        ELSE
+          BUpd = .FALSE.
+        END IF
+        BUpd = BUpd .OR. GetLogical( Params,'Constant System', Found )
       END IF
-      BUpd = BUpd .OR. GetLogical( Params,'Constant System', Found )
     END IF
 
     IF( BUpd ) THEN

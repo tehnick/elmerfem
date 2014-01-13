@@ -406,7 +406,10 @@ CONTAINS
      
      n = SIZE( A % Rhs )
      IF( ASSOCIATED( A % BulkRhs ) ) THEN
-       IF( SIZE( A % BulkRhs ) /= n ) DEALLOCATE( A % BulkRhs ) 
+       IF( SIZE( A % BulkRhs ) /= n ) THEN
+          DEALLOCATE( A % BulkRhs ) 
+          A % BulkRHS => Null()
+       END IF
      END IF
      IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
        ALLOCATE( A % BulkRHS( n ) )
@@ -415,7 +418,10 @@ CONTAINS
      
      n = SIZE( A % Values )
      IF( ASSOCIATED( A % BulkValues ) ) THEN
-       IF( SIZE( A % BulkValues ) /= n ) DEALLOCATE( A % BulkValues ) 
+       IF( SIZE( A % BulkValues ) /= n ) THEN
+          DEALLOCATE( A % BulkValues ) 
+          A % BulkValues => Null()
+       END IF
      END IF
      IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
        ALLOCATE( A % BulkValues( n ) )
