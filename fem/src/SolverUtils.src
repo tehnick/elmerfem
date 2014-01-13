@@ -1170,12 +1170,11 @@ CONTAINS
      LoadVar => VariableGet( Model % Variables, &
          GetVarName(Var) // ' Loads',ThisOnly = .TRUE. )
      IF( .NOT. ASSOCIATED( LoadVar ) ) THEN
-       CALL Warn('DetermineSoftLimiter', &
+       CALL Fatal('DetermineSoftLimiter', &
            'No Loads associated with variable '//GetVarName(Var) )
        RETURN
      END IF
      LoadValues => LoadVar % Values
-
 
      dofs = Var % Dofs
      FieldValues => Var % Values
@@ -1356,18 +1355,20 @@ CONTAINS
        
        ! Output some information before exiting
        !---------------------------------------------------------------------
-        IF( Upper == 0 ) THEN
+       IF( Upper == 0 ) THEN
          CALL Info('DetermineSoftLimiter','Determined lower soft limit set',Level=5)
        ELSE
          CALL Info('DetermineSoftLimiter','Determined upper soft limit set',Level=5)
        END IF
-       WRITE(Message,'(A,I0)') 'Number of dofs in set is ',COUNT( LimitActive )
+       WRITE(Message,'(A,I0)') 'Number of limited dofs for '&
+           //TRIM(GetVarName(Var))//': ',COUNT( LimitActive )
        CALL Info('DetermineSoftLimiter',Message,Level=5)
 
        IF(added > 0) THEN
          WRITE(Message,'(A,I0,A)') 'Added ',added,' dofs to the set'
          CALL Info('DetermineSoftLimiter',Message,Level=5)
        END IF
+
        IF(removed > 0) THEN
          WRITE(Message,'(A,I0,A)') 'Removed ',removed,' dofs from the set'
          CALL Info('DetermineSoftLimiter',Message,Level=5)
@@ -1791,6 +1792,8 @@ CONTAINS
 !------------------------------------------------------------------------------
     Params => Model % Solver % Values
     IF( Dof/=0 .AND. ListGetLogical( Params,'Apply Limiter',GotIt) ) THEN
+
+      CALL Info('SetDirichletBoundaries','Applying limiters',Level=10)
 
       DO Upper=0,1
         
@@ -4119,6 +4122,7 @@ END FUNCTION SearchNodeL
             'Steady State Relaxation Before', Stat )      
         IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
+
     ELSE
       Skip = ListGetLogical( SolverParams,'Skip Compute Nonlinear Change',Stat)
       IF(Skip) RETURN
@@ -5217,7 +5221,7 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), ALLOCATABLE, TARGET :: Px(:), &
                 TempVector(:), TempRHS(:)
     REAL(KIND=dp), POINTER :: Diag(:)
-    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,bnorm,Energy
+    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,bnorm,Energy,xn,bn
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Matrix_t), POINTER :: Aaid, Projector
 
@@ -5297,14 +5301,14 @@ END FUNCTION SearchNodeL
     SkipZeroRhs = ListGetLogical( Params,'Skip Zero Rhs Test',GotIt ) 
 
     IF ( .NOT. ( HarmonicAnalysis .OR. EigenAnalysis .OR. ApplyLimiter .OR. SkipZeroRhs ) ) THEN
-      bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+      bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))      
       IF ( bnorm <= TINY( bnorm) ) THEN
         CALL Info('SolveSystem','Solution trivially zero!')
         x = 0.0d0
         RETURN
       END IF
     END IF
-    
+
     
     IF ( Solver % MultiGridLevel == -1  ) RETURN
 
@@ -5367,6 +5371,26 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+
+    ! Sometimes the r.h.s. may abruptly diminish in value resulting to significant 
+    ! convergence issues or it may be that the system scales linearly with the source. 
+    ! This flag tries to improve on the initial guess of the linear solvers, and may 
+    ! sometimes even result to the exact solution.
+    IF( ListGetLogical( Params,'Linear System Normalize Guess',GotIt ) ) THEN
+      IF( .NOT. ALLOCATED( TempVector ) ) THEN
+        ALLOCATE( TempVector(A % NumberOfRows) )
+      END IF
+      CALL MatrixVectorMultiply( A, x, TempVector )
+      
+      xn = SUM( TempVector(1:n)**2 ) 
+      xn = ParallelReduction(xn) 
+      IF( xn > TINY( xn ) ) THEN
+        bn = SUM( TempVector(1:n) * b(1:n) ) 
+        bn = ParallelReduction(bn) 
+        x(1:n) = x(1:n) * ( bn / xn )
+      END IF
+    END IF
+
     Method = ListGetString(Params,'Linear System Solver',GotIt)
     IF (Method=='multigrid' .OR. Method=='iterative' ) THEN
       Prec = ListGetString(Params,'Linear System Preconditioning',GotIt)
@@ -5424,7 +5448,9 @@ END FUNCTION SearchNodeL
     END IF
 
     IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(Aaid % BulkValues) ) THEN
-      ALLOCATE( TempVector(Aaid % NumberOfRows) )
+      IF( .NOT. ALLOCATED( TempVector ) ) THEN
+        ALLOCATE( TempVector(Aaid % NumberOfRows) )
+      END IF
       SaveValues => Aaid % Values
       Aaid % Values => Aaid % BulkValues
 
@@ -5466,11 +5492,12 @@ END FUNCTION SearchNodeL
             TempVector(i) = 0
           END IF
         END DO
-        DEALLOCATE(TempRHS)
         CALL ParallelSumVector( AAid, Tempvector )
+        DEALLOCATE( TempRhs ) 
       ELSE
         TempVector = TempVector - Aaid % BulkRHS
       END IF
+
 
       DO This=1,CurrentModel % NumberOfBCs
         Projector=>CurrentModel  % BCs(This) % PMatrix
@@ -5504,12 +5531,11 @@ END FUNCTION SearchNodeL
            END DO
          END IF
       END DO
-      DEALLOCATE( TempVector )
 
       IF (BackRotation) CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
 
-
     END IF
+    IF( ALLOCATED( TempVector ) ) DEALLOCATE( TempVector )
     IF (BackRotation) CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 !------------------------------------------------------------------------------
 
@@ -5675,7 +5701,7 @@ END FUNCTION SearchNodeL
 
       ! if there are several constraint matrices unify:
       ! -----------------------------------------------
-      Btmp => Null()
+      Btmp => NULL()
       Atmp => A % ConstraintMatrix
       IF(ASSOCIATED(atmp)) THEN
         IF ( ASSOCIATED(Atmp % ConstraintMatrix) ) THEN
@@ -5691,7 +5717,7 @@ END FUNCTION SearchNodeL
           ALLOCATE( Btmp % RHS(nrows), Btmp % Rows(nrows+1), &
               Btmp % Cols(ncols), Btmp % Values(ncols) )
           Btmp % NumberOFRows = nrows
-          Allocate(Btmp % InvPerm(nrows)); Btmp % InvPerm=0
+          ALLOCATE(Btmp % InvPerm(nrows)); Btmp % InvPerm=0
 
           Atmp => A % ConstraintMatrix
           k = 0
@@ -6333,7 +6359,7 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
   IF(Refactorize.AND..NOT.NotExplicit) THEN
     IF(ASSOCIATED(CollectionMatrix)) THEN
       CALL FreeMatrix(CollectionMatrix)
-      CollectionMatrix => Null()
+      CollectionMatrix => NULL()
     END IF
   END IF
 
@@ -6521,7 +6547,7 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
 
     StiffMatrix % CollectionMatrix => CollectionMatrix
     DEALLOCATE(CollectionSolution)
-    CollectionMatrix % ConstraintMatrix => Null()
+    CollectionMatrix % ConstraintMatrix => NULL()
 
     CALL Info( 'SolveWithLinearRestriction', 'All done', Level=5 )
 !------------------------------------------------------------------------------
