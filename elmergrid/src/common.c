@@ -139,7 +139,6 @@ void smallerror(char error_text[])
   fprintf(stderr,"The program encountered a minor error...\n");
   fprintf(stderr,"%s\n",error_text);
   fprintf(stderr,"...we'll try to continue...\n");
-  exit(1);
 }
 
 

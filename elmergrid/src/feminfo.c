@@ -134,9 +134,11 @@ static int Getline(char *line1,FILE *io)
 
 
 static int GetCommand(char *line1,char *line2,FILE *io) 
+/* Line1 for commands and line2 for arguments. */
 {
   int i,j,isend;
   char line0[MAXLINESIZE],*charend,*matcpntr0,*matcpntr;
+  int gotlinefeed;
 
  newline:
 
@@ -169,9 +171,14 @@ static int GetCommand(char *line1,char *line2,FILE *io)
     }
   }
 #endif 
-
+  
+  gotlinefeed = FALSE;
   j = 0;
   for(i=0;i<MAXLINESIZE;i++) {
+    if(line0[i] == '\n' ) {
+      gotlinefeed = TRUE;
+      break;
+    }
     if(line0[i] == '=') {
       j = i;
       break;
@@ -183,17 +190,40 @@ static int GetCommand(char *line1,char *line2,FILE *io)
   if(strstr(line1,"END")) return(0);
   if(strstr(line1,"NEW MESH")) return(0);
 
-  if(j) {
-    for(i=j+1;i<MAXLINESIZE;i++) 
-      line2[i-j-1] = line0[i];      
+  if(j) { /* Arguments are actually on the same line after '=' */
+    for(i=j+1;i<MAXLINESIZE;i++) {
+      line2[i-j-1] = line0[i];    
+      if( line0[i] == '\n' ) {
+	gotlinefeed = TRUE;
+	break;
+      }
+    }  
+    if(!gotlinefeed) {
+      printf("There is a risk that somethings was missed in line:\n");
+      printf("%s\n",line0);
+      smallerror("Check your output line length!\n");
+    }
   }
-  else {
+  else { /* rguments are on the next line */
   newline2:
     charend = fgets(line2,MAXLINESIZE,io);
     isend = (charend == NULL);
     if(isend) return(2);
     if(line2[0] == '#' || line2[0] == '%' || line2[0] == '!') goto newline2;
     if(!matcactive && line2[0] == '*') goto newline2;
+
+    gotlinefeed = FALSE;
+    for(i=0;i<MAXLINESIZE;i++) {
+      if(line2[i] == '\n' ) {
+	gotlinefeed = TRUE;
+	break;
+      }
+    }
+    if(!gotlinefeed) {
+      printf("There is a risk that somethings was missed in line:\n");
+      printf("%s\n",line2);
+      smallerror("Check your output line length!\n");
+    }
 
 #ifndef DISABLE_MATC
     if(matcactive) {
@@ -1282,7 +1312,13 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       }
       else if(strstr(command,"EXTRUDED LIMITS")) {
 	cp = params;
-	for(i=0;i<=grid->zcells;i++) grid->z[i] = next_real(&cp);
+	for(i=0;i<=grid->zcells;i++ ) { 
+	  grid->z[i] = next_real(&cp);
+	  if(i > 0 && grid->z[i] < grid->z[i-1]) {
+	    printf("Extruded limits %d: %12.6le %12.6le\n",i,grid->z[i],grid->z[i-1]);
+	    bigerror("Values for limits should be a growing series, existing\n");
+	  }
+	}
       }
       else if(strstr(command,"EXTRUDED SIZES")) {
 	cp = params;
@@ -2485,17 +2521,35 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
     else if(strstr(command,"SUBCELL LIMITS 1")) {
       printf("Loading %d subcell limits in X-direction\n",grid[k]->xcells+1);
       cp = params;
-      for(i=0;i<=grid[k]->xcells;i++) grid[k]->x[i] = next_real(&cp);
+      for(i=0;i<=grid[k]->xcells;i++) {
+	grid[k]->x[i] = next_real(&cp);
+	if(i > 0 && grid[k]->x[i] < grid[k]->x[i-1]) {
+	  printf("Subcell limits 1(%d): %12.6le %12.6le\n",i,grid[k]->x[i],grid[k]->x[i-1]);
+	  bigerror("Values for limits 1 should be a growing series, existing\n");
+	}
+      }
     }    
     else if(strstr(command,"SUBCELL LIMITS 2")) {
       printf("Loading %d subcell limits in Y-direction\n",grid[k]->ycells+1);
       cp = params;
-      for(i=0;i<=grid[k]->ycells;i++) grid[k]->y[i] = next_real(&cp);
+      for(i=0;i<=grid[k]->ycells;i++) {
+	grid[k]->y[i] = next_real(&cp);
+	if(i > 0 && grid[k]->y[i] < grid[k]->y[i-1]) {
+	  printf("Subcell limits 2(%d): %12.6le %12.6le\n",i,grid[k]->y[i],grid[k]->y[i-1]);
+	  bigerror("Values for limits should be a growing series, existing\n");
+	}
+      }
     }      
     else if(strstr(command,"SUBCELL LIMITS 3")) {
       printf("Loading %d subcell limits in Z-direction\n",grid[k]->zcells+1);
       cp = params;
-      for(i=0;i<=grid[k]->zcells;i++) grid[k]->z[i] = next_real(&cp);
+      for(i=0;i<=grid[k]->zcells;i++) {
+	grid[k]->z[i] = next_real(&cp);
+	if(i > 0 && grid[k]->z[i] < grid[k]->z[i-1]) {
+	  printf("Subcell limits 3(%d): %12.6le %12.6le\n",i,grid[k]->z[i],grid[k]->z[i-1]);
+	  bigerror("Values for limits should be a growing series, existing\n");
+	}
+      }
     }
 
     else if(strstr(command,"SUBCELL SIZES 1")) {
