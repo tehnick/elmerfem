@@ -829,16 +829,18 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
 
   INTEGER, PARAMETER :: Viscosity_Newtonian = 1, Viscosity_Rarefied = 2
 
-  INTEGER :: iter, i, j, k, l, n, nd, t, istat, eq_id, body_id, mat_id, mat_idold, ViscosityType
+  INTEGER :: iter, i, j, k, l, n, nd, t, istat, eq_id, body_id, mat_id, mat_idold,&
+      ViscosityType, dim
   INTEGER :: Component, Components, Mode
   INTEGER, POINTER :: NodeIndexes(:), PressurePerm(:)
+  REAL(KIND=dp), POINTER :: mWork(:,:)	
 
   LOGICAL :: GotIt, GotIt2, GotIt3, stat, UseVelocity, AllocationsDone = .FALSE., &
-      OpposingWall
+      OpposingWall, CalculateMoment
 
   REAL(KIND=dp), POINTER :: Pressure(:)
   REAL(KIND=dp) :: Norm, ReferencePressure, mfp0, HeatSlide, HeatPres, HeatTotal, &
-      Pforce(3), Vforce(3), TotForce
+      Pforce(3), Vforce(3), TotForce, Moment(3), MomentAbout(3)
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), Viscosity(:), GapHeight(:), &
       Velocity(:,:), ElemPressure(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityModel, PressureName
@@ -879,7 +881,9 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
   Pressure => PressureVar % Values
   PressurePerm => PressureVar % Perm
   IF( COUNT( PressurePerm > 0 ) <= 0) RETURN
-  
+
+  DIM = CoordinateSystemDimension()
+
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
@@ -902,16 +906,27 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
     AllocationsDone = .TRUE.
   END IF 
 
+  mWork => ListGetConstRealArray( Params,'Moment About',CalculateMoment)
+  IF( CalculateMoment ) THEN
+    MomentAbout(1:dim) = mWork(1:dim,1)
+  ELSE
+    MomentAbout(1) = ListGetCReal( Params,'Moment About 1', CalculateMoment )
+    MomentAbout(2) = ListGetCReal( Params,'Moment About 2', stat )
+    CalculateMoment = stat .OR. CalculateMoment        
+    MomentAbout(3) = ListGetCReal( Params,'Moment About 3', stat )
+    CalculateMoment = stat .OR. CalculateMoment
+  END IF
+
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
   
   mat_idold = 0
-  HeatSlide = 0.0d0
-  HeatPres = 0.0d0
-  Pforce = 0.0d0
-  Vforce = 0.0d0
-
+  HeatSlide = 0.0_dp
+  HeatPres = 0.0_dp
+  Pforce = 0.0_dp
+  Vforce = 0.0_dp
+  Moment = 0.0_dp
 
   SolverVar => Solver % Variable
   IF( .NOT. ASSOCIATED( SolverVar ) ) THEN
@@ -1050,17 +1065,28 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
         CALL Info('ReynoldsPostprocess',Message,Level=5)
         CALL ListAddConstReal( Model % Simulation,'res: Pressure force '&
             //TRIM(I2S(i)),Pforce(i))
-     END DO
+      END DO
       DO i=1,3
         WRITE(Message,'(A,I1,A,T35,ES15.4)') 'Sliding force ',i,' (N):',Vforce(i)
         CALL Info('ReynoldsPostprocess',Message,Level=5)
         CALL ListAddConstReal( Model % Simulation,'res: Sliding force '&
             //TRIM(I2S(i)),Vforce(i))
-     END DO
+      END DO
       TotForce = SQRT( SUM((Pforce + Vforce)**2) )
       WRITE(Message,'(A,T35,ES15.4)') 'Reynolds force (N): ',TotForce
       CALL Info('ReynoldsPostprocess',Message,Level=5)
       CALL ListAddConstReal( Model % Simulation,'res: Reynolds force',TotForce)
+
+      IF( CalculateMoment ) THEN
+        DO i=1,3
+          WRITE(Message,'(A,I1,A,T35,ES15.4)') 'Reynolds moment ',i,' (Nm):',Moment(i)
+          CALL Info('ReynoldsPostprocess',Message,Level=5)
+          CALL ListAddConstReal( Model % Simulation,'res: Reynolds moment '&
+              //TRIM(I2S(i)),Moment(i))
+        END DO
+      END IF
+
+
     ELSE IF( Mode == 2 ) THEN
       
 
@@ -1095,13 +1121,12 @@ CONTAINS
     REAL(KIND=dp) :: U, V, W, S, A
     REAL(KIND=dp) :: Vpres(3), Vslide(3), Spres, Sslide
     REAL(KIND=dp) :: Normal(3), Velo(3), TangentVelo(3), Pres, Gap, GradPres(3), &
-        Visc, mfp, Kn, TotPres, source
+        Visc, mfp, Kn, TotPres, source, Radius(3)
     LOGICAL :: Stat
-    INTEGER :: i,p,q,t,DIM, NBasis, CoordSys
+    INTEGER :: i,p,q,t,NBasis, CoordSys
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
 
 !------------------------------------------------------------------------------
-    DIM = CoordinateSystemDimension()
     CoordSys = CurrentCoordinateSystem()
 
     Metric = 0.0d0
@@ -1131,12 +1156,21 @@ CONTAINS
           Basis, dBasisdx)
       
       s = s * SqrtElementMetric
-      IF ( CoordSys /= Cartesian ) THEN
+      IF ( CoordSys /= Cartesian .OR. CalculateMoment ) THEN
         X = SUM( Nodes % X(1:n) * Basis(1:n) )
         Y = SUM( Nodes % Y(1:n) * Basis(1:n) )
         Z = SUM( Nodes % Z(1:n) * Basis(1:n) )
+      END IF
+
+      IF( CoordSys /= Cartesian ) THEN
         CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,X,Y,Z )
         s = s * SqrtMetric
+      END IF
+
+      IF( CalculateMoment ) THEN
+        Radius(1) = X - MomentAbout(1)
+        Radius(2) = Y - MomentAbout(2)
+        Radius(3) = Z - MomentAbout(3)
       END IF
 
 !------------------------------------------------------------------------------
@@ -1200,6 +1234,19 @@ CONTAINS
         
         Pforce(Component) = Pforce(Component) + s * Spres
         Vforce(Component) = Vforce(Component) + s * Sslide
+
+        IF( CalculateMoment ) THEN
+          IF( Component == 1 ) THEN
+            Moment(2) = Moment(2) + Radius(3) * s * source
+            Moment(3) = Moment(3) - Radius(2) * s * source
+          ELSE IF ( Component == 2 ) THEN
+            Moment(1) = Moment(1) - Radius(3) * s * source
+            Moment(3) = Moment(3) + Radius(1) * s * source
+          ELSE IF ( Component == 3 ) THEN
+            Moment(1) = Moment(1) + Radius(2) * s * source
+            Moment(2) = Moment(2) - Radius(1) * s * source
+          END IF
+        END IF
         
       ELSE IF( Mode == 2 ) THEN
         ! Flux resulting from pressure gradient and sliding 
