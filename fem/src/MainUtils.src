@@ -233,7 +233,7 @@ CONTAINS
     ! then you must use global matrices for time integration.
     IF( ListGetLogical( SolverParams,'Linear System FCT',Found ) ) THEN
       IF( ParEnv % PEs > 1 ) THEN
-        CALL Fatal('DefaultInitialize','FCT scheme not implemented in parallel yet!')
+        CALL Fatal('AddEquationBasics','FCT scheme not implemented in parallel yet!')
       END IF
       CALL ListAddLogical( SolverParams,'Use Global Mass Matrix',.TRUE.)
     END IF
@@ -1454,7 +1454,6 @@ CONTAINS
 !------------------------------------------------------------------------------
        DO k=1,Model % NumberOfSolvers
 !------------------------------------------------------------------------------
-
           Solver => Model % Solvers(k)
 
           IF ( Solver % PROCEDURE == 0 ) THEN
@@ -1507,9 +1506,8 @@ CONTAINS
             NeedSol = NeedSol .AND. Stat
           END IF
           IF(.NOT. NeedSol ) THEN
-            Relaxation = ListGetConstReal( Solver % Values, &
-                'Steady State Relaxation Factor', Stat )
-            NeedSol = Stat .AND. (Relaxation /= 1.0d0)
+            NeedSol = ListCheckPresent( Solver % Values, &
+                'Steady State Relaxation Factor')
           END IF
 
           IF ( NeedSol .AND. n > 0 ) THEN
