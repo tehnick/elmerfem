@@ -34,7 +34,6 @@
 ! *
 ! *****************************************************************************/
 
-
 !------------------------------------------------------------------------------
 !> Solver for computing average normals for nodes using the Galerkin method.
 !> For real meshes the direction of the normal is discrete for curved surfaces
@@ -87,7 +86,10 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   SolverParams => GetSolverParams()
 
   VarName = GetString(SolverParams,'Normals Result Variable',GotIt )
-  IF(.NOT. gotIt) VarName = 'Normals'
+  IF(.NOT. GotIt) THEN
+    CALL Fatal('NormalSolver','> Normals Result Variable < not found!')
+  END IF
+
   NrmSol => VariableGet( Solver % Mesh % Variables,  VarName )
   IF(ASSOCIATED(NrmSol)) THEN
      Dofs = NrmSol % DOFs
@@ -95,7 +97,7 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
        CALL Fatal('NormalSolver','The normals should have DOFs equal to DIM')
      END IF
   ELSE
-    CALL Fatal('NormalSolver','Normal Result Variable is missing: '//TRIM(VarName))
+    CALL DefaultVariableAdd( VarName, dim, Var = NrmSol ) 
   END IF
   
 
@@ -277,16 +279,23 @@ END SUBROUTINE NormalSolver
 !------------------------------------------------------------------------------
     INTEGER :: dim
     TYPE(ValueList_t), POINTER :: SolverParams
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+    LOGICAL :: Found
 !------------------------------------------------------------------------------
     SolverParams => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
-      dim = CoordinateSystemDimension()
-      CALL ListAddString( SolverParams,  'Variable', '-nooutput Nrm_tmp' )
-      CALL ListAddString( SolverParams,  'Exported Variable 1', 'Normals' )
-      CALL ListAddInteger( SolverParams, 'Exported Variable 1 DOFs', dim )
-      CALL ListAddString( SolverParams,  'Normals Result Variable', 'Normals')
+      CALL ListAddString( SolverParams, 'Variable','-nooutput nrm_temp' )
     END IF
-    CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
+    
+    VarName = GetString(SolverParams,'Normals Result Variable', Found )
+    IF( .NOT. Found ) THEN
+      CALL ListAddString( SolverParams,'Normals Result Variable','Normals')
+      CALL ListAddString( SolverParams,  'Exported Variable 1', 'Normals[Normals:2]' )
+    END IF
+
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
 !------------------------------------------------------------------------------
   END SUBROUTINE NormalSolver_Init
 !------------------------------------------------------------------------------
