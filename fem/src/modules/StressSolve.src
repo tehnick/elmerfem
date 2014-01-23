@@ -186,7 +186,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
      LOGICAL :: Contact = .FALSE.
      LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
                 ConstantBulkSystem, ConstantBulkMatrix, ConstantBulkMatrixInUse, ConstantSystem, &
-                UpdateSystem, GotHeatExp
+                UpdateSystem, GotHeatExp, Converged
 
      LOGICAL :: AllocationsDone = .FALSE., NormalTangential, HarmonicAnalysis
      LOGICAL :: StabilityAnalysis = .FALSE., ModelLumping, FixDisplacement
@@ -544,6 +544,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
 
 
      DO iter=1,MaxIter
+
        IF( StabilityAnalysis .OR. GeometricStiffness ) THEN
           SELECT CASE( iter )
           CASE( 1 )
@@ -563,6 +564,8 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
        END IF
        CALL Info( 'StressSolve', 'Starting assembly...',Level=5 )
 !------------------------------------------------------------------------------
+
+500    CALL DefaultInitialize()
 
        ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
            ASSOCIATED(Solver % Matrix % BulkValues)
@@ -584,7 +587,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
          IF ( ConstantSystem )     GO TO 3000
        END IF
  
-       CALL DefaultInitialize()
+!       CALL DefaultInitialize()
 
 1000   CALL BulkAssembly()
        CALL DefaultFinishBulkAssembly()
@@ -596,12 +599,20 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
 3000   IF ( Transient .AND.(ConstantBulkMatrix .OR. &
            ConstantBulkSystem .OR. ConstantSystem) ) CALL AddGlobalTime()
        CALL DefaultFinishAssembly()
+
        CALL DefaultDirichletBCS()
 
        IF( ModelLumping .AND. FixDisplacement) THEN
          CALL LumpedDisplacements( Model, iter, LumpedArea, LumpedCenter)
        END IF
        CALL Info( 'StressSolve', 'Set boundaries done', Level=5 )
+
+       !------------------------------------------------------------------------------
+       !     Check stepsize for nonlinear iteration
+       !------------------------------------------------------------------------------
+       IF( DefaultLinesearch( Converged ) ) GOTO 500
+
+       IF( Converged ) EXIT
 
        ! Solve the system and check for convergence:
        !--------------------------------------------
@@ -629,6 +640,7 @@ SUBROUTINE StressSolver_Init( Model,Solver,dt,Transient )
          ContactPressure = MAX( 0.0d0, ContactPressure &
               + UzawaParameter * NormalDisplacement )
        END IF
+
 
        IF ( Iter > MinIter .AND. Solver % Variable % NonlinConverged == 1 ) EXIT
 

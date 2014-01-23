@@ -106,17 +106,19 @@ CONTAINS
          A % Force(:,1) = 0.0d0
        END IF
 
-       IF ( ASSOCIATED( A % BulkRHS ) )  THEN
-         A % BulkRHS(:) = 0.0d0
-       END IF
+! Setting this to zero may write over values that we want to save!
+!       IF ( ASSOCIATED( A % BulkRHS ) )  THEN
+!         A % BulkRHS(:) = 0.0d0
+!       END IF
 
        IF ( ASSOCIATED( A % RHS_im ) )  THEN
          A % RHS_im(:) = 0.0d0
        END IF
 
-       IF ( ASSOCIATED( A % BulkValues ) )  THEN
-         A % BulkValues(:) = 0.0d0
-       END IF
+! Setting this to zero may write over values that we want to save!
+!       IF ( ASSOCIATED( A % BulkValues ) )  THEN
+!         A % BulkValues(:) = 0.0d0
+!       END IF
      END IF
 
      ForceVector = 0.0d0
@@ -408,7 +410,7 @@ CONTAINS
      IF( ASSOCIATED( A % BulkRhs ) ) THEN
        IF( SIZE( A % BulkRhs ) /= n ) THEN
           DEALLOCATE( A % BulkRhs ) 
-          A % BulkRHS => Null()
+          A % BulkRHS => NULL()
        END IF
      END IF
      IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
@@ -420,12 +422,13 @@ CONTAINS
      IF( ASSOCIATED( A % BulkValues ) ) THEN
        IF( SIZE( A % BulkValues ) /= n ) THEN
           DEALLOCATE( A % BulkValues ) 
-          A % BulkValues => Null()
+          A % BulkValues => NULL()
        END IF
      END IF
      IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
        ALLOCATE( A % BulkValues( n ) )
      END IF
+
      A % BulkValues = A % Values
 
    END SUBROUTINE CopyBulkMatrix
@@ -4130,6 +4133,11 @@ END FUNCTION SearchNodeL
       END IF
 
     ELSE
+      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      IterNo = iterV % Values(1)
+      Solver % Variable % NonlinIter = iterV % Values(1)
+      iterV % Values(1) = iterV % Values(1) + 1 
+
       Skip = ListGetLogical( SolverParams,'Skip Compute Nonlinear Change',Stat)
       IF(Skip) RETURN
 
@@ -4141,11 +4149,6 @@ END FUNCTION SearchNodeL
           ListGetLogical(SolverParams,'Nonlinear System Convergence Absolute',Stat)
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(SolverParams,'Use Absolute Norm for Convergence',Stat)
-
-      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
-      IterNo = iterV % Values(1)
-      Solver % Variable % NonlinIter = iterV % Values(1)
-      iterV % Values(1) = iterV % Values(1) + 1 
 
       Relaxation = ListGetCReal( SolverParams, &
           'Nonlinear System Relaxation Factor', Relax )
@@ -4378,6 +4381,7 @@ END FUNCTION SearchNodeL
 
     ! The update of exported variables may be done internally to allow some nonlinear features	   
     ! or in steady state level to allow coupling to other solvers.
+    !-----------------------------------------------------------------------------------------
     DoIt = .FALSE.
     IF( SteadyState ) THEN 
       DoIt = ListGetLogical( SolverParams,&
@@ -4393,6 +4397,7 @@ END FUNCTION SearchNodeL
     ! May be usefull for some floating systems where one want to impose some intergral 
     ! constraints without actually using them. Then first use just one Dirichlet point
     ! and then fix the level a posteriori using this condition. 
+    !----------------------------------------------------------------------------------
     DoIt = .FALSE.
     IF( SteadyState ) THEN 
       DoIt = ListGetLogical( SolverParams,&
@@ -4476,7 +4481,7 @@ END FUNCTION SearchNodeL
 
 !------------------------------------------------------------------------------
 !> Checks stepsize of a linear system so that the error has decreased.
-!> Armijo-Golstein criterion is used to ensure this.
+!> Various indicatators and search algorithms have been implemented,
 !------------------------------------------------------------------------------
   FUNCTION CheckStepSize(Solver,FirstIter,&
       nsize,values,values0) RESULT ( ReduceStep ) 
@@ -4487,27 +4492,28 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
     LOGICAL :: ReduceStep
 !------------------------------------------------------------------------------
-    LOGICAL :: FirstTrial = .TRUE.
-    INTEGER :: MaxTests=0,tests
-    REAL(KIND=dp) :: PrevResidual, Residual
-    INTEGER :: i,n
+    INTEGER :: MaxTests=0,tests,MaxNonlinIter,NonlinIter
+    REAL(KIND=dp) :: Residual0, Residual1, Residual
+    INTEGER :: i,n,m,ForceInd, ForceDofs, SearchMode, CostMode
     TYPE(Matrix_t), POINTER :: A
-    REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:)
-    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy, Tol
+    TYPE(Variable_t), POINTER :: IterVar
+    REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:), x1(:)
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy, &
+        NonlinTol, LineTol, Cost0, Cost1, Cost, OrthoCoeff, x0norm, Change
     INTEGER, POINTER :: Indexes(:)
-    TYPE(Variable_t), POINTER :: iterV
-    LOGICAL :: Stat, Init
-    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+    LOGICAL :: Stat, Init, Newton, Ortho, Debug 
+    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, ConvergenceType
     TYPE(ValueList_t), POINTER :: SolverParams
 
 
-    SAVE SolverParams, FirstTrial, Alpha, Myy, Relaxation, MaxTests, tests, &
-        PrevResidual, Residual, Tol
+    SAVE SolverParams, Alpha, Myy, Relaxation, MaxTests, tests, &
+        Residual, NonlinTol, x1, x0, LineTol, CostMode, SearchMode, &
+        Cost0, Cost1, ForceInd, n, ForceDofs, Ortho, Newton, &
+        ConvergenceType, Norm, PrevNorm
 
+    Debug = .FALSE.
+    
     SolverParams => Solver % Values
-
-    Solver % Variable % NonlinConverged = 0
-    Solver % Variable % NonlinChange = 1.0_dp
 
     IF(PRESENT(values)) THEN
       x => values
@@ -4515,39 +4521,84 @@ END FUNCTION SearchNodeL
       x => Solver % Variable % Values      
     END IF
 
-    IF(PRESENT(nsize)) THEN
-      n = nsize
-    ELSE
-      n = SIZE(x)
-    END IF
-
-    !--------------------------------------------------------------------------
-    ! This is the real residual: r=b-Ax
-    !--------------------------------------------------------------------------
-    A => Solver % Matrix
-    b => Solver % Matrix % rhs
-
-    ALLOCATE(r(n))
-    CALL MatrixVectorMultiply( A, x, r)
-    DO i=1,n
-      r(i) = r(i) - b(i)
-    END DO
-    Residual = ComputeNorm(Solver, n, r)
-    DEALLOCATE(r)
-
-    ! At first iteration we cannot really do anything but go further 
-    ! and save the reference residual for comparison.
-    ! Also at first time get the line search parameters.
-    !-----------------------------------------------------------------------------
-
+    ! Assembly the vectors, if needed, and 
+    ! also at first time get the line search parameters.
+    !----------------------------------------------------
     IF( FirstIter ) THEN
-      FirstTrial = .TRUE.
+      CALL Info('CheckStepSize','Initializing step-size search',Level=6)
+
+      IF(PRESENT(nsize)) THEN
+        n = nsize
+      ELSE
+        n = SIZE(x)
+      END IF
+      
+      IF( ASSOCIATED( x0 ) ) THEN
+        IF( SIZE(x0) /= n ) DEALLOCATE( x0 )
+      END IF
+      
+      IF( PRESENT( values0 ) ) THEN
+        x0 => values0 
+      ELSE
+        IF( .NOT. ASSOCIATED( x0 ) ) THEN
+          ALLOCATE( x0(n) )
+        END IF
+      END IF
+      
+      IF( ASSOCIATED( x1 ) ) THEN
+        IF( SIZE(x1) /= n ) DEALLOCATE( x1 )
+      END IF
+      IF( .NOT. ASSOCIATED( x1 ) ) THEN
+        ALLOCATE( x1(n) )
+      END IF
+
+      Norm = 0.0_dp
+      Solver % Variable % NonlinConverged = 0
+      Solver % Variable % NonlinChange = 1.0_dp
+      
+      ! 1 - Residual norm : |Ax-b| 
+      ! 2 - Quadratic functional : x^T(Ax-2b)/2
+      ! 3 - Weighted residual : x^T(Ax-b)
+      ! 4 - Lumped force : SUM(r_i)
+      !------------------------------------------------------------
+      CostMode = ListGetInteger( SolverParams,'Nonlinear System Linesearch Cost Mode',Stat)
+      IF(.NOT. Stat) CostMode = 1
+      
+      ! 1 - Armijo-Goldstein criterion & successive relaxation 
+      ! 2 - Minimize cost by bisection
+      ! 3 - Find the zero cost by bisection
+      !------------------------------------------------------------
+      SearchMode = ListGetInteger( SolverParams,'Nonlinear System Linesearch Search Mode',Stat)
+      IF(.NOT. Stat) SearchMode = 1
+
+      ! Should the search direction be orthogonalized 
+      !-----------------------------------------------------------
+      Ortho = ListGetLogical( SolverParams,'Nonlinear System Linesearch Orthogonal',Stat)
+
+      ! Is the outer ieration performed by Newton i.e. the search 
+      ! should always be differential. 
+      !-----------------------------------------------------------
+      Newton = ListGetLogical( SolverParams,'Nonlinear System Linesearch Newton',Stat)
+
+      NonlinTol = ListGetConstReal( SolverParams, &
+          'Nonlinear System Convergence Tolerance', Stat )
+
+      MaxNonlinIter = ListGetInteger( SolverParams,&
+            'Nonlinear System Max Iterations',Stat)
+      IF( MaxNonlinIter <= 2 ) THEN
+        CALL Warn('CheckStepSize','For linesearch to work the nonlin iterations should be larger: '&
+            //I2S(MaxNonlinIter))
+      END IF
+
+      ConvergenceType = ListGetString(SolverParams,&
+          'Nonlinear System Convergence Measure',Stat)
+      IF(.NOT. Stat) ConvergenceType = 'norm'
+
+      ! Parameters related to line search algorithms
+      !------------------------------------------------
       MaxTests = ListGetInteger( SolverParams,&
           'Nonlinear System Linesearch Iterations',Stat)
-      IF( .NOT. Stat ) THEN
-        MaxTests = ListGetInteger( SolverParams,&
-            'Nonlinear System Max Iterations',Stat)
-      END IF
+      IF( .NOT. Stat ) MaxTests = 10
 
       Myy = ListGetConstReal( SolverParams, &
           'Nonlinear System Linesearch Limit', Stat )
@@ -4557,97 +4608,381 @@ END FUNCTION SearchNodeL
           'Nonlinear System Linesearch Factor', Stat )
       IF(.NOT. Stat) Relaxation = 0.5_dp
 
-      Tol = ListGetConstReal( SolverParams, &
-          'Nonlinear System Convergence Tolerance', Stat )
-
-      ! Only this norm makes sense with the step-size control
-      CALL ListAddString(SolverParams, &
-          'Nonlinear System Convergence Measure','residual')
+      LineTol = ListGetConstReal( SolverParams, &
+          'Nonlinear System Linesearch Tolerance', Stat )
 
       ! Computation of nonlinear change is now done with this routine
+      ! so skip computing the change in the standard slot.
+      !---------------------------------------------------------------
       CALL ListAddLogical(SolverParams,&
           'Skip Compute Nonlinear Change',.TRUE.)
+    END IF
 
-      PrevResidual = Residual
+    !--------------------------------------------------------------------------
+    ! This is the real residual: r=b-Ax
+    ! We hope to roughly minimize L2 norm of r, or some related quantity
+    !--------------------------------------------------------------------------
+    A => Solver % Matrix
+    b => Solver % Matrix % rhs
+
+    ALLOCATE(r(n))
+    CALL MatrixVectorMultiply( A, x, r)
+    r(1:n) = r(1:n) - b(1:n)
+    Residual = ComputeNorm(Solver, n, r)
+
+    IF( CostMode == 1 ) THEN
+      Cost = Residual
+    ELSE IF( CostMode == 2 ) THEN
+      Cost = SUM( 0.5_dp * x(1:n) * ( r(1:n) - b(1:n) ) )
+    ELSE IF( CostMode == 3 ) THEN
+      Cost = SUM( x(1:n) * r(1:n) )
+    ELSE IF( CostMode == 4 ) THEN
+      Cost = SUM( r(ForceInd::2) )
+    ELSE
+      CALL Fatal('CheckStepSize','Unknown CostMode: '//TRIM(I2S(SearchMode)))
+    END IF
+    DEALLOCATE(r)
+
+    ! At first iteration we cannot really do anything but go further 
+    ! and save the reference residual for comparison.
+    !-----------------------------------------------------------------------------
+    IF( FirstIter ) THEN
       Tests = 0
       ReduceStep = .FALSE.
+      x0(1:n) = x(1:n)
+      Cost0 = Cost
 
-      IF( .NOT. PRESENT( values0 ) ) THEN
-        IF(.NOT. ASSOCIATED(Solver % Variable % NonlinValues) ) THEN
-          ALLOCATE( Solver % Variable % NonlinValues(SIZE(x)) )
-          Solver % Variable % NonlinValues = x
-        END IF
+      IF( Debug ) THEN
+        PRINT *,'x0 range: ',MINVAL(x0),MAXVAL(x0)
+        PRINT *,'b0 range: ',MINVAL(b),MAXVAL(b)
+        PRINT *,'Cost0: ',Cost0
       END IF
 
       RETURN
     END IF
 
+    Tests = Tests + 1
 
-    ! Start with no relaxation 
-    !-----------------------------------------------------------------------------
-    IF( FirstTrial ) THEN
+    IF( Tests == 1 ) THEN
+      ! Started with no relaxation
+      !---------------------------
+      x1 = x
       Alpha = 1.0_dp
+      Cost1 = Cost
+
+      IF( Debug ) THEN
+        PRINT *,'b1 range: ',MINVAL(b),MAXVAL(b)
+        PRINT *,'x1 range: ',MINVAL(x1),MAXVAL(x1)
+        PRINT *,'Cost1: ',Cost1
+      END IF
+
+      ! Orthonormalization:
+      ! The direction 'x0' has already been exhausted so remove that from 'x1'
+      !-----------------------------------------------------------------------
+      IF( Ortho ) THEN
+        x0norm = SUM( x0(1:n) * x0(1:n) )  
+        IF( x0norm > EPSILON( x0norm ) ) THEN
+          OrthoCoeff = SUM(x1*x0) / x0norm
+          x1 = x1 - OrthoCoeff * x0
+        END IF
+      ELSE
+        x1 = x1 - x0 
+      END IF
+
+      IF( Debug ) THEN
+        PRINT *,'x1 range orto: ',MINVAL(x1),MAXVAL(x1)
+      END IF
     END IF
 
     ! Armijo-GoldStein Criterion for accepting stepsize
     !-----------------------------------------------------------------
-    Tests = Tests + 1
-    ReduceStep = ( PrevResidual - Residual < Myy * Alpha * PrevResidual )
-
-    IF( Tests >= MaxTests .AND. ReduceStep ) THEN
-      CALL Warn('CheckStepSize','Maximum number of linesearch steps taken without success!')
-      ReduceStep = .FALSE.
+    IF( SearchMode == 1 ) THEN
+      ReduceStep = ArmijoGoldsteinSearch(Tests, Alpha )
+    ELSE IF( SearchMode == 2 ) THEN
+      ReduceStep = BisectMinimumSearch(Tests, Alpha) 
+    ELSE IF( SearchMode == 3 ) THEN
+      ReduceStep = BisectZeroSearch(Tests, Alpha)       
+    ELSE
+      CALL Fatal('CheckStepSize','Unknown SearchMode: '//TRIM(I2S(SearchMode)))
     END IF
 
-    IF( ReduceStep ) THEN      
-      FirstTrial = .FALSE.
-
-      IF(PRESENT(values0)) THEN
-        x0 => values0
-      ELSE
-        IF(.NOT. ASSOCIATED(Solver % Variable % NonlinValues)) &
-            CALL Fatal('CheckStepSize','Previous nonlinear solution is needed')       
-        x0 => Solver % Variable % NonlinValues
+    IF( ReduceStep ) THEN
+      IF( Tests >= MaxTests .AND. ReduceStep ) THEN
+        CALL Fatal('CheckStepSize','Maximum number of linesearch steps taken without success!')
+        ReduceStep = .FALSE.
       END IF
-      IF(SIZE(x0) /= SIZE(x)) CALL Warn('CheckStepSize','Possible mismatch in length of vectors!')
+      
+      ! New candidate 
+      IF( Ortho ) THEN
+        x(1:n) = x0(1:n) + Alpha * x1(1:n)
+      ELSE
+        x(1:n) = x0(1:n) + Alpha * x1(1:n)
+      END IF
 
-      x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)      
-      Alpha = Alpha * Relaxation
-
-      WRITE(Message,'(A,I0,g15.8)') 'Step rejected, increasing relaxation: ',&
-          Tests,Alpha
-      CALL Info( 'CheckStepSize',Message,Level=5 )
+      WRITE(Message,'(A,I0,A,g15.6)') 'Step ',Tests,' rejected, trying new extent: ',Alpha
+      CALL Info( 'CheckStepSize',Message,Level=6 )
     ELSE ! accept step
-      bNorm = ComputeNorm(Solver, n, b)
-      Solver % Variable % NonlinChange = Residual / bNorm
+      PrevNorm = Norm
+      Norm = ComputeNorm(Solver, n, x)
 
-      IF( Solver % Variable % NonlinChange <  Tol ) THEN
+      IF( ConvergenceType == 'residual') THEN
+        bNorm = ComputeNorm(Solver, n, b)
+        IF( bNorm > 0.0_dp ) Change = Residual / bNorm
+      ELSE
+        Change = ABS( Norm-PrevNorm )
+        IF( Norm + PrevNorm > 0.0) THEN
+          Change = Change * 2.0 / ( Norm + PrevNorm )
+        END IF
+      END IF
+
+      Solver % Variable % NonlinChange = Change
+      Solver % Variable % Norm = Norm
+     
+      IF( Solver % Variable % NonlinChange <  NonlinTol ) THEN
         Solver % Variable % NonlinConverged = 1
       END IF
       
-      Norm = ComputeNorm(Solver, n, x)
-      Solver % Variable % Norm = Norm
-
       SolverName = ListGetString( SolverParams, 'Equation',Stat)
       IF(.NOT. Stat) SolverName = Solver % Variable % Name
+            
+      IterVar => VariableGet( Solver % Mesh % Variables, 'nonlin iter')
+      m = NINT(IterVar % Values(1))
       
-      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
-      n = NINT(iterV % Values(1))
-
       ! This replaces the standard error output usually written by the ComputeChange
       WRITE( Message, '(a,g15.8,g15.8,a)') &
-          'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Residual / bNorm,&
+          'NS (ITER='//TRIM(i2s(m))//') (NRM,RELC): (',Norm, Change, &
           ' ) :: '// TRIM(SolverName)
       CALL Info( 'CheckStepSize', Message, Level=3 )       
-      iterV % Values(1) = n + 1 
-
-      WRITE(Message,'(A,I0,A)') 'Step accepted after ',tests,' trials'
+      
+      WRITE(Message,'(A,I0,A,g15.6)') 'Step accepted after ',tests,' trials: ',Alpha
       CALL Info( 'CheckStepSize',Message,Level=5 )
-
-      FirstTrial = .TRUE.
+      WRITE(Message,'(A,g15.6)') 'Previous cost:',Cost0
+      CALL Info( 'CheckStepSize',Message,Level=6 )
+      WRITE(Message,'(A,g15.6)') 'Initial cost: ',Cost1
+      CALL Info( 'CheckStepSize',Message,Level=6 )
+      WRITE(Message,'(A,g15.6)') 'Final cost:   ',Cost
+      CALL Info( 'CheckStepSize',Message,Level=6 )
+      
       Tests = 0
-      PrevResidual = Residual
+      x0 = x
+      Cost0 = Cost
+      
+      IF( Debug ) THEN
+        PRINT *,'x0 range: ',MINVAL(x0),MAXVAL(x0)
+        PRINT *,'Cost0: ',Cost0
+      END IF
+
+      IF( Newton ) FirstIter = .TRUE.
     END IF
+
+  CONTAINS
+
+!-----------------------------------------------------------------
+!> Armijo-GoldStein Criterion for accepting stepsize
+!-----------------------------------------------------------------
+    FUNCTION ArmijoGoldsteinSearch(Tests,Alpha) RESULT ( ReduceStep )
+
+      INTEGER :: Tests 
+      REAL(KIND=dp) :: Alpha
+      LOGICAL :: ReduceStep
+
+      ReduceStep = ( Cost > ( 1.0_dp - Myy * Alpha ) * Cost0 )
+      IF( ReduceStep ) Alpha = Alpha * Relaxation
+
+    END FUNCTION ArmijoGoldsteinSearch
+
+
+!-------------------------------------------------------------------------------
+!> Choose next parameter set from 1D bisection search
+!-------------------------------------------------------------------------------
+
+    FUNCTION BisectMinimumSearch(Tests, Alpha) RESULT ( ReduceStep ) 
+
+      INTEGER :: Tests 
+      REAL(KIND=dp) :: Alpha
+      LOGICAL :: ReduceStep
+      
+      INTEGER :: i,j,k
+      REAL(KIND=dp) :: step, p(3),c(3),paid,caid,beta 
+      
+      SAVE step, p, c
+
+      ReduceStep = .TRUE.
+      
+      IF(Tests == 1) THEN
+        p(1) = 0.0_dp
+        c(1) = Cost0
+        
+        p(2) = 1.0_dp
+        c(2) = Cost
+        
+        step = 0.25_dp
+        Alpha = 0.5_dp
+        RETURN
+      ELSE 
+        p(3) = Alpha
+        c(3) = Cost 
+      END IF
+      
+     ! Order the previous points so that p1 < p2 < p3
+      DO k=1,2 
+        DO i=k+1,3
+          IF(p(i) < p(k)) THEN
+            paid = p(k)
+            p(k) = p(i)
+            p(i) = paid
+            caid = c(k)
+            c(k) = c(i)
+            c(i) = caid
+          END IF
+        END DO
+      END DO
+      
+      IF( Debug ) THEN
+        PRINT *,'Bisect p:',p
+        PRINT *,'Bisect c:',c
+      END IF
+
+      
+      IF( p(3)-p(1) < LineTol ) THEN
+        ReduceStep = .FALSE.
+        RETURN
+      END IF
+
+      ! Monotonic line segment
+      IF( (c(2)-c(1))*(c(3)-c(2)) > 0.0) THEN
+        IF(c(3) < c(1)) THEN
+          Alpha = p(3) + SIGN(step,p(3)-p(1))
+          c(1) = c(3)
+          p(1) = p(3)
+        ELSE
+          Alpha = p(1) + SIGN(step,p(1)-p(3))
+        END IF
+      ELSE IF(c(2) < c(1) .OR. c(2) < c(3)) THEN 
+        IF(c(3) < c(1)) THEN
+          c(1) = c(3)
+          p(1) = p(3)
+        END IF
+        step = (p(2)-p(1))/2.0d0
+        Alpha = p(1) + SIGN(step,p(2)-p(1))
+      ELSE 
+        IF( MINVAL ( c ) < Cost0 ) THEN
+          caid = c(1)
+          Alpha = p(1)
+          DO k=2,3
+            IF( c(k) < caid ) THEN
+              caid = c(k)
+              Alpha = p(k)
+            END IF
+          END DO
+          CALL Warn('BisectSearch','Bisection method improved but faced local maximium')
+          ReduceStep = .FALSE.
+        ELSE
+          CALL Fatal('BisectSearch','Bisection method cannot handle local maxima')
+        END IF
+      END IF
+
+      ! Because alpha should be in limit [0,1] make the corrections
+      !------------------------------------------------------------
+      IF( .FALSE. ) THEN
+        beta = alpha
+        k = 0
+        IF( Alpha < -EPSILON( Alpha ) ) THEN
+          IF( p(1) < EPSILON( Alpha ) ) THEN
+            step = (p(2)-p(1))/2.0_dp
+            Alpha = p(1) + step
+            k = 1
+          ELSE
+            Alpha = 0.0_dp
+            k = 1
+          END IF
+        ELSE IF( Alpha > 1.0_dp + EPSILON( Alpha ) ) THEN
+          IF( p(3) > 1.0_dp - EPSILON( Alpha ) ) THEN
+            step = (p(3)-p(2))/2.0_dp
+            Alpha = p(2) + step
+            k = 2
+          ELSE
+            Alpha = 1.0_dp
+            k = 3 
+          END IF
+        END IF
+      END IF
+
+    END FUNCTION BisectMinimumSearch
+
+
+!-------------------------------------------------------------------------------
+!> Choose next parameter set from 1D bisection search
+!-------------------------------------------------------------------------------
+    FUNCTION BisectZeroSearch(Tests, Alpha) RESULT ( ReduceStep ) 
+
+      INTEGER :: Tests 
+      REAL(KIND=dp) :: Alpha
+      LOGICAL :: ReduceStep
+      
+      INTEGER :: i,j,k
+      REAL(KIND=dp) :: step, p(3),c(3),paid,caid,beta 
+      
+      SAVE step, p, c
+
+      ReduceStep = .TRUE.
+      
+      IF(Tests == 1) THEN
+        p(1) = 0.0_dp
+        c(1) = Cost0
+        
+        p(2) = 1.0_dp
+        c(2) = Cost1
+        
+        IF( Cost0 * Cost1 > 0.0_dp ) THEN
+          CALL Warn('CostSearch','Lumped forces should have different sign!')
+        END IF
+
+        Alpha = 0.5_dp
+        RETURN
+      ELSE 
+        p(3) = Alpha
+        c(3) = Cost 
+      END IF
+      
+     ! Order the previous points so that p1 < p2 < p3
+      DO k=1,2 
+        DO i=k+1,3
+          IF(p(i) < p(k)) THEN
+            paid = p(k)
+            p(k) = p(i)
+            p(i) = paid
+            caid = c(k)
+            c(k) = c(i)
+            c(i) = caid
+          END IF
+        END DO
+      END DO
+
+      IF( Debug ) THEN
+        PRINT *,'Cost p:',p
+        PRINT *,'Cost c:',c
+      END IF
+
+      IF( p(3)-p(1) < LineTol ) THEN
+        ReduceStep = .FALSE.
+        RETURN
+      END IF
+
+      ! Zero value is between 1st interval
+      IF( c(1)*c(2) < 0.0_dp ) THEN
+        Alpha = (p(1)+p(2))/2.0_dp
+      ELSE IF ( c(2)*c(3) < 0.0_dp ) THEN
+        Alpha = (p(2)+p(3))/2.0_dp
+
+        ! We don't need 1st values, but we do need 3rd 
+        p(1) = p(3)
+        c(1) = c(3)
+      ELSE
+        CALL Fatal('ForceSearch','Lumped forces should have different sign!')
+      END IF
+      
+    END FUNCTION BisectZeroSearch
 
 !------------------------------------------------------------------------------
   END FUNCTION CheckStepSize
@@ -6422,7 +6757,7 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
      MultVar => VariableGet(Solver % Mesh % Variables, MultiplierName)
      MultiplierValues => MultVar % Values
   ELSE
-     MultiplierValues => Null()
+     MultiplierValues => NULL()
   END IF
 
 !------------------------------------------------------------------------------
