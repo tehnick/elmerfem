@@ -1,8 +1,6 @@
 ## make the mesh
 ElmerGrid 1 2 rectangle
 
-## compile UpdateExport.f90
-make
 
 #UpdateExport.f90: is a solver used to update auxilliary variables
 #declared as "Exported Variable" in the solver section; accorded to their definition in the body Force.
