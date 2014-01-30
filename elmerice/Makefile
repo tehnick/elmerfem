@@ -34,20 +34,20 @@ Solvers/PorousSolve.f90 \
 Solvers/pointwise.f90 \
 Solvers/SIASolver.f90 \
 Solvers/SSASolver.f90 \
-Solvers/ThicknessSolver.f90\
-Solvers/TemperateIce.f90\
-Solvers/ExportVertically.f90\
-Solvers/AdjointSolver.f90\
-Solvers/DJDBeta_Adjoint.f90\
-Solvers/DJDmu_Adjoint.f90\
-Solvers/CostSolver_Adjoint.f90\
-Solvers/DJDBeta_Robin.f90\
-Solvers/DJDmu_Robin.f90\
-Solvers/CostSolver_Robin.f90\
-Solvers/m1qn3.f\
-Solvers/Grid2DInterpolator.f90\
-Solvers/Optimize_m1qn3Parallel.f90\
-Solvers/OutputStrainHeating.f90\
+Solvers/ThicknessSolver.f90 \
+Solvers/TemperateIce.f90 \
+Solvers/ExportVertically.f90 \
+Solvers/AdjointSolver.f90 \
+Solvers/DJDBeta_Adjoint.f90 \
+Solvers/DJDmu_Adjoint.f90 \
+Solvers/CostSolver_Adjoint.f90 \
+Solvers/DJDBeta_Robin.f90 \
+Solvers/DJDmu_Robin.f90 \
+Solvers/CostSolver_Robin.f90 \
+Solvers/m1qn3.f \
+Solvers/Grid2DInterpolator.f90 \
+Solvers/Optimize_m1qn3Parallel.f90 \
+Solvers/OutputStrainHeating.f90 \
 Solvers/UpdateExport.f90
 USFSOURCE := \
 UserFunctions/Buoyancy.f90 \
