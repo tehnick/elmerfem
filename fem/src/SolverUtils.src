@@ -4722,6 +4722,10 @@ END FUNCTION SearchNodeL
       WRITE(Message,'(A,I0,A,g15.6)') 'Step ',Tests,' rejected, trying new extent: ',Alpha
       CALL Info( 'CheckStepSize',Message,Level=6 )
     ELSE ! accept step
+      WRITE(Message,'(A,I0,A,g15.6)') 'Step ',Tests,' accepted with extent: ',Alpha
+      CALL Info( 'CheckStepSize',Message,Level=6 )
+      
+
       PrevNorm = Norm
       Norm = ComputeNorm(Solver, n, x)
 
@@ -4823,6 +4827,7 @@ END FUNCTION SearchNodeL
         p(3) = Alpha
         c(3) = Cost 
       END IF
+
       
      ! Order the previous points so that p1 < p2 < p3
       DO k=1,2 
@@ -4848,6 +4853,12 @@ END FUNCTION SearchNodeL
         ReduceStep = .FALSE.
         RETURN
       END IF
+
+      IF( ABS( c(3) - c(1) ) < ABS( c(3)+c(1) ) ) THEN
+        ReduceStep = .FALSE.
+        RETURN
+      END IF
+
 
       ! Monotonic line segment
       IF( (c(2)-c(1))*(c(3)-c(2)) > 0.0) THEN
@@ -4883,8 +4894,10 @@ END FUNCTION SearchNodeL
       END IF
 
       ! Because alpha should be in limit [0,1] make the corrections
+      ! If the orthogonalization is used then we don't have the luxury
+      ! of setting the extent as nicely.
       !------------------------------------------------------------
-      IF( .FALSE. ) THEN
+      IF( .NOT. Ortho ) THEN
         beta = alpha
         k = 0
         IF( Alpha < -EPSILON( Alpha ) ) THEN
@@ -4906,6 +4919,8 @@ END FUNCTION SearchNodeL
             k = 3 
           END IF
         END IF
+        
+!        IF( ABS( beta-alpha) > TINY(alpha)) PRINT *,'Extent change',Beta,Alpha
       END IF
 
     END FUNCTION BisectMinimumSearch
