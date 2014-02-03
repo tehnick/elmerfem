@@ -23,11 +23,11 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing a function for friction heat
+! *  Module containing a functions for friction heat
 ! *
 ! ******************************************************************************
 ! *
-! *  Authors: Thomas Zwinger, Juha Ruokolainen, Hakime Seddik
+! *  Authors: Thomas Zwinger, Juha Ruokolainen, Hakime Seddik, Joe Todd
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -106,14 +106,8 @@
 !-----------
 !function to export and define FrictionHeat at bedrock
 
-FUNCTION getFrictionHeat(  Model, Node )RESULT(frictionheat)
+FUNCTION getFrictionHeat(  Model, Node, DummyInput)RESULT(frictionheat)
   
-  USE Types
-  USE Lists
-  USE Integration
-  USE ElementDescription
-  USE MaterialModels
-  USE SolverUtils
   USE DefUtils
 
   IMPLICIT NONE
@@ -126,16 +120,16 @@ FUNCTION getFrictionHeat(  Model, Node )RESULT(frictionheat)
   
   INTEGER :: DIM, i, j, Ind(3,3)
   REAL(KIND=dp), POINTER :: FlowValues(:),NormalValues(:),StressValues(:)
-  REAL(KIND=dp) :: normal(3), velo(3), un, ut(3), Sig(3,3), Sn(3)
+  REAL(KIND=dp) :: normal(3), velo(3), un, ut, Sig(3,3), Sn(3), snn, snt
   INTEGER, POINTER :: FlowPerm(:),StressPerm(:), NormalPerm(:)
   LOGICAL :: FirstTime=.TRUE.
   TYPE(Variable_t), POINTER :: FlowSol,StressVariable, NormalVar
-  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+  CHARACTER(LEN=MAX_NAME_LEN) :: FunctionName
   
-  SAVE FirstTime, DIM, SolverName,Ind
+  SAVE FirstTime, DIM, FunctionName,Ind
   
   IF (FirstTime) THEN
-     WRITE(SolverName, '(A)') 'getFrictionHeat'
+     WRITE(FunctionName, '(A)') 'getFrictionHeat'
      DIM = CoordinateSystemDimension()
      FirstTime = .FALSE.
      DO i=1, 3
@@ -156,7 +150,7 @@ FUNCTION getFrictionHeat(  Model, Node )RESULT(frictionheat)
      FlowPerm    => FlowSol % Perm
      FlowValues  => FlowSol % Values
   ELSE
-     CALL FATAL(SolverName, 'Need NS Solver, Flow Solution not found')
+     CALL FATAL(FunctionName, 'Need NS Solver, Flow Solution not found')
   END IF
   
   ! Get the stress variable
@@ -166,7 +160,7 @@ FUNCTION getFrictionHeat(  Model, Node )RESULT(frictionheat)
      StressPerm    => StressVariable % Perm
      StressValues  => StressVariable % Values
   ELSE
-     CALL FATAL(SolverName,'No variable Stress found')   
+     CALL FATAL(FunctionName,'No variable Stress found')   
   END IF
   
   ! Get the variable for normal vector
@@ -175,7 +169,7 @@ FUNCTION getFrictionHeat(  Model, Node )RESULT(frictionheat)
      NormalPerm => NormalVar % Perm
      NormalValues => NormalVar % Values
   ELSE
-     CALL FATAL(SolverName, 'Normal Vector variable not found')
+     CALL FATAL(FunctionName, 'Normal Vector variable not found')
   END IF
   
   DO i=1, DIM
@@ -185,17 +179,23 @@ FUNCTION getFrictionHeat(  Model, Node )RESULT(frictionheat)
   
   !Tangential velocity
   un = SUM(velo(1:DIM)*(normal(1:DIM))) 
-  ut = velo(1:DIM)-un*(normal(1:DIM))
-  
+  ut = SQRT(SUM( (velo(1:DIM))**2.0_dp ) - (un**2.0_dp) )
+
+  !Tangential Stress
   DO i=1, DIM
      DO j= 1, DIM
         Sig(i,j) =  &
              StressValues( 2*DIM *(StressPerm(Node)-1) + Ind(i,j) )
      END DO
   END DO
-  
   DO i=1, DIM
      Sn(i) = SUM(Sig(i,1:DIM)*normal(1:DIM)) 
   END DO
-  frictionHeat =(SUM(abs(ut(1:DIM)*Sn(1:DIM))))
+  Snn = SUM( Sn(1:DIM) * normal(1:DIM) )
+  Snt = SQRT( SUM(Sn(1:DIM)**2.0_dp) - (Snn**2.0_dp))
+
+  frictionHeat =ut*Snt
 END FUNCTION getFrictionHeat
+
+
+
