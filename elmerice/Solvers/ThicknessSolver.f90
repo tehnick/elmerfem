@@ -497,8 +497,8 @@ SUBROUTINE ThicknessSolver( Model,Solver,dt,TransientSimulation )
           END IF
           DHDT => DHDTSol % Values
 
-          Do i=1,size(Solver % Variable % Values)
-            DHDT(i)=(Solver % Variable % Values(i)-PreH(i,1))/dt
+          Do i=1,Solver % Mesh % NumberOfNodes
+            DHDT(DHDTSol % Perm(i))=(Solver % Variable % Values(ThickPerm(i))-PreH(ThickPerm(i),1))/dt
           End Do
        Endif
 

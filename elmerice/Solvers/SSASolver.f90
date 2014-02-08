@@ -316,6 +316,8 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
      IF (.NOT.Found) &
         CALL FATAL(SolverName,'Could not find Material prop. >SSA Friction Parameter<')
 
+     !PRINT *,NodalBeta(1:n),ElementNodes % x(1:n)
+
      ! for Weertman and Coulomb friction
      IF (iFriction > 1) THEN
         fm = ListGetConstReal( Material, 'SSA Friction Exponent', Found )
@@ -374,8 +376,12 @@ SUBROUTINE SSABasalSolver( Model,Solver,dt,TransientSimulation )
 ! Neumann condition
 !
   DO t=1,GetNOFBoundaryElements()
+
+
      BoundaryElement => GetBoundaryElement(t)
-     IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+     IF (STDOFS.NE.1) then
+       IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+     END IF
      IF ( GetElementFamily() == 1 ) CYCLE
 
      NodeIndexes => BoundaryElement % NodeIndexes
@@ -742,7 +748,7 @@ END IF
          h = LocalZs(i)-LocalZb(i) 
          h = max(h,MinH)
          h_im = max(0.0_dp,sealevel-LocalZb(i))
-         alpha=0.5-dp * g * (rhoi * h*h - rhow * h_im*h_im)
+         alpha=0.5_dp * g * (rhoi * h*h - rhow * h_im*h_im)
          FORCE(i) = FORCE(i) + alpha
       END DO
 
