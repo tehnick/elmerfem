@@ -178,8 +178,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
     ELSE
       CALL Fatal('HelmholtzSolver','No flow variable associated:'//TRIM(VarName))
     END IF
-    IF( FlowDofs < 2*dim ) THEN
-      CALL Fatal('HelmholtzSolver','Harmonic flow field should have at least 2*dim components')
+    IF( FlowDofs /= 2*dim ) THEN
+      CALL Fatal('HelmholtzSolver','Harmonic flow field should have 2*dim components')
     END IF
   END IF
 
@@ -205,12 +205,12 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         AngularFrequency = SQRT( DispSol % EigenValues(NoEigen))
 	GotFrequency = .TRUE.
       END IF
-      IF( DispDofs < dim ) THEN
-        CALL Fatal('HelmholtzSolver','Harmonic displacement field should have at least 2*dim components')
+      IF( DispDofs /= dim ) THEN
+        CALL Fatal('HelmholtzSolver','Eigenmode displacement field should have 1*dim components')
       END IF
     ELSE
-      IF( DispDofs < 2*dim ) THEN
-        CALL Fatal('HelmholtzSolver','Harmonic displacement field should have at least 2*dim components')
+      IF( DispDofs /= 2*dim ) THEN
+        CALL Fatal('HelmholtzSolver','Harmonic displacement field should have 2*dim components')
       END IF
     END IF
   END IF
@@ -792,8 +792,9 @@ CONTAINS
 
        Normal = Normalvector(Element, Nodes, U, V, .TRUE.)
 
+       NormVelo = 0.0_dp
        DO i=1,dim
-         NormVelo = Normal(i) * SUM( WallVelo(i,1:n) * Basis(1:n) )
+         NormVelo = NormVelo + Normal(i) * SUM( WallVelo(i,1:n) * Basis(1:n) )
        END DO
 
        rho = SUM( Density(1:n) * Basis(1:n) )
