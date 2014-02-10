@@ -5569,7 +5569,7 @@ END FUNCTION SearchNodeL
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis,&
                BackRotation, ApplyRowEquilibration, ApplyLimiter, Parallel, &
-                SkipZeroRhs
+                SkipZeroRhs, ComplexSystem
     INTEGER :: n,i,j,k,l,ii,m,DOF,istat,this
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
@@ -5604,6 +5604,8 @@ END FUNCTION SearchNodeL
     END INTERFACE
 !------------------------------------------------------------------------------
 
+   ComplexSystem=ListGetLogical( Solver % Values, 'Linear System Complex', GotIt )
+   IF ( GotIt ) A % Complex = ComplexSystem
 
 !------------------------------------------------------------------------------
 !   If parallel execution, check for parallel matrix initializations
@@ -6810,8 +6812,10 @@ RECURSIVE SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solut
 !------------------------------------------------------------------------------
   IF(ASSOCIATED(AddMatrix)) THEN
     DO i=AddMatrix % NumberOfRows,1,-1
-      Found = ALLOCATED(StiffMatrix % ConstrainedDOF)
-      IF(i<=StiffMatrix % NumberOFRows.AND.Found) Found=.NOT.StiffMatrix % ConstrainedDOF(i)
+      Found = .TRUE.
+      IF (i<=StiffMatrix % NumberOFRows.AND.ALLOCATED(StiffMatrix % ConstrainedDOF)) &
+         Found = .NOT.StiffMatrix % ConstrainedDOF(i)
+
       IF(.NOT.EnforceDirichlet.OR.Found) THEN
         DO j=AddMatrix % Rows(i+1)-1,AddMatrix % Rows(i),-1
             CALL AddToMatrixElement( CollectionMatrix, &
