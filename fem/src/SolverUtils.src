@@ -5119,14 +5119,16 @@ END FUNCTION SearchNodeL
     TYPE(Nodes_t) :: ElementNodes
     TYPE(Element_t), POINTER :: Element
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-    INTEGER ::k, e, t, n, ElemStart, ElemFin
+    INTEGER ::k, e, t, n, ElemStart, ElemFin, Coordsys
     INTEGER, POINTER :: IntPerm(:), Indexes(:),LocalIndexes(:)
     REAL(KIND=dp) :: u,v,w,s,detJ
     REAL(KIND=dp), ALLOCATABLE :: Basis(:)
     LOGICAL :: GotIt, stat, VariableOutput, UseMask
+    REAL(KIND=dp) :: x,y,z,Metric(3,3),SqrtMetric,Symb(3,3,3),dSymb(3,3,3,3)
 
 
     Mesh => Solver % Mesh
+    CoordSys = CurrentCoordinateSystem()
 
     NULLIFY( WeightsVar ) 
     IF( PRESENT( VarName ) ) THEN
@@ -5221,6 +5223,14 @@ END FUNCTION SearchNodeL
 
         stat = ElementInfo( Element, ElementNodes, U, V, W, detJ, Basis )
 
+        IF ( CoordSys /= Cartesian ) THEN
+          X = SUM( ElementNodes % X(1:n) * Basis(1:n) )
+          Y = SUM( ElementNodes % Y(1:n) * Basis(1:n) )
+          Z = SUM( ElementNodes % Z(1:n) * Basis(1:n) )
+          CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,X,Y,Z )
+          s = s * SqrtMetric
+        END IF
+        
         Weights( LocalIndexes(1:n) ) = &
             Weights( LocalIndexes(1:n) ) + s * detJ * Basis(1:n)
       END DO
@@ -5697,7 +5707,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
    ComplexSystem=ListGetLogical( Solver % Values, 'Linear System Complex', GotIt )
-   IF ( GotIt ) A % Complex = ComplexSystem
+   IF ( GotIt ) A % COMPLEX = ComplexSystem
 
 !------------------------------------------------------------------------------
 !   If parallel execution, check for parallel matrix initializations
