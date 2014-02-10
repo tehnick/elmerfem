@@ -4494,12 +4494,13 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     INTEGER :: MaxTests=0,tests,MaxNonlinIter,NonlinIter
     REAL(KIND=dp) :: Residual0, Residual1, Residual
-    INTEGER :: i,n,m,ForceInd, ForceDofs, SearchMode, CostMode
+    INTEGER :: i,n,m,ForceInd, ForceDofs, SearchMode, CostMode, iter = 0
     TYPE(Matrix_t), POINTER :: A
     TYPE(Variable_t), POINTER :: IterVar
-    REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:), x1(:)
+    REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:), x1(:), x2(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy, &
-        NonlinTol, LineTol, Cost0, Cost1, Cost, OrthoCoeff, x0norm, Change
+        NonlinTol, LineTol, Cost0, Cost1, Cost, OrthoCoeff, x0norm, x1norm, Change, &
+        LinTol
     INTEGER, POINTER :: Indexes(:)
     LOGICAL :: Stat, Init, Newton, Ortho, Debug 
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, ConvergenceType
@@ -4507,9 +4508,9 @@ END FUNCTION SearchNodeL
 
 
     SAVE SolverParams, Alpha, Myy, Relaxation, MaxTests, tests, &
-        Residual, NonlinTol, x1, x0, LineTol, CostMode, SearchMode, &
-        Cost0, Cost1, ForceInd, n, ForceDofs, Ortho, Newton, &
-        ConvergenceType, Norm, PrevNorm
+        Residual, NonlinTol, LinTol, x1, x0, LineTol, CostMode, SearchMode, &
+        Cost0, Residual0, Cost1, ForceInd, n, ForceDofs, Ortho, Newton, &
+        ConvergenceType, Norm, PrevNorm, iter
 
     Debug = .FALSE.
     
@@ -4520,6 +4521,7 @@ END FUNCTION SearchNodeL
     ELSE 
       x => Solver % Variable % Values      
     END IF
+
 
     ! Assembly the vectors, if needed, and 
     ! also at first time get the line search parameters.
@@ -4582,6 +4584,8 @@ END FUNCTION SearchNodeL
 
       NonlinTol = ListGetConstReal( SolverParams, &
           'Nonlinear System Convergence Tolerance', Stat )
+      LinTol = ListGetConstReal( SolverParams, &
+          'Linear System Convergence Tolerance', Stat )
 
       MaxNonlinIter = ListGetInteger( SolverParams,&
             'Nonlinear System Max Iterations',Stat)
@@ -4651,6 +4655,7 @@ END FUNCTION SearchNodeL
       ReduceStep = .FALSE.
       x0(1:n) = x(1:n)
       Cost0 = Cost
+      Residual0 = Residual
 
       IF( Debug ) THEN
         PRINT *,'x0 range: ',MINVAL(x0),MAXVAL(x0)
@@ -4670,6 +4675,27 @@ END FUNCTION SearchNodeL
       Alpha = 1.0_dp
       Cost1 = Cost
 
+      ! This is just debugging code waiting to be reused
+      IF( .FALSE. ) THEN
+        iter = iter + 1
+
+        PRINT *,'Iter: ',iter
+        NULLIFY( x2 ) 
+        ALLOCATE( x2(n/2) ) 
+        x2 = x(1::2)
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+            'xiter '//TRIM(I2S(iter)),1,x2,Solver % Variable % Perm ) 
+        PRINT *,'Xiter range:',MINVAL(x2),MAXVAL(x2)
+        NULLIFY(x2)
+        
+!        NULLIFY( x2 ) 
+!        ALLOCATE( x2(n/2) ) 
+!        x2 = x(2::2)
+!        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+!            'yiter '//TRIM(I2S(iter)),1,x2,Solver % Variable % Perm ) 
+!        NULLIFY(x2)
+      END IF
+      
       IF( Debug ) THEN
         PRINT *,'b1 range: ',MINVAL(b),MAXVAL(b)
         PRINT *,'x1 range: ',MINVAL(x1),MAXVAL(x1)
@@ -4679,14 +4705,21 @@ END FUNCTION SearchNodeL
       ! Orthonormalization:
       ! The direction 'x0' has already been exhausted so remove that from 'x1'
       !-----------------------------------------------------------------------
+      x0norm = ComputeNorm( Solver, n, x0 )
       IF( Ortho ) THEN
-        x0norm = SUM( x0(1:n) * x0(1:n) )  
         IF( x0norm > EPSILON( x0norm ) ) THEN
-          OrthoCoeff = SUM(x1*x0) / x0norm
+          OrthoCoeff = SUM(x1*x0) / ( x0norm**2 )
           x1 = x1 - OrthoCoeff * x0
         END IF
       ELSE
+        ! This basically checks whether the new and old solution is so 
+        ! close that there is no point of finding better solution.
         x1 = x1 - x0 
+        x1norm = ComputeNorm(Solver, n, x1)
+        IF( x1norm < LinTol * x0norm ) THEN
+          ReduceStep = .FALSE.
+          GOTO 100
+        END IF
       END IF
 
       IF( Debug ) THEN
@@ -4706,18 +4739,15 @@ END FUNCTION SearchNodeL
       CALL Fatal('CheckStepSize','Unknown SearchMode: '//TRIM(I2S(SearchMode)))
     END IF
 
-    IF( ReduceStep ) THEN
+
+100 IF( ReduceStep ) THEN
       IF( Tests >= MaxTests .AND. ReduceStep ) THEN
         CALL Fatal('CheckStepSize','Maximum number of linesearch steps taken without success!')
         ReduceStep = .FALSE.
       END IF
       
       ! New candidate 
-      IF( Ortho ) THEN
-        x(1:n) = x0(1:n) + Alpha * x1(1:n)
-      ELSE
-        x(1:n) = x0(1:n) + Alpha * x1(1:n)
-      END IF
+      x(1:n) = x0(1:n) + Alpha * x1(1:n)
 
       WRITE(Message,'(A,I0,A,g15.6)') 'Step ',Tests,' rejected, trying new extent: ',Alpha
       CALL Info( 'CheckStepSize',Message,Level=6 )
@@ -4725,6 +4755,8 @@ END FUNCTION SearchNodeL
       WRITE(Message,'(A,I0,A,g15.6)') 'Step ',Tests,' accepted with extent: ',Alpha
       CALL Info( 'CheckStepSize',Message,Level=6 )
       
+      ! Chosen candidate
+      x(1:n) = x0(1:n) + Alpha * x1(1:n)
 
       PrevNorm = Norm
       Norm = ComputeNorm(Solver, n, x)
@@ -4769,11 +4801,11 @@ END FUNCTION SearchNodeL
       
       Tests = 0
       x0 = x
-      Cost0 = Cost
       
       IF( Debug ) THEN
         PRINT *,'x0 range: ',MINVAL(x0),MAXVAL(x0)
         PRINT *,'Cost0: ',Cost0
+        PRINT *,'Residual0: ',Residual0
       END IF
 
       IF( Newton ) FirstIter = .TRUE.
@@ -4791,7 +4823,12 @@ END FUNCTION SearchNodeL
       LOGICAL :: ReduceStep
 
       ReduceStep = ( Cost > ( 1.0_dp - Myy * Alpha ) * Cost0 )
-      IF( ReduceStep ) Alpha = Alpha * Relaxation
+      IF( ReduceStep ) THEN
+        Alpha = Alpha * Relaxation
+      ELSE
+        Cost0 = Cost
+        Residual0 = Residual
+      END IF
 
     END FUNCTION ArmijoGoldsteinSearch
 
@@ -4807,18 +4844,20 @@ END FUNCTION SearchNodeL
       LOGICAL :: ReduceStep
       
       INTEGER :: i,j,k
-      REAL(KIND=dp) :: step, p(3),c(3),paid,caid,beta 
+      REAL(KIND=dp) :: step, p(3),c(3),r(3),raid,beta 
       
-      SAVE step, p, c
+      SAVE step, p, c, r
 
       ReduceStep = .TRUE.
       
       IF(Tests == 1) THEN
         p(1) = 0.0_dp
         c(1) = Cost0
-        
+        r(1) = Residual0
+
         p(2) = 1.0_dp
         c(2) = Cost
+        r(2) = Residual
         
         step = 0.25_dp
         Alpha = 0.5_dp
@@ -4826,6 +4865,7 @@ END FUNCTION SearchNodeL
       ELSE 
         p(3) = Alpha
         c(3) = Cost 
+        r(3) = Residual
       END IF
 
       
@@ -4833,12 +4873,17 @@ END FUNCTION SearchNodeL
       DO k=1,2 
         DO i=k+1,3
           IF(p(i) < p(k)) THEN
-            paid = p(k)
+            raid = p(k)
             p(k) = p(i)
-            p(i) = paid
-            caid = c(k)
+            p(i) = raid
+
+            raid = c(k)
             c(k) = c(i)
-            c(i) = caid
+            c(i) = raid
+
+            raid = r(k)
+            r(k) = r(i)
+            r(i) = raid
           END IF
         END DO
       END DO
@@ -4846,16 +4891,39 @@ END FUNCTION SearchNodeL
       IF( Debug ) THEN
         PRINT *,'Bisect p:',p
         PRINT *,'Bisect c:',c
+        PRINT *,'Bisect r:',r
       END IF
 
-      
-      IF( p(3)-p(1) < LineTol ) THEN
+      ! The value of alpha already known accurately
+      IF( MAXVAL(p)-MINVAL(p) < LineTol ) THEN
+        ! PRINT *,'cond1'
         ReduceStep = .FALSE.
-        RETURN
       END IF
 
-      IF( ABS( c(3) - c(1) ) < ABS( c(3)+c(1) ) ) THEN
+      ! The value of cost function small compared to absolute value of it
+      IF( MAXVAL(c)-MINVAL(c) < LineTol * MINVAL( ABS(c) ) ) THEN
+        ! PRINT *,'cond2'
         ReduceStep = .FALSE.
+      END IF
+
+      ! We can also use the residual as criterion for stopping
+      IF( Residual < LineTol * Residual0 ) THEN
+        ! PRINT *,'cond3'
+        ReduceStep = .FALSE.
+      END IF
+
+      ! Of these choose the one with smallest cost
+      IF( .NOT. ReduceStep ) THEN
+        i = 1
+        DO k=2,3
+          IF( c(k) < c(i) ) i = k
+        END DO
+
+        Alpha = p(i)
+        Residual0 = r(i)
+        Cost0 = c(i)
+        ! PRINT *,'Choosing i',i,Alpha,Residual0,Cost0
+
         RETURN
       END IF
 
@@ -4866,6 +4934,7 @@ END FUNCTION SearchNodeL
           Alpha = p(3) + SIGN(step,p(3)-p(1))
           c(1) = c(3)
           p(1) = p(3)
+          r(1) = r(3)
         ELSE
           Alpha = p(1) + SIGN(step,p(1)-p(3))
         END IF
@@ -4873,24 +4942,46 @@ END FUNCTION SearchNodeL
         IF(c(3) < c(1)) THEN
           c(1) = c(3)
           p(1) = p(3)
+          r(1) = r(3)
         END IF
         step = (p(2)-p(1))/2.0d0
         Alpha = p(1) + SIGN(step,p(2)-p(1))
       ELSE 
+        IF( Debug ) THEN
+          PRINT *,'p:',p
+          PRINT *,'c:',c,Cost0
+          PRINT *,'r:',r,Residual0
+          PRINT *,'dc',c(2)-c(1),c(3)-c(2)
+        END IF
+
         IF( MINVAL ( c ) < Cost0 ) THEN
-          caid = c(1)
-          Alpha = p(1)
+          i = 1
           DO k=2,3
-            IF( c(k) < caid ) THEN
-              caid = c(k)
-              Alpha = p(k)
-            END IF
+            IF( c(k) < c(i) ) i = k
           END DO
+          Alpha = p(i)
+          Cost0 = c(i)
+          Residual0 = r(i)
+         
           CALL Warn('BisectSearch','Bisection method improved but faced local maximium')
           ReduceStep = .FALSE.
-        ELSE
-          CALL Fatal('BisectSearch','Bisection method cannot handle local maxima')
+        ELSE 
+          IF( MINVAL ( r ) < Residual0 ) THEN
+            CALL Warn('BisectSearch','Bisection method improved but faced local maximium')
+          ELSE 
+            CALL Warn('BisectSearch','Bisection method cannot handle local maxima')
+          END IF
+
+          i = 1
+          DO k=2,3
+            IF( r(k) < r(i) ) i = k
+          END DO
+          Alpha = p(i)
+          Cost0 = c(i)
+          Residual0 = r(i)         
         END IF
+
+        ReduceStep = .FALSE.
       END IF
 
       ! Because alpha should be in limit [0,1] make the corrections
@@ -5002,6 +5093,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
   END FUNCTION CheckStepSize
 !------------------------------------------------------------------------------
+
     
 
 !------------------------------------------------------------------------------
